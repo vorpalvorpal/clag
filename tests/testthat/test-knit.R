@@ -4,12 +4,12 @@ test_that("Basic expression processing works", {
   name <- "World"
 
   # Test R Markdown format
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"Hello, {name}!\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"Hello, {name}!\")`")
 
   # Test Quarto format
-  result_quarto <- process_gluey_expressions(text, environment(), TRUE)
-  expect_equal(result_quarto, "{{gluey::gluey(\"Hello, {name}!\")}}")
+  result_quarto <- process_clag_expressions(text, environment(), TRUE)
+  expect_equal(result_quarto, "{{clag::clag(\"Hello, {name}!\")}}")
 
   # Multiple expressions in one line
   text <- "The {{color}} {{animal}} jumps over the {{object}}."
@@ -17,8 +17,8 @@ test_that("Basic expression processing works", {
   animal <- "fox"
   object <- "fence"
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"The {color} {animal} jumps over the {object}.\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"The {color} {animal} jumps over the {object}.\")`")
 })
 
 test_that("Pluralization expressions work", {
@@ -27,22 +27,22 @@ test_that("Pluralization expressions work", {
   n_files <- 1
 
   # Test R Markdown format
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"{n_files} file{?s}\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"{n_files} file{?s}\")`")
 
   # Pluralization with quantity
   text <- "There {{?is/are}} {{n_items}} item{{?s}}"
   n_items <- 3
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"There {?is/are} {n_items} item{?s}\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"There {?is/are} {n_items} item{?s}\")`")
 
   # Complex pluralization patterns
   text <- "You have {{n_files}} file{{?s}} and {{n_folders}} folder{{?s}}."
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey::gluey(\"You have {n_files} file{?s} and {n_folders} folder{?s}.\")`"
+    "`r clag::clag(\"You have {n_files} file{?s} and {n_folders} folder{?s}.\")`"
   )
 })
 
@@ -51,16 +51,16 @@ test_that("Raw passthrough expressions work", {
   text <- "Today is {{! Sys.Date()}}."
 
   # Test R Markdown format
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"Today is {! Sys.Date()}.\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"Today is {! Sys.Date()}.\")`")
 
   # Multiple passthroughs
   text <- "Current time: {{! Sys.time()}}, R version: {{! R.version.string}}"
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey::gluey(\"Current time: {! Sys.time()}, R version: {! R.version.string}\")`"
+    "`r clag::clag(\"Current time: {! Sys.time()}, R version: {! R.version.string}\")`"
   )
 })
 
@@ -70,19 +70,19 @@ test_that("Special formatters work", {
   items <- c("Item 1", "Item 2")
 
   # Test R Markdown format
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, "`r gluey::gluey(\"{- items}\")`")
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, "`r clag::clag(\"{- items}\")`")
 
   # All formatters
   text <- "List: {{- items}}\nOrdered: {{1 steps}}\nDefs: {{= terms}}\nYAML: {{: meta}}\nTasks: {{[ tasks}}"
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expected <- paste(
-    "`r gluey::gluey(\"List: {- items}\")`",
-    "`r gluey::gluey(\"Ordered: {1 steps}\")`",
-    "`r gluey::gluey(\"Defs: {= terms}\")`",
-    "`r gluey::gluey(\"YAML: {: meta}\")`",
-    "`r gluey::gluey(\"Tasks: {[ tasks}\")`",
+    "`r clag::clag(\"List: {- items}\")`",
+    "`r clag::clag(\"Ordered: {1 steps}\")`",
+    "`r clag::clag(\"Defs: {= terms}\")`",
+    "`r clag::clag(\"YAML: {: meta}\")`",
+    "`r clag::clag(\"Tasks: {[ tasks}\")`",
     sep = "\n"
   )
   expect_equal(result_rmd, expected)
@@ -93,19 +93,19 @@ test_that("Mixed expressions work", {
   text <- "Today {{! Sys.Date()}}, we have {{n_files}} file{{?s}} and {{- items}} on the list"
 
   # Test R Markdown format
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey::gluey(\"Today {! Sys.Date()}, we have {n_files} file{?s} and {- items} on the list\")`"
+    "`r clag::clag(\"Today {! Sys.Date()}, we have {n_files} file{?s} and {- items} on the list\")`"
   )
 
   # Line with multiple mixed expressions
   text <- "Summary: {{! format(Sys.Date())}} - {{count}} {{?person/people}} attended, {{! round(percent*100, 1)}}% liked {{- foods}}"
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result_rmd,
-    "`r gluey::gluey(\"Summary: {! format(Sys.Date())} - {count} {?person/people} attended, {! round(percent*100, 1)}% liked {- foods}\")`"
+    "`r clag::clag(\"Summary: {! format(Sys.Date())} - {count} {?person/people} attended, {! round(percent*100, 1)}% liked {- foods}\")`"
   )
 })
 
@@ -113,13 +113,13 @@ test_that("Multi-line documents work", {
   # Document with multiple lines
   text <- "# Title\n\nFirst paragraph with {{var1}}.\n\nSecond paragraph with {{var2}}.\n"
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expected <- paste(
     "# Title\n",
     "\n",
-    "`r gluey::gluey(\"First paragraph with {var1}.\")`\n",
+    "`r clag::clag(\"First paragraph with {var1}.\")`\n",
     "\n",
-    "`r gluey::gluey(\"Second paragraph with {var2}.\")`\n",
+    "`r clag::clag(\"Second paragraph with {var2}.\")`\n",
     sep = ""
   )
   expect_equal(result_rmd, expected)
@@ -128,8 +128,8 @@ test_that("Multi-line documents work", {
 test_that("Trailing newlines are preserved", {
   # Single trailing newline
   text <- "Hello, {{name}}!\n"
-  result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`\n")
+  result <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result, "`r clag::clag(\"Hello, {name}!\")`\n")
 
   # Multiple trailing newlines
   text <- "Hello, {{name}}!
@@ -140,8 +140,8 @@ Who are you?
 
 
 "
-  result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`
+  result <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result, "`r clag::clag(\"Hello, {name}!\")`
 
 
 
@@ -152,8 +152,8 @@ Who are you?
 
   # No trailing newline
   text <- "Hello, {{name}}!"
-  result <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result, "`r gluey::gluey(\"Hello, {name}!\")`")
+  result <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result, "`r clag::clag(\"Hello, {name}!\")`")
 })
 
 test_that("Exact newline counts match in various scenarios", {
@@ -168,7 +168,7 @@ test_that("Exact newline counts match in various scenarios", {
 
   for (case in test_cases) {
     input <- case$input
-    result <- process_gluey_expressions(input, environment(), FALSE)
+    result <- process_clag_expressions(input, environment(), FALSE)
 
     # Count trailing newlines in result
     result_newlines <- 0
@@ -202,7 +202,7 @@ test_that("Multi-line document preserves exact trailing newlines", {
     sep = "\n"
   )
 
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
 
   # Count trailing newlines in input and result
   count_trailing <- function(str) {
@@ -227,18 +227,18 @@ test_that("Multi-line document preserves exact trailing newlines", {
 test_that("Multiple newlines between content are preserved", {
   # Multiple newlines between content
   text <- "First {{var1}}\n\n\nSecond {{var2}}"
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result,
-    "`r gluey::gluey(\"First {var1}\")`\n\n\n`r gluey::gluey(\"Second {var2}\")`"
+    "`r clag::clag(\"First {var1}\")`\n\n\n`r clag::clag(\"Second {var2}\")`"
   )
 
   # Multiple newlines at beginning, middle, and end
   text <- "\n\nFirst {{var1}}\n\n\nSecond {{var2}}\n\n"
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(
     result,
-    "\n\n`r gluey::gluey(\"First {var1}\")`\n\n\n`r gluey::gluey(\"Second {var2}\")`\n\n"
+    "\n\n`r clag::clag(\"First {var1}\")`\n\n\n`r clag::clag(\"Second {var2}\")`\n\n"
   )
 })
 
@@ -270,11 +270,11 @@ test_that("Complex document structure preserves all newlines", {
     sep = "\n"
   )
 
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
 
   # Check specific patterns
   expect_match(result, "---\ntitle: Test Document\n---\n\n\n", fixed = TRUE)
-  expect_match(result, '`r gluey::gluey(\"Para 1 {var1}\")`\n\n\n`r gluey::gluey(\"Para 2 {var2}\")`\n\n```r', fixed = TRUE)
+  expect_match(result, '`r clag::clag(\"Para 1 {var1}\")`\n\n\n`r clag::clag(\"Para 2 {var2}\")`\n\n```r', fixed = TRUE)
   expect_match(result, "```r\ncode block\n```\n\n", fixed = TRUE)
   expect_match(result, "Final.*\n\n\n$", all = TRUE)  # Check trailing newlines at end
 
@@ -297,19 +297,19 @@ test_that("Document with no expressions preserves structure exactly", {
     sep = "\n"
   )
 
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
   expect_equal(result, text)
 })
 
 test_that("Multi-line test case works correctly with trailing newline", {
   text <- "# Title\n\nFirst paragraph with {{var1}}.\n\nSecond paragraph with {{var2}}.\n"
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
   expected <- paste(
     "# Title\n",
     "\n",
-    "`r gluey::gluey(\"First paragraph with {var1}.\")`\n",
+    "`r clag::clag(\"First paragraph with {var1}.\")`\n",
     "\n",
-    "`r gluey::gluey(\"Second paragraph with {var2}.\")`\n",
+    "`r clag::clag(\"Second paragraph with {var2}.\")`\n",
     sep = ""
   )
   expect_equal(result_rmd, expected)
@@ -319,14 +319,14 @@ test_that("Quoting and escaping works correctly", {
   # Expressions with quotes
   text <- 'The "{{item}}" is {{color}}'
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, '`r gluey::gluey("The \\"{item}\\" is {color}")`')
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, '`r clag::clag("The \\"{item}\\" is {color}")`')
 
   # Expressions with backslashes and quotes
   text <- 'Path: {{path}} with "{{name}}"'
 
-  result_rmd <- process_gluey_expressions(text, environment(), FALSE)
-  expect_equal(result_rmd, '`r gluey::gluey("Path: {path} with \\"{name}\\"")`')
+  result_rmd <- process_clag_expressions(text, environment(), FALSE)
+  expect_equal(result_rmd, '`r clag::clag("Path: {path} with \\"{name}\\"")`')
 })
 
 test_that("Quote escaping produces correct R code", {
@@ -334,10 +334,10 @@ test_that("Quote escaping produces correct R code", {
   text <- 'The "{{item}}" is {{color}}'
 
   # Process using our function
-  result <- process_gluey_expressions(text, environment(), FALSE)
+  result <- process_clag_expressions(text, environment(), FALSE)
 
   # What would be evaluated by knitr
-  expected_eval <- '`r gluey::gluey("The \\"{item}\\" is {color}")`'
+  expected_eval <- '`r clag::clag("The \\"{item}\\" is {color}")`'
 
   # This test compares what knitr would see
   expect_equal(result, expected_eval)
@@ -372,12 +372,12 @@ test_that("Full document processing works", {
   # Skip if knitr is not available
   skip_if_not_installed("knitr")
 
-  # Create a mock document with various gluey expressions
+  # Create a mock document with various clag expressions
   rmd_text <- paste(
     "---",
     "title: Test Document",
     "author: Test Author",
-    "knit: gluey::gluey_knit",
+    "knit: clag::clag_knit",
     "---",
     "",
     "```{r setup, include=FALSE}",
@@ -408,12 +408,12 @@ test_that("Full document processing works", {
   # Create a temp output file
   output_file <- tempfile(fileext = ".md")
 
-  # Process with gluey_knit (suppress messages)
+  # Process with clag_knit (suppress messages)
   message_log <- tempfile()
   processed <- suppressMessages(
     tryCatch(
       {
-        gluey_knit(rmd_file, output_file)
+        clag_knit(rmd_file, output_file)
         TRUE
       },
       error = function(e) {

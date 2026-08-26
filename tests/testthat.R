@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(gluey)
+library(clag)
 
-test_check("gluey")
+test_check("clag")

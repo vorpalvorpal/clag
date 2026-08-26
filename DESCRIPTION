@@ -1,15 +1,15 @@
-Package: gluey
+Package: clag
 Title: Advanced cli-like markdown glue syntax
 Version: 0.2.0
 Authors@R: 
     person("Robin", "Shannon", , "32329438+vorpalvorpal@users.noreply.github.com", role = c("aut", "cre"))
 Description: Generate markdown text using the familiar syntax of 'glue'
     with enhanced templating features. Unlike 'cli' which produces styled
-    console output, 'gluey' outputs plain markdown text, making it ideal
+    console output, 'clag' outputs plain markdown text, making it ideal
     for document generation in R Markdown and Quarto documents.
 License: MIT + file LICENSE
-URL: https://github.com/vorpalvorpal/gluey
-BugReports: https://github.com/vorpalvorpal/gluey/issues
+URL: https://github.com/vorpalvorpal/clag
+BugReports: https://github.com/vorpalvorpal/clag/issues
 Imports:
     checkmate,
     cli,

@@ -1,6 +1,6 @@
-#' Custom knit function for gluey processing
+#' Custom knit function for clag processing
 #'
-#' This function reads the raw document, processes gluey expressions,
+#' This function reads the raw document, processes clag expressions,
 #' and passes the result to the appropriate rendering function.
 #'
 #' @param input Input file path
@@ -10,7 +10,7 @@
 #'
 #' @return The result of the rendering process
 #' @export
-gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
+clag_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
   # Record original working directory to restore later
   original_wd <- getwd()
   on.exit(setwd(original_wd), add = TRUE)
@@ -22,8 +22,8 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
   # Detect if we're in a Quarto document
   is_quarto <- detect_quarto_document(text)
 
-  # Process document with gluey expressions
-  processed_text <- process_gluey_expressions(text, envir, is_quarto)
+  # Process document with clag expressions
+  processed_text <- process_clag_expressions(text, envir, is_quarto)
 
   # Get input file directory and base name
   input_dir <- dirname(input)
@@ -31,16 +31,16 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
   base_name <- tools::file_path_sans_ext(input_base)
 
   # Create temporary directory to work in
-  temp_dir <- tempfile("gluey_temp_")
+  temp_dir <- tempfile("clag_temp_")
   dir.create(temp_dir)
 
   # Write the processed text to a temporary file in the temp directory
   temp_file <- file.path(temp_dir, input_base)
   writeLines(processed_text, temp_file)
 
-  # Create an environment that has access to the gluey functions
+  # Create an environment that has access to the clag functions
   eval_env <- new.env(parent = envir)
-  eval_env$gluey <- gluey  # Make gluey function available
+  eval_env$clag <- clag  # Make clag function available
   eval_env$glue_vec <- glue_vec
   eval_env$no <- no
   eval_env$qty <- qty
@@ -106,7 +106,7 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
     setwd(original_wd)
   })
 }
-# gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
+# clag_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #  # Read input file
 #  content <- readLines(input, warn = FALSE)
 #  text <- paste(content, collapse = "\n")
@@ -115,7 +115,7 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 #  is_quarto <- detect_quarto_document(text)
 #
 #  # Process document
-#  processed_text <- process_gluey_expressions(text, envir, is_quarto)
+#  processed_text <- process_clag_expressions(text, envir, is_quarto)
 #
 #  # Write to temporary file
 #  temp_file <- tempfile(fileext = ".Rmd")
@@ -131,12 +131,12 @@ gluey_knit <- function(input, output = NULL, envir = parent.frame(), ...) {
 # }
 
 #' @export
-#' @rdname gluey_knit
-gluey_render <- function(input, ...) {
-  gluey_knit(input, ...)
+#' @rdname clag_knit
+clag_render <- function(input, ...) {
+  clag_knit(input, ...)
 }
 
-#' Process gluey expressions in a document
+#' Process clag expressions in a document
 #'
 #' @param text Document text
 #' @param envir Environment for evaluation
@@ -144,7 +144,7 @@ gluey_render <- function(input, ...) {
 #' @param test_env Optional test environment for testing
 #' @return Processed text
 #' @noRd
-process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, test_env = NULL) {
+process_clag_expressions <- function(text, envir = parent.frame(), is_quarto, test_env = NULL) {
   # Helper function to format expressions for R Markdown or Quarto
   format_expr <- function(expr, is_quarto) {
     if (is_quarto) paste0("{{", expr, "}}") else paste0("`r ", expr, "`")
@@ -191,25 +191,25 @@ process_gluey_expressions <- function(text, envir = parent.frame(), is_quarto, t
     expr_contents <- gsub("\\{\\{([^{}]*)\\}\\}", "\\1", all_exprs)
 
     # Create a substitution mapping
-    original_to_gluey <- list()
+    original_to_clag <- list()
     for (j in seq_along(all_exprs)) {
-      original_to_gluey[[all_exprs[j]]] <- paste0("{", expr_contents[j], "}")
+      original_to_clag[[all_exprs[j]]] <- paste0("{", expr_contents[j], "}")
     }
 
-    # Replace all original expressions with gluey-style expressions
+    # Replace all original expressions with clag-style expressions
     modified_line <- line
-    for (orig in names(original_to_gluey)) {
-      modified_line <- gsub(orig, original_to_gluey[[orig]], modified_line, fixed = TRUE)
+    for (orig in names(original_to_clag)) {
+      modified_line <- gsub(orig, original_to_clag[[orig]], modified_line, fixed = TRUE)
     }
 
     # Escape quotes with the same approach for both formats
     escaped_line <- gsub('"', '\\"', modified_line, fixed = TRUE)
 
-    # Wrap the entire line in a single gluey call
-    gluey_call <- paste0('gluey::gluey("', escaped_line, '")')
+    # Wrap the entire line in a single clag call
+    clag_call <- paste0('clag::clag("', escaped_line, '")')
 
     # Format for R Markdown or Quarto
-    processed_lines[i] <- format_expr(gluey_call, is_quarto)
+    processed_lines[i] <- format_expr(clag_call, is_quarto)
   }
 
   # Combine processed lines and add trailing newlines back

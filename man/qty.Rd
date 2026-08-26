@@ -18,6 +18,6 @@ Set quantity for pluralization without displaying it
 \examples{
 nupd <- 3
 ntotal <- 10
-gluey("{nupd}/{ntotal} {qty(nupd)} file{?s} {?needs/need} updates")
+clag("{nupd}/{ntotal} {qty(nupd)} file{?s} {?needs/need} updates")
 # "3/10 files need updates"
 }

@@ -1,5 +1,5 @@
-#' @title About pluralization in gluey
-#' @description Functions to handle pluralization in gluey templates
+#' @title About pluralization in clag
+#' @description Functions to handle pluralization in clag templates
 #' @name pluralization
 NULL
 
@@ -70,7 +70,7 @@ post_process_plurals <- function(str, values) {
       "Cannot pluralize without a quantity",
       "i" = "Each pluralization directive {?s} needs an associated quantity expression {n}",
       "x" = "There was no quantity expression found for the {?} directive",
-      ">" = "Use {.code gluey(\"Found {{n}} file{{?s}}\")} with a defined variable {.var n}"
+      ">" = "Use {.code clag(\"Found {{n}} file{{?s}}\")} with a defined variable {.var n}"
     ))
   }
 
@@ -81,7 +81,7 @@ post_process_plurals <- function(str, values) {
       "i" = "Each quantity should determine pluralisation of exactly one string",
       "x" = "Found {values$num_subst} strings relying on a single quantity",
       ">" = "Use the {.fn qty} function to explictly set the quantity of a string without the quantity appearing in the output. eg:",
-      ">" = "{.code gluey(\"There {{qty(2)}}{{?is/are}} {{2}} {{?box/boxes}} and {{1}} {{?bag/bags}}\")}"
+      ">" = "{.code clag(\"There {{qty(2)}}{{?is/are}} {{2}} {{?box/boxes}} and {{1}} {{?bag/bags}}\")}"
     ))
   }
 
@@ -103,11 +103,11 @@ post_process_plurals <- function(str, values) {
 #' @export
 #' @examples
 #' nfile <- 0
-#' gluey("Found {no(nfile)} file{?s}.")
+#' clag("Found {no(nfile)} file{?s}.")
 #' # "Found no files."
 #'
 #' nfile <- 1
-#' gluey("Found {no(nfile)} file{?s}.")
+#' clag("Found {no(nfile)} file{?s}.")
 #' # "Found 1 file."
 no <- function(expr) {
   if (is.numeric(expr) && length(expr) == 1 && expr == 0) {
@@ -125,7 +125,7 @@ no <- function(expr) {
 #' @examples
 #' nupd <- 3
 #' ntotal <- 10
-#' gluey("{nupd}/{ntotal} {qty(nupd)} file{?s} {?needs/need} updates")
+#' clag("{nupd}/{ntotal} {qty(nupd)} file{?s} {?needs/need} updates")
 #' # "3/10 files need updates"
 qty <- function(expr) {
   # This will be processed by the transformer

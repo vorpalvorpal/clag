@@ -17,10 +17,10 @@ Format numeric zero as "no"
 }
 \examples{
 nfile <- 0
-gluey("Found {no(nfile)} file{?s}.")
+clag("Found {no(nfile)} file{?s}.")
 # "Found no files."
 
 nfile <- 1
-gluey("Found {no(nfile)} file{?s}.")
+clag("Found {no(nfile)} file{?s}.")
 # "Found 1 file."
 }

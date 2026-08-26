@@ -2,7 +2,7 @@
 % Please edit documentation in R/pluralise.R
 \name{pluralization}
 \alias{pluralization}
-\title{About pluralization in gluey}
+\title{About pluralization in clag}
 \description{
-Functions to handle pluralization in gluey templates
+Functions to handle pluralization in clag templates
 }

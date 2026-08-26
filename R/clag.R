@@ -1,9 +1,9 @@
-#' Create a transformer function for gluey processing
+#' Create a transformer function for clag processing
 #'
 #' @param values Environment to store state for pluralization
 #' @return A function that can be used as a glue transformer
 #' @noRd
-create_gluey_transformer <- function(values) {
+create_clag_transformer <- function(values) {
   # TODO:
   #   New format: "{formatter expr [params]}"
   #     .inline: any cli inline markup or any crayon command (preceded with dot).
@@ -297,18 +297,18 @@ create_gluey_transformer <- function(values) {
 #' @export
 #' @examples
 #' name <- "World"
-#' gluey("Hello, {name}!")
+#' clag("Hello, {name}!")
 #'
 #' # Pluralization
 #' n_files <- 0
-#' gluey("Found {n_files} file{?s}.")
+#' clag("Found {n_files} file{?s}.")
 #' n_files <- 1
-#' gluey("Found {n_files} file{?s}.")
+#' clag("Found {n_files} file{?s}.")
 #'
 #' # Vector formatting
 #' fruits <- c("apples", "bananas", "oranges")
-#' gluey("I like {fruits}.")
-gluey <- function(text, ..., .envir = parent.frame()) {
+#' clag("I like {fruits}.")
+clag <- function(text, ..., .envir = parent.frame()) {
   # Environment to store state for pluralization
   values <- new.env(parent = emptyenv())
   values$empty <- uuid::UUIDgenerate()
@@ -318,7 +318,7 @@ gluey <- function(text, ..., .envir = parent.frame()) {
   values$pmarkers <- list()
 
   # Create a transformer function that handles our special markup
-  transformer <- create_gluey_transformer(values)
+  transformer <- create_clag_transformer(values)
 
   # Process with glue
   raw <- glue::glue(text, .envir = .envir, .transformer = transformer)

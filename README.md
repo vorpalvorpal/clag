@@ -1,14 +1,14 @@
-# gluey <img src="man/figures/logo.png" align="right" height="139" />
+# clag <img src="man/figures/logo.png" align="right" height="139" />
 
 <!-- badges: start -->
-[![R-CMD-check](https://github.com/user/gluey/workflows/R-CMD-check/badge.svg)](https://github.com/user/gluey/actions)
-[![CRAN status](https://www.r-pkg.org/badges/version/gluey)](https://CRAN.R-project.org/package=gluey)
+[![R-CMD-check](https://github.com/user/clag/workflows/R-CMD-check/badge.svg)](https://github.com/user/clag/actions)
+[![CRAN status](https://www.r-pkg.org/badges/version/clag)](https://CRAN.R-project.org/package=clag)
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
 ## Overview
 
-`gluey` is a package for generating markdown text using the familiar syntax of `glue` with enhanced templating features. Unlike `cli` which produces styled console output, `gluey` outputs plain markdown text, making it ideal for document generation in R Markdown and Quarto documents.
+`clag` is a package for generating markdown text using the familiar syntax of `glue` with enhanced templating features. Unlike `cli` which produces styled console output, `clag` outputs plain markdown text, making it ideal for document generation in R Markdown and Quarto documents.
 
 Key features:
 
@@ -22,22 +22,22 @@ Key features:
 
 ```r
 # Install from CRAN
-install.packages("gluey")
+install.packages("clag")
 
 # Or the development version from GitHub
 # install.packages("devtools")
-devtools::install_github("vorpalvorpal/gluey")
+devtools::install_github("vorpalvorpal/clag")
 ```
 
 ## Syntax
 
-`gluey` uses two different syntax styles:
+`clag` uses two different syntax styles:
 
-1. **Direct Function Calls**: When calling `gluey()` directly in R code, use standard glue syntax with single curly braces:
+1. **Direct Function Calls**: When calling `clag()` directly in R code, use standard glue syntax with single curly braces:
 
    ```r
    name <- "World"
-   gluey("Hello, {name}!")
+   clag("Hello, {name}!")
    ```
 
 2. **Document Markup**: When writing in R Markdown or Quarto documents, use double curly braces for interpolation:
@@ -55,10 +55,10 @@ This distinction allows for cleaner integration with document processors while m
 ### Text Interpolation
 
 ```r
-library(gluey)
+library(clag)
 
 name <- "World"
-gluey("Hello, {name}!")
+clag("Hello, {name}!")
 #> Hello, World!
 
 # In Rmd/Qmd documents, use {{name}} directly in markdown text
@@ -68,25 +68,25 @@ gluey("Hello, {name}!")
 
 ```r
 n_files <- 0
-gluey("Found {n_files} file{?s}.")
+clag("Found {n_files} file{?s}.")
 #> Found 0 files.
 
 n_files <- 1
-gluey("Found {n_files} file{?s}.")
+clag("Found {n_files} file{?s}.")
 #> Found 1 file.
 
 # Complex pluralisation
 n_people <- 1
-gluey("There {?is/are} {n_people} {?person/people} waiting.")
+clag("There {?is/are} {n_people} {?person/people} waiting.")
 #> There is 1 person waiting.
 
 n_people <- 5
-gluey("There {?is/are} {n_people} {?person/people} waiting.")
+clag("There {?is/are} {n_people} {?person/people} waiting.")
 #> There are 5 people waiting.
 
 # Zero/singular/plural forms
 n_cats <- 0
-gluey("{n_cats} {?no/one/many} cat{?s} found.")
+clag("{n_cats} {?no/one/many} cat{?s} found.")
 #> 0 no cats found.
 ```
 
@@ -95,7 +95,7 @@ gluey("{n_cats} {?no/one/many} cat{?s} found.")
 ```r
 # Automatic collapse with commas and "and"
 fruits <- c("apples", "bananas", "oranges")
-gluey("I like {fruits}.")
+clag("I like {fruits}.")
 #> I like apples, bananas, and oranges.
 
 # Alternative joining with custom pattern
@@ -110,7 +110,7 @@ glue_vec(options, .last = " or ")
 
 ```r
 items <- c("First item", "Second item", "Third item with *markdown* formatting")
-gluey("{- items}")
+clag("{- items}")
 #> - First item
 #> - Second item
 #> - Third item with *markdown* formatting
@@ -123,7 +123,7 @@ glue_vec(items, .item = "- {.item}", .sep = "\n")
 
 ```r
 steps <- c("Clone the repository", "Install dependencies", "Run tests")
-gluey("{1 steps}")
+clag("{1 steps}")
 #> 1. Clone the repository
 #> 1. Install dependencies
 #> 1. Run tests
@@ -141,7 +141,7 @@ terms <- c(
   Python = "A general-purpose programming language",
   JavaScript = "A language for web development"
 )
-gluey("{= terms}")
+clag("{= terms}")
 #> R
 #> :    A language for statistical computing
 #> Python
@@ -161,7 +161,7 @@ metadata <- c(
   author = "Jane Doe",
   date = "2023-05-15"
 )
-gluey("{: metadata}")
+clag("{: metadata}")
 #> ---
 #> title: My Document
 #> author: Jane Doe
@@ -181,7 +181,7 @@ tasks <- c(
   "Add documentation",
   "Write tests"
 )
-gluey("{[ tasks}")
+clag("{[ tasks}")
 #> - [x] Create project structure
 #> - [x] Write core functions
 #> - [ ] Add documentation
@@ -200,7 +200,7 @@ Add this to your YAML header:
 ```yaml
 ---
 title: "My Document"
-knit: gluey::gluey_knit
+knit: clag::clag_knit
 ---
 ```
 
@@ -218,7 +218,7 @@ There {{?is/are}} {{n_results}} result{{?s}}.
 
 ### Pass-through Syntax
 
-Use `{{! expr}}` to pass variables directly to R Markdown or Quarto without `gluey` processing:
+Use `{{! expr}}` to pass variables directly to R Markdown or Quarto without `clag` processing:
 
 ```markdown
 The current date is {{! Sys.Date()}}.
@@ -228,11 +228,11 @@ There are {{! total_count}} items in the {{?category/categories}}.
 
 ### Manual Processing
 
-You can also use `gluey` explicitly in code chunks:
+You can also use `clag` explicitly in code chunks:
 
 ````markdown
 ```{r}
-library(gluey)
+library(clag)
 name <- "World"
 items <- c("apple", "banana", "orange")
 ```
@@ -242,7 +242,7 @@ items <- c("apple", "banana", "orange")
 Or with a code chunk:
 
 ```{r}
-gluey("Hello, {name}! You have {length(items)} fruit{?s}.")
+clag("Hello, {name}! You have {length(items)} fruit{?s}.")
 ```
 ````
 
@@ -269,11 +269,11 @@ glue_vec(packages, .vec = "Required packages: {.vec}",
 #> Required packages: `dplyr`, `ggplot2`, `purrr`
 ```
 
-### Using `gluey` with Data Frames
+### Using `clag` with Data Frames
 
 ```r
 df <- head(mtcars[1:3, 1:4])
-gluey("Car data:\n\n{df}")
+clag("Car data:\n\n{df}")
 #> Car data:
 #> 
 #> ----------------------------------------------
@@ -295,7 +295,7 @@ library(ggplot2)
 plot <- ggplot(mtcars, aes(x = mpg, y = hp)) + 
   geom_point() + 
   theme_minimal()
-gluey("Here's a plot of horsepower vs mpg:\n\n{plot}")
+clag("Here's a plot of horsepower vs mpg:\n\n{plot}")
 #> Here's a plot of horsepower vs mpg:
 #> 
 #> ![](/tmp/RtmpXXXXXX/file123456789.png)
@@ -321,7 +321,7 @@ glue_vec(long_text, .width = 40)
 
 ## How It Works
 
-1. `gluey_knit` reads the document before processing
+1. `clag_knit` reads the document before processing
 2. Double curly braces `{{var}}` are converted to R expressions
 3. Pluralisation directives like `{{?s}}` use the preceding value
 4. The processed document is passed to knitr/Quarto for rendering
@@ -336,18 +336,18 @@ glue_vec(long_text, .width = 40)
 
 ## Configuration
 
-You can configure `gluey` globally:
+You can configure `clag` globally:
 
 ```r
-options(gluey.enabled = TRUE)  # Enable gluey preprocessing (default)
-options(gluey.enabled = FALSE) # Disable gluey preprocessing
+options(clag.enabled = TRUE)  # Enable clag preprocessing (default)
+options(clag.enabled = FALSE) # Disable clag preprocessing
 ```
 
 Or per-document via YAML:
 
 ```yaml
 params:
-  gluey.enabled: true
+  clag.enabled: true
 ```
 
 ## Contributing
