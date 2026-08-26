@@ -1,0 +1,1117 @@
+# `clag` — package scoping
+
+**Date:** 2026-08-26
+**Status:** scoping. Grammar and runtime architecture are at spec level; contested
+points are collected in §14. Integration facts below were verified against
+knitr 1.51, rmarkdown 2.31, Quarto 1.9 and Vale 3.18.
+
+`clag` is the successor to `gluey`: a markdown templating engine (glue-style
+substitutions compiled into knitr inline expressions) extended with deterministic
+checks for computational manuscripts. The predecessor has no users and no
+backwards-compatibility obligations; everything here is a clean design. Portable
+by design: the package knows about Quarto, knitr, `targets` and git, and nothing
+about any particular book.
+
+The package is two things, and the coupling between them is the design's central
+argument. The **templating core** (parser, substitution grammar, formatters)
+makes computed values nearly free to write in prose. The **integrity harness**
+(claims, dictionary, lints, commit gate, ledger) is only socially sustainable
+*because* of that: a tier-1 rule like "every numeral is a computed substitution"
+survives contact with authors only when a substitution costs no more keystrokes
+than the numeral it replaces, and a checked substitution costs one comma more.
+They ship as one package with two strict internal layers — core and harness —
+so a split later is mechanical (see §14).
+
+`glue` remains the rendering backend for templates (`glue_vec()`'s `.item` /
+`.vec` machinery, interpolation inside compiled calls). The outer `{{…}}` grammar
+is parsed by clag itself: glue assigns `{{` its own meaning (an escaped literal
+brace), and its parser has no place to carry the MAP and STYLE positions.
+
+Companion document: `~/projects/10.02 Healthy Waterways/MANUSCRIPT-INTEGRITY-PLAN.md`
+covers applying this to the Healthy Waterways manuscript — the dictionary's
+contents, the audit corpus, and the migration order.
+
+---
+
+## 0. The substitution grammar
+
+One syntax everywhere: `{{…}}`, in documents and inside `clag()` templates in R
+code alike. Single braces are literal, so Pandoc attribute syntax (`{#sec-foo
+.class}`) passes through untouched, and Quarto's own double-brace constructs do
+not collide — shortcodes require `{{<`, and verbatim cells (` ```{{r}} `) apply
+only to fence info strings, never prose (confirmed against the Pandoc manual and
+Quarto docs: plain `{{foo}}` in prose has no assigned meaning and survives to
+output untouched).
+
+The doubled brace is not just a delimiter — the gap between the braces is
+syntactic real estate. The full form is:
+
+```
+{MAP{FORMATTER OBJ, ARGS}STYLE}
+```
+
+Every part except the inner braces is optional; `{{OBJ}}` is the degenerate
+case. MAP and STYLE tokens must be brace-free (an expression containing braces
+goes in backticks), which keeps the grammar regular: the parser never needs
+lookahead past matching-brace counting, and error messages can point at a
+position rather than a guess.
+
+### MAP
+
+An extension of `cli`-style pluralisation: MAP maps the value of OBJ to a
+rendered phrase. MAP can be an existing R object, an expression producing a
+vector **or a function**, or an in-place alternation defined with `/`.
+
+**Named maps:**
+
+```r
+tier_levels <- c(mod = "Moderate", sev = "Severe")
+tier <- "sev"
+```
+
+`"The site is rated {tier_levels{tier}}"` renders `"The site is rated Severe"`.
+
+**In-place alternations** (counted forms, as in `cli`):
+
+```
+{/es{}}                        ""        if n == 1,  "es"    otherwise
+{person/people{}}              "person"  if n == 1,  "people" otherwise
+{no people/a person/some people{n}}
+                               n == 0 / n == 1 / n >= 2
+0/1/2/3+                       extends leftward one exact count at a time
+```
+
+Items are `str_trim`med, so alternations can be spaced for readability.
+
+If MAP contains a `/` it is read as an in-place alternation. To use an
+expression containing `/`, wrap it in backticks: `` {`9/3`{foo}} ``.
+
+**Range-to-phrase maps.** The earlier draft allowed arbitrary breakpoints
+inside an alternation — `{a fall in /1 steady 1/ a rise in{foo}}` — with
+whitespace adjacent to the digit deciding whether it is a break or prose. The
+*syntax* is cut: whitespace-significant parsing inside prose that is full of
+slashes and numbers ("either/or", "1/2", dates) is a silent misparse waiting to
+happen, and the backtick escape requires the author to predict the misparse to
+use it — against the spirit of P1.
+
+The *functionality* is load-bearing — a value-to-direction phrase is exactly
+what an auto-generated daily report says over and over — and it is preserved by
+generalising MAP: **when MAP evaluates to a function, the output is `MAP(n)`**
+rather than `MAP[[n]]`. The shipped constructor is `brk()`, whose flat form
+reads left-to-right exactly like the slash syntax did, with commas where the
+slashes were:
+
+```r
+trend <- brk("a fall in", 1, "steady", 1, "a rise in")
+```
+
+```
+There was {trend{foo}} invertebrate numbers.
+```
+
+Labels alternate with break values; each label covers `[lo, hi)`, and a break
+repeated twice makes the label between the repeats match exactly that value
+(so the example reads: `< 1`, `== 1`, `> 1`). For anything the flat form can't
+say, `brk()` also takes formulas (`brk(. < 1 ~ "a fall in", . == 1 ~ "steady",
+. > 1 ~ "a rise in")`), and since *any* function works in MAP position, one-off
+inline use needs no new syntax at all:
+
+```
+There was {brk("a fall in", 1, "steady", 1, "a rise in"){foo}} invertebrate numbers.
+```
+
+(No backticks needed — the expression contains no `/`.)
+
+A named map like `trend` is a **stipulation**: someone chose where "steady"
+ends and "a rise" begins. That makes it dictionary material (§4) — defined
+once, decision-logged, and reused by every report that renders the phrase —
+which is exactly where a recurring report's phrase thresholds belong.
+
+**OBJ inference.** If OBJ is not specified, clag searches for an OBJ among the
+other substitutions in the current **sentence**. Exactly one candidate: it is
+used. Zero or several: a compile-time error naming the candidates.
+
+The earlier draft widened the search to the enclosing paragraph. Recommendation
+(contested, see §14): don't. Paragraph scope is action at a distance of exactly
+the kind §4's `dict_local` rule exists to kill — move a sentence between
+paragraphs and a bare `{/es{}}` silently rebinds to a different quantity, with
+nothing visible in the diff. Sentence scope keeps the binding inside the unit an
+edit moves as a whole. Either way, inference is resolved **statically by the
+compiler**, and the resolved binding is embedded in the compiled call and
+recorded in the ledger — a rebind is observable even if the wider scope wins.
+
+**OBJ interpretation:**
+
+- If OBJ is a single integer-ish number: `n <- OBJ`.
+- If MAP is named and OBJ is a string: `n <- OBJ` (key lookup).
+- If MAP is named and OBJ is a single factor: `n <- as.character(OBJ)`.
+- If OBJ is a vector or list: `n <- length(OBJ)`.
+
+Output is `MAP[[n]]` when MAP is a vector, `MAP(n)` when MAP is a function.
+Because the function receives the interpreted `n`, not raw OBJ,
+pluralisation-by-length works identically for both MAP kinds.
+
+### FORMATTER
+
+A leading token (single- or multi-character) naming a rendering treatment of
+the value. The `?` pluralisation formatter is gone — MAP subsumes it, along
+with `qty()` and `no()` from the predecessor package. The formatter set:
+
+- markdown structures: `-` (bullet list), `1` (ordered list), `=` (definition
+  list), `:` (YAML block), `[` (task list) — carried over from the predecessor
+- number formatting: `pcf`-style significant-figure formatters, `n_word` for
+  spelled numerals, unit-aware printing driven by the dictionary's `unit:` field
+- default (no formatter): vectors collapse `cli`-style ("a, b, and c"), data
+  frames render as pandoc tables, ggplot objects render as saved figures
+
+Formatters are implemented over `glue_vec()`, which is the exported engine for
+anything the grammar doesn't cover.
+
+### OBJ
+
+Any R object or expression. Can be inferred from surrounding substitutions
+(above). Since the compiler, not glue, splits the substitution, an OBJ
+containing commas (`c(1, 2, 3)`, function calls) is handled by paren- and
+bracket-aware tokenising, not naive splitting.
+
+### ARGS
+
+Separated from OBJ by a top-level comma.
+
+- **Unnamed args are validation checks.** `{{pcf n_gap, . > 10}}` compiles to
+  `claim(pcf(n_gap), . > 10)` — checks in the grammar *are* claims, one
+  implementation, one loosening-report target (§4).
+- **Named args** pass through to the rendering engine (`glue_vec()`:
+  `.sep`, `.last`, `.width`, …).
+
+### STYLE
+
+A trailing token naming a style. Styles compile to what the output medium can
+carry — this is markdown, not a terminal, so `cli`/`crayon` ANSI semantics do
+not transfer. `em`, `strong` and `code` compile to native markdown; everything
+else compiles to a Pandoc span (`[text]{.style}`) that the project styles
+per-format via CSS or LaTeX. Projects define styles in the document or config;
+crayon is not supported at all (ANSI-only, and superseded even for terminals).
+
+### Order of operations
+
+```
+OBJ  >  CHECKS  >  MAP  >  FORMATTER  >  STYLE
+```
+
+Checks guard the **value** — OBJ after evaluation, before MAP. So
+`{MAP{- OBJ, CHECK}STYLE}` checks OBJ, builds a markdown list from MAP's
+output, and applies STYLE to the whole list. (This implies MAP output can be a
+vector when OBJ selects more than one element — the vectorisation rule needs
+pinning down, see §14.) Guarding a *phrase* rather than a value is the
+standalone `claim()` call's job (§4).
+
+---
+
+## 1. Runtime architecture
+
+The design here is dictated by what knitr and Quarto actually expose, all of it
+verified against source or maintainer statements (2026-08).
+
+### What is not available
+
+- **`knit:` in the YAML header is an RStudio-button convention.**
+  `rmarkdown::render()` (2.31) never reads the `knit` front-matter key — the
+  whole namespace greps clean — and Quarto's knitr engine is literally a call to
+  `rmarkdown::render()`, so it ignores it too. The predecessor's
+  `knit: gluey::knit` runtime silently did nothing on CI, under agents, and
+  under Quarto. Nothing may depend on that field.
+- **Quarto has no document-level pre-engine hook.** Lua filters and shortcodes
+  run on the Pandoc AST *after* knitr has executed (maintainer-confirmed,
+  quarto-cli discussion #7357); project pre-render scripts are project-only
+  (issue #13032, open) and cannot redirect a single input to a transformed
+  copy; `{{< var >}}` / `{{< meta >}}` are static. This confirms and supersedes
+  the conclusions in QUARTO-INTEGRATION.md.
+- **knitr's custom patterns cannot host the grammar.** A package can register a
+  custom `inline.code` pattern before `knit()` starts, and knitr will evaluate
+  matches per-expression in document order — but the matched text must parse as
+  valid R (`parse_inline` → `parse_only`, no transform hook in between), and
+  capture groups can only reproduce substrings of the source. `{{pcf foo,
+  . > 10}}` is not R and never reaches evaluation. The route would also hang
+  document correctness off `.Rprofile` state under Quarto (plausible but
+  unverified). Rejected.
+
+### What clag does instead
+
+**clag owns the render entry point.** `clag_render()` parses the source,
+compiles each substitution, writes the compiled document to a **temp copy**, and
+invokes `rmarkdown::render()` or `quarto render` on the copy — never mutating
+the author's source. This is the pattern Quarto itself uses internally (its
+`execute.R` writes preprocessed markdown to a temp `.rmarkdown` file and renders
+that). For book projects the same applies to a shadow copy of the project;
+mechanics in §14.
+
+A document rendered *without* clag — bare `quarto render` on the source — shows
+literal `{{…}}` in the output. That is a feature: unlike every failure mode in
+§2, it is loud, visible, and caught by the L2 lint besides.
+
+**One parser, three consumers.** The parser is the package's core artifact,
+shared by the preprocessor, the static lints (§5), and the commit-gate AST
+differ (§6). No off-the-shelf parser does the job — `parsermd` (active,
+`parse_qmd()`, `#|` support) carries no source positions at all; `lightparser`
+likewise; there is no R-usable tree-sitter markdown grammar — so the parser is
+built on `commonmark::markdown_xml(sourcepos = TRUE)` (exact line/col spans on
+every node, the tinkr approach) with a chunk-header/YAML pre-pass for the
+Quarto-specific structure. The carve-out list — spans the preprocessor must not
+rewrite and the lints must not flag — is defined once, in the parser: fenced
+blocks, non-`r` inline spans, YAML, math spans, link targets and URLs, citation
+keys, footnote markers, `{#…}` attribute blocks.
+
+**One compiled call per substitution.** Each `{{…}}` compiles to its own inline
+expression — `` `r clag::subst(<id>)` `` — with the substitution's source file,
+position, expression text, resolved OBJ binding, and checks embedded at compile
+time. Never whole-line wrapping (the predecessor's approach), which destroyed
+per-value ledger granularity, broke on mixed quotes, and could not carry
+sentence-scoped inference. Because `subst()` knows its own identity, the value
+ledger (§7) is emitted by the runtime itself, with exact provenance.
+
+**Where R evaluates outside prose** (so the preprocessor's boundaries are
+principled): chunk options are evaluated in `knit_global()` before the chunk
+runs (`fig.cap`/`fig.alt` after, so they can use the chunk's results); Quarto
+`#|` cell options are literal YAML unless tagged `!expr`; YAML front matter
+honours `!r`/`!expr` via rmarkdown. The preprocessor does not rewrite inside any
+of these — computed captions use `#| fig-cap: !expr clag("…")` explicitly, and
+L11 checks captions regardless of how they were built.
+
+**Condition capture.** Confirmed: chunk warnings and messages are written into
+the rendered document and do **not** echo to the console — the exact
+signal-existed-but-unread failure this package exists to prevent. Confirmed:
+`rmarkdown::render()` sets `error = FALSE` (overriding knitr's permissive
+default), so a chunk error aborts with exit status 1, and Quarto behaves the
+same; but nothing built-in promotes warnings or messages to failures. Since
+clag owns the render call, it sets knitr's `warning`/`message` hooks to tee
+every condition into a machine-readable log alongside the document, and applies
+its own severity rules there (§7). The `evaluate.inline` hook — which receives
+the source code and environment, unlike the `inline` output hook which receives
+only the value — is set as a backstop ledger for any raw `` `r ` `` inline code
+that bypasses clag syntax.
+
+---
+
+## 2. What problem the harness solves
+
+Ten failure modes in computational manuscripts, grouped by where the break
+happens. The grouping matters: the first group corrupts the value before prose is
+involved, and no amount of prose discipline detects it.
+
+### A — the pipeline yields a wrong value
+
+| # | Mode | Layer |
+|---|---|---|
+| A1 | **Silent success of a failed computation.** A join drops rows, a filter matches nothing, a model fails to converge, and the code carries on. | L12, L6 |
+| A2 | **Stale or wrong input.** The computation is correct; the data it consumed is not the data intended. | L12 |
+
+### B — the link between value and prose breaks
+
+| # | Mode | Layer |
+|---|---|---|
+| B1 | **Silent deletion.** A `sed` or heredoc removes a paragraph, a section, or a substitution. What remains is valid markdown, renders clean, looks fine. | L1 |
+| B2 | **Reversion to literal.** `{{pcf(x)}}` becomes the literal `12`. Renders perfectly, forever, silently decoupled from the pipeline. | L2 |
+| B3 | **Artefact staleness.** The rendered `.md` predates the `.qmd`, so everything downstream of it reads fiction and reports PASS. | L6 |
+
+### C — the prose is wrong about a correct value
+
+| # | Mode | Layer |
+|---|---|---|
+| C1 | **Prose/value divergence.** The number updates on refit; the sentence still says "rose sharply" when the value went to −1. | L3, L5 |
+| C2 | **Assertion never computed.** A set fact, ranking, direction or comparison is stated that was never calculated. Nothing decoupled — it was never coupled. | L2, L3 |
+| C3 | **Misattribution.** Value and sentence are each correct but refer to different quantities. `claim(n_sites, . > 50)` passes happily while the sentence is about creeks. | none — tier 3 |
+| C4 | **Definitional drift.** The same term carries different meanings in different chapters, each internally consistent. | L10 |
+| C5 | **Stale shape description.** Prose or a caption describes an object's columns, row count, or what it draws, and the object changed. | L11 |
+
+C2 is typically the largest class, and it is the one a number-focused scheme
+misses entirely.
+
+### The layers
+
+| Layer | What it checks | Runs at |
+|---|---|---|
+| L1 | structural AST diff — declared vs observed changes | commit gate |
+| L2 | claim-token coverage (static) and annotation semantics (knit) | gate + knit |
+| L3 | `claim()` evaluation | knit |
+| L4 | cross-references and citations | gate |
+| L5 | value ledger | knit |
+| L6 | render wrapper: condition surfacing, artefact hashing | knit |
+| L7 | prose linting (Vale) | `verify()` |
+| L8 | hygiene | gate |
+| L9 | trailer and register validation | commit gate |
+| L10 | dictionary lints — keys resolve, shadowing rules | gate |
+| L11 | figure and table contracts | knit |
+| L12 | pipeline data contracts | pipeline |
+
+### The failure that shapes the design
+
+Checks whose output nobody reads reproduce the failure they were built to
+prevent. In the manuscript that motivated this package, both recorded incidents
+were **signal-existed-but-unread**: knitr wrote the warning into the document,
+the boundary-fit message was emitted, and both sat in plain sight for weeks.
+(§1 confirms this is knitr's default plumbing: conditions land in the rendered
+output and nowhere else.)
+
+**Surfacing beats coverage.** Every layer must fail loudly at a checkpoint
+someone passes through, or not exist.
+
+---
+
+## 3. Design principles
+
+**P1 — Every check must have a machine-checkable ground truth.** A mechanism that
+enforces *form* rather than *content* is satisfiable without thought.
+
+**P2 — The machine observes; the author declares; the machine checks the
+declaration.** A declaration made *before* acting is a prediction, and predictions
+are falsifiable. Never ask a component to grade its own work after the fact — the
+misclassification and the damage share a root cause.
+
+**P3 — Prevention where anticipated, detection everywhere.** `claim()` protects
+values someone thought to guard; the ledger catches drift in the ones nobody
+guarded. The second is the safety net under the first.
+
+**P4 — Prefer categories with an external referent.** A category whose sub-lint
+checks a real fact (does this key exist in the bib?) is worth several whose
+sub-lint checks a shape.
+
+**P5 — Keep category sets small.** Every category is a place to hide. This governs
+*categories*, not *triggers*: annotation types stay at two or three, while the
+lexicon deciding which sentences need looking at should be as broad as possible.
+
+**P6 — Fast checks gate commits; slow checks gate tasks.** Anything needing a knit
+cannot live in a git hook. A gate that fires constantly gets ignored.
+
+**P7 — A convention that is only documented will rot.** Every convention gets a
+validator, a warning, or an explicit place on a human worklist.
+
+**P8 — Generated and authored records never share a directory.**
+
+**P9 — Partial coverage beats none, and every check declares its tier.**
+
+| Tier | Mechanism | Behaviour | Example |
+|---|---|---|---|
+| 1 | **Hard rule** — decidable from source | fails the gate | no bare numbers |
+| 2 | **Warning on new material** — heuristic trigger | prints, does not block | "these added sentences look like claims" |
+| 3 | **Human read** — flagged, ranked, never adjudicated | worklist | misattribution |
+
+A tier-1 rule on a tier-2 problem produces an exception list without end; a
+tier-2 warning on a tier-1 problem is a gate people learn to ignore.
+
+**Tier 2 scopes to newly added material, not to the corpus.** A heuristic across a
+whole book returns a thousand lines and is read once; across the sentences a
+commit *adds*, it returns a handful and is read every time. The backlog becomes a
+ratchet. The commit gate already holds both ASTs, so the added-sentence set costs
+nothing extra.
+
+**P10 — Installation is always an explicit call.** Nothing is written to a user's
+repository as a side effect of `library()`. Every file the package places is
+placed by a `use_*()` function that says what it will write.
+
+---
+
+## 4. Public API
+
+### Claims
+
+Two spellings, one mechanism. The common case is the **inline check** — unnamed
+ARGS in a substitution:
+
+```
+The gap is {{pcf n_gap, . > 10}} sites.
+```
+
+which compiles to `claim(pcf(n_gap), . > 10)`. The standalone call covers what
+the inline form cannot: guarding a **phrase** whose truth depends on a value the
+sentence never displays.
+
+```r
+claim(x, <expression>, ...)
+```
+
+- **`x` is any type.** The guarded thing is often a phrase:
+  `Council will need to {{claim("add two more sampling sites", n_gap > 10)}}.`
+  The sentence displays no number; its truth still depends on one.
+- **`.` pronoun** — `claim(shift$n_down, . >= 10)` rather than naming it twice.
+- **Varargs, not `&&`** — `claim(x, . >= 10, test_int(.))` reports which half
+  failed; `&&` collapses them into one opaque boolean.
+- **NSE** — capture unevaluated via `substitute()` / `rlang::enquos()`. The error
+  text *is* the feature; without NSE you get "claim failed".
+- **Returns `x` visibly** — otherwise the substitution renders nothing and the
+  co-location that is the whole idea is lost.
+
+`checkmate::test_*` is the right half of that package to use inside a claim: it
+returns a logical. `assert_*` returns invisibly and throws with checkmate's own
+variable-centric message, bypassing ours.
+
+**Scope: a claim covers its whole first argument.** No nesting. If `n_gap > 10` is
+what makes *"add two more sampling sites"* true, the "two" inside that string is
+guarded, and the L2 lint does not recurse into it. The idiom for prose is to wrap
+the trigger word only:
+
+```
+{{claim("All", all(mod$rising))}} {{n_word nrow(mod)}} models rise
+```
+
+The cost is a hole — `claim("the 47 sites rose 12%", x > 0)` is one weak guard
+over four claims. Not fixable in general; an advisory listing claims whose text
+exceeds a token count catches the lazy case.
+
+**The error message is the deliverable, not the assertion:**
+
+```
+14-percentile-bands.qmd:412 — claim failed
+  . >= 10   was  8.2
+Read the sentence. If 8.2 is right, rewrite the sentence.
+Do not loosen the claim to clear this.
+```
+
+**Design rule shipped in the docs:** a good bound is the widest range over which
+the sentence stays honest. Too tight and it fires on every refit and gets widened
+without thought; too loose and it is inert.
+
+**Known limit:** arbitrary expressions are opaque to later analysis — you cannot
+mechanically find claims with vacuous bounds. A problem for the version after the
+one that reveals whether it matters.
+
+### Annotations
+
+`{{a_ref(10, "@smith2020")}}`, `{{a_date(2020)}}`.
+
+**The `a_*` functions are pre-built claims**, not a second mechanism:
+`a_date(2020)` is `claim(2020, is_year(.))` under a shorter name.
+
+| Function | Meaning | Sub-lint |
+|---|---|---|
+| `a_ref(x, key)` | number quoted from a source | key resolves in the bib. The strongest category — a real external check, and it covers the "10% (Smith 2020)" case that has no pipeline provenance |
+| `a_date(x)` | year or date not held in the dictionary | 1–4 digits, plausible range |
+
+Two, not three. A number inside a proper name ("Site 12") belongs in the
+dictionary, read from it, so renaming propagates rather than being certified as
+correctly typed.
+
+**The test for adding a category: ask why the number cannot be computed.** Most
+candidates fail — a project constant goes in the dictionary; a count of things in
+the document gets counted; an ordinal gets computed. Documents extend by defining
+their own function, which is why the extension mechanism is R itself.
+
+### Dictionary
+
+```r
+dict(era_split)        # NSE on a bare symbol, not a string
+dict_local(sites)      # chapter override, deliberately a different verb
+```
+
+In prose: `The manual era ends in {{dict(era_split)}}.`
+
+`d$era_split` returns `NULL` on a typo, silently — the exact failure class this
+package exists to remove. A bare symbol lets a **static** lint verify every call
+names a real key without running R — the clag parser exposes every substitution's
+expression, so key errors surface at the commit gate rather than at knit.
+
+**What belongs in a dictionary: stipulations, never derivations.** Things that
+were *chosen* — era boundaries, band cuts, confidence levels, canonical labels.
+Anything computable belongs in the pipeline. That boundary is the residue left by
+the "why can't this be computed?" test above, so one question governs both.
+
+**Consequence: every entry is a decision, and dependency is derived rather than
+declared.** A chapter that reads `era_split` depends on the decision behind it;
+moving a paragraph between chapters moves the dependency with it. This is the
+part of P7 documentation cannot hold — a decision log stays accurate through
+edits and rearrangements only if nothing is maintained by hand.
+
+Schema:
+
+```yaml
+era_split:
+  value: 2014
+  type: year
+  definition: "Boundary between the manual and instrument eras."
+  decision: D-31
+
+tier_lab:
+  value: {reference: Reference, slightly_disturbed: Slightly disturbed, urban: Urban}
+  type: labels
+  definition: "Display names for the disturbance tiers."
+  decision: D-12
+
+salinity_res:
+  value: 0.01
+  type: quantity
+  unit: PSU
+  definition: "Resolution at which the logger records salinity."
+  decision: D-08
+```
+
+**Overrides.** A chapter may narrow a key, rarely. One rule governs it:
+
+> A shadowing entry must be read through a different accessor: `dict_local(sites)`,
+> never `dict(sites)`.
+
+This is not bookkeeping. Silent shadowing is the most dangerous failure available
+here: chapter 14 redefines `sites`, someone later moves a paragraph from 14 into
+15, and `dict(sites)` quietly changes meaning with nothing visible in the diff.
+With `dict_local()` the moved paragraph **errors**, because chapter 15 has no
+local `sites`. A silent semantic change becomes a loud failure at the moment of
+the move.
+
+Statically linted both ways: `dict_local(x)` with no local `x` is an error;
+`dict(x)` where the chapter *does* define a local `x` is an ambiguity error. Local
+entries require a `why:` field, and the lint prints a book-wide shadowed-key
+count — a visible cost rather than a gate.
+
+**Two things the dictionary removes rather than checks:** the glossary is
+generated from `definition:`, so a term's stated meaning and its value in use
+stop being two artefacts that can disagree; and `unit:` makes unit consistency
+true by construction rather than lintable.
+
+### Formatters
+
+`pcf()`-style number formatting, `n_word()` for spelled numerals, unit-aware
+printing driven by the dictionary's `unit:` — all exposed as FORMATTER tokens in
+the grammar (`{{pcf n_gap}}`, `{{n_word nrow(mod)}}`) and as ordinary functions.
+Implemented over `glue_vec()`, which named ARGS pass through to. The lint that
+pairs with them: no raw `round()` output reaching prose.
+
+---
+
+## 5. Lints
+
+Each ships as a function returning a structured result, and as an entry in the
+gate. Defaults ship with the package; projects supply additions only. All static
+lints read the same parsed AST the preprocessor uses (§1) — one parser, one
+carve-out list.
+
+### L2 — claim tokens
+
+**No bare claim tokens in prose.** Two kinds, two tiers:
+
+- **Numerals — tier 1.** A numeral in prose almost always encodes a data claim, so
+  the rule is absolute. Every numeral is a substitution, a `dict()` read, or
+  inside a check / `a_*` annotation. This also catches B2 mechanically: a
+  substitution reverted to its literal value *is* a bare numeral.
+- **Quantifiers, extrema, direction words — tier 2.** "all", "none", "every",
+  "only", "largest", "first", "rose", "more", "majority". These carry a data claim
+  often but not reliably: *"limits at all"*, *"populated only from 2020"* and *"no
+  longer"* are not claims and never will be. A ban here would need a semantic
+  exception list, failing P1 and P5.
+
+Tier 2 has two triggers, both computed from what the gate already holds:
+
+1. **A claim word in the same sentence as a substitution** — the strongest,
+   because the sentence is by construction about a computed value. This set grows
+   on its own as tier 1 lands: *"the list contains two wetland sites"* must become
+   `{{n_wet}}`, dragging the sentence into the trigger set for free.
+2. **A claim word in a newly added sentence with no computed value at all** —
+   noisier, but scoped to the delta it stays a handful per commit.
+
+Both print, neither blocks:
+
+```
+tier 2 — 3 added sentences read as claims with no guard:
+  13-current-rating.qmd:204
+    "All four rise, and every one of them is steeper than the third."
+```
+
+**Static checking** (gate, no knit): parse each substitution; assert every
+`NUM_CONST` in its expression sits inside a check, an `a_*` shorthand, or
+`dict()`. This is a *coverage* check — it catches an annotation stripped by a
+transform, which would otherwise degrade silently.
+
+**Semantic checking** (knit): `a_ref()` resolves its key; `a_date()` range-checks.
+Fatal via the render wrapper's `error = FALSE`.
+
+**Carve-outs, decidable by AST position** — which is what makes "scan and say with
+confidence" achievable: the parser's carve-out list (§1). The same list bounds
+the preprocessor, so "what the lint skips" and "what clag rewrites" cannot
+drift apart.
+
+### L4 — cross-references and citations
+
+Book-wide by necessity: ids share one namespace, so per-file checking is
+incoherent.
+
+- anchors resolve; duplicates discriminated ("same id twice in one file" and "id
+  redefined in a moved chapter" are different problems)
+- **dangling citation keys flagged** — a `@key` absent from the bib renders as
+  literal `@key` in the output
+- **orphan anchors** — defined, never referenced. Not an error; the signature of a
+  content move that stranded a figure
+
+**Limit, stated in the docs:** L4 checks that a reference *resolves*, not that the
+target still says what the citing sentence claims. That is tier 3.
+
+### L8 — hygiene
+
+Generic, shipped on by default:
+
+1. **Every section anchored, every chunk labelled.** Duplicate labels break knitr,
+   and unanchored sections have no stable identity, which L1 depends on.
+2. **Targets hygiene** — every `tar_read()`/`tar_load()` names a target in the
+   manifest. Catches renames immediately.
+3. **No chapter-local redefinition of a dictionary key.**
+4. **Number formatting consistency** — no raw `round()` output in prose.
+5. **Seed discipline** — `sample`/`rnorm`/`runif` without `set.seed()` in scope.
+6. **Internal file links resolve.** External URLs skipped with a warning offline.
+7. **Orphaned build artefacts** — every `.pdf` and `_files` directory corresponds
+   to a live source file. Catches rename drift.
+8. **Register `FIXED` claims resolve** — every status claiming a fix cites a commit
+   hash that resolves or a `file:line` that exists. Ships because the register
+   format ships; ~20 lines and the highest value-per-line item here.
+
+Unit consistency and figure completeness are absent by design: L10 and L11 make
+them structural rather than lintable.
+
+### L10 / L11 / L12 lints
+
+Covered under the dictionary (§4), contracts (§7) and pipeline contracts (§8).
+
+---
+
+## 6. The AST layer and the commit gate
+
+### Predicate identity
+
+Granularity is set by which nodes carry stable ids across two versions:
+
+| Node | Identity | Predicate |
+|---|---|---|
+| xref anchors | globally unique (L4 enforces) | exact: removed / added |
+| `{#sec-…}` sections | stable across heading rewording | exact |
+| labelled chunks | exact where labelled | exact |
+| prose substitutions `{{…}}` | none | multiset comparison only — advisory |
+
+### Substitutions are advisory, not declarable
+
+Counting substitution deletions is the wrong measure: rewording a sentence
+containing two substitutions registers as two deletions plus two additions when
+nothing was lost. **Compare the multiset of substitution texts instead** —
+rewording leaves them present, a `sed` that eats them removes them from the set.
+Check file-wide, so a move between sections does not trip it. A net loss prints
+as an advisory line alongside the verdict.
+
+### The gate
+
+**`commit-msg`, not `pre-commit`** — `pre-commit` runs before the message exists
+and cannot check a declaration in it. Paired with `prepare-commit-msg` to populate
+a template, which fills the **file list only, never the observed predicates**.
+Show the author the answer and the declaration becomes theatre (P2).
+
+Reads `git show :<file>` — **the index, not the worktree.** Staged and working
+copies differ; checking the worktree gates the wrong content.
+
+**One executable, one report.** Agents commit frequently, and every tool call
+replays context and adds to it, so a gate assembled from a dozen calls
+discourages the commit discipline it exists to support. The same applies to
+anything the report *recommends*: if the gate can tell that removing an anchor
+strands three chapters, it runs the xref scan itself and includes the result. It
+never asks the author to go and run something.
+
+### Trailer vocabulary
+
+Strict single-line git trailers, keys repeat. Extraction is then
+`git log --format='%(trailers:key=Removed,valueonly)'` — no custom parser, only a
+validator. Verb-as-key also makes the query dimension the verb, which is the
+dimension worth querying after the fact.
+
+**Structural keys** — value grammar `<file> (<anchor> <note>)+`:
+
+| Key | Note |
+|---|---|
+| `Removed:` | |
+| `Added:` | |
+| `Renamed:` | heading text changed, anchor stable |
+| `Relabeled:` | own grammar: `<file> <old> <new> <note>` |
+| `Edited:` | body text changed, anchor stable |
+
+**Register keys:**
+
+| Key | Grammar | Consumer |
+|---|---|---|
+| `Decision:` | `<id> — <text>` | decision log |
+| `Propagates:` | `<was> → <is> in <files>` | propagation log |
+| `Closes:` | `<id>` | task closed, commit is the evidence |
+| `Partial:` | `<id> (left: <text>)` | task advanced, still open |
+| `Refs:` | `<id>` | backlink, no status change |
+
+`Partial:` stays separate from `Closes:` rather than being a modifier — otherwise
+the regex distinguishing `C-43` from `C-43 (left: …)` is doing semantics, and a
+malformed note silently closes a live task. `Refs:` earns its place despite P5:
+without it, work that touches a task without finishing it has no way to say so,
+and the pressure runs toward writing `Closes:` early — the false-`FIXED` failure.
+
+Notes are free text, capped short, and **may not contain `#`**, since the parser
+splits on the next `#`-initial token.
+
+**Validation:**
+
+- **Unknown key is an error.** A typo'd `Close:` would silently drop a closure —
+  the exact drift being fixed. Whitelist the ten, plus a passthrough list
+  (`Signed-off-by`, `Co-authored-by`, and any project additions).
+- **Ids must resolve** in the register they name.
+- **No ordering requirement** — sorting is the generator's job.
+- At least one structural entry per touched file.
+
+Example:
+
+```
+C-44: drop the provisional band table, tidy the Method text
+
+Removed: 14-percentile-bands.qmd #sec-prov provisional band table
+Edited: 14-percentile-bands.qmd #sec-bands/Method removed repetition
+Decision: D54 — provisional bands dropped; the revised set supersedes them
+Propagates: @tbl-prov-bands → ch15 §window, ch17 §arms
+Closes: C-44
+```
+
+Rejection:
+
+```
+commit-msg: undeclared structural change
+
+  14-percentile-bands.qmd  #sec-bands  changed, not declared
+
+  advisory: 2 substitutions no longer appear anywhere in this file
+      - {{band_cut$lower}}
+      - {{band_cut$upper}}
+    A sed that matched in more than one section is the usual cause.
+
+  xref: removing anchor `tbl-prov-bands` strands 3 references
+      15-revised-rating.qmd:88   @tbl-prov-bands
+      17-management-arms.qmd:204 @tbl-prov-bands
+      17-management-arms.qmd:251 @tbl-prov-bands
+
+  tier 2 — 1 added sentence reads as a claim with no guard:
+      14-percentile-bands.qmd:96
+        "Every creek in the revised set shifts down at least one band."
+```
+
+### Known limit
+
+`--no-verify` bypasses it, and that is correct. There is always a circumstance
+needing an escape hatch. The aim is not to stop active cheating (rare) but to
+catch unintended mistakes.
+
+### The claim-loosening report
+
+The pressure runs toward widening a bound rather than rewriting a sentence, and
+the author is the wrong person to police it. **Every commit that modifies an
+existing check — inline or `claim()` — lists the before and after**, computed
+from the two ASTs, not self-reported. A legitimate loosening survives the
+question; a reflexive one does not. This also gives a failing claim a defined
+exit, without which the discipline decays. Because inline checks compile to
+`claim()` (§0), one report covers both spellings.
+
+---
+
+## 7. Knit-time: ledger, wrapper, contracts
+
+### The value ledger (L5)
+
+Because L2 makes every number a substitution, and every substitution compiles to
+a `clag::subst()` call carrying its own identity (§1), the runtime captures every
+rendered value at the moment it renders: expression text, value, file, position,
+chapter. A **typed ledger**, exact and keyed on the substitution itself — no
+knitr introspection required. (The knitr `evaluate.inline` hook, which receives
+source and environment but no position, backstops any raw `` `r ` `` code that
+bypasses clag syntax; it records occurrence order only.) Commit the ledger; diff
+it on re-render.
+
+**Partial knits.** An agent refits a model chapter 17 also reads, knits only
+chapter 14, and 17's numbers move with nobody rendering 17. Two mechanisms:
+
+- the ledger records which pipeline targets each chapter's values depend on —
+  available from `targets` at render time, not inferred
+- **a stale entry is a distinct state from a changed one.** `verify()` reports
+  "chapter 17: 34 values stale, not re-rendered since `fit_reband` changed." No
+  partial knit passes silently as clean.
+
+**Why the layer exists alongside L2 and L3.** L2 guarantees numbers are *computed*
+and says nothing about whether the sentence is still true. L3 guarantees numbers
+*someone guarded* stay in range, and coverage is never complete — the uncovered
+set is not random, it is precisely the numbers nobody thought hard about, which is
+the highest-risk population by selection. A refit moves forty numbers; five have
+claims.
+
+**Triage.** The raw diff is dozens of lines, nearly all benign; the problem is
+ranking, not detection.
+
+- **Structural, no language needed** — sign flip, order-of-magnitude change,
+  crossing zero, crossing 1.0, crossing a dictionary threshold. Unambiguous
+  must-reads.
+- **Claim-word proximity** — the same lexicon L2 uses for tier 2, asking a
+  different question: not "is this sentence guarded" but "did a value next to a
+  claim word just move". One lexicon, two uses.
+
+**Honest limit, stated in the docs:** both families are heuristics that *narrow
+the human read*. Nothing here verifies English against a number, and no tool
+claiming to should be trusted.
+
+### The render wrapper (L6)
+
+The defaults hide failures — each of these confirmed against knitr 1.51 /
+rmarkdown 2.31 source or empirically (§1):
+
+- knitr writes chunk warnings and messages into the **rendered document**, and
+  they do not echo to the console at all
+- a direct `knitr::knit()` defaults to `error = TRUE` — a chunk can fail and the
+  process still exits 0. (`rmarkdown::render()` overrides this to
+  `error = FALSE`; since all rendering goes through `clag_render()`, the wrapper
+  sets it explicitly and never relies on the caller's path.)
+- nothing built-in promotes warnings or messages to render failure
+- not everything reporting a broken model is a warning — `lme4`'s
+  `boundary (singular) fit` and `glmmTMB`'s non-positive-definite Hessian arrive
+  as **messages**
+
+The wrapper therefore tees all conditions through knitr's `warning`/`message`
+hooks into a machine-readable log, applies a severity pattern list there (the
+model-fit messages above ship in it), and fails the render on anything the list
+marks fatal. Plus: **surface L2, L3 and L11 failures distinctly** from ordinary
+knit errors, because their fix differs in kind (rewrite prose vs fix code).
+
+**Artefact hashing (B3).** Every generated artefact records the hash of every
+source it was built from, and every consumer checks before reporting. A hash
+mismatch is a hard error, not a warning: a PASS from a stale artefact is worse
+than no check, because it consumes the attention a real check would have earned.
+
+### Figure and table contracts (L11)
+
+Computed captions are not checked captions. A caption built by `glue` from the
+wrong object is still wrong.
+
+Assert properties of the **built object**, not the code that made it —
+`ggplot_build()` exposes what actually reached the panel:
+
+- every mapped aesthetic has a guide, or is named in the alt text
+- the alt text names every variable the plot maps
+- free scales flagged — they make panels visually comparable that are not
+- the row count behind the figure matches any count the caption states
+- `fig-cap`/`fig-alt` present and non-empty; `tbl-cap` on every table
+
+The first four catch C5. Presence checks live here rather than in L8 because they
+share the introspection pass.
+
+**Not mechanisable, and the package does not pretend:** generating alt-text
+*prose* from plot code is judgement. The contract checks correspondence between
+text and object; it does not write the text.
+
+---
+
+## 8. Pipeline contracts (L12)
+
+Every other layer protects the prose and assumes the numbers are right. A1 and A2
+say that is the assumption most likely to have already failed.
+
+Unit tests check functions against fixed inputs. Data contracts check *actual*
+data at pipeline boundaries, which is the only place a corrupt cache or a join
+that silently dropped 40% of rows becomes visible. The backend is **pointblank**
+(resolved — see §14): the package wraps it and supplies the assertion set:
+
+- **row-count deltas across joins** — the single most common place rows vanish
+  without warning. Assert the expected relationship, not an absolute count
+- **key uniqueness and completeness** on anything used as a join key
+- **domain and range** on measured variables, against the dictionary's `unit:` and
+  any stated resolution
+- **no unexpected `NA` introduction** — count entering, count leaving
+- **cardinality of grouping variables** — so a filter matching nothing fails
+  loudly instead of producing an empty, valid, plausible table
+- **model convergence as an assertion** rather than a message to be grepped, so a
+  singular fit raises where it happens and the render wrapper's pattern list
+  becomes a backstop rather than the only defence
+
+**Vintage (A2).** The pipeline records the identity of its inputs — hash and mtime
+of every source file — into the target, so a value can be traced to the bytes it
+came from. This is the pipeline half of L6's artefact hashing, and it makes "did
+this come from the corrupt cache?" a question with an answer.
+
+---
+
+## 9. Prose linting (L7)
+
+Cross-chapter prose consistency — terminology drift, spelling, heading
+capitalisation, sentence length — is a real problem in any multi-author book and
+nothing else in the scheme touches it. Vale is the right tool (active, v3.18 at
+`vale-cli/vale`); no R wrapper package exists, so clag ships a thin `processx`
+wrapper — `vale --output=JSON` emits per-alert `Line`/`Span` fields, and the
+binary is discovered via `PATH` or explicit config.
+
+**Run it on the rendered `.md`, not the source.** Substitutions are resolved, so
+Vale reads "12.3" rather than an opaque brace span, and readability and
+terminology rules become meaningful instead of noise. Captions and alt text —
+invisible to a source-linting Vale because they live in chunk headers — appear as
+ordinary prose. No `TokenIgnores` for `{{…}}` spans, no chunk-header handling.
+
+**Map hits back automatically.** Prose survives knitting close to verbatim, so
+mapping a `.md` hit to its source line is a search for the matched span,
+disambiguated by the enclosing section from the AST the gate already builds. The
+residue prints as "`.md` only" with the surrounding sentence. **An agent should
+never be handed a line number in a file it does not edit.**
+
+**Two tiers, do not fight this:** published prose (terminology, spelling,
+readability, captions) goes to Vale on the `.md`; source structure (anchors,
+annotation coverage, chunk labels) goes to the R lints on the source, where that
+information exists and Vale cannot see it.
+
+**`BlockIgnores` for `::: {.callout-…}` divs is still needed** — divs are Pandoc
+markup, not R, and reach the `.md` untouched.
+
+The terminology style is **generated from the dictionary**, so a term's canonical
+spelling has one home rather than two. Vale styles are plain YAML files (`.yml`
+extension required), so generation is `yaml::write_yaml()` — no custom emitter.
+
+Placement: `verify()`, after the knit check — not a commit gate. Terminology drift
+should not block a commit.
+
+---
+
+## 10. Installers and shipped assets
+
+All under P10: explicit calls, never side effects of loading.
+
+| Function | Writes |
+|---|---|
+| `use_clag()` | everything below, with a summary of what it will do first |
+| `use_hooks()` | `commit-msg`, `prepare-commit-msg` shims calling the gate |
+| `use_dictionary()` | dictionary skeleton and schema |
+| `use_vale()` | `.vale.ini`, the shipped style, the generated terminology rule |
+| `use_registers()` | `generated/` directory and the trailer-driven generators |
+| `use_agent_docs()` | agent-facing conventions and the Claude skill |
+| `use_contracts()` | pipeline contract scaffolding for an existing `targets` project |
+
+### `inst/` contents
+
+- git hook templates
+- Vale style and default `.vale.ini`
+- dictionary JSON schema
+- **a Claude skill** — the agent-facing conventions: render via `clag_render()`
+  only, knit at end of task, commit trailer format, never loosen a claim to
+  clear a failure, `dict_local` rules
+- templates for `AGENT-RULES.md` and `STATUS-CONVENTION.md`
+- default claim-word lexicon and carve-out list (these are English, not project
+  facts, so they ship as defaults and projects add to them)
+
+### Adoption helpers
+
+- **`dict_seed()`** — harvests candidate dictionary keys by finding constants
+  defined in more than one chapter. The migration this package most wants people
+  to do is mechanically discoverable, so the tool ships rather than the advice.
+- **`status()`** — reports which layers are installed, which are configured off,
+  and what the next step in the adoption order is.
+- **`recall_check()`** — given a set of recorded findings and a pre-remediation
+  commit, runs a lint against the historical state and reports what fraction of
+  those findings it reproduces. Turns "is this check good enough to replace the
+  manual audit?" into a measurement.
+
+### Version pinning
+
+The project config records the package version, and `verify()` warns on mismatch.
+Without this a package update silently changes gate behaviour mid-project, which
+is artefact staleness wearing the tooling's clothes.
+
+---
+
+## 11. `verify()`
+
+One entry point. Runs, in order:
+
+```
+L12 → L4 → L2-static → L10 → L1 → L8 → L9
+     → render via clag_render() (L6) → L2-semantic + L3 + L11 → L5 → L7
+```
+
+The git hook calls the pre-knit subset as a single tool. Each layer is
+individually switchable in config; `verify()` reports which were skipped and why,
+because a silently disabled check is worse than an absent one.
+
+---
+
+## 12. Tests
+
+`testthat`, seeded by the parser and compiler (the component everything else
+consumes), then `claim()`, `dict()`, `dict_local()` and the `a_*` shorthands —
+the functions with the sharpest contracts. Then the lints, each against a
+fixture pair (a source that should pass, one that should fail).
+
+The grammar and the AST differ need the most fixtures. Grammar: every clause of
+§0 (inference resolution and its error cases, backticked MAPs, top-level comma
+splitting, carve-out boundaries). Differ: reworded headings with stable anchors,
+moved sections, a `sed` that ate two substitutions across sections, a relabel.
+These are the cases where the package is either useful or a nuisance.
+
+Note that `testthat` covers the *functions*. The pipeline itself needs data
+contracts (§8); they are complementary, not alternatives.
+
+---
+
+## 13. What the package deliberately does not do
+
+- **Judge prose.** No layer verifies English against a number. Heuristics narrow a
+  human read and are labelled as such.
+- **Write alt text or captions.** It checks correspondence; generation is
+  judgement.
+- **Catch misattribution (C3).** A right value beside a right sentence about a
+  different quantity passes everything here. Stated in the docs so nobody assumes
+  otherwise.
+- **Hold a project's constants.** The dictionary schema ships; the values do not.
+- **Support rendering that bypasses `clag_render()`.** A document rendered by
+  bare `quarto render` shows literal `{{…}}` in its output — loud by design, and
+  caught by L2 besides. No hidden hook exists that could make bypass safe (§1),
+  so none is pretended.
+- **Install itself.** P10.
+
+---
+
+## 14. Open design questions
+
+### Resolved during scoping (2026-08)
+
+1. **Package name.** `clag` is now the name (repo renamed from `gluey`); a CRAN /
+   r-universe collision check is still to be run. `claim` and `dict` are clear as
+   function names — neither collides with an export of base, the tidyverse,
+   knitr, checkmate, targets or testthat.
+2. **`pointblank`, not `assertr`, for L12.** assertr's last release is 2023 with
+   no repo activity since early 2024; pointblank is actively maintained (Posit)
+   and its agent/interrogate model composes as a discrete `targets` step. No
+   abstraction over both — one backend.
+3. **One package, two layers — not two packages.** The core (parser, grammar,
+   runtime, claims, dict, formatters) and the harness (lints, gate, ledger,
+   Vale, contracts) stay in one package with a strict internal boundary, so a
+   later split is mechanical. Heavy harness deps (Vale binary, pointblank,
+   targets) are `Suggests`, not `Imports`.
+4. **Sentence segmentation for tier 2.** `stringi`'s ICU sentence breaker is the
+   only real engine in R (`tokenizers` wraps it); it handles decimals but not
+   citation keys or scientific abbreviations ("Fig.", "et al."). Ship a
+   protect-then-split guard layer around it: mask `@key` tokens and a shipped
+   abbreviation list, split, unmask.
+5. **Numeric-break alternations: syntax cut, functionality kept** (§0). The
+   whitespace-significant `/1 … 1/` syntax is gone; range-to-phrase mapping —
+   essential for recurring auto-generated reports — is carried by MAP-as-function
+   with the shipped `brk()` constructor, usable inline or predefined (and, when
+   predefined, dictionary-eligible). An inline guard-prefix sugar
+   (`{<1 a fall in/=1 steady/>1 a rise in{foo}}`) could be added later without
+   ambiguity if `brk()` proves too heavy in practice; not designed now.
+
+### Open
+
+1. **OBJ inference scope** (§0). Sentence-only (recommended) vs
+   sentence-then-paragraph (original draft). Static resolution and ledger
+   recording happen either way.
+2. **MAP vectorisation semantics.** `{MAP{- OBJ}}` implies MAP output can be a
+   vector feeding a list formatter; define when MAP maps elementwise over a
+   vector OBJ vs selecting a single element on `length(OBJ)`.
+3. **STYLE vocabulary and definition mechanism.** Which styles ship (em, strong,
+   code, plus what?), and how a project declares one (YAML config mapping style
+   name → span class seems right).
+4. **Computed captions.** Is `#| fig-cap: !expr clag("…")` the shipped idiom, or
+   does the compiler offer sugar for `{{…}}` inside cell-option strings? The
+   preprocessor currently treats cell options as a carve-out (§1).
+5. **Book-project render mechanics.** Single files render from a temp copy; a
+   Quarto book needs a shadow copy of the project (config, includes, bib) with
+   outputs copied back. Decide the copy boundary and cache behaviour before
+   implementing; also whether a project `pre-render` shim (project-scoped, the
+   only kind Quarto supports) is offered for people who insist on `quarto render`
+   directly.
+6. **Ledger format and location.** Committed per P8 under `generated/`; exact
+   schema (one file per chapter vs one book-wide file, and diff-friendliness)
+   undecided.

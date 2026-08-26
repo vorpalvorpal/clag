@@ -6,6 +6,12 @@
 [![Lifecycle: experimental](https://img.shields.io/badge/lifecycle-experimental-orange.svg)](https://lifecycle.r-lib.org/articles/stages.html#experimental)
 <!-- badges: end -->
 
+> [!NOTE]
+> **To be implemented.** `clag` is being redesigned from the ground up — unified
+> `{{...}}` syntax, inline validation checks, and a manuscript-integrity harness.
+> See [PACKAGE-SCOPING.md](PACKAGE-SCOPING.md) for the design. The syntax
+> documented below is the predecessor (`gluey`) behaviour and will be replaced.
+
 ## Overview
 
 `clag` is a package for generating markdown text using the familiar syntax of `glue` with enhanced templating features. Unlike `cli` which produces styled console output, `clag` outputs plain markdown text, making it ideal for document generation in R Markdown and Quarto documents.
