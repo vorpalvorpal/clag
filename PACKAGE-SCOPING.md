@@ -1,8 +1,6 @@
 # `clag` — package scoping
 
-**Date:** 2026-08-26
-**Grammar revised:** 2026-11-10 (§0 rewritten: governed spans, the chain, no
-MAP position, no inference)
+**Date:** 2026-11-10
 **Status:** scoping. Grammar and runtime architecture are at spec level; contested
 points are collected in §14. Integration facts below were verified against
 knitr 1.51, rmarkdown 2.31, Quarto 1.9 and Vale 3.18.
@@ -88,7 +86,7 @@ The arguments are read by position and name:
 | Argument | Meaning |
 |---|---|
 | first, unnamed | OBJ (or GOVERNOR): the value |
-| first, named without a dot | **reserved**: a compile-time error. Held for a possible binding form (`{{n = nrow(mod)}}`), deferred because a chunk assignment already does the job |
+| first, named without a dot | **reserved**: a compile-time error. Bind a name in a chunk, as usual |
 | later, unnamed | a **check** on the value, with `.` as its pronoun |
 | named with a leading dot | passed to the rendering engine (`.sep`, `.last`, `.width`, …) |
 
@@ -101,8 +99,9 @@ minimum it checks that the key exists in the bibliography.
 Dot-named args should be rare. Formatting is generally handled by a
 document-wide default set in YAML or by a chain name (below).
 
-An empty `{{}}` is a compile-time error. There is no inference of a missing
-value from elsewhere in the sentence; see "Scope" below for what replaces it.
+An empty `{{}}` is a compile-time error. A value is never inferred from
+elsewhere in the sentence; agreement is written with nested brackets ("Scope"
+below).
 
 ### The chain
 
@@ -135,10 +134,6 @@ render as pandoc tables, and ggplot objects render as saved figures.
 
 Formatters are implemented over `glue_vec()`, which is the exported engine for
 anything the grammar doesn't cover.
-
-The chain replaces two things in the predecessor: leading formatter tokens
-(`{{- x}}`, which whitespace alone told apart from unary minus) and the
-separate trailing STYLE slot.
 
 ### Governed spans
 
@@ -268,17 +263,15 @@ The rules for a bracket inside a governed span:
 
 Outside a governed span, a bare bracket has no clag meaning.
 
-This replaces the predecessor's sentence-scoped inference, in which a
-substitution with no OBJ searched the sentence for one. Lexical scope is
-resolved statically without a sentence segmenter, it cannot bind silently to
-the wrong value, and the binding moves with the text when an edit moves the
-span. Agreement at a distance is written by widening the bracket or by naming
+Lexical scope is resolved statically without a sentence segmenter, it cannot
+bind silently to the wrong value, and the binding moves with the text when an
+edit moves the span. Agreement at a distance is written by widening the bracket or by naming
 the governor again: `[was/were]{{n}}`.
 
 ### Lookups and range phrases are plain R
 
-The predecessor's MAP position is gone. A phrase chosen by key or by range is
-an ordinary function call inside the braces.
+A phrase chosen by key or by range needs no grammar of its own: it is an
+ordinary function call inside the braces.
 
 **Range-to-phrase.** The shipped constructor is `brk()`, whose flat form reads
 left to right:
@@ -668,12 +661,11 @@ trigger word, or the clause, and nest what is computed:
 [All {{nrow(mod)}} models rise]{{all(mod$rising)}}
 ```
 
-This narrows a hole the string form had: `claim("the 47 sites rose 12%",
-x > 0)` was one weak guard over four claims, and its numerals were invisible to
-L2. The hole that remains is a long bracket with one loose governor; an
-advisory listing governed spans whose text exceeds a token count catches the
-lazy case. A standalone `claim()` with a string first argument, in R code,
-keeps the old limit: its string is not linted.
+The hole that remains is a long bracket with one loose governor: one weak
+guard over several claims. An advisory listing governed spans whose text
+exceeds a token count catches the lazy case. A standalone `claim()` with a
+string first argument, in R code, has a wider hole: its string is not linted,
+so `claim("the 47 sites rose 12%", x > 0)` hides its numerals from L2.
 
 **The error message is the deliverable, not the assertion:**
 
@@ -1332,17 +1324,6 @@ contracts (§8); they are complementary, not alternatives.
 ## 14. Open design questions
 
 None at present.
-
-Settled since the last revision, and now written into the sections named:
-sentence inference dropped and MAP removed (§0); binding form deferred (§0);
-chain names and the shadowing rule (§0); vectorised lookups (§0); `dict$key`
-(§4); numeral definition (§5); ledger format (§7); caption sugar (§1); project
-render through pre-render (§1); reference-label warning (§5, L4); selection
-on the printed value (§0); constants in braces are tier 2 (§4, §5); error
-positions on the project route (§1); the Render-button addin and task (§1). Static
-exhaustiveness checking for lookups was considered and dropped: the levels of
-an arbitrary R value are not knowable without running R, and `lookup()`
-already errors on an unknown key at knit.
 
 ---
 
