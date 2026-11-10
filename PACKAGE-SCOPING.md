@@ -22,7 +22,7 @@ makes computed values nearly free to write in prose. The **integrity harness**
 survives contact with authors only when a substitution costs no more keystrokes
 than the numeral it replaces, and a checked substitution costs one comma more.
 They ship as one package with two strict internal layers — core and harness —
-so a split later is mechanical (see §14).
+so a split later is mechanical.
 
 `glue` remains the rendering backend for templates (`glue_vec()`'s `.item` /
 `.vec` machinery, interpolation inside compiled calls). The outer grammar is
@@ -61,8 +61,8 @@ Pandoc 3.8.3 reads it as plain text, nested brackets, checks and chain
 included, because `{{…}}` is not valid attribute syntax. The one exception is
 a bracket whose text matches a defined reference-link label (`[foo]: url`),
 which Pandoc reads as a link; clag's parser runs first and treats `]{{` as a
-governed span regardless. Quarto's own pre-processing is not yet checked
-(§14).
+governed span regardless. A bare `quarto render` (1.11.9) likewise passes
+every form through as literal text.
 
 ### Inside the braces: an R argument list
 
@@ -73,8 +73,13 @@ syntax.
 
 - **Commas, strings, backticks and nested calls** are split by R's parser, not
   by a hand-written tokeniser. `{{c(1, 2, 3)}}` is one argument.
-- **The closing `}}` is the first one at which the content parses.** Braces
-  inside the expression are therefore allowed: `{{if (x) {a} else {b}}}`.
+- **The closing brace is the first `}` at which the content parses** and which
+  is followed by an optional chain and a `}`. Braces inside the expression are
+  therefore allowed: `{{if (x) {a} else {b}}}`, as is a `}}` inside a string.
+  Tried in R 4.x on some twenty cases; two guards are needed beyond "it
+  parses". The result must be a single call to the wrapper (or `x)) + g(y`
+  closes the wrapper early and parses), and an empty argument (`{{x, }}`,
+  which R accepts) is rejected.
 - **`getParseData()` gives token positions**, so the L2 `NUM_CONST` check (§5)
   and error messages point at exact columns.
 
@@ -429,7 +434,7 @@ misses entirely.
 | Layer | What it checks | Runs at |
 |---|---|---|
 | L1 | structural AST diff — declared vs observed changes | commit gate |
-| L2 | claim-token coverage (static) and annotation semantics (knit) | gate + knit |
+| L2 | claim-token coverage (static) and literal checks (knit) | gate + knit |
 | L3 | `claim()` evaluation | knit |
 | L4 | cross-references and citations | gate |
 | L5 | value ledger | knit |
@@ -474,7 +479,7 @@ checks a real fact (does this key exist in the bib?) is worth several whose
 sub-lint checks a shape.
 
 **P5 — Keep category sets small.** Every category is a place to hide. This governs
-*categories*, not *triggers*: annotation types stay at two or three, while the
+*categories*, not *triggers*: the shipped literal checks stay at two or three, while the
 lexicon deciding which sentences need looking at should be as broad as possible.
 
 **P6 — Fast checks gate commits; slow checks gate tasks.** Anything needing a knit
@@ -584,30 +589,24 @@ without thought; too loose and it is inert.
 mechanically find claims with vacuous bounds. A problem for the version after the
 one that reveals whether it matters.
 
-### Annotations
+### Literals
 
-`{{10, cite(smith2020)}}`, `{{2020, is_year(.)}}`.
+A number that cannot be computed is written as a literal that carries a check
+saying why it is trusted: `{{10, cite(smith2020)}}`, `{{2020, is_year(.)}}`.
+These are ordinary checks, not a second mechanism. Two ship:
 
-**The `a_*` functions are pre-built claims**, not a second mechanism:
-`a_year(2020)` is `claim(2020, is_year(.))` under a shorter name.
-
-| Function | Meaning | Sub-lint |
+| Check | For | What it verifies |
 |---|---|---|
-| `a_ref(x, key)` | number quoted from a source | key resolves in the bib. The strongest category — a real external check, and it covers the "10% (Smith 2020)" case that has no pipeline provenance |
-| `a_date(x)` | year or date not held in the dictionary | 1–4 digits, plausible range |
+| `cite(key)` | a number quoted from a source | the key resolves in the bib. A real external check, and it covers the "10% (Smith 2020)" case that has no pipeline provenance |
+| `is_year(.)` | a year not held in the dictionary | 1–4 digits, plausible range |
 
-A number inside a proper name ("Site 12") belongs in the
-dictionary, read from it, so renaming propagates rather than being certified as
-correctly typed.
-
-**The test for adding a category: ask why the number cannot be computed.** Most
-candidates fail — a project constant goes in the dictionary; a count of things in
-the document gets counted; an ordinal gets computed. Documents extend by defining
-their own function, which is why the extension mechanism is R itself.
-
-**Comment**: really I think this section can be deleted. All we need is the `is_year()`
-check function (and possibly a couple of others). The ref checking is moved into `claim`
-itself.
+**Before writing a literal, ask why the number cannot be computed.** Most
+candidates fail the test — a project constant goes in the dictionary; a count
+of things in the document gets counted; an ordinal gets computed. A number
+inside a proper name ("Site 12") belongs in the dictionary, read from it, so
+renaming propagates rather than being certified as correctly typed. Documents
+extend the set by defining their own check function, which is why the
+extension mechanism is R itself.
 
 ### Dictionary
 
@@ -707,7 +706,7 @@ carve-out list.
 
 - **Numerals — tier 1.** A numeral in prose almost always encodes a data claim, so
   the rule is absolute. Every numeral is a substitution, a `dict()` read, or
-  inside a check / `a_*` annotation. This also catches B2 mechanically: a
+  a literal carrying a check (§4). This also catches B2 mechanically: a
   substitution reverted to its literal value *is* a bare numeral.
 - **Quantifiers, extrema, direction words — tier 2.** "all", "none", "every",
   "only", "largest", "first", "rose", "more", "majority". These carry a data claim
@@ -734,13 +733,15 @@ tier 2 — 3 added sentences read as claims with no guard:
     "All four rise, and every one of them is steeper than the third."
 ```
 
-**Static checking** (gate, no knit): parse each substitution; assert every
-`NUM_CONST` in its expression sits inside a check, an `a_*` shorthand, or
-`dict()`. This is a *coverage* check — it catches an annotation stripped by a
-transform, which would otherwise degrade silently.
+**Static checking** (gate, no knit): parse each substitution; assert that any
+`NUM_CONST` in its value expression belongs to a substitution carrying at
+least one check. Constants inside the checks themselves are exempt. This is a
+*coverage* check — it catches a check stripped by a transform, which would
+otherwise degrade silently. How strictly it treats a constant buried in a
+computation (`x[1]`, `x * 100`) is open (§14).
 
-**Semantic checking** (knit): `a_ref()` resolves its key; `a_date()` range-checks.
-Fatal via the render wrapper's `error = FALSE`.
+**Semantic checking** (knit): `cite()` resolves its key; `is_year()`
+range-checks. Fatal via the render wrapper's `error = FALSE`.
 
 **Carve-outs, decidable by AST position** — which is what makes "scan and say with
 confidence" achievable: the parser's carve-out list (§1). The same list bounds
@@ -1028,7 +1029,7 @@ say that is the assumption most likely to have already failed.
 Unit tests check functions against fixed inputs. Data contracts check *actual*
 data at pipeline boundaries, which is the only place a corrupt cache or a join
 that silently dropped 40% of rows becomes visible. The backend is **pointblank**
-(resolved — see §14): the package wraps it and supplies the assertion set:
+(resolved): the package wraps it and supplies the assertion set:
 
 - **row-count deltas across joins** — the single most common place rows vanish
   without warning. Assert the expected relationship, not an absolute count
@@ -1072,7 +1073,7 @@ never be handed a line number in a file it does not edit.**
 
 **Two tiers, do not fight this:** published prose (terminology, spelling,
 readability, captions) goes to Vale on the `.md`; source structure (anchors,
-annotation coverage, chunk labels) goes to the R lints on the source, where that
+check coverage, chunk labels) goes to the R lints on the source, where that
 information exists and Vale cannot see it.
 
 **`BlockIgnores` for `::: {.callout-…}` divs is still needed** — divs are Pandoc
@@ -1151,7 +1152,7 @@ because a silently disabled check is worse than an absent one.
 ## 12. Tests
 
 `testthat`, seeded by the parser and compiler (the component everything else
-consumes), then `claim()`, `dict()`, `dict_local()` and the `a_*` shorthands —
+consumes), then `claim()`, `dict()`, `dict_local()`, `cite()` and `is_year()` —
 the functions with the sharpest contracts. Then the lints, each against a
 fixture pair (a source that should pass, one that should fail).
 
@@ -1217,10 +1218,18 @@ contracts (§8); they are complementary, not alternatives.
    text and the number as printed, so that 1.2 at zero decimals takes the
    singular arm and "1.0" the plural. Define that return contract, and what
    `.word` and `.no` report.
-9. **`[text]{{…}}` against Quarto.** Verified against Pandoc 3.8.3 (§0): plain
-   text, except where the bracket matches a reference-link label. Still to
-   check: Quarto's own pre-processing, and whether a governed span whose text
-   collides with a reference label should be a lint warning.
+9. **Reference-label collisions.** `[text]{{…}}` is verified as plain text in
+   Pandoc 3.8.3 and Quarto 1.11.9 (§0), except where the bracket matches a
+   reference-link label. Should a governed span whose text collides with a
+   label be a lint warning?
+12. **Constants inside a value expression.** L2-static (§5) flags a `NUM_CONST`
+    in a substitution with no check. Is that tier 1 for every constant, or
+    only when the value *is* a literal (`{{10}}`), with constants buried in a
+    computation (`x[1]`, `x * 100`, `round(x, 2)`) advisory?
+13. **Pre-render as a route for book projects.** Tried on Quarto 1.11.9: a
+    project `pre-render` script can write a new `.qmd` that is rendered in the
+    same run, and can overwrite an existing input before it is read. Neither
+    was known when §1 was written; it bears on question 5.
 10. **Static exhaustiveness for lookups.** Where a `lookup()` is applied to a
     value whose levels the dictionary declares (`type: labels`), L10 could
     check that every level has a key without running R. Worth having?
