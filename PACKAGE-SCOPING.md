@@ -204,6 +204,24 @@ singular arm; a value printed as "1.0" takes the plural, as English does.
 `.no` composes with this: `[# file/# files]{{n}.no}` gives "no files",
 "1 file", "12 files".
 
+The mechanics: a formatter returns two things, the **text** and the **number
+as printed** (with a flag for whether decimals are shown). The result is
+computed once and read twice. Its number picks the arm; its text fills `#`.
+For `[# metre/# metres]{{depth, . > 0.5}.num}` with `depth` 1.2 and `.num` at
+zero decimals:
+
+1. `depth` evaluates to 1.2
+2. the check `. > 0.5` runs on 1.2
+3. `.num` returns the text "1" and the printed number 1, no decimals
+4. the printed number is 1 with no decimals, so the first arm is chosen
+5. `#` is replaced by the text "1", giving "1 metre"
+
+The singular arm is chosen only when the printed number is 1 and no decimals
+are shown; the zero arm only when it is 0. In a chain, each formatter receives
+the previous result. One that rounds (`.num`, `.pct`) sets the number; one that
+only rewords (`.word`, `.no`) passes the number through and changes the text.
+A vector governor's count is its length, which no formatter changes.
+
 **The bracket is prose.** It can contain markdown and nested substitutions:
 
 ```
@@ -642,8 +660,15 @@ one that reveals whether it matters.
 
 ### Literals
 
-A number that cannot be computed is written as a literal that carries a check
-saying why it is trusted: `{{10, cite(smith2020)}}`, `{{2020, is_year(.)}}`.
+A number that cannot be computed is written as a literal, and should carry a
+check saying why it is trusted: `{{10, cite(smith2020)}}`,
+`{{2020, is_year(.)}}`. A bare `{{10}}` is allowed. It is the deliberate escape
+hatch: nobody types the braces by accident, and a rule demanding a check would
+be met with `{{10, TRUE}}`, which is worse because it looks checked. What a
+bare literal cannot do is hide: it is reported when added and counted
+book-wide (§5), and a computed value replaced by a literal is reported at the
+commit (§6).
+
 These are ordinary checks, not a second mechanism. Two ship:
 
 | Check | For | What it verifies |
@@ -738,7 +763,7 @@ true by construction rather than lintable.
 printing driven by the dictionary's `unit:` — all exposed as chain names in
 the grammar (`{{n_gap}.sci}`, `{{nrow(mod)}.num}`, `{{n}.word}`; §0) and as
 ordinary functions. Each formatter returns the text and the number as printed,
-because arm selection in a governed span reads the printed value (§0, §14).
+because arm selection in a governed span reads the printed value (§0).
 Implemented over `glue_vec()`, which named ARGS pass through to. The lint that
 pairs with them: no raw `round()` output reaching prose.
 
@@ -756,8 +781,9 @@ carve-out list.
 **No bare claim tokens in prose.** Two kinds, two tiers:
 
 - **Numerals — tier 1.** A numeral in prose almost always encodes a data claim, so
-  the rule is absolute. Every numeral is a substitution, a `dict$` read, or
-  a literal carrying a check (§4). This also catches B2 mechanically: a
+  the rule is absolute: every numeral in prose sits inside a substitution.
+  The rule stops at the braces; what is typed inside them is tier 2 (below).
+  This also catches B2 mechanically: a
   substitution reverted to its literal value *is* a bare numeral.
 
   A **numeral** is a standalone numeric token: digits, with an optional sign,
@@ -789,12 +815,20 @@ tier 2 — 3 added sentences read as claims with no guard:
     "All four rise, and every one of them is steeper than the third."
 ```
 
-**Static checking** (gate, no knit): parse each substitution; assert that any
-`NUM_CONST` in its value expression belongs to a substitution carrying at
-least one check. Constants inside the checks themselves are exempt. This is a
-*coverage* check — it catches a check stripped by a transform, which would
-otherwise degrade silently. How strictly it treats a constant buried in a
-computation (`x[1]`, `x * 100`) is open (§14).
+**Static checking** (gate, no knit): parse each substitution and report every
+`NUM_CONST` in a value expression that carries no check. Constants inside the
+checks themselves are exempt. All of it is **tier 2**: it prints for newly
+added material and never blocks.
+
+- **An unchecked literal** (`{{10}}`) is listed with the suggestion to say why
+  it is trusted: `cite()`, `is_year()`, or the dictionary.
+- **A constant buried in a computation** (`x * 100`, `sites[1]`) is listed
+  separately and more quietly; most are benign.
+
+`status()` and `verify()` print the book-wide count of unchecked literals — a
+visible cost rather than a gate, as with shadowed dictionary keys (§4). The
+coverage half of this check — a check stripped from a substitution by a
+transform — is caught at the commit by the loosening report (§6).
 
 **Semantic checking** (knit): `cite()` resolves its key; `is_year()`
 range-checks. Fatal via the render wrapper's `error = FALSE`.
@@ -983,6 +1017,12 @@ from the two ASTs, not self-reported. A legitimate loosening survives the
 question; a reflexive one does not. This also gives a failing claim a defined
 exit, without which the discipline decays. Because inline checks compile to
 `claim()` (§0), one report covers both spellings.
+
+The same report lists two neighbouring changes, found the same way: a check
+**removed** from a substitution that still exists, and a **computed value
+replaced by a literal** (`{{pcf(x)}}` becoming `{{12}}`). The second is B2
+wearing braces. A literal is legal (§4); swapping one in for a computation is
+the event worth a line in the commit report.
 
 ---
 
@@ -1256,21 +1296,13 @@ contracts (§8); they are complementary, not alternatives.
 
 ## 14. Open design questions
 
-1. **Selection on the printed value.** A formatter must hand back both the
-   text and the number as printed, so that 1.2 at zero decimals takes the
-   singular arm and "1.0" the plural. Define that return contract, and what
-   `.word` and `.no` report.
-2. **Constants inside a value expression.** L2-static (§5) flags a `NUM_CONST`
-   in a substitution with no check. Is that tier 1 for every constant, or
-   only when the value *is* a literal (`{{10}}`), with constants buried in a
-   computation (`x[1]`, `x * 100`, `round(x, 2)`) advisory?
-3. **Source positions on the project route.** An error raised while Quarto
+1. **Source positions on the project route.** An error raised while Quarto
    renders a compiled file names a line in that file, not in `_src/`. The
    compiled calls already carry their source position (§1); chunk errors need
    a line map as well. Decide whether the injected setup chunk goes at the end
    of the YAML block (shifting every line by a fixed amount) or whether a map
    file is written.
-4. **The project route on Windows and under RStudio/Positron.** Tested on
+2. **The project route on Windows and under RStudio/Positron.** Tested on
    macOS from the command line only. Untested: the editor's Render button on a
    file in `_src/` (expected to show literal braces), and the pre-render
    script under Windows.
@@ -1279,7 +1311,8 @@ Settled since the last revision, and now written into the sections named:
 sentence inference dropped and MAP removed (§0); binding form deferred (§0);
 chain names and the shadowing rule (§0); vectorised lookups (§0); `dict$key`
 (§4); numeral definition (§5); ledger format (§7); caption sugar (§1); project
-render through pre-render (§1); reference-label warning (§5, L4). Static
+render through pre-render (§1); reference-label warning (§5, L4); selection
+on the printed value (§0); constants in braces are tier 2 (§4, §5). Static
 exhaustiveness checking for lookups was considered and dropped: the levels of
 an arbitrary R value are not knowable without running R, and `lookup()`
 already errors on an unknown key at knit.
