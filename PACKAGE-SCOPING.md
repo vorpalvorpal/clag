@@ -1,13 +1,15 @@
 # `clag` — package scoping
 
 **Date:** 2026-08-26
+**Grammar revised:** 2026-11-10 (§0 rewritten: governed spans, the chain, no
+MAP position, no inference)
 **Status:** scoping. Grammar and runtime architecture are at spec level; contested
 points are collected in §14. Integration facts below were verified against
 knitr 1.51, rmarkdown 2.31, Quarto 1.9 and Vale 3.18.
 
 `clag` is the successor to `gluey`: a markdown templating engine (glue-style
 substitutions compiled into knitr inline expressions) extended with deterministic
-checks for computational manuscripts. The predecessor has no users and no
+checks for computational manuscripts. `clag` has no users and no
 backwards-compatibility obligations; everything here is a clean design. Portable
 by design: the package knows about Quarto, knitr, `targets` and git, and nothing
 about any particular book.
@@ -23,9 +25,9 @@ They ship as one package with two strict internal layers — core and harness �
 so a split later is mechanical (see §14).
 
 `glue` remains the rendering backend for templates (`glue_vec()`'s `.item` /
-`.vec` machinery, interpolation inside compiled calls). The outer `{{…}}` grammar
-is parsed by clag itself: glue assigns `{{` its own meaning (an escaped literal
-brace), and its parser has no place to carry the MAP and STYLE positions.
+`.vec` machinery, interpolation inside compiled calls). The outer grammar is
+parsed by clag itself: glue assigns `{{` its own meaning (an escaped literal
+brace), and its parser has no place to carry governed brackets or the chain.
 
 Companion document: `~/projects/10.02 Healthy Waterways/MANUSCRIPT-INTEGRITY-PLAN.md`
 covers applying this to the Healthy Waterways manuscript — the dictionary's
@@ -35,176 +37,260 @@ contents, the audit corpus, and the migration order.
 
 ## 0. The substitution grammar
 
-One syntax everywhere: `{{…}}`, in documents and inside `clag()` templates in R
-code alike. Single braces are literal, so Pandoc attribute syntax (`{#sec-foo
-.class}`) passes through untouched, and Quarto's own double-brace constructs do
-not collide — shortcodes require `{{<`, and verbatim cells (` ```{{r}} `) apply
-only to fence info strings, never prose (confirmed against the Pandoc manual and
-Quarto docs: plain `{{foo}}` in prose has no assigned meaning and survives to
-output untouched).
-
-The doubled brace is not just a delimiter — the gap between the braces is
-syntactic real estate. The full form is:
+Two constructs, in documents and inside `clag()` templates in R code alike:
 
 ```
-{MAP{FORMATTER OBJ, ARGS}STYLE}
+{{OBJ, ARGS}.CHAIN}                  a value
+[PROSE]{{GOVERNOR, ARGS}.CHAIN}      words governed by a value
 ```
 
-Every part except the inner braces is optional; `{{OBJ}}` is the degenerate
-case. MAP and STYLE tokens must be brace-free (an expression containing braces
-goes in backticks), which keeps the grammar regular: the parser never needs
-lookahead past matching-brace counting, and error messages can point at a
-position rather than a guess.
+One rule divides them: **braces hold R; brackets hold prose.** A value
+substitution shows the result of an R expression. A governed span shows
+ordinary prose whose wording, or whose right to be there at all, depends on an
+R value. Prose never sits inside an R string, so it stays visible to the lints,
+to spellcheck and to the reader of the source.
 
-### MAP
+Every construct opens with `{{` or closes a bracket with `]{{`. Single braces
+are literal, so Pandoc attribute syntax (`{#sec-foo .class}`) and raw LaTeX
+(`\emph{a \textbf{b}}`) pass through untouched. Quarto's own double-brace
+constructs do not collide: shortcodes require `{{<`, and verbatim cells
+(` ```{{r}} `) apply only to fence info strings, never prose (confirmed against
+the Pandoc manual and Quarto docs: plain `{{foo}}` in prose has no assigned
+meaning and survives to output untouched). `[text]{{…}}` should be equally
+free, because `{{…}}` is not valid Pandoc attribute syntax; this one is still
+to be verified against Pandoc (§14).
 
-An extension of `cli`-style pluralisation: MAP maps the value of OBJ to a
-rendered phrase. MAP can be an existing R object, an expression producing a
-vector **or a function**, or an in-place alternation defined with `/`.
+### Inside the braces: an R argument list
 
-**Named maps:**
+The content of `{{…}}` is parsed by R itself, as the argument list of a call:
+the compiler wraps it as `f(<content>)` and hands it to
+`parse(keep.source = TRUE)`. Nothing inside the braces is clag-specific
+syntax.
 
-```r
-tier_levels <- c(mod = "Moderate", sev = "Severe")
-tier <- "sev"
+- **Commas, strings, backticks and nested calls** are split by R's parser, not
+  by a hand-written tokeniser. `{{c(1, 2, 3)}}` is one argument.
+- **The closing `}}` is the first one at which the content parses.** Braces
+  inside the expression are therefore allowed: `{{if (x) {a} else {b}}}`.
+- **`getParseData()` gives token positions**, so the L2 `NUM_CONST` check (§5)
+  and error messages point at exact columns.
+
+The arguments are read by position and name:
+
+| Argument | Meaning |
+|---|---|
+| first, unnamed | OBJ (or GOVERNOR): the value |
+| first, named without a dot | a **binding**: `{{n = nrow(mod)}}` shows the value and binds `n` for later use (proposed, see §14) |
+| later, unnamed | a **check** on the value, with `.` as its pronoun |
+| named with a leading dot | passed to the rendering engine (`.sep`, `.last`, `.width`, …) |
+
+**Unnamed args are validation checks.** `{{n_gap, . > 10}}` compiles to
+`claim(n_gap, . > 10)` — checks in the grammar *are* claims, one
+implementation, one loosening-report target (§4). `cite(key)` is the check
+that the value comes from a listed reference: `{{10, cite(smith2020)}}`. At a
+minimum it checks that the key exists in the bibliography.
+
+Dot-named args should be rare. Formatting is generally handled by a
+document-wide default set in YAML or by a chain name (below).
+
+An empty `{{}}` is a compile-time error. There is no inference of a missing
+value from elsewhere in the sentence; see "Scope" below for what replaces it.
+
+### The chain
+
+After the closing inner brace comes an optional chain of dot-names:
+`{{x}.num}`, `{{sites}.ul}`, `{{n}.no.word}`, `{{p}.pct.strong}`. Each name is
+a legal R name starting with `.`, and each resolves, statically, to one of two
+kinds. An unknown name is a compile-time error.
+
+- **Formatters** change how the value prints. They apply left to right.
+  - numbers: `.num`, `.pct`, `.sci`, unit-aware printing from the dictionary
+  - `.word` spells a numeral ("three"); `.ord` gives an ordinal ("3rd")
+  - `.no` prints zero as "no" (cli's `no()`)
+  - markdown structures: `.ul` (bullet list), `.ol` (ordered list), `.dl`
+    (definition list), `.yaml` (YAML block), `.todo` (task list), `.or`
+    (collapse with a final "or")
+- **Styles** wrap the finished output in a Pandoc span (`[text]{.style}`) that
+  the project styles per format via CSS or LaTeX.
+
+A project can define a chain name in YAML that bundles formatter options
+(significant figures, units) with or without a span class.
+
+With no formatter, vectors collapse `cli`-style ("a, b, and c"), data frames
+render as pandoc tables, and ggplot objects render as saved figures.
+
+Formatters are implemented over `glue_vec()`, which is the exported engine for
+anything the grammar doesn't cover.
+
+The chain replaces two things in the predecessor: leading formatter tokens
+(`{{- x}}`, which whitespace alone told apart from unary minus) and the
+separate trailing STYLE slot.
+
+### Governed spans
+
+```
+[PROSE]{{GOVERNOR, ARGS}.CHAIN}
 ```
 
-`"The site is rated {tier_levels{tier}}"` renders `"The site is rated Severe"`.
+The bracket holds one or more **arms** separated by `/`. The governor's value
+chooses the arm. The bracket and the braces must be adjacent: a space between
+`]` and `{{` breaks the binding and leaves both as they are.
 
-**In-place alternations** (counted forms, as in `cli`):
+**The governor is a count or a logical.**
+
+| Governor | Arms | Chosen when |
+|---|---|---|
+| count | `[a]` | always (a template, see "Scope") |
+| | `[a/b]` | n == 1 / otherwise |
+| | `[a/b/c]` | n == 0 / n == 1 / n >= 2 |
+| | `[a/b/c/d]` | 0 / 1 / 2 / 3+, extending leftward one exact count at a time |
+| logical | `[a/b]` | TRUE / FALSE |
+| | `[a]` | TRUE; FALSE is a claim failure |
+
+A logical governor with three or more arms is an error. So is a governor that
+is `NA`, or that is neither a count nor a logical.
+
+How a governor becomes a count:
+
+- a single number is the count
+- a single logical is a logical, not a count
+- anything else (a vector, a list, a data frame's rows via `nrow()`) counts as
+  its length
+
+A numeric vector that happens to have one element is read as that number, not
+as "one thing". Where that can happen, write `length(x)`.
+
+The count ladder is cli's, with one difference at the bottom. cli's single-arm
+`{?s}` means "plural only"; here a single arm is a template, so the suffix
+form is written with its empty first arm: `file[/s]{{n}}`.
+
+**Examples:**
 
 ```
-{/es{}}                        ""        if n == 1,  "es"    otherwise
-{person/people{}}              "person"  if n == 1,  "people" otherwise
-{no people/a person/some people{n}}
-                               n == 0 / n == 1 / n >= 2
-0/1/2/3+                       extends leftward one exact count at a time
+[a person/# people]{{n}} responded.
+[no people/a person/# people]{{n}} responded.
+Invertebrate numbers [rose/fell]{{slope > 0}}.
+[All]{{all(mod$rising)}} {{nrow(mod)}} models rise.
+Council will need to [add more sampling sites]{{n_gap > 10}}.
 ```
 
-Items are `str_trim`med, so alternations can be spaced for readability.
+**`#` stands for the governor's value**, printed exactly as
+`{{GOVERNOR}.CHAIN}` would print it (taken from ICU MessageFormat). The number
+and its noun become one unit: `[# site/# sites]{{n}}`. With a vector governor,
+`#` is the collapsed vector: `[# was/# were]{{sites}}` gives "Blaxland and
+Katoomba were".
 
-If MAP contains a `/` it is read as an in-place alternation. To use an
-expression containing `/`, wrap it in backticks: `` {`9/3`{foo}} ``.
+**Selection sees the value as it prints.** Formatters run before the arm is
+chosen. A depth of 1.2 printed to zero decimals shows "1" and takes the
+singular arm; a value printed as "1.0" takes the plural, as English does.
+`.no` composes with this: `[# file/# files]{{n}.no}` gives "no files",
+"1 file", "12 files".
 
-**Range-to-phrase maps.** The earlier draft allowed arbitrary breakpoints
-inside an alternation — `{a fall in /1 steady 1/ a rise in{foo}}` — with
-whitespace adjacent to the digit deciding whether it is a break or prose. The
-*syntax* is cut: whitespace-significant parsing inside prose that is full of
-slashes and numbers ("either/or", "1/2", dates) is a silent misparse waiting to
-happen, and the backtick escape requires the author to predict the misparse to
-use it — against the spirit of P1.
+**The bracket is prose.** It can contain markdown and nested substitutions:
 
-The *functionality* is load-bearing — a value-to-direction phrase is exactly
-what an auto-generated daily report says over and over — and it is preserved by
-generalising MAP: **when MAP evaluates to a function, the output is `MAP(n)`**
-rather than `MAP[[n]]`. The shipped constructor is `brk()`, whose flat form
-reads left-to-right exactly like the slash syntax did, with commas where the
-slashes were:
+```
+[All {{nrow(mod)}} models rise]{{all(mod$rising)}}
+```
+
+Every lint that applies to prose applies inside the bracket. In particular a
+numeral inside a governed span must itself be a substitution (L2, §5).
+
+**Checks work as in a value substitution.** Later unnamed args are claims on
+the governor: `[a person/# people]{{n, . < 500}}`. A single-arm span with a
+logical governor is itself the claim, and it is the idiom for guarding a
+phrase whose truth depends on a value the sentence never displays (§4).
+
+**Only the chosen arm is evaluated**, so a nested substitution in an arm that
+is not chosen neither renders nor runs its checks.
+
+**Escapes and carve-outs:**
+
+- `\/`, `\#`, `\[` and `\]` are the literal characters inside a governed
+  bracket
+- a bracket that opens with `@` or `^` (a citation or a footnote) is never a
+  governed span
+- arms are `str_trim`med, so alternations can be spaced for readability
+
+### Scope: nested brackets inherit the governor
+
+A bare bracket inside a governed span, with no `{{…}}` of its own, takes the
+governor of the span that encloses it:
+
+```
+[# sample[/s] [was/were] taken]{{n}}
+```
+
+renders "1 sample was taken" or "12 samples were taken". The outer bracket has
+one arm, so it is a template; its job is to mark how far the governor reaches.
+
+The rules for a bracket inside a governed span:
+
+- followed by `{{…}}`: it has its own governor
+- followed by `(…)`: it is a markdown link
+- neither, and containing an unescaped `/`: it inherits the enclosing governor
+- otherwise: literal text
+
+Outside a governed span, a bare bracket has no clag meaning.
+
+This replaces the predecessor's sentence-scoped inference, in which a
+substitution with no OBJ searched the sentence for one. Lexical scope is
+resolved statically without a sentence segmenter, it cannot bind silently to
+the wrong value, and the binding moves with the text when an edit moves the
+span. Agreement at a distance is written by widening the bracket or by naming
+the governor again: `[was/were]{{n}}`.
+
+### Lookups and range phrases are plain R
+
+The predecessor's MAP position is gone. A phrase chosen by key or by range is
+an ordinary function call inside the braces.
+
+**Range-to-phrase.** The shipped constructor is `brk()`, whose flat form reads
+left to right:
 
 ```r
 trend <- brk("a fall in", 1, "steady", 1, "a rise in")
 ```
 
 ```
-There was {trend{foo}} invertebrate numbers.
+There was {{trend(foo)}} invertebrate numbers.
 ```
 
 Labels alternate with break values; each label covers `[lo, hi)`, and a break
 repeated twice makes the label between the repeats match exactly that value
 (so the example reads: `< 1`, `== 1`, `> 1`). For anything the flat form can't
 say, `brk()` also takes formulas (`brk(. < 1 ~ "a fall in", . == 1 ~ "steady",
-. > 1 ~ "a rise in")`), and since *any* function works in MAP position, one-off
-inline use needs no new syntax at all:
+. > 1 ~ "a rise in")`).
 
+**Keyed lookup.** `lookup()` builds the same kind of function from a named
+vector:
+
+```r
+tier_lab <- lookup(mod = "Moderate", sev = "Severe")
 ```
-There was {brk("a fall in", 1, "steady", 1, "a rise in"){foo}} invertebrate numbers.
-```
 
-(No backticks needed — the expression contains no `/`.)
+`"The site is rated {{tier_lab(tier)}}"` renders `"The site is rated Severe"`.
+A lookup takes a string or a factor (by its label, never its integer code) and
+errors on a key it does not hold. Plain `tier_levels[[tier]]` is legal R but
+indexes a factor by its code, silently; `lookup()` exists to close that hole.
 
-A named map like `trend` is a **stipulation**: someone chose where "steady"
-ends and "a rise" begins. That makes it dictionary material (§4) — defined
-once, decision-logged, and reused by every report that renders the phrase —
-which is exactly where a recurring report's phrase thresholds belong.
+A named `brk()` or `lookup()` is a **stipulation**: someone chose where
+"steady" ends and "a rise" begins. That makes it dictionary material (§4) —
+defined once, decision-logged, and reused by every report that renders the
+phrase — which is exactly where a recurring report's phrase thresholds belong.
 
-**OBJ inference.** If OBJ is not specified, clag searches for an OBJ among the
-other substitutions in the current **sentence**. Exactly one candidate: it is
-used. Zero or several: a compile-time error naming the candidates.
-
-The earlier draft widened the search to the enclosing paragraph. Recommendation
-(contested, see §14): don't. Paragraph scope is action at a distance of exactly
-the kind §4's `dict_local` rule exists to kill — move a sentence between
-paragraphs and a bare `{/es{}}` silently rebinds to a different quantity, with
-nothing visible in the diff. Sentence scope keeps the binding inside the unit an
-edit moves as a whole. Either way, inference is resolved **statically by the
-compiler**, and the resolved binding is embedded in the compiled call and
-recorded in the ledger — a rebind is observable even if the wider scope wins.
-
-**OBJ interpretation:**
-
-- If OBJ is a single integer-ish number: `n <- OBJ`.
-- If MAP is named and OBJ is a string: `n <- OBJ` (key lookup).
-- If MAP is named and OBJ is a single factor: `n <- as.character(OBJ)`.
-- If OBJ is a vector or list: `n <- length(OBJ)`.
-
-Output is `MAP[[n]]` when MAP is a vector, `MAP(n)` when MAP is a function.
-Because the function receives the interpreted `n`, not raw OBJ,
-pluralisation-by-length works identically for both MAP kinds.
-
-### FORMATTER
-
-A leading token (single- or multi-character) naming a rendering treatment of
-the value. The `?` pluralisation formatter is gone — MAP subsumes it, along
-with `qty()` and `no()` from the predecessor package. The formatter set:
-
-- markdown structures: `-` (bullet list), `1` (ordered list), `=` (definition
-  list), `:` (YAML block), `[` (task list) — carried over from the predecessor
-- number formatting: `pcf`-style significant-figure formatters, `n_word` for
-  spelled numerals, unit-aware printing driven by the dictionary's `unit:` field
-- default (no formatter): vectors collapse `cli`-style ("a, b, and c"), data
-  frames render as pandoc tables, ggplot objects render as saved figures
-
-Formatters are implemented over `glue_vec()`, which is the exported engine for
-anything the grammar doesn't cover.
-
-### OBJ
-
-Any R object or expression. Can be inferred from surrounding substitutions
-(above). Since the compiler, not glue, splits the substitution, an OBJ
-containing commas (`c(1, 2, 3)`, function calls) is handled by paren- and
-bracket-aware tokenising, not naive splitting.
-
-### ARGS
-
-Separated from OBJ by a top-level comma.
-
-- **Unnamed args are validation checks.** `{{pcf n_gap, . > 10}}` compiles to
-  `claim(pcf(n_gap), . > 10)` — checks in the grammar *are* claims, one
-  implementation, one loosening-report target (§4).
-- **Named args** pass through to the rendering engine (`glue_vec()`:
-  `.sep`, `.last`, `.width`, …).
-
-### STYLE
-
-A trailing token naming a style. Styles compile to what the output medium can
-carry — this is markdown, not a terminal, so `cli`/`crayon` ANSI semantics do
-not transfer. `em`, `strong` and `code` compile to native markdown; everything
-else compiles to a Pandoc span (`[text]{.style}`) that the project styles
-per-format via CSS or LaTeX. Projects define styles in the document or config;
-crayon is not supported at all (ANSI-only, and superseded even for terminals).
+**Guarding the value behind a phrase.** Checks in `{{trend(foo), …}}` see the
+phrase, not `foo`. Because `claim()` returns its first argument (§4), the
+value is guarded in place: `{{trend(claim(foo, . > 0))}}`.
 
 ### Order of operations
 
 ```
-OBJ  >  CHECKS  >  MAP  >  FORMATTER  >  STYLE
+OBJ or GOVERNOR  >  CHECKS  >  FORMATTERS  >  ARM and #  >  STYLES
 ```
 
-Checks guard the **value** — OBJ after evaluation, before MAP. So
-`{MAP{- OBJ, CHECK}STYLE}` checks OBJ, builds a markdown list from MAP's
-output, and applies STYLE to the whole list. (This implies MAP output can be a
-vector when OBJ selects more than one element — the vectorisation rule needs
-pinning down, see §14.) Guarding a *phrase* rather than a value is the
-standalone `claim()` call's job (§4).
+Checks guard the **value** as evaluated, before any formatter touches it.
+Formatters then fix how it prints. For a governed span the arm is chosen from
+the printed value and `#` is filled in. Styles wrap whatever comes out: the
+formatted value, or the chosen arm.
 
 ---
 
@@ -225,13 +311,12 @@ verified against source or maintainer statements (2026-08).
   run on the Pandoc AST *after* knitr has executed (maintainer-confirmed,
   quarto-cli discussion #7357); project pre-render scripts are project-only
   (issue #13032, open) and cannot redirect a single input to a transformed
-  copy; `{{< var >}}` / `{{< meta >}}` are static. This confirms and supersedes
-  the conclusions in QUARTO-INTEGRATION.md.
+  copy; `{{< var >}}` / `{{< meta >}}` are static. 
 - **knitr's custom patterns cannot host the grammar.** A package can register a
   custom `inline.code` pattern before `knit()` starts, and knitr will evaluate
   matches per-expression in document order — but the matched text must parse as
   valid R (`parse_inline` → `parse_only`, no transform hook in between), and
-  capture groups can only reproduce substrings of the source. `{{pcf foo,
+  capture groups can only reproduce substrings of the source. `{{foo,
   . > 10}}` is not R and never reaches evaluation. The route would also hang
   document correctness off `.Rprofile` state under Quarto (plausible but
   unverified). Rejected.
@@ -262,13 +347,17 @@ rewrite and the lints must not flag — is defined once, in the parser: fenced
 blocks, non-`r` inline spans, YAML, math spans, link targets and URLs, citation
 keys, footnote markers, `{#…}` attribute blocks.
 
-**One compiled call per substitution.** Each `{{…}}` compiles to its own inline
-expression — `` `r clag::subst(<id>)` `` — with the substitution's source file,
-position, expression text, resolved OBJ binding, and checks embedded at compile
-time. Never whole-line wrapping (the predecessor's approach), which destroyed
-per-value ledger granularity, broke on mixed quotes, and could not carry
-sentence-scoped inference. Because `subst()` knows its own identity, the value
-ledger (§7) is emitted by the runtime itself, with exact provenance.
+A governed span can cross inline nodes (`[*All* models]{{…}}` is text, emphasis,
+text), so the substitution scanner runs over source spans under the carve-out
+mask, not over individual text nodes.
+
+**One compiled call per substitution.** Each `{{…}}` and each governed span
+compiles to its own inline expression — `` `r clag::subst(<id>)` `` — with the
+source file, position, expression text, checks, and (for a governed span) the
+arms and the resolved governor of any nested bracket embedded at compile time.
+Substitutions nested inside an arm keep their own ids. Because `subst()` knows
+its own identity, the value ledger (§7) is emitted by the runtime itself, with
+exact provenance.
 
 **Where R evaluates outside prose** (so the preprocessor's boundaries are
 principled): chunk options are evaluated in `knit_global()` before the chunk
@@ -419,24 +508,30 @@ Two spellings, one mechanism. The common case is the **inline check** — unname
 ARGS in a substitution:
 
 ```
-The gap is {{pcf n_gap, . > 10}} sites.
+The gap is {{n_gap, . > 10}} sites.
 ```
 
-which compiles to `claim(pcf(n_gap), . > 10)`. The standalone call covers what
-the inline form cannot: guarding a **phrase** whose truth depends on a value the
-sentence never displays.
+which compiles to `claim(n_gap, . > 10)`. A **phrase** whose truth depends on a
+value the sentence never displays is guarded by a single-arm governed span
+(§0):
+
+```
+Council will need to [add more sampling sites]{{n_gap > 10}}.
+```
+
+which compiles to `claim("add more sampling sites", n_gap > 10)`. The
+standalone call is the same mechanism for use in R code, and for guarding a
+value in place inside a larger expression (`{{trend(claim(foo, . > 0))}}`).
 
 ```r
 claim(x, <expression>, ...)
 ```
 
-- **`x` is any type.** The guarded thing is often a phrase:
-  `Council will need to {{claim("add two more sampling sites", n_gap > 10)}}.`
-  The sentence displays no number; its truth still depends on one.
+- **`x` is any type.** A number, or the phrase a governed span guards.
 - **`.` pronoun** — `claim(shift$n_down, . >= 10)` rather than naming it twice.
 - **Varargs, not `&&`** — `claim(x, . >= 10, test_int(.))` reports which half
   failed; `&&` collapses them into one opaque boolean.
-- **NSE** — capture unevaluated via `substitute()` / `rlang::enquos()`. The error
+- **NSE** — capture unevaluated via `rlang::enquos()`. The error
   text *is* the feature; without NSE you get "claim failed".
 - **Returns `x` visibly** — otherwise the substitution renders nothing and the
   co-location that is the whole idea is lost.
@@ -445,25 +540,31 @@ claim(x, <expression>, ...)
 returns a logical. `assert_*` returns invisibly and throws with checkmate's own
 variable-centric message, bypassing ours.
 
-**Scope: a claim covers its whole first argument.** No nesting. If `n_gap > 10` is
-what makes *"add two more sampling sites"* true, the "two" inside that string is
-guarded, and the L2 lint does not recurse into it. The idiom for prose is to wrap
-the trigger word only:
+**Scope: a governed span guards its bracket, and the bracket is still prose.**
+The L2 lint recurses into it, so a numeral inside must be its own substitution.
+If `n_gap > 10` is what makes *"add two more sampling sites"* true, the "two"
+is written `{{n_extra}.word}` inside the bracket. The idiom is to wrap the
+trigger word, or the clause, and nest what is computed:
 
 ```
-{{claim("All", all(mod$rising))}} {{n_word nrow(mod)}} models rise
+[All]{{all(mod$rising)}} {{nrow(mod)}} models rise
+[All {{nrow(mod)}} models rise]{{all(mod$rising)}}
 ```
 
-The cost is a hole — `claim("the 47 sites rose 12%", x > 0)` is one weak guard
-over four claims. Not fixable in general; an advisory listing claims whose text
-exceeds a token count catches the lazy case.
+This narrows a hole the string form had: `claim("the 47 sites rose 12%",
+x > 0)` was one weak guard over four claims, and its numerals were invisible to
+L2. The hole that remains is a long bracket with one loose governor; an
+advisory listing governed spans whose text exceeds a token count catches the
+lazy case. A standalone `claim()` with a string first argument, in R code,
+keeps the old limit: its string is not linted.
 
 **The error message is the deliverable, not the assertion:**
 
 ```
-14-percentile-bands.qmd:412 — claim failed
-  . >= 10   was  8.2
-Read the sentence. If 8.2 is right, rewrite the sentence.
+14-percentile-bands.qmd:412 — "All 10 models rise"
+Claim "All" failed
+  all(mod$rising) was FALSE
+Read the sentence. If FALSE is right, rewrite the sentence.
 Do not loosen the claim to clear this.
 ```
 
@@ -477,17 +578,17 @@ one that reveals whether it matters.
 
 ### Annotations
 
-`{{a_ref(10, "@smith2020")}}`, `{{a_date(2020)}}`.
+`{{10, cite(smith2020)}}`, `{{2020, is_year(.)}}`.
 
 **The `a_*` functions are pre-built claims**, not a second mechanism:
-`a_date(2020)` is `claim(2020, is_year(.))` under a shorter name.
+`a_year(2020)` is `claim(2020, is_year(.))` under a shorter name.
 
 | Function | Meaning | Sub-lint |
 |---|---|---|
 | `a_ref(x, key)` | number quoted from a source | key resolves in the bib. The strongest category — a real external check, and it covers the "10% (Smith 2020)" case that has no pipeline provenance |
 | `a_date(x)` | year or date not held in the dictionary | 1–4 digits, plausible range |
 
-Two, not three. A number inside a proper name ("Site 12") belongs in the
+A number inside a proper name ("Site 12") belongs in the
 dictionary, read from it, so renaming propagates rather than being certified as
 correctly typed.
 
@@ -495,6 +596,10 @@ correctly typed.
 candidates fail — a project constant goes in the dictionary; a count of things in
 the document gets counted; an ordinal gets computed. Documents extend by defining
 their own function, which is why the extension mechanism is R itself.
+
+**Comment**: really I think this section can be deleted. All we need is the `is_year()`
+check function (and possibly a couple of others). The ref checking is moved into `claim`
+itself.
 
 ### Dictionary
 
@@ -509,6 +614,9 @@ In prose: `The manual era ends in {{dict(era_split)}}.`
 package exists to remove. A bare symbol lets a **static** lint verify every call
 names a real key without running R — the clag parser exposes every substitution's
 expression, so key errors surface at the commit gate rather than at knit.
+
+**Comment**: I don't think this is correct. `dict$foo` can still be statically linted.
+It is only one less character, so not a big difference.
 
 **What belongs in a dictionary: stipulations, never derivations.** Things that
 were *chosen* — era boundaries, band cuts, confidence levels, canonical labels.
@@ -569,8 +677,10 @@ true by construction rather than lintable.
 ### Formatters
 
 `pcf()`-style number formatting, `n_word()` for spelled numerals, unit-aware
-printing driven by the dictionary's `unit:` — all exposed as FORMATTER tokens in
-the grammar (`{{pcf n_gap}}`, `{{n_word nrow(mod)}}`) and as ordinary functions.
+printing driven by the dictionary's `unit:` — all exposed as chain names in
+the grammar (`{{n_gap}.sci}`, `{{nrow(mod)}.num}`, `{{n}.word}`; §0) and as
+ordinary functions. Each formatter returns the text and the number as printed,
+because arm selection in a governed span reads the printed value (§0, §14).
 Implemented over `glue_vec()`, which named ARGS pass through to. The lint that
 pairs with them: no raw `round()` output reaching prose.
 
@@ -605,6 +715,8 @@ Tier 2 has two triggers, both computed from what the gate already holds:
    `{{n_wet}}`, dragging the sentence into the trigger set for free.
 2. **A claim word in a newly added sentence with no computed value at all** —
    noisier, but scoped to the delta it stays a handful per commit.
+
+A claim word inside a governed span (§0) is guarded and triggers neither.
 
 Both print, neither blocks:
 
@@ -686,7 +798,8 @@ Granularity is set by which nodes carry stable ids across two versions:
 
 Counting substitution deletions is the wrong measure: rewording a sentence
 containing two substitutions registers as two deletions plus two additions when
-nothing was lost. **Compare the multiset of substitution texts instead** —
+nothing was lost. **Compare the multiset of substitution texts instead**
+(governed spans included, bracket and braces together) —
 rewording leaves them present, a `sed` that eats them removes them from the set.
 Check file-wide, so a move between sections does not trip it. A net loss prints
 as an advisory line alongside the verdict.
@@ -812,7 +925,8 @@ exit, without which the discipline decays. Because inline checks compile to
 Because L2 makes every number a substitution, and every substitution compiles to
 a `clag::subst()` call carrying its own identity (§1), the runtime captures every
 rendered value at the moment it renders: expression text, value, file, position,
-chapter. A **typed ledger**, exact and keyed on the substitution itself — no
+chapter. For a governed span it records the governor's value and which arm was
+chosen. A **typed ledger**, exact and keyed on the substitution itself — no
 knitr introspection required. (The knitr `evaluate.inline` hook, which receives
 source and environment but no position, backstops any raw `` `r ` `` code that
 bypasses clag syntax; it records occurrence order only.) Commit the ledger; diff
@@ -838,8 +952,8 @@ claims.
 ranking, not detection.
 
 - **Structural, no language needed** — sign flip, order-of-magnitude change,
-  crossing zero, crossing 1.0, crossing a dictionary threshold. Unambiguous
-  must-reads.
+  crossing zero, crossing 1.0, crossing a dictionary threshold, a governed
+  span choosing a different arm. Unambiguous must-reads.
 - **Claim-word proximity** — the same lexicon L2 uses for tier 2, asking a
   different question: not "is this sentence guarded" but "did a value next to a
   claim word just move". One lexicon, two uses.
@@ -1034,8 +1148,10 @@ the functions with the sharpest contracts. Then the lints, each against a
 fixture pair (a source that should pass, one that should fail).
 
 The grammar and the AST differ need the most fixtures. Grammar: every clause of
-§0 (inference resolution and its error cases, backticked MAPs, top-level comma
-splitting, carve-out boundaries). Differ: reworded headings with stable anchors,
+§0 (finding the closing `}}`, argument roles, every rung of the count ladder,
+logical governors and their failure, `#`, selection on the printed value,
+nested brackets and what they inherit, escapes, unknown chain names, carve-out
+boundaries). Differ: reworded headings with stable anchors,
 moved sections, a `sed` that ate two substitutions across sections, a relabel.
 These are the cases where the package is either useful or a nuisance.
 
@@ -1064,48 +1180,18 @@ contracts (§8); they are complementary, not alternatives.
 
 ## 14. Open design questions
 
-### Resolved during scoping (2026-08)
-
-1. **Package name.** `clag` is now the name (repo renamed from `gluey`); a CRAN /
-   r-universe collision check is still to be run. `claim` and `dict` are clear as
-   function names — neither collides with an export of base, the tidyverse,
-   knitr, checkmate, targets or testthat.
-2. **`pointblank`, not `assertr`, for L12.** assertr's last release is 2023 with
-   no repo activity since early 2024; pointblank is actively maintained (Posit)
-   and its agent/interrogate model composes as a discrete `targets` step. No
-   abstraction over both — one backend.
-3. **One package, two layers — not two packages.** The core (parser, grammar,
-   runtime, claims, dict, formatters) and the harness (lints, gate, ledger,
-   Vale, contracts) stay in one package with a strict internal boundary, so a
-   later split is mechanical. Heavy harness deps (Vale binary, pointblank,
-   targets) are `Suggests`, not `Imports`.
-4. **Sentence segmentation for tier 2.** `stringi`'s ICU sentence breaker is the
-   only real engine in R (`tokenizers` wraps it); it handles decimals but not
-   citation keys or scientific abbreviations ("Fig.", "et al."). Ship a
-   protect-then-split guard layer around it: mask `@key` tokens and a shipped
-   abbreviation list, split, unmask.
-5. **Numeric-break alternations: syntax cut, functionality kept** (§0). The
-   whitespace-significant `/1 … 1/` syntax is gone; range-to-phrase mapping —
-   essential for recurring auto-generated reports — is carried by MAP-as-function
-   with the shipped `brk()` constructor, usable inline or predefined (and, when
-   predefined, dictionary-eligible). An inline guard-prefix sugar
-   (`{<1 a fall in/=1 steady/>1 a rise in{foo}}`) could be added later without
-   ambiguity if `brk()` proves too heavy in practice; not designed now.
-
-### Open
-
-1. **OBJ inference scope** (§0). Sentence-only (recommended) vs
-   sentence-then-paragraph (original draft). Static resolution and ledger
-   recording happen either way.
-2. **MAP vectorisation semantics.** `{MAP{- OBJ}}` implies MAP output can be a
-   vector feeding a list formatter; define when MAP maps elementwise over a
-   vector OBJ vs selecting a single element on `length(OBJ)`.
-3. **STYLE vocabulary and definition mechanism.** Which styles ship (em, strong,
-   code, plus what?), and how a project declares one (YAML config mapping style
-   name → span class seems right).
+2. **Vector values and structural formatters.** `{{tier_lab(tiers)}.ul}` implies
+   a lookup maps elementwise over a vector and feeds a list formatter. Pin down
+   that `lookup()` and `brk()` are vectorised, and what a structural formatter
+   (`.ul`, `.ol`, …) means on a governed span (probably an error).
+3. **Chain vocabulary and definition mechanism.** Which formatters and styles
+   ship (em, strong, code, plus what?), the final names (`.ul`, `.or`, `.no`,
+   …), and how a project declares one (YAML config mapping a chain name to
+   formatter options and/or a span class seems right).
 4. **Computed captions.** Is `#| fig-cap: !expr clag("…")` the shipped idiom, or
    does the compiler offer sugar for `{{…}}` inside cell-option strings? The
    preprocessor currently treats cell options as a carve-out (§1).
+        It offers sugar.
 5. **Book-project render mechanics.** Single files render from a temp copy; a
    Quarto book needs a shadow copy of the project (config, includes, bib) with
    outputs copied back. Decide the copy boundary and cache behaviour before
@@ -1115,3 +1201,20 @@ contracts (§8); they are complementary, not alternatives.
 6. **Ledger format and location.** Committed per P8 under `generated/`; exact
    schema (one file per chapter vs one book-wide file, and diff-friendliness)
    undecided.
+7. **The binding form.** `{{n = nrow(mod)}}` (a first argument named without a
+   dot) shows the value and binds `n`. Proposed, not yet agreed. If kept:
+   where the name is bound (the knit environment), and whether a name may be
+   bound only once per document, which the compiler can enforce statically.
+8. **Selection on the printed value.** A formatter must hand back both the
+   text and the number as printed, so that 1.2 at zero decimals takes the
+   singular arm and "1.0" the plural. Define that return contract, and what
+   `.word` and `.no` report.
+9. **`[text]{{…}}` against Pandoc.** Believed to have no assigned meaning, since
+   `{{…}}` is not valid attribute syntax. Verify against Pandoc and Quarto as
+   was done for bare `{{…}}`, including a bracket that Pandoc would otherwise
+   read as a reference link.
+10. **Static exhaustiveness for lookups.** Where a `lookup()` is applied to a
+    value whose levels the dictionary declares (`type: labels`), L10 could
+    check that every level has a key without running R. Worth having?
+11. **`lookup()` naming**, and whether a dictionary `labels` entry is returned
+    as a lookup directly.
