@@ -88,7 +88,7 @@ The arguments are read by position and name:
 | Argument | Meaning |
 |---|---|
 | first, unnamed | OBJ (or GOVERNOR): the value |
-| first, named without a dot | a **binding**: `{{n = nrow(mod)}}` shows the value and binds `n` for later use (proposed, see §14) |
+| first, named without a dot | **reserved**: a compile-time error. Held for a possible binding form (`{{n = nrow(mod)}}`), deferred because a chunk assignment already does the job |
 | later, unnamed | a **check** on the value, with `.` as its pronoun |
 | named with a leading dot | passed to the rendering engine (`.sep`, `.last`, `.width`, …) |
 
@@ -119,10 +119,16 @@ kinds. An unknown name is a compile-time error.
     (definition list), `.yaml` (YAML block), `.todo` (task list), `.or`
     (collapse with a final "or")
 - **Styles** wrap the finished output in a Pandoc span (`[text]{.style}`) that
-  the project styles per format via CSS or LaTeX.
+  the project styles per format via CSS or LaTeX. `.em`, `.strong` and `.code`
+  ship.
 
 A project can define a chain name in YAML that bundles formatter options
-(significant figures, units) with or without a span class.
+(significant figures, units) with or without a span class. A project name may
+not shadow a shipped one; that is a compile-time error.
+
+The structural formatters (`.ul`, `.ol`, `.dl`, `.yaml`, `.todo`) are named
+after the HTML tags where one exists. On a governed span they are a
+compile-time error: an arm is a phrase, not a list.
 
 With no formatter, vectors collapse `cli`-style ("a, b, and c"), data frames
 render as pandoc tables, and ggplot objects render as saved figures.
@@ -285,6 +291,10 @@ A lookup takes a string or a factor (by its label, never its integer code) and
 errors on a key it does not hold. Plain `tier_levels[[tier]]` is legal R but
 indexes a factor by its code, silently; `lookup()` exists to close that hole.
 
+Both are vectorised, so a vector of keys feeds a list formatter:
+`{{tier_lab(tiers)}.ul}`. A dictionary entry of `type: labels` (§4) is returned
+as a lookup, so `{{dict$tier_lab(tier)}}` works directly.
+
 A named `brk()` or `lookup()` is a **stipulation**: someone chose where
 "steady" ends and "a rise" begins. That makes it dictionary material (§4) —
 defined once, decision-logged, and reused by every report that renders the
@@ -324,7 +334,9 @@ verified against source or maintainer statements (2026-08).
   run on the Pandoc AST *after* knitr has executed (maintainer-confirmed,
   quarto-cli discussion #7357); project pre-render scripts are project-only
   (issue #13032, open) and cannot redirect a single input to a transformed
-  copy; `{{< var >}}` / `{{< meta >}}` are static. 
+  copy; `{{< var >}}` / `{{< meta >}}` are static. A pre-render script *can*
+  write the project's inputs before Quarto reads them, which is what the
+  project route below uses.
 - **knitr's custom patterns cannot host the grammar.** A package can register a
   custom `inline.code` pattern before `knit()` starts, and knitr will evaluate
   matches per-expression in document order — but the matched text must parse as
@@ -336,17 +348,51 @@ verified against source or maintainer statements (2026-08).
 
 ### What clag does instead
 
-**clag owns the render entry point.** `clag_render()` parses the source,
-compiles each substitution, writes the compiled document to a **temp copy**, and
-invokes `rmarkdown::render()` or `quarto render` on the copy — never mutating
-the author's source. This is the pattern Quarto itself uses internally (its
-`execute.R` writes preprocessed markdown to a temp `.rmarkdown` file and renders
-that). For book projects the same applies to a shadow copy of the project;
-mechanics in §14.
+**clag owns the compile step, and never mutates the author's source.** There
+are two routes.
 
-A document rendered *without* clag — bare `quarto render` on the source — shows
-literal `{{…}}` in the output. That is a feature: unlike every failure mode in
-§2, it is loud, visible, and caught by the L2 lint besides.
+*A single file.* `clag_render()` parses the source, compiles each
+substitution, writes the compiled document to a **temp copy**, and invokes
+`rmarkdown::render()` or `quarto render` on the copy. This is the pattern
+Quarto itself uses internally (its `execute.R` writes preprocessed markdown to
+a temp `.rmarkdown` file and renders that).
+
+*A Quarto project (book or website).* Authored sources live in `_src/`, which
+Quarto ignores because of the underscore. A project `pre-render` script,
+installed by `use_clag()`, calls the compiler, which writes each compiled
+`.qmd` to its place in the project, where Quarto renders it. Compiled files are
+gitignored, carry a "generated, do not edit" header, and are rewritten only
+when their content changes. `clag_render()` on a project compiles and then
+calls `quarto render`.
+
+Tried on Quarto 1.11.9 with a two-chapter book and a stand-in compiler:
+
+- compiled inputs render in the same run, and `_src/` is not rendered
+- `freeze: auto` holds: an unchanged source is not re-executed, an edited one is
+- `quarto render ch1.qmd` inside the project runs the pre-render step too
+- relative data paths resolve, because a compiled file sits where a source
+  would have
+- knitr hooks set by an injected setup chunk capture warnings and messages
+  (see "Condition capture" below)
+
+Two limits, both loud:
+
+- **A clean clone needs one compile first.** Quarto checks that every book
+  chapter exists *before* it runs pre-render, so a bare `quarto render` on a
+  clone with no compiled files stops with "Book chapter 'index.qmd' not
+  found". `clag_render()` compiles first and does not hit this.
+- **`quarto preview` does not watch `_src/`.** It runs pre-render once at
+  start. Recompiling while it runs does make it re-render, so `clag_preview()`
+  is `quarto preview` plus a watcher on `_src/` that recompiles on save.
+
+This behaviour is observed, not documented by Quarto as far as was found. It
+is pinned by an integration test and by the version check (§10).
+
+A source rendered *without* the compiler — bare `quarto render` on a single
+file, or on a file under `_src/` — shows literal `{{…}}` in the output. That is
+a feature: unlike every failure mode in §2, it is loud, visible, and caught by
+the L2 lint besides. In a project, bare `quarto render` is safe, because the
+pre-render step is the compiler.
 
 **One parser, three consumers.** The parser is the package's core artifact,
 shared by the preprocessor, the static lints (§5), and the commit-gate AST
@@ -377,18 +423,23 @@ principled): chunk options are evaluated in `knit_global()` before the chunk
 runs (`fig.cap`/`fig.alt` after, so they can use the chunk's results); Quarto
 `#|` cell options are literal YAML unless tagged `!expr`; YAML front matter
 honours `!r`/`!expr` via rmarkdown. The preprocessor does not rewrite inside any
-of these — computed captions use `#| fig-cap: !expr clag("…")` explicitly, and
-L11 checks captions regardless of how they were built.
+of these, with one exception: **captions get sugar.** A `{{…}}` or governed
+span inside a `#| fig-cap:`, `#| fig-alt:` or `#| tbl-cap:` string is compiled
+to `!expr clag("…")`. Every other cell option, chunk header option and YAML
+field stays a carve-out. L11 checks captions regardless of how they were
+built.
 
 **Condition capture.** Confirmed: chunk warnings and messages are written into
 the rendered document and do **not** echo to the console — the exact
 signal-existed-but-unread failure this package exists to prevent. Confirmed:
 `rmarkdown::render()` sets `error = FALSE` (overriding knitr's permissive
 default), so a chunk error aborts with exit status 1, and Quarto behaves the
-same; but nothing built-in promotes warnings or messages to failures. Since
-clag owns the render call, it sets knitr's `warning`/`message` hooks to tee
-every condition into a machine-readable log alongside the document, and applies
-its own severity rules there (§7). The `evaluate.inline` hook — which receives
+same; but nothing built-in promotes warnings or messages to failures. The
+compiler therefore injects a hidden setup chunk at the top of every compiled
+document. It sets knitr's `warning`/`message` hooks to tee every condition into
+a machine-readable log alongside the document, and clag applies its own
+severity rules there (§7). The chunk travels with the document, so capture
+works on both routes above, including a bare `quarto render` of a project. The `evaluate.inline` hook — which receives
 the source code and environment, unlike the `inline` output hook which receives
 only the value — is set as a backstop ledger for any raw `` `r ` `` inline code
 that bypasses clag syntax.
@@ -611,19 +662,19 @@ extension mechanism is R itself.
 ### Dictionary
 
 ```r
-dict(era_split)        # NSE on a bare symbol, not a string
-dict_local(sites)      # chapter override, deliberately a different verb
+dict$era_split
+dict_local$sites       # chapter override, deliberately a different accessor
 ```
 
-In prose: `The manual era ends in {{dict(era_split)}}.`
+In prose: `The manual era ends in {{dict$era_split}}.`
 
-`d$era_split` returns `NULL` on a typo, silently — the exact failure class this
-package exists to remove. A bare symbol lets a **static** lint verify every call
-names a real key without running R — the clag parser exposes every substitution's
-expression, so key errors surface at the commit gate rather than at knit.
-
-**Comment**: I don't think this is correct. `dict$foo` can still be statically linted.
-It is only one less character, so not a big difference.
+`dict` is not a plain list. A plain list's `$` returns `NULL` on a typo and
+partial-matches a prefix (`$era` finds `era_split`), silently — the exact
+failure class this package exists to remove. `dict` carries its own `$`
+method, which errors on any name that is not an exact key. The key is also a
+plain token in the parsed expression, so a **static** lint verifies that every
+read names a real key without running R, and key errors surface at the commit
+gate rather than at knit.
 
 **What belongs in a dictionary: stipulations, never derivations.** Things that
 were *chosen* — era boundaries, band cuts, confidence levels, canonical labels.
@@ -661,18 +712,18 @@ salinity_res:
 
 **Overrides.** A chapter may narrow a key, rarely. One rule governs it:
 
-> A shadowing entry must be read through a different accessor: `dict_local(sites)`,
-> never `dict(sites)`.
+> A shadowing entry must be read through a different accessor: `dict_local$sites`,
+> never `dict$sites`.
 
 This is not bookkeeping. Silent shadowing is the most dangerous failure available
 here: chapter 14 redefines `sites`, someone later moves a paragraph from 14 into
-15, and `dict(sites)` quietly changes meaning with nothing visible in the diff.
-With `dict_local()` the moved paragraph **errors**, because chapter 15 has no
+15, and `dict$sites` quietly changes meaning with nothing visible in the diff.
+With `dict_local$` the moved paragraph **errors**, because chapter 15 has no
 local `sites`. A silent semantic change becomes a loud failure at the moment of
 the move.
 
-Statically linted both ways: `dict_local(x)` with no local `x` is an error;
-`dict(x)` where the chapter *does* define a local `x` is an ambiguity error. Local
+Statically linted both ways: `dict_local$x` with no local `x` is an error;
+`dict$x` where the chapter *does* define a local `x` is an ambiguity error. Local
 entries require a `why:` field, and the lint prints a book-wide shadowed-key
 count — a visible cost rather than a gate.
 
@@ -705,9 +756,14 @@ carve-out list.
 **No bare claim tokens in prose.** Two kinds, two tiers:
 
 - **Numerals — tier 1.** A numeral in prose almost always encodes a data claim, so
-  the rule is absolute. Every numeral is a substitution, a `dict()` read, or
+  the rule is absolute. Every numeral is a substitution, a `dict$` read, or
   a literal carrying a check (§4). This also catches B2 mechanically: a
   substitution reverted to its literal value *is* a bare numeral.
+
+  A **numeral** is a standalone numeric token: digits, with an optional sign,
+  separators, decimal part or `%`. A token that mixes letters and digits
+  (CO2, PM2.5, 3D) is a name and is exempt. "Site 12" is two tokens, so the
+  12 is flagged and belongs in the dictionary (§4).
 - **Quantifiers, extrema, direction words — tier 2.** "all", "none", "every",
   "only", "largest", "first", "rose", "more", "majority". These carry a data claim
   often but not reliably: *"limits at all"*, *"populated only from 2020"* and *"no
@@ -757,6 +813,9 @@ incoherent.
   redefined in a moved chapter" are different problems)
 - **dangling citation keys flagged** — a `@key` absent from the bib renders as
   literal `@key` in the output
+- **governed span colliding with a reference label** — tier 2. `[foo]{{…}}`
+  where `[foo]: url` is defined reads as a link in any render that bypasses
+  the compiler (§0)
 - **orphan anchors** — defined, never referenced. Not an error; the signature of a
   content move that stranded a figure
 
@@ -941,6 +1000,13 @@ source and environment but no position, backstops any raw `` `r ` `` code that
 bypasses clag syntax; it records occurrence order only.) Commit the ledger; diff
 it on re-render.
 
+**Format.** One JSON-lines file per source file, under `generated/ledger/`
+(P8), one line per substitution. Each line is keyed on section anchor,
+expression text and occurrence index within the section — the stable
+identities of §6. Line numbers are **not** stored: they shift on every edit
+and would bury real value changes in the diff. They are recomputed when a
+report is printed.
+
 **Partial knits.** An agent refits a model chapter 17 also reads, knits only
 chapter 14, and 17's numbers move with nobody rendering 17. Two mechanisms:
 
@@ -980,8 +1046,8 @@ rmarkdown 2.31 source or empirically (§1):
   they do not echo to the console at all
 - a direct `knitr::knit()` defaults to `error = TRUE` — a chunk can fail and the
   process still exits 0. (`rmarkdown::render()` overrides this to
-  `error = FALSE`; since all rendering goes through `clag_render()`, the wrapper
-  sets it explicitly and never relies on the caller's path.)
+  `error = FALSE`; the injected setup chunk (§1) sets it explicitly in every
+  compiled document, so it never relies on the caller's path.)
 - nothing built-in promotes warnings or messages to render failure
 - not everything reporting a broken model is a warning — `lme4`'s
   `boundary (singular) fit` and `glmmTMB`'s non-positive-definite Hessian arrive
@@ -1152,7 +1218,7 @@ because a silently disabled check is worse than an absent one.
 ## 12. Tests
 
 `testthat`, seeded by the parser and compiler (the component everything else
-consumes), then `claim()`, `dict()`, `dict_local()`, `cite()` and `is_year()` —
+consumes), then `claim()`, `dict$`, `dict_local$`, `cite()` and `is_year()` —
 the functions with the sharpest contracts. Then the lints, each against a
 fixture pair (a source that should pass, one that should fail).
 
@@ -1179,59 +1245,93 @@ contracts (§8); they are complementary, not alternatives.
   different quantity passes everything here. Stated in the docs so nobody assumes
   otherwise.
 - **Hold a project's constants.** The dictionary schema ships; the values do not.
-- **Support rendering that bypasses `clag_render()`.** A document rendered by
-  bare `quarto render` shows literal `{{…}}` in its output — loud by design, and
-  caught by L2 besides. No hidden hook exists that could make bypass safe (§1),
-  so none is pretended.
+- **Support rendering that bypasses the compiler.** A single file, or a file
+  under `_src/`, rendered by bare `quarto render` shows literal `{{…}}` in its
+  output — loud by design, and caught by L2 besides. A project is the one case
+  where bare `quarto render` is safe, because its pre-render step is the
+  compiler (§1).
 - **Install itself.** P10.
 
 ---
 
 ## 14. Open design questions
 
-2. **Vector values and structural formatters.** `{{tier_lab(tiers)}.ul}` implies
-   a lookup maps elementwise over a vector and feeds a list formatter. Pin down
-   that `lookup()` and `brk()` are vectorised, and what a structural formatter
-   (`.ul`, `.ol`, …) means on a governed span (probably an error).
-3. **Chain vocabulary and definition mechanism.** Which formatters and styles
-   ship (em, strong, code, plus what?), the final names (`.ul`, `.or`, `.no`,
-   …), and how a project declares one (YAML config mapping a chain name to
-   formatter options and/or a span class seems right).
-4. **Computed captions.** Is `#| fig-cap: !expr clag("…")` the shipped idiom, or
-   does the compiler offer sugar for `{{…}}` inside cell-option strings? The
-   preprocessor currently treats cell options as a carve-out (§1).
-        It offers sugar.
-5. **Book-project render mechanics.** Single files render from a temp copy; a
-   Quarto book needs a shadow copy of the project (config, includes, bib) with
-   outputs copied back. Decide the copy boundary and cache behaviour before
-   implementing; also whether a project `pre-render` shim (project-scoped, the
-   only kind Quarto supports) is offered for people who insist on `quarto render`
-   directly.
-6. **Ledger format and location.** Committed per P8 under `generated/`; exact
-   schema (one file per chapter vs one book-wide file, and diff-friendliness)
-   undecided.
-7. **The binding form.** `{{n = nrow(mod)}}` (a first argument named without a
-   dot) shows the value and binds `n`. Proposed, not yet agreed. If kept:
-   where the name is bound (the knit environment), and whether a name may be
-   bound only once per document, which the compiler can enforce statically.
-8. **Selection on the printed value.** A formatter must hand back both the
+1. **Selection on the printed value.** A formatter must hand back both the
    text and the number as printed, so that 1.2 at zero decimals takes the
    singular arm and "1.0" the plural. Define that return contract, and what
    `.word` and `.no` report.
-9. **Reference-label collisions.** `[text]{{…}}` is verified as plain text in
-   Pandoc 3.8.3 and Quarto 1.11.9 (§0), except where the bracket matches a
-   reference-link label. Should a governed span whose text collides with a
-   label be a lint warning?
-12. **Constants inside a value expression.** L2-static (§5) flags a `NUM_CONST`
-    in a substitution with no check. Is that tier 1 for every constant, or
-    only when the value *is* a literal (`{{10}}`), with constants buried in a
-    computation (`x[1]`, `x * 100`, `round(x, 2)`) advisory?
-13. **Pre-render as a route for book projects.** Tried on Quarto 1.11.9: a
-    project `pre-render` script can write a new `.qmd` that is rendered in the
-    same run, and can overwrite an existing input before it is read. Neither
-    was known when §1 was written; it bears on question 5.
-10. **Static exhaustiveness for lookups.** Where a `lookup()` is applied to a
-    value whose levels the dictionary declares (`type: labels`), L10 could
-    check that every level has a key without running R. Worth having?
-11. **`lookup()` naming**, and whether a dictionary `labels` entry is returned
-    as a lookup directly.
+2. **Constants inside a value expression.** L2-static (§5) flags a `NUM_CONST`
+   in a substitution with no check. Is that tier 1 for every constant, or
+   only when the value *is* a literal (`{{10}}`), with constants buried in a
+   computation (`x[1]`, `x * 100`, `round(x, 2)`) advisory?
+3. **Source positions on the project route.** An error raised while Quarto
+   renders a compiled file names a line in that file, not in `_src/`. The
+   compiled calls already carry their source position (§1); chunk errors need
+   a line map as well. Decide whether the injected setup chunk goes at the end
+   of the YAML block (shifting every line by a fixed amount) or whether a map
+   file is written.
+4. **The project route on Windows and under RStudio/Positron.** Tested on
+   macOS from the command line only. Untested: the editor's Render button on a
+   file in `_src/` (expected to show literal braces), and the pre-render
+   script under Windows.
+
+Settled since the last revision, and now written into the sections named:
+sentence inference dropped and MAP removed (§0); binding form deferred (§0);
+chain names and the shadowing rule (§0); vectorised lookups (§0); `dict$key`
+(§4); numeral definition (§5); ledger format (§7); caption sugar (§1); project
+render through pre-render (§1); reference-label warning (§5, L4). Static
+exhaustiveness checking for lookups was considered and dropped: the levels of
+an arbitrary R value are not knowable without running R, and `lookup()`
+already errors on an unknown key at knit.
+
+---
+
+## 15. Build order
+
+Proposed. Each stage leaves something usable on its own, and the order follows
+the argument in the introduction: the harness is only sustainable once a
+substitution is cheap, so the core comes first.
+
+**Stage 1 — the templating core.** Usable alone as the successor to `gluey`.
+
+- the parser: commonmark with source positions, the carve-out mask, the
+  closing-brace rule
+- the compiler, `clag::subst()`, and `clag()` for templates in R code
+- value substitutions, checks compiling to `claim()`, `cite()`, `is_year()`
+- the chain, with the shipped formatters and styles
+- governed spans: the count ladder, logical governors, `#`, nested brackets
+- `brk()` and `lookup()`
+- `clag_render()` for a single file
+- the §0 grammar fixtures (§12)
+
+**Stage 2 — projects and the render wrapper (L6).**
+
+- the project route: `_src/`, the pre-render compile, `clag_preview()`
+- the injected setup chunk, the condition log and the severity list
+- caption sugar
+- artefact hashing
+- `use_clag()` and `use_hooks()` in minimal form, version pinning
+
+**Stage 3 — dictionary and ledger (L10, L5).**
+
+- `dict`, `dict_local`, the schema, the generated glossary
+- the ledger: emit, diff, stale-versus-changed, triage
+
+**Stage 4 — static lints and the commit gate (L2, L4, L8, L1, L9).**
+
+- L2 static coverage and the tier-2 claim-word triggers
+- L4 and L8
+- the AST differ, the trailer vocabulary, the `commit-msg` gate
+- the claim-loosening report
+
+**Stage 5 — contracts, prose and adoption (L11, L12, L7).**
+
+- figure and table contracts
+- pipeline contracts over pointblank
+- the Vale wrapper and the generated terminology style
+- `verify()` as the single entry point
+- `dict_seed()`, `status()`, `recall_check()`, the agent docs and skill
+
+Stage 3 comes before stage 4 because L2's tier-1 rule sends constants to the
+dictionary: the gate cannot be switched on until there is somewhere for them
+to go.
