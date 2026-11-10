@@ -383,7 +383,9 @@ gitignored, carry a "generated, do not edit" header, and are rewritten only
 when their content changes. `clag_render()` on a project compiles and then
 calls `quarto render`.
 
-Tried on Quarto 1.11.9 with a two-chapter book and a stand-in compiler:
+Tried with a two-chapter book and a stand-in compiler, on macOS (Quarto
+1.11.9, R 4.4.3) and on Windows 11 (Quarto 1.9.38, R 4.5.1), with the same
+results on both:
 
 - compiled inputs render in the same run, and `_src/` is not rendered
 - `freeze: auto` holds: an unchanged source is not re-executed, an edited one is
@@ -392,6 +394,9 @@ Tried on Quarto 1.11.9 with a two-chapter book and a stand-in compiler:
   would have
 - knitr hooks set by an injected setup chunk capture warnings and messages
   (see "Condition capture" below)
+- sources with CRLF line endings compile and render
+- a pre-render entry naming an `.R` file is run by Quarto itself, so the
+  compile step needs no shell and no `Rscript` on `PATH`
 
 Two limits, both loud:
 
@@ -1297,15 +1302,20 @@ contracts (§8); they are complementary, not alternatives.
 ## 14. Open design questions
 
 1. **Source positions on the project route.** An error raised while Quarto
-   renders a compiled file names a line in that file, not in `_src/`. The
-   compiled calls already carry their source position (§1); chunk errors need
-   a line map as well. Decide whether the injected setup chunk goes at the end
-   of the YAML block (shifting every line by a fixed amount) or whether a map
-   file is written.
-2. **The project route on Windows and under RStudio/Positron.** Tested on
-   macOS from the command line only. Untested: the editor's Render button on a
-   file in `_src/` (expected to show literal braces), and the pre-render
-   script under Windows.
+   renders a compiled file names a line in that file, not in `_src/`.
+   Observed: knitr reports `Quitting from ch1.qmd:12-16 [boom]` for a chunk at
+   source lines 5-9 under a 7-line injected header, so the offset is constant
+   and the chunk label is given. Proposed: the compiler preserves line counts
+   (a multi-line substitution compiles to a multi-line inline expression,
+   which knitr accepts), the injected chunk has a fixed length, and
+   `clag_render()` rewrites `file:line` in errors back to `_src/`. No map file.
+2. **The editor's Render button.** Rendering a file under `_src/` directly,
+   which is what the button does, runs with `_src/` as the working directory:
+   relative data paths fail, and without them the output shows literal braces.
+   Loud either way, but the author's most natural action does not work. Decide
+   what clag offers instead (an RStudio addin and a Positron task calling
+   `clag_render()`, or nothing). Not clicked in a GUI; inferred from running
+   `quarto render _src/ch1.qmd` and `quarto preview _src/ch1.qmd`.
 
 Settled since the last revision, and now written into the sections named:
 sentence inference dropped and MAP removed (§0); binding form deferred (§0);
