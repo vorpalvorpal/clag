@@ -419,10 +419,24 @@ that file. Three rules make the mapping trivial:
   compiled line minus that length. Observed: knitr reports `Quitting from
   ch1.qmd:12-16 [boom]` for a chunk at source lines 5-9 under a 7-line header
 - `clag_render()` rewrites `file:line` in error text to the `_src/` path
+- the "generated, do not edit" header of each compiled file states the
+  offset and the source path, for anyone reading an error from a bare
+  `quarto render`
+- compiled files are written read-only, so an editor that jumps to an error
+  cannot save a change to the wrong file
 
 Most errors need less than this. A knitr error names the chunk label, which
 L8 makes mandatory, and clag's own failures carry the source position embedded
 at compile time.
+
+**The editor's Render button gets a replacement.** The button renders the
+file being edited, and a file under `_src/` rendered directly runs with
+`_src/` as its working directory: relative data paths fail, and without them
+the output shows literal braces. Loud either way, but the author's most
+natural action does not work. clag ships an RStudio addin and a Positron task
+that call `clag_render()` on the current file, installed by `use_clag()`.
+(The button's behaviour was not clicked in a GUI; it is inferred from running
+`quarto render _src/ch1.qmd` and `quarto preview _src/ch1.qmd`.)
 
 This behaviour is observed, not documented by Quarto as far as was found. It
 is pinned by an integration test and by the version check (§10).
@@ -1317,13 +1331,7 @@ contracts (§8); they are complementary, not alternatives.
 
 ## 14. Open design questions
 
-1. **The editor's Render button.** Rendering a file under `_src/` directly,
-   which is what the button does, runs with `_src/` as the working directory:
-   relative data paths fail, and without them the output shows literal braces.
-   Loud either way, but the author's most natural action does not work. Decide
-   what clag offers instead (an RStudio addin and a Positron task calling
-   `clag_render()`, or nothing). Not clicked in a GUI; inferred from running
-   `quarto render _src/ch1.qmd` and `quarto preview _src/ch1.qmd`.
+None at present.
 
 Settled since the last revision, and now written into the sections named:
 sentence inference dropped and MAP removed (§0); binding form deferred (§0);
@@ -1331,7 +1339,7 @@ chain names and the shadowing rule (§0); vectorised lookups (§0); `dict$key`
 (§4); numeral definition (§5); ledger format (§7); caption sugar (§1); project
 render through pre-render (§1); reference-label warning (§5, L4); selection
 on the printed value (§0); constants in braces are tier 2 (§4, §5); error
-positions on the project route (§1). Static
+positions on the project route (§1); the Render-button addin and task (§1). Static
 exhaustiveness checking for lookups was considered and dropped: the levels of
 an arbitrary R value are not knowable without running R, and `lookup()`
 already errors on an unknown key at knit.
@@ -1358,7 +1366,8 @@ substitution is cheap, so the core comes first.
 
 **Stage 2 — projects and the render wrapper (L6).**
 
-- the project route: `_src/`, the pre-render compile, `clag_preview()`
+- the project route: `_src/`, the pre-render compile, `clag_preview()`, the
+  RStudio addin and Positron task
 - the injected setup chunk, the condition log and the severity list
 - caption sugar
 - artefact hashing
