@@ -56,9 +56,13 @@ are literal, so Pandoc attribute syntax (`{#sec-foo .class}`) and raw LaTeX
 constructs do not collide: shortcodes require `{{<`, and verbatim cells
 (` ```{{r}} `) apply only to fence info strings, never prose (confirmed against
 the Pandoc manual and Quarto docs: plain `{{foo}}` in prose has no assigned
-meaning and survives to output untouched). `[text]{{…}}` should be equally
-free, because `{{…}}` is not valid Pandoc attribute syntax; this one is still
-to be verified against Pandoc (§14).
+meaning and survives to output untouched). `[text]{{…}}` is equally free:
+Pandoc 3.8.3 reads it as plain text, nested brackets, checks and chain
+included, because `{{…}}` is not valid attribute syntax. The one exception is
+a bracket whose text matches a defined reference-link label (`[foo]: url`),
+which Pandoc reads as a link; clag's parser runs first and treats `]{{` as a
+governed span regardless. Quarto's own pre-processing is not yet checked
+(§14).
 
 ### Inside the braces: an R argument list
 
@@ -145,6 +149,10 @@ chooses the arm. The bracket and the braces must be adjacent: a space between
 | | `[a/b/c/d]` | 0 / 1 / 2 / 3+, extending leftward one exact count at a time |
 | logical | `[a/b]` | TRUE / FALSE |
 | | `[a]` | TRUE; FALSE is a claim failure |
+
+A single-arm span with a FALSE governor stops the render: the phrase is a
+claim, and the claim failed. To drop the phrase silently instead, give it an
+empty false arm: `[add more sampling sites/]{{n_gap > 10}}`.
 
 A logical governor with three or more arms is an error. So is a governor that
 is `NA`, or that is neither a count nor a logical.
@@ -1209,10 +1217,10 @@ contracts (§8); they are complementary, not alternatives.
    text and the number as printed, so that 1.2 at zero decimals takes the
    singular arm and "1.0" the plural. Define that return contract, and what
    `.word` and `.no` report.
-9. **`[text]{{…}}` against Pandoc.** Believed to have no assigned meaning, since
-   `{{…}}` is not valid attribute syntax. Verify against Pandoc and Quarto as
-   was done for bare `{{…}}`, including a bracket that Pandoc would otherwise
-   read as a reference link.
+9. **`[text]{{…}}` against Quarto.** Verified against Pandoc 3.8.3 (§0): plain
+   text, except where the bracket matches a reference-link label. Still to
+   check: Quarto's own pre-processing, and whether a governed span whose text
+   collides with a reference label should be a lint warning.
 10. **Static exhaustiveness for lookups.** Where a `lookup()` is applied to a
     value whose levels the dictionary declares (`type: labels`), L10 could
     check that every level has a key without running R. Worth having?
