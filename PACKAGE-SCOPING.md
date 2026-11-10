@@ -408,6 +408,22 @@ Two limits, both loud:
   start. Recompiling while it runs does make it re-render, so `clag_preview()`
   is `quarto preview` plus a watcher on `_src/` that recompiles on save.
 
+**Error positions map back to `_src/` by a fixed offset; there is no map
+file.** An error raised while Quarto renders a compiled file names a line in
+that file. Three rules make the mapping trivial:
+
+- the compiler preserves line counts: a substitution spanning several lines
+  compiles to an inline expression spanning the same number (knitr accepts
+  this), and caption sugar rewrites within one line
+- the injected setup chunk has a fixed length, so a source line is the
+  compiled line minus that length. Observed: knitr reports `Quitting from
+  ch1.qmd:12-16 [boom]` for a chunk at source lines 5-9 under a 7-line header
+- `clag_render()` rewrites `file:line` in error text to the `_src/` path
+
+Most errors need less than this. A knitr error names the chunk label, which
+L8 makes mandatory, and clag's own failures carry the source position embedded
+at compile time.
+
 This behaviour is observed, not documented by Quarto as far as was found. It
 is pinned by an integration test and by the version check (§10).
 
@@ -1301,15 +1317,7 @@ contracts (§8); they are complementary, not alternatives.
 
 ## 14. Open design questions
 
-1. **Source positions on the project route.** An error raised while Quarto
-   renders a compiled file names a line in that file, not in `_src/`.
-   Observed: knitr reports `Quitting from ch1.qmd:12-16 [boom]` for a chunk at
-   source lines 5-9 under a 7-line injected header, so the offset is constant
-   and the chunk label is given. Proposed: the compiler preserves line counts
-   (a multi-line substitution compiles to a multi-line inline expression,
-   which knitr accepts), the injected chunk has a fixed length, and
-   `clag_render()` rewrites `file:line` in errors back to `_src/`. No map file.
-2. **The editor's Render button.** Rendering a file under `_src/` directly,
+1. **The editor's Render button.** Rendering a file under `_src/` directly,
    which is what the button does, runs with `_src/` as the working directory:
    relative data paths fail, and without them the output shows literal braces.
    Loud either way, but the author's most natural action does not work. Decide
@@ -1322,7 +1330,8 @@ sentence inference dropped and MAP removed (§0); binding form deferred (§0);
 chain names and the shadowing rule (§0); vectorised lookups (§0); `dict$key`
 (§4); numeral definition (§5); ledger format (§7); caption sugar (§1); project
 render through pre-render (§1); reference-label warning (§5, L4); selection
-on the printed value (§0); constants in braces are tier 2 (§4, §5). Static
+on the printed value (§0); constants in braces are tier 2 (§4, §5); error
+positions on the project route (§1). Static
 exhaustiveness checking for lookups was considered and dropped: the levels of
 an arbitrary R value are not knowable without running R, and `lookup()`
 already errors on an unknown key at knit.
