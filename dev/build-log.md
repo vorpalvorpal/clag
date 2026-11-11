@@ -21,6 +21,10 @@ Newest state first. Read this before anything else after a context reset.
 | Stages 1b and 1d (contract `dev/design-1b.md`) | Done. Reviewed once (`dev/review-1b.md`, 27 findings), rulings in `dev/design-1b.md`, 39 regression tests, all fixed and committed |
 | Stage 1e (`arms()`, `rehearse()`, contract `dev/design-1e.md`) | Done. Reviewed once (`dev/review-1e.md`, 13 findings), rulings in `dev/design-1e.md`, 13 regression tests, all fixed and committed |
 | Trials again on the finished stage 1 | Done: `dev/field-notes.md` report 3. Same text as the first trials |
+| Stage 1f (the decisions Robin delegated, `dev/design-1f.md`) | Built and committed: `claim(level = "warn")`, `thousands_from`, `serial_comma`, the new `.p`, `last_knit()` exported. Not reviewed |
+| Stage 1g (`dev/design-1g.md`) | Built and committed: small numbers under default digits (open with Robin), an empty arm takes the space beside it. Not reviewed |
+| Stage 1h (`dev/design-1h.md`) | The `list` key and the `none` key: contract written, tests next |
+| **Owed: `PACKAGE-SCOPING.md`** | The rules changed by 1f, 1g and 1h (2.6.1, 3.1, 1.4.13, 1.5.10, 1.5.12, 9.1.2, 1.3.4, 1.5) are not yet amended in the spec; do it once the small-number rule is settled |
 | `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
 | Stages 0, 2, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |

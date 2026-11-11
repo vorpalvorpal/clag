@@ -64,3 +64,12 @@ and older assertions that conflict are amended by the test-writer.
 - An empty span inside an arm is judged against its own arm's text.
 - A bare value with no attribute block is not formatted by weft (1.3.1);
   the rule for small numbers does not reach it.
+
+## Rulings on the implementer's report
+
+- "Start of a block" includes the text after a list, heading, quote or
+  ordered-list marker, so the marker keeps its space. Accepted.
+- A tab is not a space. Accepted.
+- **Open with Robin (2026-11-12):** whether the small-number rule stays.
+  The alternative put to Robin is to print "0.0" as rule 1.5.10 assumes
+  and record a warned check, silenced by an explicit `digits` or `sigfig`.

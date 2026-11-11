@@ -63,15 +63,52 @@ split_args <- function(expr) {
   list(exprs = exprs, texts = texts)
 }
 
-fill_template <- function(tmpl, hash, outs) {
+fill_template <- function(tmpl, hash, outs, gov = logical(length(outs))) {
   m <- gregexpr("\ue001|\ue002[0-9]+\ue003", tmpl, perl = TRUE)[[1L]]
   if (m[1L] < 0L) return(tmpl)
   tok <- regmatches(tmpl, list(m))[[1L]]
   lit <- regmatches(tmpl, list(m), invert = TRUE)[[1L]]
-  rep <- vapply(tok, function(t) {
-    if (identical(t, "\ue001")) hash else outs[[as.integer(substring(t, 2L, nchar(t) - 1L))]]
-  }, "", USE.NAMES = FALSE)
-  paste0(c(rbind(lit[-length(lit)], rep), lit[length(lit)]), collapse = "")
+  idx <- vapply(tok, function(t) {
+    if (identical(t, "\ue001")) NA_integer_ else as.integer(substring(t, 2L, nchar(t) - 1L))
+  }, 0L, USE.NAMES = FALSE)
+  rep <- ifelse(is.na(idx), hash, unlist(outs)[idx])
+  join_pieces(lit, rep, !is.na(idx) & gov[idx])
+}
+
+# `gaps` (one more than `outs`) are the text between the printed pieces. A
+# governed span that printed nothing takes one adjacent space with it
+# (1.5.12): the space before it when a space, the end of the text or one of
+# `. , ; : ! ? )` follows; at the start of a block, the space after it. A
+# space is one space or one line break.
+join_pieces <- function(gaps, outs, gov) {
+  n <- length(outs)
+  acc <- ""
+  for (i in seq_len(n)) {
+    acc <- paste0(acc, gaps[i])
+    o <- outs[i]
+    if (!gov[i] || nzchar(o)) {
+      acc <- paste0(acc, o)
+      next
+    }
+    rest <- gaps[i + 1L]
+    nxt <- if (nzchar(rest)) rest else if (i < n) outs[i + 1L] else ""
+    post <- if (!nzchar(nxt) || (i == n && grepl("^[ \t]*$", rest)) ||
+                grepl("^[ \t]*\n[ \t]*\n", rest)) {
+      "end"
+    } else if (grepl("^[ \n]", nxt)) {
+      "space"
+    } else if (grepl("^[.,;:!?)]", nxt)) {
+      "punct"
+    } else "other"
+    start <- grepl("^\\s*$", acc) || grepl("\n[ \t]*\n[ \t]*$", acc) ||
+      grepl("(^|\n)[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|:)[ \t]+)+$", acc)
+    if (start) {
+      if (post == "space" && nzchar(rest)) gaps[i + 1L] <- substring(rest, 2L)
+    } else if (post != "other" && grepl("[ \n]$", acc)) {
+      acc <- substr(acc, 1L, nchar(acc) - 1L)
+    }
+  }
+  paste0(acc, gaps[n + 1L])
 }
 
 # What stock knitr prints for an inline value (rule 1.3.1).
@@ -443,9 +480,12 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     ""
   }
 
+  # `n`, `if` and `sign` spans: when one prints nothing, one adjacent space
+  # goes with it (1.5.12, stage 1g)
+  governed <- function(it) it$type == "row" && R$kind[it$k] %in% c("n", "if", "sign")
+
   render_plain <- function(a, b, items, top = FALSE) {
-    out <- character()
-    cur <- a
+    outs <- character()
     prev <- ""
     for (it in items) {
       o <- render_item(it)
@@ -453,16 +493,22 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                   R$kind[it$k] %in% c("bare", "value", "n", "if", "sign", "text", "cite", "literal"))) {
         o <- paste0(o, note_sentence(it, o))
       }
+      outs <- c(outs, o)
+    }
+    gaps <- character(length(items) + 1L)
+    cur <- a
+    for (i in seq_along(items)) {
+      it <- items[[i]]
+      gaps[i] <- substr(text, cur, it$start - 1L)
       # two emphasis constructs side by side would read as `*a**b*`; an empty
       # comment keeps the delimiters apart (1.4.3)
-      if (it$start == cur && endsWith(prev, "*") && startsWith(o, "*")) {
-        o <- paste0("<!-- -->", o)
+      if (i > 1L && it$start == cur && endsWith(outs[i - 1L], "*") && startsWith(outs[i], "*")) {
+        outs[i] <- paste0("<!-- -->", outs[i])
       }
-      out <- c(out, substr(text, cur, it$start - 1L), o)
-      prev <- o
       cur <- it$end + 1L
     }
-    paste(c(out, substr(text, cur, b)), collapse = "")
+    gaps[length(items) + 1L] <- substr(text, cur, b)
+    join_pieces(gaps, outs, vapply(items, governed, NA))
   }
 
   arm_range <- function(k, i) {
@@ -486,7 +532,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     idf <- data.frame(start = vapply(items, function(it) it$start, 0L),
                       end = vapply(items, function(it) it$end, 0L))
     tmpl <- arm_template_range(S, r$a, r$b, idf)
-    fill_template(tmpl, hash, as.list(outs))
+    fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA))
   }
 
   # ---- the constructs ----------------------------------------------------------

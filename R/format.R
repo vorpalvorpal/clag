@@ -123,6 +123,11 @@ print_one <- function(v, digits, sigfig, cfg) {
   } else {
     nd <- if (is_whole(v)) 0L else as.integer(cfg$digits)
     s <- round_half_away(v, nd)
+    if (s == 0 && v != 0 && !is_whole(v)) {
+      # would print as zero: first non-zero decimal (one significant figure)
+      s <- round_half_away(v, -floor(log10(abs(v))))
+      nd <- max(-floor(log10(abs(s))), 0L)
+    }
   }
   str <- sprintf(paste0("%.", nd, "f"), abs(s))
   num <- as.numeric(str)
@@ -149,33 +154,22 @@ key_number <- function(keys, name) {
   out
 }
 
-# `zero_check`: a non-zero number that prints as zero under the default
-# digits is a value error (1.4.13, dev/design-1f.md).
-format_numbers <- function(value, class, keys, cfg, zero_check = FALSE) {
+format_numbers <- function(value, class, keys, cfg) {
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
   if (!is.null(sigfig) && sigfig < 1) {
     construct_error("`sigfig` must be at least 1.")
-  }
-  check_zero <- function(v, p) {
-    if (zero_check && is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct") &&
-        is.finite(v) && v != 0 && p$number == 0) {
-      value_error(sprintf(
-        "%s prints as zero under the default digits; give `sigfig` or `digits` to say how to print it (rule 1.4.13).",
-        format(v, digits = 15)))
-    }
-    p
   }
   one <- function(v) {
     if (class == ".pct") {
       p <- print_one(if (isTRUE(cfg$pct_proportion)) v * 100 else v,
                      digits, sigfig, cfg)
       p$text <- paste0(p$text, "%")
-      check_zero(v, p)
+      p
     } else if (class == ".sci") {
       sci_one(v, digits, sigfig, cfg)
     } else {
-      check_zero(v, print_one(v, digits, sigfig, cfg))
+      print_one(v, digits, sigfig, cfg)
     }
   }
   res <- lapply(as.numeric(value), one)
@@ -483,8 +477,6 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   rec <- NULL
   clamp_rel <- NULL
-  # the zero rule does not apply to `.no` or to a governor (1.4.13, 1.5.10)
-  zero_ok <- !governor && !(".no" %in% classes)
   if (length(ncls)) {
     cls <- ncls[1]
     if (cls == ".date") {
@@ -514,7 +506,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else if (cls == ".p") {
         rec <- format_p(value, cfg)
       } else {
-        rec <- format_numbers(value, cls, keys, cfg, zero_check = zero_ok)
+        rec <- format_numbers(value, cls, keys, cfg)
       }
       # clamp() keeps its relation: "< 1%" (3.5.4)
       if (!is.null(clamp_rel) && length(clamp_rel) == length(rec)) {
@@ -531,7 +523,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         !all(is_whole(value[is.finite(value)]))) {
       keys$digits <- cfg$digits
     }
-    rec <- format_numbers(value, ".num", keys, cfg, zero_check = zero_ok)
+    rec <- format_numbers(value, ".num", keys, cfg)
   } else {
     rec <- new_weft_text(as.character(value))
   }
@@ -702,6 +694,13 @@ apply_project <- function(spec, x, number_source) {
 #' stops with an error of class `weft_no_value`. A value a class cannot take
 #' (a decimal given to `fmt_word()`, say) stops with class
 #' `weft_value_error`.
+#'
+#' With neither `digits` nor `sigfig`, a number that is not zero but would
+#' print as zero under the default digits prints instead rounded to one
+#' significant figure: `fmt_num(0.0449)` is "0.04" and `fmt_pct(0.0004)` is
+#' "0.04%". A number whose absolute value (for `fmt_pct()`, the
+#' percentage's) is below 1e-9 is zero and prints "0". With `digits` or
+#' `sigfig` the number prints as asked.
 #'
 #' @return A `weft_text`.
 #' @examples

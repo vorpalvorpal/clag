@@ -97,6 +97,13 @@ A missing value (\code{NA}, \code{NaN}, \code{Inf}, \code{-Inf} or a value of le
 stops with an error of class \code{weft_no_value}. A value a class cannot take
 (a decimal given to \code{fmt_word()}, say) stops with class
 \code{weft_value_error}.
+
+With neither \code{digits} nor \code{sigfig}, a number that is not zero but would
+print as zero under the default digits prints instead rounded to one
+significant figure: \code{fmt_num(0.0449)} is "0.04" and \code{fmt_pct(0.0004)} is
+"0.04\%". A number whose absolute value (for \code{fmt_pct()}, the
+percentage's) is below 1e-9 is zero and prints "0". With \code{digits} or
+\code{sigfig} the number prints as asked.
 }
 \examples{
 fmt_num(3.14159)
