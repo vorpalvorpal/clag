@@ -105,7 +105,7 @@ test_that("2a read: as.list() returns the plain named list of values (the object
   expect_identical(class(l), "list")
   expect_identical(names(l), FX_KEYS)
   expect_s3_class(l$core_len, "units")
-  expect_identical(attributes(l)[setdiff(names(attributes(l)), "names")], list())
+  expect_identical(names(attributes(l)), "names")
 })
 
 test_that("2a read: reading is repeatable and read_dict() starts nothing (control)", {
@@ -431,12 +431,12 @@ test_that("2a units: tokens are the runs of letters between digits, white space 
 })
 
 test_that("2a units: an unparseable unit is a problem naming the unit and the field (4.4.7)", {
-  p <- a2_file(c(BASE_ENTRY, "a: {value: 1, type: quantity, unit: \"m//s\", definition: x}"))
+  p <- a2_file(c(BASE_ENTRY, "a: {value: 1, type: quantity, unit: \")m\", definition: x}"))
   e <- a2_err(read_dict(p))
-  expect_weft_cond(e, "weft_dict_error", "m//s")
+  expect_weft_cond(e, "weft_dict_error", ")m")
   msg <- conditionMessage(e)
   expect_true(startsWith(msg, sprintf("weft: %s: 1 problem(s) in the dictionary", p)))
-  expect_match(msg, "m//s", fixed = TRUE)
+  expect_match(msg, ")m", fixed = TRUE)
   expect_match(msg, sprintf("%s:2: `a`", p), fixed = TRUE)
   expect_match(msg, "unit", fixed = TRUE)
 })

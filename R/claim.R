@@ -64,6 +64,7 @@ claim <- function(x, ..., level = c("fail", "warn")) {
   bad <- integer()
   errs <- character()
   lens <- integer()
+  hints <- character()
   for (k in seq_along(checks)) {
     res <- tryCatch(eval(checks[[k]], env), error = function(e) e)
     if (inherits(res, "error")) {
@@ -71,12 +72,17 @@ claim <- function(x, ..., level = c("fail", "warn")) {
       bad <- c(bad, k)
       errs <- c(errs, conditionMessage(res))
       lens <- c(lens, NA_integer_)
+      hints <- c(hints, if (grepl("both operands of the expression should be \"units\" objects",
+                                  conditionMessage(res), fixed = TRUE)) {
+        "state the check's unit, as in . < u(0.45, ug) (rule 4.4.5)"
+      } else NA_character_)
       next
     }
     ok <- is.logical(res) && length(res) == 1L && !is.na(res) && res
     if (!ok) {
       bad <- c(bad, k)
       errs <- c(errs, NA_character_)
+      hints <- c(hints, NA_character_)
       # a check that returns a vector is not a single TRUE (3.1.3): say how
       # many values it returned
       lens <- c(lens, if (length(res) != 1L) length(res) else NA_integer_)
@@ -87,7 +93,8 @@ claim <- function(x, ..., level = c("fail", "warn")) {
       checks = written_checks(frames, checks, weft_env$inline$expr)[bad],
       value = claim_value_text(value),
       errors = errs,
-      lens = lens
+      lens = lens,
+      hints = hints
     ), level)
   }
   value
@@ -158,6 +165,7 @@ claim_value_text <- function(value) {
 claim_fail <- function(record, level = "fail") {
   errs <- record$errors %||% rep(NA_character_, length(record$checks))
   lens <- record$lens %||% rep(NA_integer_, length(record$checks))
+  hints <- record$hints %||% rep(NA_character_, length(record$checks))
   detail <- ifelse(
     !is.na(errs),
     sprintf("%s raised an error: %s (value %s)", record$checks, errs, record$value),
@@ -170,9 +178,9 @@ claim_fail <- function(record, level = "fail") {
   inl <- weft_env$inline
   if (identical(level, "warn")) return(claim_warn(record, detail, s, inl, errs, lens))
   if (!is.null(s) && !is.null(inl)) {
-    for (d in detail) {
+    for (k in seq_along(detail)) {
       add_failure(s, "failed claim", file = inl$file, line = inl$line,
-                  expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_,
+                  expr = inl$label, detail = detail[k], hint = hints[k], chunk = inl$chunk %||% NA_character_,
                   option = inl$option %||% NA_character_)
     }
     inl$failed <- TRUE
@@ -188,14 +196,16 @@ claim_fail <- function(record, level = "fail") {
       sprintf("  check `%s` returned %d values, not a single TRUE (value: %s); write all(%s) to require every element",
               record$checks, lens, record$value, record$checks),
       sprintf("  check `%s` failed (value: %s)", record$checks, record$value)))
+  lines <- ifelse(is.na(hints), lines, paste0(lines, "\n    ", hints))
   msg <- paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
                          if (length(record$checks) == 1L) "" else "s"), lines),
                collapse = "\n")
   if (!is.null(s)) {
     label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
-    for (d in detail) {
+    for (k in seq_along(detail)) {
       add_failure(s, "failed claim", file = current_file_name(s),
-                  chunk = if (is.null(label)) NA_character_ else label, detail = d,
+                  chunk = if (is.null(label)) NA_character_ else label,
+                  detail = detail[k], hint = hints[k],
                   expr = NA_character_)
     }
     # the collected report rides on a check that stops the knit; in a chunk

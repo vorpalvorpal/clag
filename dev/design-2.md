@@ -675,3 +675,20 @@ Two further frictions are not rule conflicts and are listed as 2d/2e hard
 parts: a per-key target holding a `units` value read by a worker that has
 not registered its unit (4.6.1 with 4.4.7), and the output name that
 7.1.3 keys the ledger on, which a Quarto knit may not be told.
+
+## Rulings on the implementer's report for 2a
+
+- Three test assertions were wrong and are corrected: an `as.list()`
+  comparison that could never hold; a unit string (`m//s`) that `units`
+  parses; a marker compared without undoing Pandoc's escapes.
+- The 4.4.5 hint is a `hint` field on the failure record, shown in
+  `last_knit()$failures` and the report, and appended to the message
+  outside a knit. Accepted.
+- `dict_local` is taken out of the front-matter settings before they are
+  checked and is not in `last_knit()$config`. Accepted.
+- A dictionary error is raised before the knit's state is stored, so it
+  stops the knit in draft mode too (D15).
+- **Open, for the review of 2a:** `units::as_units()` does not fail on
+  some strings it cannot parse (`"m/(s"`): it warns and returns one
+  symbolic unit. `read_dict()` should treat that warning as a problem,
+  or a misparsed unit registers as a new unit (D16's cost, made worse).

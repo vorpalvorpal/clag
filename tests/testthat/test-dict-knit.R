@@ -146,7 +146,7 @@ test_that("2a knit: an unknown key under {.num} is a 'no value' failure whose de
   expect_true(grepl("min_sampels", paste(f$expr, f$detail), fixed = TRUE))
   expect_true(grepl("no such key", f$detail, fixed = TRUE))
   expect_equal(f$line, res$offset + 3L)
-  expect_match(all_text(res), "A2 Bad <<weft: no value, line", fixed = TRUE)
+  expect_match(unesc(all_text(res)), "A2 Bad <<weft: no value, line", fixed = TRUE)
   expect_match(all_text(res), "A1 Known 5 here.", fixed = TRUE)
 })
 

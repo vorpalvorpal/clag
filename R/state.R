@@ -24,6 +24,8 @@ new_state <- function() {
   s$stack <- list()
   s$eager_ok <- TRUE
   s$exited <- FALSE
+  s$dict <- NULL
+  s$dict_local <- NULL
   s
 }
 
@@ -179,7 +181,9 @@ format_report <- function(fr) {
 #'     inline code raised (`source`, `class`, `text` and `normalised`);
 #'   * `config`: the configuration the knit used;
 #'   * `sentence_starts`: a data frame of the values that start a sentence
-#'     (`file`, `line`, `expr` and `text`).
+#'     (`file`, `line`, `expr` and `text`);
+#'   * `dict` and `dict_local`: the project dictionary and the chapter's
+#'     own, as [read_dict()] returns them, or `NULL` when there was none.
 #' @examples
 #' last_knit()
 #' @export
@@ -208,5 +212,5 @@ last_knit <- function() {
                                 stringsAsFactors = FALSE)
   list(constructs = cons, failures = fr, warnings = failures_frame(s, "warnings"),
        conditions = conds, config = s$config,
-       sentence_starts = sentence_starts)
+       sentence_starts = sentence_starts, dict = s$dict, dict_local = s$dict_local)
 }

@@ -123,3 +123,9 @@ So a later review does not raise them again without a new argument.
 - `.no` on a governor that prints "0.0" (question E); `thousands_from`
   judged on the number as printed, so 999.96 prints "1,000.0" (G);
   `serial_comma: null` accepted as the default (H).
+
+## From stage 2a
+
+- A unit string that `units` cannot parse but only warns about
+  (`"m/(s"`) is accepted by `read_dict()` and registered as a new unit.
+- Stage 2a has had no independent review yet.

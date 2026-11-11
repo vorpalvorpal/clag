@@ -159,6 +159,8 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE)
   if (!is.null(sigfig) && sigfig < 1) {
     construct_error("`sigfig` must be at least 1.")
   }
+  # a year prints with no thousands mark (4.2.1)
+  if (identical(attr(value, "weft_type"), "year")) cfg$thousands_from <- Inf
   value <- as.numeric(value)
   if (is.null(bound)) bound <- rep(FALSE, length(value))
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")

@@ -22,7 +22,9 @@ none);
 inline code raised (\code{source}, \code{class}, \code{text} and \code{normalised});
 \item \code{config}: the configuration the knit used;
 \item \code{sentence_starts}: a data frame of the values that start a sentence
-(\code{file}, \code{line}, \code{expr} and \code{text}).
+(\code{file}, \code{line}, \code{expr} and \code{text});
+\item \code{dict} and \code{dict_local}: the project dictionary and the chapter's
+own, as \code{\link[=read_dict]{read_dict()}} returns them, or \code{NULL} when there was none.
 }
 }
 \description{

@@ -327,6 +327,8 @@ init_knit <- function() {
   s$input_path <- path %||% NA_character_
   s$front <- front
   s$lang <- document_lang(front, path)
+  # a dictionary problem stops the knit, in draft mode too (D15)
+  init_dicts(s, root, path)
   weft_env$config <- cfg
   weft_env$state <- s
   if (!is.null(path)) {

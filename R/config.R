@@ -55,6 +55,8 @@ read_config <- function(dir, front = list()) {
     weft_abort("The `weft:` front-matter key must be a mapping of settings.",
                "weft_config_error")
   }
+  # `dict_local` is read from the front matter by read_dict_local() (4.3, 9.1.2)
+  front$dict_local <- NULL
   warn_unknown(front, "a document's `weft:` front matter")
   file <- file.path(dir, "_weft.yml")
   has_file <- file.exists(file)
@@ -71,6 +73,11 @@ read_config <- function(dir, front = list()) {
       weft_abort(paste0(file, " must be a mapping of settings."),
                  "weft_config_error")
     }
+  }
+  if (has_file && "dict_local" %in% names(proj)) {
+    weft_abort(paste0(
+      "`dict_local` is written in a document's front matter, not in _weft.yml ",
+      "(rules 4.3.4, 9.1.2)."), "weft_config_error")
   }
   if (has_file) warn_unknown(proj, "_weft.yml")
   if (has_file && "draft" %in% names(front)) {
