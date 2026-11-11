@@ -294,3 +294,19 @@ and are entries 30 to 37 under "Made".
     duration). The details the plan left open are decided in
     `dev/design-2f.md` (U1 to U21) with alternatives and reasons; its
     questions Q1 to Q5 are built as recommended and are for Robin.
+49. **Package 2c, dictionary tooling: contract in `dev/design-2c.md`.**
+    Its decisions C1 to C38 each give alternatives, the choice and the
+    reason. The ones with reach: the dictionary gains the optional
+    fields `term` (the reader's name for an entry and the spelling to
+    keep) and `avoid` (spellings to replace), which settles R2;
+    `dict_vale()` writes a file and says so first; the glossary is a
+    function that writes nothing; a decision pointer that could not be
+    checked is "could not check", never "unresolved"; `curl` goes in
+    Suggests for the GitHub route. Its questions Q1 to Q4 are built as
+    recommended and are for Robin.
+50. **Units the `units` package misreads (Robin, 12 November 2026;
+    replaces the refusals of rule 4.4.20).** weft ships a default units
+    table that redefines them (`pH`, `mph`, `Sv` and the like), and a
+    project adds to it. A setting chooses between weft's defaults and
+    the `units` package's own strict reading. Contract:
+    `dev/design-2g.md`.
