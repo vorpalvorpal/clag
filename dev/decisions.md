@@ -206,3 +206,14 @@ and are entries 30 to 37 under "Made".
     value, so a misspelt column cannot print the empty arm. Guard dropped
     at Robin's word: a number vector needs no class. Contract:
     `dev/design-1h.md`. Reverse: `R/scan.R`, `R/resolve.R`.
+41. **1.4.13, a number that prints as zero (Robin, 2026-11-12; replaces
+    entries 33 and 38).** Robin asked for pushback on the fallback.
+    Alternatives: (a) one significant figure (entry 38): undoes 1.5.10,
+    since no change is ever "unchanged", and mixes precision in one
+    sentence; (b) a value error (entry 33): fails an unattended report on
+    an ordinary small reading; (c) a bound, "< 0.1": awkward for negative
+    numbers and inside "rose by"; (d) print "0.0" and record a warned
+    check that `digits` or `sigfig` silences. Chosen with Robin: (d).
+    Why: fixed decimals are the convention, the render still succeeds and
+    the loss is reported. Contract: `dev/design-1i.md`. Reverse:
+    `R/format.R`.

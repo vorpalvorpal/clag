@@ -1,0 +1,43 @@
+# Stage 1i — a number that prints as zero (Robin, 2026-11-12; replaces the fallback of stage 1g)
+
+Robin doubted the first-non-zero-decimal rule and accepted the
+alternative: fixed decimals are the convention, rule 1.5.10 depends on
+them, and the loss must not be silent. Amends 1.4.13; 1.5.10 stands as
+written. Built after stage 1h.
+
+- **Printing.** Under the default digits a number prints to the default
+  digits, whatever its size: 0.04 prints "0.0", -0.04 prints "0.0" (no
+  "−0.0", decision 5), and 0.0004 under `.pct` prints "0.0%". The
+  one-significant-figure fallback of stage 1g is removed.
+- **Noise.** A number whose absolute value (for `.pct`, the percentage's)
+  is below 1e-9 is zero: it prints "0" ("0%") and is never warned about.
+  This part of stage 1g stays.
+- **The warning.** When neither `digits` nor `sigfig` is given for the
+  value (a project default `digits` does not count as given) and a number
+  that is not zero prints with no digit other than 0, a warned check is
+  recorded, exactly as a failed `claim(level = "warn")` is (stage 1f): a
+  row in `last_knit()$warnings`, the end-of-knit report on stderr, the
+  collection file and draft JSON with `"level": "warn"`, the post-render
+  report. Its kind is "printed as zero". Its message gives the value and
+  what printed and says to add `sigfig` to show it or `digits` to confirm
+  it ("0.04 printed as 0.0: add sigfig to show it, or digits to confirm").
+  The value prints, no marker is left, and the render does not fail.
+- **Silencing.** `digits` or `sigfig` on the construct or the call: the
+  author has chosen, and nothing is recorded.
+- **Where.** A value formatted by `.num` or `.pct` (including the default
+  class of a value with an attribute block) and `fmt_num()`, `fmt_pct()`.
+  One warning per construct or call, however many elements print as zero
+  (the message gives the first and the count). Not a governor and not
+  `#`: a `sign` governor that prints "0.0" takes its zero arm and that is
+  rule 1.5.10 working as designed.
+- **Outside a knit.** `fmt_num(0.04)` returns "0.0" and signals a
+  `warning()` of class `weft_zero_warning`. In `weft_str()` outside a knit
+  the same warning is signalled and the text returned.
+- `rehearse()` reports it in the case's `warnings`.
+
+## Tests
+
+`tests/testthat/test-1i.R`; the small-number tests of `test-1g.R` and the
+rows amended for stage 1g are amended again by the test-writer (the
+`digits="1"` added to older rows may stay: it is still correct and keeps
+them quiet).

@@ -70,6 +70,6 @@ and older assertions that conflict are amended by the test-writer.
 - "Start of a block" includes the text after a list, heading, quote or
   ordered-list marker, so the marker keeps its space. Accepted.
 - A tab is not a space. Accepted.
-- **Open with Robin (2026-11-12):** whether the small-number rule stays.
+- **Settled by Robin (2026-11-12), see `dev/design-1i.md`:** the small-number rule does not stay.
   The alternative put to Robin is to print "0.0" as rule 1.5.10 assumes
   and record a warned check, silenced by an explicit `digits` or `sigfig`.
