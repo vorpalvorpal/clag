@@ -55,3 +55,21 @@ them quiet).
 - In draft mode the JSON file is written when there are warned checks and
   no failures.
 - The record's number for a value that printed "0.0" is 0.
+
+## Rulings on the implementer's report
+
+- **A value with only an id.** The implementer made a number with an id
+  print under the default number class, to satisfy a test row. Overruled:
+  a value with only an id or pass-through attributes reaches no formatter
+  and prints as stock (ruling A on the review of 1b; 1.3.4). The code is
+  reverted and the test row now carries `.num` with its id. The contract's
+  "default class of a value with an attribute block" was loose: a value
+  has a default class only where a key such as `digits` sends it to the
+  number stage.
+- The draft-mode test had no `_weft.yml`, and outside a set-up project no
+  JSON file is written (review B, ruling E). The test now has one.
+- The report tags a warning that is not a failed claim with its kind.
+  Accepted.
+- `.sci` and project formatters record nothing. Accepted.
+- Left open (in `dev/open-findings.md`): `clamp()` with no number class
+  prints a small in-range value as "0.0" with no warned check.

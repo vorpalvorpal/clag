@@ -103,12 +103,19 @@ stops with an error of class \code{weft_no_value}. A value a class cannot take
 (a decimal given to \code{fmt_word()}, say) stops with class
 \code{weft_value_error}.
 
-With neither \code{digits} nor \code{sigfig}, a number that is not zero but would
-print as zero under the default digits prints instead rounded to one
-significant figure: \code{fmt_num(0.0449)} is "0.04" and \code{fmt_pct(0.0004)} is
-"0.04\%". A number whose absolute value (for \code{fmt_pct()}, the
-percentage's) is below 1e-9 is zero and prints "0". With \code{digits} or
-\code{sigfig} the number prints as asked.
+A number whose absolute value (for \code{fmt_pct()}, the percentage's) is below
+1e-9 is zero and prints "0". Any other number prints to the default
+digits, however small: \code{fmt_num(0.04)} is "0.0" and \code{fmt_pct(0.0004)} is
+"0.0\%", never "-0.0". When neither \code{digits} nor \code{sigfig} is given (a
+project default \code{digits} does not count) and \code{fmt_num()} or \code{fmt_pct()}
+prints a number that is not zero with no digit other than 0, the loss is
+not silent: a warned check of kind "printed as zero" is recorded as a
+failed \code{claim(level = "warn")} is (see \code{\link[=claim]{claim()}}), and outside a knit it is
+a \code{warning()} of class \code{weft_zero_warning}. The value still prints. One
+warning is recorded for each call, however many elements print as zero; its
+message gives the first value, what printed and the count, and says to add
+\code{sigfig} to show the number or \code{digits} to confirm the zero. A bound of
+\code{\link[=clamp]{clamp()}} is never printed as zero: it prints as it was written.
 }
 \examples{
 fmt_num(3.14159)

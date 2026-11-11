@@ -210,20 +210,7 @@ claim_fail <- function(record, level = "fail") {
 # happens; outside a knit it is a warning of class `weft_claim_warning`.
 claim_warn <- function(record, detail, s, inl, errs, lens) {
   if (!is.null(s)) {
-    if (!is.null(inl)) {
-      for (d in detail) {
-        add_warning(s, "failed claim", file = inl$file, line = inl$line,
-                    expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_,
-                    option = inl$option %||% NA_character_)
-      }
-    } else {
-      label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
-      for (d in detail) {
-        add_warning(s, "failed claim", file = current_file_name(s),
-                    chunk = if (is.null(label)) NA_character_ else label, detail = d,
-                    expr = NA_character_)
-      }
-    }
+    for (d in detail) warn_here(s, inl, "failed claim", d)
     return(invisible(NULL))
   }
   lines <- ifelse(
@@ -235,5 +222,29 @@ claim_warn <- function(record, detail, s, inl, errs, lens) {
               record$checks, lens, record$value),
       sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
   for (l in lines) rlang::warn(paste0("weft: ", l), class = "weft_claim_warning")
+  invisible(NULL)
+}
+
+# Record a warned check where the code that raised it is: the inline code
+# being run, else the chunk (entry 31).
+warn_here <- function(s, inl, kind, detail) {
+  if (!is.null(inl)) {
+    add_warning(s, kind, file = inl$file, line = inl$line,
+                expr = inl$label, detail = detail, chunk = inl$chunk %||% NA_character_,
+                option = inl$option %||% NA_character_)
+  } else {
+    label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+    add_warning(s, kind, file = current_file_name(s),
+                chunk = if (is.null(label)) NA_character_ else label, detail = detail,
+                expr = NA_character_)
+  }
+}
+
+# A number that printed as zero (stage 1i), from `fmt_num()`, `fmt_pct()` and
+# the like: a warned check in a knit, a `weft_zero_warning` outside one.
+note_zero <- function(msg) {
+  s <- active_state()
+  if (!is.null(s)) return(invisible(warn_here(s, weft_env$inline, "printed as zero", msg)))
+  rlang::warn(paste0("weft: ", msg), class = "weft_zero_warning")
   invisible(NULL)
 }

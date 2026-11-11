@@ -123,11 +123,6 @@ print_one <- function(v, digits, sigfig, cfg) {
   } else {
     nd <- if (is_whole(v)) 0L else as.integer(cfg$digits)
     s <- round_half_away(v, nd)
-    if (s == 0 && v != 0 && !is_whole(v)) {
-      # would print as zero: first non-zero decimal (one significant figure)
-      s <- round_half_away(v, -floor(log10(abs(v))))
-      nd <- max(-floor(log10(abs(s))), 0L)
-    }
   }
   str <- sprintf(paste0("%.", nd, "f"), abs(s))
   num <- as.numeric(str)
@@ -154,31 +149,60 @@ key_number <- function(keys, name) {
   out
 }
 
-format_numbers <- function(value, class, keys, cfg) {
+# `bound` marks the elements that are a clamp() bound: under default digits
+# one that would print as zero prints as written (stage 1i). The result
+# carries `zero` when a number that is not zero printed as zero under default
+# digits: the elements, the first value and what printed.
+format_numbers <- function(value, class, keys, cfg, bound = NULL) {
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
   if (!is.null(sigfig) && sigfig < 1) {
     construct_error("`sigfig` must be at least 1.")
   }
-  one <- function(v) {
-    if (class == ".pct") {
-      p <- print_one(if (isTRUE(cfg$pct_proportion)) v * 100 else v,
-                     digits, sigfig, cfg)
-      p$text <- paste0(p$text, "%")
-      p
-    } else if (class == ".sci") {
-      sci_one(v, digits, sigfig, cfg)
-    } else {
-      print_one(v, digits, sigfig, cfg)
+  value <- as.numeric(value)
+  if (is.null(bound)) bound <- rep(FALSE, length(value))
+  default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
+  hit <- rep(FALSE, length(value))
+  shown <- rep("", length(value))
+  one <- function(i) {
+    v <- value[i]
+    if (class == ".sci") return(sci_one(v, digits, sigfig, cfg))
+    sv <- if (class == ".pct" && isTRUE(cfg$pct_proportion)) v * 100 else v
+    p <- print_one(sv, digits, sigfig, cfg)
+    if (default && p$number == 0 && sv != 0 && !is_whole(sv)) {
+      if (bound[i]) {
+        nd <- 0L
+        while (nd < 15L && abs(sv - round(sv, nd)) > 1e-12 * max(1, abs(sv))) nd <- nd + 1L
+        p <- print_one(sv, nd, NULL, cfg)
+      } else {
+        hit[i] <<- TRUE
+        shown[i] <<- trimws(format(signif(sv, 12), scientific = FALSE, drop0trailing = TRUE))
+      }
     }
+    if (class == ".pct") p$text <- paste0(p$text, "%")
+    p
   }
-  res <- lapply(as.numeric(value), one)
-  new_weft_text(
+  res <- lapply(seq_along(value), one)
+  out <- new_weft_text(
     vapply(res, `[[`, "", "text"),
     number = vapply(res, `[[`, 0, "number"),
     decimals = vapply(res, `[[`, NA, "decimals"),
-    raw = as.numeric(value)
+    raw = value
   )
+  if (any(hit)) {
+    first <- which(hit)[1L]
+    attr(out, "zero") <- list(idx = which(hit), value = shown[first],
+                              printed = as.character(out)[first])
+  }
+  out
+}
+
+# What a number that printed as zero says (stage 1i).
+zero_message <- function(z) {
+  n <- length(z$idx)
+  sprintf("%s printed as %s%s: add sigfig to show it, or digits to confirm it",
+          paste0(z$value, if (endsWith(z$printed, "%")) "%" else ""), z$printed,
+          if (n > 1L) sprintf(" (%d values printed as zero)", n) else "")
 }
 
 sci_one <- function(v, digits, sigfig, cfg) {
@@ -401,7 +425,7 @@ collapse_list <- function(cls, text, nms) {
 # (1.5.7, 1.5.18). `join` joins a vector that no collapse class joined.
 apply_formatters <- function(value, classes = character(), keys = list(),
                              config = current_config(), governor = FALSE,
-                             join = NULL) {
+                             join = NULL, on_zero = note_zero) {
   cfg <- config
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
@@ -501,6 +525,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   rec <- NULL
   clamp_rel <- NULL
+  zero <- NULL
   if (length(ncls)) {
     cls <- ncls[1]
     if (cls == ".date") {
@@ -511,7 +536,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       txt <- format_dates(value, cfg$date_format)
       rec <- new_weft_text(txt)
     } else {
-      if (inherits(value, "weft_text")) {
+      from_text <- inherits(value, "weft_text")
+      if (from_text) {
         # a number formatter formats the raw value afresh (1.7.8)
         clamp_rel <- if (isTRUE(attr(value, "clamped"))) attr(value, "relation")
         num <- attr(value, "raw")
@@ -530,7 +556,12 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else if (cls == ".p") {
         rec <- format_p(value, cfg)
       } else {
-        rec <- format_numbers(value, cls, keys, cfg)
+        bound <- if (!is.null(clamp_rel) && length(clamp_rel) == length(value)) clamp_rel != "="
+        rec <- format_numbers(value, cls, keys, cfg, bound)
+        # a value a formatter already warned about is not warned about twice
+        zero <- attr(rec, "zero")
+        if (from_text && is.null(clamp_rel)) zero <- NULL
+        attr(rec, "zero") <- NULL
       }
       # clamp() keeps its relation: "< 1%" (3.5.4)
       if (!is.null(clamp_rel) && length(clamp_rel) == length(rec)) {
@@ -548,6 +579,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       keys$digits <- cfg$digits
     }
     rec <- format_numbers(value, ".num", keys, cfg)
+    zero <- attr(rec, "zero")
+    attr(rec, "zero") <- NULL
   } else {
     rec <- new_weft_text(as.character(value))
   }
@@ -561,6 +594,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   is_no <- rep(FALSE, length(text))
   if (".no" %in% classes) {
     is_no <- !is.na(number) & number == 0 & !decimals & relation == "="
+    if (!governor) is_no[zero$idx] <- TRUE   # a printed zero, "0.0" too (stage 1i)
     text[is_no] <- "no"
   }
   if (length(wording_cls)) {
@@ -654,6 +688,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     text <- text_stage(text)
   }
 
+  if (!governor && !is.null(zero)) on_zero(zero_message(zero))
+
   out <- new_weft_text(text, number, decimals, relation, raw)
   if (!collapsed && !is.null(nms) && length(nms) == length(text)) names(out) <- nms
   out
@@ -707,12 +743,19 @@ apply_project <- function(spec, x, number_source) {
 #' (a decimal given to `fmt_word()`, say) stops with class
 #' `weft_value_error`.
 #'
-#' With neither `digits` nor `sigfig`, a number that is not zero but would
-#' print as zero under the default digits prints instead rounded to one
-#' significant figure: `fmt_num(0.0449)` is "0.04" and `fmt_pct(0.0004)` is
-#' "0.04%". A number whose absolute value (for `fmt_pct()`, the
-#' percentage's) is below 1e-9 is zero and prints "0". With `digits` or
-#' `sigfig` the number prints as asked.
+#' A number whose absolute value (for `fmt_pct()`, the percentage's) is below
+#' 1e-9 is zero and prints "0". Any other number prints to the default
+#' digits, however small: `fmt_num(0.04)` is "0.0" and `fmt_pct(0.0004)` is
+#' "0.0%", never "-0.0". When neither `digits` nor `sigfig` is given (a
+#' project default `digits` does not count) and `fmt_num()` or `fmt_pct()`
+#' prints a number that is not zero with no digit other than 0, the loss is
+#' not silent: a warned check of kind "printed as zero" is recorded as a
+#' failed `claim(level = "warn")` is (see [claim()]), and outside a knit it is
+#' a `warning()` of class `weft_zero_warning`. The value still prints. One
+#' warning is recorded for each call, however many elements print as zero; its
+#' message gives the first value, what printed and the count, and says to add
+#' `sigfig` to show the number or `digits` to confirm the zero. A bound of
+#' [clamp()] is never printed as zero: it prints as it was written.
 #'
 #' @return A `weft_text`.
 #' @examples

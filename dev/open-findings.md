@@ -107,3 +107,9 @@ So a later review does not raise them again without a new argument.
 - A warned check inside a cached chunk is not replayed when the chunk is
   served from cache (failures are).
 - Stage 1f has had no independent review.
+
+## From stages 1g to 1i
+
+- `clamp(x, ...)` with no number class on the construct prints a small
+  in-range value as "0.0" and records no warned check.
+- No test asserts the record's number of a value that printed "0.0".

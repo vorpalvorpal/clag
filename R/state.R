@@ -131,7 +131,7 @@ report_entry <- function(fr, i, tag = FALSE) {
 format_warnings <- function(fr) {
   if (!nrow(fr)) return("")
   paste(c(sprintf("weft: %d warned check(s)", nrow(fr)),
-          unlist(lapply(seq_len(nrow(fr)), function(i) report_entry(fr, i)))),
+          unlist(lapply(seq_len(nrow(fr)), function(i) report_entry(fr, i, fr$kind[i] != "failed claim")))),
         collapse = "\n")
 }
 

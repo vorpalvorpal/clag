@@ -310,6 +310,21 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     marker("construct error", R$line[k], chunk_label)
   }
 
+  # a number that printed as zero (stage 1i): a warned check at the construct,
+  # a warning outside a knit
+  zero_note <- function(k, label) {
+    function(msg) {
+      if (strict) {
+        rlang::warn(paste0("weft: ", msg), class = "weft_zero_warning")
+      } else {
+        add_warning(s, "printed as zero", file = R$file[k], line = R$line[k], expr = label,
+                    detail = msg, chunk = chunk_label,
+                    option = if (is_str) ctx$option else NA_character_)
+      }
+      invisible(NULL)
+    }
+  }
+
   source_label <- function(k) {
     t <- substr(text, R$start[k], R$end[k])
     t <- gsub("[ \t\r\n]+", " ", t)
@@ -573,9 +588,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     # meets is printed as `.num` prints it
     has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
       ".a" %in% cc$own || any(c("digits", "sigfig", "trunc") %in% names(cc$keys))
+    own <- cc$own
     res <- tryCatch({
       if (has_fmt) {
-        paste(as.character(apply_formatters(v, cc$own, as.list(cc$keys), cfg, join = ", ")), collapse = "")
+        paste(as.character(apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
+                                            on_zero = zero_note(k, label))), collapse = "")
       } else {
         apply_text_classes(stock_print(v), cc$own)
       }
@@ -800,7 +817,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         v <- stats::setNames(vapply(v, stock_print, ""), names(v))
       }
       out <- tryCatch(
-        paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ")), collapse = ""),
+        paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ",
+                                            on_zero = zero_note(k, label))), collapse = ""),
         error = function(e) e)
       if (inherits(out, "error")) return(fail_from_error(k, out, label))
       hash <- out

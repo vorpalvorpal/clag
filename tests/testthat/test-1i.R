@@ -23,7 +23,7 @@ I1_LINES <- c(
   "",
   "C `r c(0.04, 0.03, 5)`{.num .and} here.",                                 #  5
   "",
-  "D `r 0.04`{#zid} here.",                                                  #  7  default class, attribute block
+  "D `r 0.04`{#zid .num} here.",                                             #  7  an id and a class
   "",
   "E `r 0.04`{.num digits=\"1\"} `r 0.04`{.num sigfig=\"1\"} `r 0.0004`{.pct digits=\"1\"} `r 0.0004`{.pct sigfig=\"1\"} here.",  # 9
   "",
@@ -270,7 +270,7 @@ test_that("1i zero: the warnings are printed to stderr under 'weft: N warned che
 })
 
 test_that("1i zero: in draft mode it is no marker, the render succeeds and the draft JSON carries each with level warn", {
-  res <- i_knit(draft = TRUE, format = "knit")
+  res <- i_knit(draft = TRUE, format = "knit", files = list("_weft.yml" = "digits: 1"))
   expect_false(res$failed, label = res$message)
   txt <- paste(res$text, collapse = "\n")
   expect_false(grepl("<<weft", txt, fixed = TRUE))
