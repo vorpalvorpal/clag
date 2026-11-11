@@ -65,7 +65,8 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #'   * `cases`: a named list, one element per case, each a list of `ok` (no
 #'     failures and the knit finished), `error` (the message when the knit
 #'     itself stopped, else `NA`), `failures` (the data frame of
-#'     `last_knit()$failures`) and `chosen` (a data frame of `span`, `file`,
+#'     `last_knit()$failures`), `warnings` (the data frame of
+#'     `last_knit()$warnings`; `ok` ignores it) and `chosen` (a data frame of `span`, `file`,
 #'     `line`, `key`, `expr`, `arm`, `role` and `text`, one row for each
 #'     governed span the case evaluated; `span` matches [arms()]; `arm`,
 #'     `role` and `text` are `NA` for a span that was evaluated and chose no
@@ -174,13 +175,15 @@ rehearse_case <- function(path, set, base) {
     tail <- if (file.exists(log)) utils::tail(readLines(log, warn = FALSE), 5L) else character()
     raw <- list(error = paste(c(sprintf("The R process for the case failed (status %s).",
                                        as.character(status)), tail), collapse = "\n"),
-                failures = failures_frame_empty(), constructs = NULL)
+                failures = failures_frame_empty(), warnings = failures_frame_empty(),
+                constructs = NULL)
   }
   chosen <- rehearse_chosen(raw$constructs, base)
   failures <- raw$failures
   error <- if (is.null(raw$error)) NA_character_ else as.character(raw$error)[1L]
   list(ok = is.na(error) && nrow(failures) == 0L, error = error,
-       failures = failures, chosen = chosen)
+       failures = failures, warnings = raw$warnings %||% failures_frame_empty(),
+       chosen = chosen)
 }
 
 # Match the spans a knit evaluated to the spans of arms(file). A span is known
@@ -300,6 +303,7 @@ rehearse_child <- function(args_path) {
                        stringsAsFactors = FALSE)
   }
   saveRDS(list(error = err, failures = if (is.null(k)) failures_frame_empty() else k$failures,
+               warnings = if (is.null(k)) failures_frame_empty() else k$warnings,
                constructs = cons), a$result)
   invisible()
 }

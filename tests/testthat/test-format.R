@@ -119,7 +119,7 @@ test_that("1.4.13: digits and sigfig on the construct ask for decimals", {
     list(quote(fmt_num(2.7, digits = 0)), "3"),
     list(quote(fmt_num(0.012345, sigfig = 2)), "0.012"),
     list(quote(fmt_num(123.456, sigfig = 4)), "123.5"),
-    list(quote(fmt_num(1234.5, sigfig = 3)), "1230")
+    list(quote(fmt_num(1234.5, sigfig = 3)), "1,230")
   )
   for (cs in cases) {
     expect_equal(txt(eval(cs[[1]])), cs[[2]], label = deparse(cs[[1]]))
@@ -210,7 +210,7 @@ test_that("1.4.12: .word prints digits from the limit (default 100) up", {
   expect_equal(txt(fmt_word(100)), "100")
   expect_equal(txt(fmt_word(101)), "101")
   expect_equal(txt(fmt_word(150)), "150")
-  expect_equal(txt(fmt_word(1000)), "1000")
+  expect_equal(txt(fmt_word(1000)), "1,000")
   expect_equal(txt(fmt_word(12345)), "12,345")
 })
 

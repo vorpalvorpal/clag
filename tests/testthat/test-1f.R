@@ -442,7 +442,7 @@ test_that("1f style: default render: thousands from 1000, no serial comma, the n
     "a, b, c and 1 other", "A, B plus C", "A or B",
     P_WANT
   )
-  expect_equal(b$got, want)
+  expect_equal(unesc(b$got), want)
 })
 
 test_that("1f style: _weft.yml thousands_from: 10000 gives the old behaviour, serial_comma: true adds the comma (rmarkdown)", {
@@ -542,7 +542,7 @@ test_that("1f p: .p renders in the new format under Quarto too", {
   skip_if_no_quarto()
   cases <- c(P_CASES, STYLE_CASES[c(2, 6)])
   b <- f1_cases(cases, engine = "qmd", files = list("_weft.yml" = "serial_comma: true"))
-  expect_equal(b$got, c(P_WANT, "1,000", "A, B, and C"))
+  expect_equal(unesc(b$got), c(P_WANT, "1,000", "A, B, and C"))
 })
 
 # ---- 5. last_knit() ---------------------------------------------------------------------------------

@@ -14,6 +14,7 @@ new_state <- function() {
   s$parked <- list()
   s$constructs <- list()
   s$failures <- list()
+  s$warnings <- list()
   s$conditions <- list()
   s$files <- list()
   s$pending_cache <- NULL
@@ -40,20 +41,25 @@ FAILURE_KINDS <- c("failed claim", "no value", "value error", "construct error",
 
 add_failure <- function(s, kind, file = NA_character_, line = NA_integer_,
                         chunk = NA_character_, expr = NA_character_,
-                        detail = "", hint = NA_character_, option = NA_character_) {
+                        detail = "", hint = NA_character_, option = NA_character_,
+                        into = "failures") {
   option <- as.character(option)[1L]
   if (length(option) && !is.na(option)) detail <- paste0(option, ": ", detail)
   chunk_line <- unlabelled_chunk_line(s, chunk)
-  s$failures[[length(s$failures) + 1L]] <- list(
+  n <- length(s[[into]]) + 1L
+  s[[into]][[n]] <- list(
     kind = kind, file = as.character(file), line = as.integer(line),
     chunk = as.character(chunk), expr = as.character(expr),
     detail = as.character(detail), hint = as.character(hint),
     option = option, chunk_line = chunk_line)
-  invisible(length(s$failures))
+  invisible(n)
 }
 
-failures_frame <- function(s) {
-  fl <- s$failures
+# A warned check (claim(level = "warn")) is kept apart from the failures.
+add_warning <- function(s, ...) add_failure(s, ..., into = "warnings")
+
+failures_frame <- function(s, which = "failures") {
+  fl <- s[[which]]
   col <- function(f, type) {
     if (!length(fl)) return(type[0])
     vapply(fl, function(x) x[[f]][1], type)
@@ -110,18 +116,28 @@ failure_where <- function(f) {
 
 # The report (2.6.2, 2.6.7): claims under their heading line, every other
 # kind under another.
+report_entry <- function(fr, i, tag = FALSE) {
+  f <- fr[i, ]
+  head <- sprintf("  %s  %s%s", failure_where(f),
+                  if (tag) paste0("[", f$kind, "] ") else "",
+                  if (is.na(f$expr) || !nzchar(f$expr)) "" else f$expr)
+  det <- strsplit(f$detail, "\n", fixed = TRUE)[[1]]
+  det <- if (length(det) && any(nzchar(det))) paste0("      ", det) else character()
+  hint <- if (!is.na(f$hint) && nzchar(f$hint)) paste0("      ", f$hint) else character()
+  c(sub("\\s+$", "", head), det, hint)
+}
+
+# The warned checks (entry 31): their own heading, the layout of 2.6.2.
+format_warnings <- function(fr) {
+  if (!nrow(fr)) return("")
+  paste(c(sprintf("weft: %d warned check(s)", nrow(fr)),
+          unlist(lapply(seq_len(nrow(fr)), function(i) report_entry(fr, i)))),
+        collapse = "\n")
+}
+
 format_report <- function(fr) {
   if (!nrow(fr)) return("")
-  entry <- function(i, tag = FALSE) {
-    f <- fr[i, ]
-    head <- sprintf("  %s  %s%s", failure_where(f),
-                    if (tag) paste0("[", f$kind, "] ") else "",
-                    if (is.na(f$expr) || !nzchar(f$expr)) "" else f$expr)
-    det <- strsplit(f$detail, "\n", fixed = TRUE)[[1]]
-    det <- if (length(det) && any(nzchar(det))) paste0("      ", det) else character()
-    hint <- if (!is.na(f$hint) && nzchar(f$hint)) paste0("      ", f$hint) else character()
-    c(sub("\\s+$", "", head), det, hint)
-  }
+  entry <- function(i, tag = FALSE) report_entry(fr, i, tag)
   claims <- which(fr$kind == "failed claim")
   other <- which(fr$kind != "failed claim")
   out <- character()
@@ -142,7 +158,30 @@ format_report <- function(fr) {
 
 # ---- last_knit() ----------------------------------------------------------
 
-# The records of the most recent top-level knit in this R session.
+#' The records of the most recent knit
+#'
+#' `last_knit()` returns what weft recorded in the most recent top-level knit
+#' in this R session, or `NULL` before any knit. The records are kept after
+#' the knit has ended or failed.
+#'
+#' @return `NULL`, or a list with these elements:
+#'   * `constructs`: a data frame with a row for each construct the scanner
+#'     found (its file, line, kind, expression, context, chunk, option, arm
+#'     chosen and whether it was evaluated), or `NULL` when there was none;
+#'   * `failures`: a data frame of the failures, one row for each, with the
+#'     columns `kind`, `file`, `line`, `chunk`, `expr`, `detail`, `hint`,
+#'     `option` and `chunk_line`;
+#'   * `warnings`: the checks that were warned about by `claim(level =
+#'     "warn")`, in the same columns as `failures` (zero rows when there are
+#'     none);
+#'   * `conditions`: a data frame of the warnings and messages that chunks and
+#'     inline code raised (`source`, `class`, `text` and `normalised`);
+#'   * `config`: the configuration the knit used;
+#'   * `sentence_starts`: a data frame of the values that start a sentence
+#'     (`file`, `line`, `expr` and `text`).
+#' @examples
+#' last_knit()
+#' @export
 last_knit <- function() {
   s <- weft_env$state
   if (is.null(s)) return(NULL)
@@ -166,6 +205,7 @@ last_knit <- function() {
   sentence_starts <- data.frame(file = col("file", ""), line = col("line", 0L),
                                 expr = col("expr", ""), text = col("text", ""),
                                 stringsAsFactors = FALSE)
-  list(constructs = cons, failures = fr, conditions = conds, config = s$config,
+  list(constructs = cons, failures = fr, warnings = failures_frame(s, "warnings"),
+       conditions = conds, config = s$config,
        sentence_starts = sentence_starts)
 }

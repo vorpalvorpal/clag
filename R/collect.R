@@ -25,8 +25,11 @@ json_string <- function(x) {
 json_int <- function(x) if (is.null(x) || length(x) != 1L || is.na(x)) "null" else as.character(as.integer(x))
 
 # One failure as a collection line (design-1a, "The Quarto side").
-failure_json <- function(f, file) {
-  paste0("{\"source\":\"knit\",\"kind\":", json_string(f$kind),
+# A warned check carries `"level": "warn"` (entry 31).
+failure_json <- function(f, file, level = NULL) {
+  paste0("{\"source\":\"knit\",",
+         if (!is.null(level)) paste0("\"level\":", json_string(level), ","),
+         "\"kind\":", json_string(f$kind),
          ",\"file\":", json_string(file),
          ",\"line\":", json_int(f$line),
          ",\"chunk\":", json_string(f$chunk),
@@ -90,6 +93,8 @@ collected_failures <- function(root) {
   rows <- lapply(x[grepl("\"source\":\"knit\"", x, fixed = TRUE)], function(l) {
     y <- tryCatch(yaml::yaml.load(l, eval.expr = FALSE), error = function(e) NULL)
     if (!is.list(y)) return(NULL)
+    # a warned check is not a failure
+    if (identical(y$level, "warn")) return(NULL)
     data.frame(kind = as.character(y$kind %||% ""), file = as.character(y$file %||% NA_character_),
                line = suppressWarnings(as.integer(y$line %||% NA_integer_)),
                chunk = as.character(y$chunk %||% NA_character_),
@@ -140,6 +145,11 @@ record_knit <- function(s, fr) {
     f <- as.list(fr[i, ])
     failure_json(f, rel(f$file))
   }, "")
+  wr <- failures_frame(s, "warnings")
+  wlines <- vapply(seq_len(nrow(wr)), function(i) {
+    f <- as.list(wr[i, ])
+    failure_json(f, rel(f$file), level = "warn")
+  }, "")
   stamp <- c(
     "{",
     paste0("  \"source\": ", json_string(src), ","),
@@ -156,10 +166,10 @@ record_knit <- function(s, fr) {
                useBytes = TRUE)
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE)
-  write_draft_failures(s, src, lines)
+  write_draft_failures(s, src, c(lines, wlines))
   coll <- collection_path(root)
   if (is.na(coll)) return(invisible(FALSE))
-  if (length(lines)) cat(lines, file = coll, sep = "\n", append = TRUE)
+  if (length(c(lines, wlines))) cat(c(lines, wlines), file = coll, sep = "\n", append = TRUE)
   invisible(TRUE)
 }
 

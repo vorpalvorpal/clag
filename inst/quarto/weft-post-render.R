@@ -10,6 +10,7 @@
 #     freeze, which was not executed in this render (2.9.4);
 #   * a freeze notice per such document with constructs: how many checks did
 #     not run, and when they last did (2.9.2).
+# Warned checks (level "warn") are listed after the failures and fail nothing.
 # It removes the collection file and exits non-zero while there are failures
 # (not in draft mode, 9.4.3). A freeze notice alone fails nothing.
 
@@ -56,7 +57,7 @@ local({
       # a filter line: what it found, and the text
       detail <- paste0(field(l, "message"), ": ", field(l, "text"))
     }
-    list(source = field(l, "source"), kind = ifelse(is.na(kind), "failure", kind),
+    list(source = field(l, "source"), level = field(l, "level"), kind = ifelse(is.na(kind), "failure", kind),
          text = field(l, "text"),
          file = field(l, "file"), line = ln, chunk = field(l, "chunk"),
          expr = field(l, "expr"), detail = detail, hint = field(l, "hint"),
@@ -130,6 +131,9 @@ local({
   # is dropped only when it is a `<<weft:` marker that a knit record already
   # explains: the same file and kind, and the same line (or, with no line,
   # the same chunk).
+  # a warned check (level "warn") is listed after the failures and fails nothing
+  warned <- Filter(function(r) identical(r$level, "warn"), recs)
+  recs <- Filter(function(r) !identical(r$level, "warn"), recs)
   fails <- Filter(function(r) !identical(r$source, "filter"), recs)
   for (d in frozen) fails <- c(fails, d$failures)
   explained <- function(r) {
@@ -181,6 +185,10 @@ local({
     out <- c(out, sprintf("weft: %d failure%s", length(other),
                           if (length(other) == 1L) "" else "s"),
              unlist(lapply(other, entry, tag = TRUE)))
+  }
+  if (length(warned)) {
+    out <- c(out, sprintf("weft: %d warned check(s)", length(warned)),
+             unlist(lapply(warned, entry)))
   }
   fz <- Filter(function(d) d$checks > 0L, frozen)
   if (length(fz) || length(unchecked)) {

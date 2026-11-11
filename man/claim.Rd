@@ -4,13 +4,15 @@
 \alias{claim}
 \title{Check a value in place}
 \usage{
-claim(x, ...)
+claim(x, ..., level = c("fail", "warn"))
 }
 \arguments{
 \item{x}{Any value.}
 
 \item{...}{One or more checks, as expressions in \code{.} and the caller's
 variables.}
+
+\item{level}{\code{"fail"} (the default) or \code{"warn"}. It must be given by name.}
 }
 \value{
 \code{x}, unchanged.
@@ -29,6 +31,14 @@ A check passes only when it evaluates to a single \code{TRUE}.
 Outside a knit a failed check stops with an error of class
 \code{weft_claim_failed}. \code{claim(x)} with no check stops with class
 \code{weft_claim_no_check} (rule 3.1.10).
+
+With \code{level = "warn"} a check that is not \code{TRUE} is a warning, not a
+failure. In a knit the value prints as if the check had passed, no marker
+is left and the render does not fail; the check is recorded in
+\code{last_knit()$warnings}, and the warnings are printed to stderr at the end
+of the knit. Outside a knit it is a \code{warning()} of class
+\code{weft_claim_warning}, and \code{x} is returned. A check that itself raises an
+error is a failed check at the level given.
 }
 \examples{
 claim(5, . > 1)

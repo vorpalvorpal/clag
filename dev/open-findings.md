@@ -99,3 +99,11 @@ So a later review does not raise them again without a new argument.
   relative to the project root, so its `cite` spans can fail in a
   rehearsal and pass in a render.
 - Stage 1e has had no independent review.
+
+## From stage 1f
+
+- When a `claim()` in chunk code fails at level "fail" and stops the knit,
+  the warned checks collected so far are not reported.
+- A warned check inside a cached chunk is not replayed when the chunk is
+  served from cache (failures are).
+- Stage 1f has had no independent review.

@@ -399,6 +399,11 @@ finish_document <- function() {
   fr <- failures_frame(s)
   # the stamp, and in a book the held failures (2.6.6, 2.9.2, 2.9.4)
   collected <- record_knit(s, fr)
+  # the warned checks go to stderr at the end of the knit, whether or not it
+  # also fails (entry 31); a collection file carries them to the post-render
+  # report instead
+  wr <- failures_frame(s, "warnings")
+  if (nrow(wr) && !collected) message(format_warnings(wr))
   if (!nrow(fr)) return(invisible())
   # a collection file is open: the post-render script reports and fails
   if (collected) return(invisible())

@@ -84,3 +84,20 @@ are amended by the test-writer and listed in its report.
 - **A truncated list's tail** counts as an item for the serial comma.
 - **`fmt_p(0.0095)`** may print "p = 0.009" or "p = 0.010" (binary
   rounding); the existing test accepts either.
+
+## Rulings on the implementer's report
+
+- Two 1f tests compared Pandoc's escaped `\<` raw; they now use `unesc()`.
+  Two older assertions in `test-format.R` took the old thousands default.
+- The row in `helper-1b.R` that expects "0.0" for -0.02, and the
+  `clamp()` bound in `test-review-d.R`, fail under the value error. They
+  are settled by stage 1g, which replaces the value error (decision 38):
+  the suite is red on those until 1g lands.
+- `last` on `fmt_and()`, `fmt_or()`, `fmt_pairs()` defaults to `NULL` so
+  the `serial_comma` setting can apply. Accepted.
+- `.ord` takes the thousands mark too ("1,000th"). Accepted.
+- With a collection file open the knit leaves the warnings to the
+  post-render report. Accepted.
+- Left open (in `dev/open-findings.md`): the warnings report is not
+  printed when a failing check in chunk code stops the knit; a warned
+  check in a cached chunk is not replayed.

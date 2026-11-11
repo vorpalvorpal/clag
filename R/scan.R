@@ -708,6 +708,9 @@ block_errors <- function(S, blk, kind) {
     e <- c(e, "`digits` with `sigfig` is an error (rule 1.4.7).")
   }
   if (kind == "if") {
+    if ("level" %in% lc) {
+      e <- c(e, "A guard (`if` with one arm) has no `level`; only `claim()` takes a level.")
+    }
     fm <- intersect(cls, formatter_classes(S$reg))
     # a text-stage class acts on the chosen arm's final text (1.5.7, 1.4.8)
     is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)

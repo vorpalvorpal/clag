@@ -38,9 +38,9 @@ fmt_count(x)
 
 fmt_ord(x)
 
-fmt_and(x, sep = ", ", last = " and ", trunc = NULL)
+fmt_and(x, sep = ", ", last = NULL, trunc = NULL)
 
-fmt_or(x, sep = ", ", last = " or ", trunc = NULL)
+fmt_or(x, sep = ", ", last = NULL, trunc = NULL)
 
 fmt_p(x)
 
@@ -48,7 +48,7 @@ fmt_date(x)
 
 fmt_range(x, digits = NULL, sigfig = NULL)
 
-fmt_pairs(x, sep = ", ", last = " and ", trunc = NULL)
+fmt_pairs(x, sep = ", ", last = NULL, trunc = NULL)
 
 fmt_ul(x)
 
@@ -74,7 +74,10 @@ accepted.}
 
 \item{sep}{The text between items of a collapse.}
 
-\item{last}{The text before the final item of a collapse.}
+\item{last}{The text before the final item of a collapse. The default is
+" and " (" or " for \code{fmt_or()}), with a comma before it when the
+\code{serial_comma} setting is on and there are three or more items; a \code{last}
+given here is used as it is.}
 
 \item{trunc}{The number of items a collapse shows before "and N others".}
 }

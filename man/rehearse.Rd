@@ -18,7 +18,8 @@ An object of class \code{weft_rehearsal}, a list:
 \item \code{cases}: a named list, one element per case, each a list of \code{ok} (no
 failures and the knit finished), \code{error} (the message when the knit
 itself stopped, else \code{NA}), \code{failures} (the data frame of
-\code{last_knit()$failures}) and \code{chosen} (a data frame of \code{span}, \code{file},
+\code{last_knit()$failures}), \code{warnings} (the data frame of
+\code{last_knit()$warnings}; \code{ok} ignores it) and \code{chosen} (a data frame of \code{span}, \code{file},
 \code{line}, \code{key}, \code{expr}, \code{arm}, \code{role} and \code{text}, one row for each
 governed span the case evaluated; \code{span} matches \code{\link[=arms]{arms()}}; \code{arm},
 \code{role} and \code{text} are \code{NA} for a span that was evaluated and chose no

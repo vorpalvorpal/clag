@@ -24,6 +24,8 @@ default_config <- function() {
     digits = 1,
     decimal_mark = ".",
     big_mark = ",",
+    thousands_from = 1000,
+    serial_comma = FALSE,
     minus = "\u2212",
     governor_class = ".num",
     pct_proportion = TRUE,
@@ -141,8 +143,9 @@ validate_config <- function(cfg) {
     }
   }
   whole("digits"); whole("count_threshold"); whole("word_limit")
+  whole("thousands_from")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
-  lgl("pct_proportion"); lgl("draft"); lgl("sentence_start_fail")
+  lgl("pct_proportion"); lgl("draft"); lgl("sentence_start_fail"); lgl("serial_comma")
   str("date_format")
   prop <- function(nm, open = TRUE) {
     v <- cfg[[nm]]

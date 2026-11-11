@@ -15,16 +15,31 @@
 #' `weft_claim_failed`. `claim(x)` with no check stops with class
 #' `weft_claim_no_check` (rule 3.1.10).
 #'
+#' With `level = "warn"` a check that is not `TRUE` is a warning, not a
+#' failure. In a knit the value prints as if the check had passed, no marker
+#' is left and the render does not fail; the check is recorded in
+#' `last_knit()$warnings`, and the warnings are printed to stderr at the end
+#' of the knit. Outside a knit it is a `warning()` of class
+#' `weft_claim_warning`, and `x` is returned. A check that itself raises an
+#' error is a failed check at the level given.
+#'
 #' @param x Any value.
 #' @param ... One or more checks, as expressions in `.` and the caller's
 #'   variables.
+#' @param level `"fail"` (the default) or `"warn"`. It must be given by name.
 #' @return `x`, unchanged.
 #' @examples
 #' claim(5, . > 1)
 #' claim(c(3, 4), sum(.) == 7, all(. > 0))
 #' @export
-claim <- function(x, ...) {
+claim <- function(x, ..., level = c("fail", "warn")) {
   frames <- sys.calls()
+  if (!(is.character(level) && length(level) %in% c(1L, 2L) &&
+        (length(level) == 2L && identical(level, c("fail", "warn")) ||
+         length(level) == 1L && !is.na(level) && level %in% c("fail", "warn")))) {
+    weft_abort("`level` must be \"fail\" or \"warn\".", "weft_claim_level")
+  }
+  level <- level[1L]
   checks <- as.list(substitute(list(...)))[-1L]
   # an empty argument, as in `claim(x, )`, is no check (3.1.10)
   empty <- vapply(seq_along(checks),
@@ -65,7 +80,7 @@ claim <- function(x, ...) {
       value = claim_value_text(value),
       errors = errs,
       lens = lens
-    ))
+    ), level)
   }
   value
 }
@@ -132,7 +147,7 @@ claim_value_text <- function(value) {
 # is collected and `claim()` returns its value (2.4.1). In chunk code during a
 # knit it is recorded and then stops, with every failure collected so far in
 # its message (2.4.4, 2.4.5). Everywhere else it stops at once (2.4.2).
-claim_fail <- function(record) {
+claim_fail <- function(record, level = "fail") {
   errs <- record$errors %||% rep(NA_character_, length(record$checks))
   lens <- record$lens %||% rep(NA_integer_, length(record$checks))
   detail <- ifelse(
@@ -145,6 +160,7 @@ claim_fail <- function(record) {
       sprintf("%s was FALSE (value %s)", record$checks, record$value)))
   s <- active_state()
   inl <- weft_env$inline
+  if (identical(level, "warn")) return(claim_warn(record, detail, s, inl, errs, lens))
   if (!is.null(s) && !is.null(inl)) {
     for (d in detail) {
       add_failure(s, "failed claim", file = inl$file, line = inl$line,
@@ -188,4 +204,36 @@ claim_fail <- function(record) {
     }
   }
   weft_abort(msg, "weft_claim_failed")
+}
+
+# A warned check (entry 31): in a knit it is recorded and nothing else
+# happens; outside a knit it is a warning of class `weft_claim_warning`.
+claim_warn <- function(record, detail, s, inl, errs, lens) {
+  if (!is.null(s)) {
+    if (!is.null(inl)) {
+      for (d in detail) {
+        add_warning(s, "failed claim", file = inl$file, line = inl$line,
+                    expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_,
+                    option = inl$option %||% NA_character_)
+      }
+    } else {
+      label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+      for (d in detail) {
+        add_warning(s, "failed claim", file = current_file_name(s),
+                    chunk = if (is.null(label)) NA_character_ else label, detail = d,
+                    expr = NA_character_)
+      }
+    }
+    return(invisible(NULL))
+  }
+  lines <- ifelse(
+    !is.na(errs),
+    sprintf("check `%s` raised an error: %s (value: %s)", record$checks, errs, record$value),
+    ifelse(
+      !is.na(lens),
+      sprintf("check `%s` returned %d values, not a single TRUE (value: %s)",
+              record$checks, lens, record$value),
+      sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
+  for (l in lines) rlang::warn(paste0("weft: ", l), class = "weft_claim_warning")
+  invisible(NULL)
 }

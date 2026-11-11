@@ -129,7 +129,7 @@ print_one <- function(v, digits, sigfig, cfg) {
   neg <- s < 0 && num != 0
   parts <- strsplit(str, ".", fixed = TRUE)[[1]]
   int <- parts[1]
-  if (num >= 10000) int <- group_int(int, cfg$big_mark)
+  if (num >= (cfg$thousands_from %||% 1000)) int <- group_int(int, cfg$big_mark)
   txt <- if (length(parts) > 1L) paste0(int, cfg$decimal_mark, parts[2]) else int
   if (neg) {
     txt <- paste0(cfg$minus, txt)
@@ -149,22 +149,33 @@ key_number <- function(keys, name) {
   out
 }
 
-format_numbers <- function(value, class, keys, cfg) {
+# `zero_check`: a non-zero number that prints as zero under the default
+# digits is a value error (1.4.13, dev/design-1f.md).
+format_numbers <- function(value, class, keys, cfg, zero_check = FALSE) {
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
   if (!is.null(sigfig) && sigfig < 1) {
     construct_error("`sigfig` must be at least 1.")
+  }
+  check_zero <- function(v, p) {
+    if (zero_check && is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct") &&
+        is.finite(v) && v != 0 && p$number == 0) {
+      value_error(sprintf(
+        "%s prints as zero under the default digits; give `sigfig` or `digits` to say how to print it (rule 1.4.13).",
+        format(v, digits = 15)))
+    }
+    p
   }
   one <- function(v) {
     if (class == ".pct") {
       p <- print_one(if (isTRUE(cfg$pct_proportion)) v * 100 else v,
                      digits, sigfig, cfg)
       p$text <- paste0(p$text, "%")
-      p
+      check_zero(v, p)
     } else if (class == ".sci") {
       sci_one(v, digits, sigfig, cfg)
     } else {
-      print_one(v, digits, sigfig, cfg)
+      check_zero(v, print_one(v, digits, sigfig, cfg))
     }
   }
   res <- lapply(as.numeric(value), one)
@@ -251,8 +262,9 @@ format_dates <- function(x, fmt) {
   }, "")
 }
 
-# A p-value (1.4.3, dev/design-1b.md): "p < 0.001" below 0.001, three
-# decimals below 0.01, two from 0.01, "p > 0.99" above 0.99.
+# A p-value (1.4.3, dev/design-1f.md): "p < 0.001" below 0.001, three
+# decimals when the value rounded to three decimals is below 0.1, two from
+# there, "p > 0.99" above 0.99.
 print_p <- function(p, cfg) {
   dm <- cfg$decimal_mark
   mk <- function(str, rel, num) {
@@ -261,9 +273,10 @@ print_p <- function(p, cfg) {
   }
   if (p < 0.001) return(mk("0.001", "<", 0.001))
   if (p > 0.99) return(mk("0.99", ">", 0.99))
-  if (p < 0.01) {
-    s <- sprintf("%.3f", round_half_away(p, 3L))
-    if (as.numeric(s) < 0.01) return(mk(s, "=", as.numeric(s)))
+  s3 <- round_half_away(p, 3L)
+  if (s3 < 0.1) {
+    s <- sprintf("%.3f", s3)
+    return(mk(s, "=", as.numeric(s)))
   }
   s <- sprintf("%.2f", round_half_away(p, 2L))
   mk(s, "=", as.numeric(s))
@@ -356,14 +369,22 @@ collapse_range <- function(text, number, cfg) {
 
 # `.and`, `.or` and `.pairs` with `trunc` (1.4.7): the first `k` items, then
 # "and N others".
-collapse_items <- function(text, sep, last, trunc) {
+collapse_items <- function(text, sep, last, trunc, serial = FALSE) {
   n <- length(text)
   if (!is.null(trunc) && n > trunc) {
     rest <- n - trunc
+    # the tail counts as an item, so the serial comma needs trunc + 1 >= 3
     return(paste0(paste(text[seq_len(trunc)], collapse = sep),
+                  if (serial && trunc >= 2L) "," else "",
                   " and ", rest, if (rest == 1L) " other" else " others"))
   }
+  if (serial && n >= 3L) last <- add_serial_comma(last)
   as.character(glue_vec(text, sep = sep, last = last))
+}
+
+# " and " becomes ", and ": a comma before the joiner, unless it has one.
+add_serial_comma <- function(last) {
+  if (grepl("^[ ]*,", last)) last else paste0(",", last)
 }
 
 # The list formatters (1.4.3): a block with a blank line before and after.
@@ -462,6 +483,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   rec <- NULL
   clamp_rel <- NULL
+  # the zero rule does not apply to `.no` or to a governor (1.4.13, 1.5.10)
+  zero_ok <- !governor && !(".no" %in% classes)
   if (length(ncls)) {
     cls <- ncls[1]
     if (cls == ".date") {
@@ -491,7 +514,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else if (cls == ".p") {
         rec <- format_p(value, cfg)
       } else {
-        rec <- format_numbers(value, cls, keys, cfg)
+        rec <- format_numbers(value, cls, keys, cfg, zero_check = zero_ok)
       }
       # clamp() keeps its relation: "< 1%" (3.5.4)
       if (!is.null(clamp_rel) && length(clamp_rel) == length(rec)) {
@@ -508,7 +531,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         !all(is_whole(value[is.finite(value)]))) {
       keys$digits <- cfg$digits
     }
-    rec <- format_numbers(value, ".num", keys, cfg)
+    rec <- format_numbers(value, ".num", keys, cfg, zero_check = zero_ok)
   } else {
     rec <- new_weft_text(as.character(value))
   }
@@ -544,7 +567,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
           w,
           ".word" = if (nk >= cfg$word_limit) text[k] else spell_or(nk, text[k]),
           ".count" = if (nk >= cfg$count_threshold) text[k] else spell_or(nk, text[k]),
-          ".ord" = paste0(if (nk >= 10000) intk else sprintf("%.0f", nk),
+          ".ord" = paste0(if (nk >= (cfg$thousands_from %||% 1000)) intk else sprintf("%.0f", nk),
                           ordinal_suffix(nk))
         )
       }
@@ -581,7 +604,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         }
         if (cl == ".pairs") {
           sep <- keys$sep %||% ", "
-          text <- collapse_items(paste0(nms, " (", text, ")"), sep, keys$last %||% " and ", trunc)
+          text <- collapse_items(paste0(nms, " (", text, ")"), sep, keys$last %||% " and ", trunc,
+                                 serial = isTRUE(cfg$serial_comma) && is.null(keys$last))
         } else {
           text <- collapse_list(cl, text, nms)
         }
@@ -590,7 +614,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else {
         sep <- keys$sep %||% ", "
         last <- keys$last %||% (if (cl == ".or") " or " else " and ")
-        text <- collapse_items(text, sep, last, trunc)
+        text <- collapse_items(text, sep, last, trunc,
+                               serial = isTRUE(cfg$serial_comma) && is.null(keys$last))
       }
       collapsed <- TRUE
       number <- NA_real_
@@ -667,7 +692,10 @@ apply_project <- function(spec, x, number_source) {
 #' @param digits Decimal places. Not together with `sigfig`.
 #' @param sigfig Significant figures. Not together with `digits`.
 #' @param sep The text between items of a collapse.
-#' @param last The text before the final item of a collapse.
+#' @param last The text before the final item of a collapse. The default is
+#'   " and " (" or " for `fmt_or()`), with a comma before it when the
+#'   `serial_comma` setting is on and there are three or more items; a `last`
+#'   given here is used as it is.
 #'
 #' @details
 #' A missing value (`NA`, `NaN`, `Inf`, `-Inf` or a value of length zero)
@@ -721,13 +749,13 @@ fmt_ord <- function(x) apply_formatters(x, ".ord")
 #' @rdname fmt
 #' @param trunc The number of items a collapse shows before "and N others".
 #' @export
-fmt_and <- function(x, sep = ", ", last = " and ", trunc = NULL) {
+fmt_and <- function(x, sep = ", ", last = NULL, trunc = NULL) {
   apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc))
 }
 
 #' @rdname fmt
 #' @export
-fmt_or <- function(x, sep = ", ", last = " or ", trunc = NULL) {
+fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL) {
   apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc))
 }
 
@@ -747,7 +775,7 @@ fmt_range <- function(x, digits = NULL, sigfig = NULL) {
 
 #' @rdname fmt
 #' @export
-fmt_pairs <- function(x, sep = ", ", last = " and ", trunc = NULL) {
+fmt_pairs <- function(x, sep = ", ", last = NULL, trunc = NULL) {
   apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc))
 }
 
