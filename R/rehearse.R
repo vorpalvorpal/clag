@@ -14,8 +14,13 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #'
 #' Each case is a named list of `params`. The knit has the document's
 #' default parameters with the case's values over them; a name that the
-#' document does not declare is an error, raised before anything runs. The
-#' working directory is the document's, as in a render. Draft mode is on, so
+#' document does not declare is an error, raised before anything runs. A
+#' default written `!r` is evaluated in the child process, in the document's
+#' folder, and one that cannot be evaluated stops that case with the error. A
+#' case cannot be named after a column of the result (`file`, `line`,
+#' `context`, `span`, `key`, `expr`, `arm`, `role`, `text`, `parent_span`,
+#' `parent_arm` or `reached`). The knit's working directory is the
+#' document's, as in a render, for a `.qmd` too. Draft mode is on, so
 #' a case with failures runs to its end; a case whose knit stops is reported
 #' in its `error` and the next case runs.
 #'
@@ -23,17 +28,31 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #' temporary directory that is removed, and the child process runs with the
 #' environment variable `WEFT_REHEARSE=1`, which makes weft write no stamp, no
 #' collection line, no draft JSON file and no ledger, and use no chunk cache
-#' (`cache = FALSE` is forced, so no cache directory appears). A chunk of the
-#' document that itself writes files is the author's affair.
+#' (`cache = FALSE` is forced for every chunk, wherever its cache was set, so
+#' no cache directory appears). A chunk of the document that itself writes
+#' files is the author's affair.
 #'
 #' @section Limits:
 #' Only `knitr::knit()` runs: not Pandoc and not Quarto, because a rehearsal
 #' needs the records and not the output. Because Quarto does not run, a
-#' `{{< include >}}` is not expanded and project-level metadata is not read.
+#' `{{< include >}}` is not expanded and project-level metadata is not read;
+#' that includes `execute-dir`, so the working directory is always the
+#' document's folder, never the project root.
 #' A `.qmd` whose inline code uses the `{r}` form is knitted with a stand-in
 #' for Quarto's `.QuartoInlineRender`. A document that reads its data some
 #' other way than through its parameters renders the same data in every case
 #' (rule 3.7.4).
+#'
+#' The child process is started in the project root (the nearest folder
+#' upward that holds `_weft.yml` or `_quarto.yml`, else the document's folder)
+#' and reads that folder's `.Rprofile`, as a render does, so a document that
+#' activates weft there can be rehearsed. It is not run with `--vanilla`.
+#'
+#' Only the spans of the file rehearsed are reported: a span in a document
+#' that a chunk includes with `child=` is not listed or reported. A span that
+#' a case evaluates more than once (a `weft_str()` in a loop) is reported once,
+#' with the last arm it chose. A case value is not checked against the
+#' default's type, and `cases` cannot be empty.
 #'
 #' The child process loads the same weft as this one: when it was loaded by
 #' `pkgload` (as `devtools::load_all()` does) from a source directory, the
@@ -48,9 +67,12 @@ rehearsing <- function() identical(Sys.getenv("WEFT_REHEARSE"), "1")
 #'     itself stopped, else `NA`), `failures` (the data frame of
 #'     `last_knit()$failures`) and `chosen` (a data frame of `span`, `file`,
 #'     `line`, `key`, `expr`, `arm`, `role` and `text`, one row for each
-#'     governed span the case evaluated; `span` matches [arms()]);
-#'   * `arms`: [arms()] of the file with one logical column for each case
-#'     (did the case choose this arm) and `reached` (did any);
+#'     governed span the case evaluated; `span` matches [arms()]; `arm`,
+#'     `role` and `text` are `NA` for a span that was evaluated and chose no
+#'     arm);
+#'   * `arms`: [arms()] of the file (the same object, with its class and
+#'     `errors` attribute) with one logical column for each case (did the
+#'     case choose this arm) and `reached` (did any);
 #'   * `unreached`: the rows of `arms` that no case reached;
 #'   * `unevaluated`: the rows of the spans that no case evaluated at all
 #'     (those nested in arms that were never chosen).
@@ -63,6 +85,13 @@ rehearse <- function(file, cases) {
   if (!is.list(cases) || is.null(names(cases)) || any(!nzchar(names(cases))) ||
       anyDuplicated(names(cases)) || !all(vapply(cases, is.list, NA))) {
     weft_abort("`cases` must be a named list of named lists of params.", "weft_rehearse_error")
+  }
+  taken <- c("file", "line", "context", "span", "key", "expr", "arm", "role", "text",
+             "parent_span", "parent_arm", "reached")
+  clash <- intersect(names(cases), taken)
+  if (length(clash)) {
+    weft_abort(sprintf("A case cannot be named `%s`: that is a column of the result.",
+                       clash[1L]), "weft_rehearse_error")
   }
   path <- normalizePath(file, winslash = "/", mustWork = TRUE)
   defaults <- rehearse_defaults(path)
@@ -77,32 +106,28 @@ rehearse <- function(file, cases) {
                          nm, paste(unknown, collapse = "`, `")), "weft_rehearse_error")
     }
   }
-  base <- arms(path)
-  res <- lapply(names(cases), function(nm) {
-    params <- defaults
-    for (p in names(cases[[nm]])) params[p] <- list(cases[[nm]][[p]])
-    rehearse_case(path, params, base)
-  })
+  base <- arms(file)
+  res <- lapply(names(cases), function(nm) rehearse_case(path, cases[[nm]], base))
   names(res) <- names(cases)
-  ext <- as.data.frame(base, stringsAsFactors = FALSE)
-  attr(ext, "errors") <- NULL
-  attr(ext, "chunks") <- NULL
+  ext <- base
   for (nm in names(res)) {
     ch <- res[[nm]]$chosen
     ext[[nm]] <- paste(ext$span, ext$arm) %in% paste(ch$span, ch$arm)
   }
   ext$reached <- if (length(res)) Reduce(`|`, lapply(names(res), function(nm) ext[[nm]])) else
     rep(FALSE, nrow(ext))
-  ever <- ext$span %in% ext$span[ext$reached]
+  seen <- unlist(lapply(res, function(r) r$chosen$span), use.names = FALSE)
+  ever <- ext$span %in% c(ext$span[ext$reached], seen)
   structure(list(cases = res, arms = ext, unreached = ext[!ext$reached, , drop = FALSE],
                  unevaluated = ext[!ever, , drop = FALSE]),
             class = "weft_rehearsal")
 }
 
-# The document's default params, by name.
+# The names of the document's params. Nothing is evaluated here: a default
+# written `!r` runs in the child, in the document's folder.
 rehearse_defaults <- function(path) {
   lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  ps <- tryCatch(knitr::knit_params(lines), error = function(e) {
+  ps <- tryCatch(knitr::knit_params(lines, evaluate = FALSE), error = function(e) {
     weft_abort(sprintf("The `params` of %s cannot be read: %s", basename(path),
                        conditionMessage(e)), "weft_rehearse_error")
   })
@@ -123,7 +148,7 @@ rehearse_loader <- function() {
   }
 }
 
-rehearse_case <- function(path, params, base) {
+rehearse_case <- function(path, set, base) {
   work <- tempfile("weft-rehearse-")
   dir.create(work)
   on.exit(unlink(work, recursive = TRUE, force = TRUE), add = TRUE)
@@ -132,12 +157,15 @@ rehearse_case <- function(path, params, base) {
   args <- file.path(work, "args.rds")
   result <- file.path(work, "result.rds")
   log <- file.path(work, "log.txt")
-  saveRDS(list(input = basename(path), dir = dirname(path), out = out, params = params,
+  saveRDS(list(input = basename(path), dir = dirname(path), out = out, set = set,
                qmd = grepl("\\.qmd$", path, ignore.case = TRUE),
                root = find_project_root(path), result = result), args)
   code <- sprintf("%s; weft:::rehearse_child(%s)", rehearse_loader(), deparse(args))
+  # started in the project root, which is where a render reads `.Rprofile`
+  old <- setwd(find_project_root(path))
+  on.exit(setwd(old), add = TRUE)
   status <- suppressWarnings(system2(
-    file.path(R.home("bin"), "Rscript"), c("--vanilla", "-e", shQuote(code)),
+    file.path(R.home("bin"), "Rscript"), c("-e", shQuote(code)),
     stdout = log, stderr = log,
     env = c("WEFT_REHEARSE=1", "WEFT_DRAFT=1", "WEFT_COLLECT=", "QUARTO_EXECUTE_INFO=",
             paste0("R_LIBS=", paste(.libPaths(), collapse = .Platform$path.sep)))))
@@ -155,47 +183,58 @@ rehearse_case <- function(path, params, base) {
        failures = failures, chosen = chosen)
 }
 
-# Match the spans a knit chose an arm for to the spans of arms(file): by line,
-# key, expression and context, and, where one line holds the same span twice,
-# in the order the knit evaluated them.
+# Match the spans a knit evaluated to the spans of arms(file). A span is known
+# by where it is: a prose or front-matter span by its line, key, expression
+# and its place among the like spans of that line; a caption by its chunk and
+# option, and a literal `weft_str()` string by its chunk, in the same way. Where
+# a string is evaluated more than once, the evaluations go to the like spans in
+# order, and the last choice of a span stands.
 rehearse_chosen <- function(cons, base) {
   empty <- data.frame(span = integer(), file = character(), line = integer(),
                       key = character(), expr = character(), arm = integer(),
                       role = character(), text = character(), stringsAsFactors = FALSE)
   if (is.null(cons) || !nrow(cons) || !nrow(base)) return(empty)
-  cons <- cons[!is.na(cons$chosen) & (!is.na(cons$line) | cons$context == "caption") & cons$kind %in% names(ARM_ROLES), ,
-               drop = FALSE]
+  cons <- cons[(cons$evaluated | !is.na(cons$chosen)) &
+                 (!is.na(cons$line) | cons$context != "prose") &
+                 cons$kind %in% names(ARM_ROLES), , drop = FALSE]
   cons <- cons[is.na(cons$file) | basename(cons$file) %in% basename(base$file), , drop = FALSE]
   if (!nrow(cons)) return(empty)
   first <- base[!duplicated(base$span), , drop = FALSE]
-  # a caption has no line in a knit: it is known by its option (a knit and
-  # the scanner may not agree on a chunk's label, so that is not used)
   meta <- attr(base, "chunks")
   norm <- function(x) gsub("-", ".", as.character(x), fixed = TRUE)
+  place <- function(context, line, chunk, option, kind, expr, ord) {
+    paste(ifelse(context %in% c("prose", "front-matter"), "prose", context),
+          ifelse(context %in% c("prose", "front-matter"), line, ""),
+          ifelse(context == "caption", paste(chunk, norm(option)),
+                 ifelse(context == "weft_str", chunk, "")),
+          kind, expr, ord, sep = "\r")
+  }
   m <- match(first$span, meta$span)
-  skey <- ifelse(first$context == "caption",
-                 paste("caption", norm(meta$option[m]), first$key, first$expr, sep = "\r"),
-                 paste(first$line, first$key, first$expr, first$context, sep = "\r"))
-  ckey <- ifelse(cons$context == "caption",
-                 paste("caption", norm(cons$option), cons$kind, cons$expr, sep = "\r"),
-                 paste(cons$line, cons$kind, cons$expr, cons$context, sep = "\r"))
+  skey <- place(first$context, first$line, meta$chunk[m], meta$option[m], first$key,
+                first$expr, meta$ord[m])
+  ckey <- place(cons$context, cons$line, cons$chunk, cons$option, cons$kind, cons$expr,
+                cons$ord)
   seen <- list()
   span <- rep(NA_integer_, nrow(cons))
   for (i in seq_len(nrow(cons))) {
     n <- (seen[[ckey[i]]] %||% 0L) + 1L
     seen[[ckey[i]]] <- n
     hit <- first$span[skey == ckey[i]]
-    if (n <= length(hit)) span[i] <- hit[n]
+    if (length(hit)) span[i] <- hit[min(n, length(hit))]
   }
   keep <- !is.na(span)
   rows <- data.frame(span = span[keep], arm = as.integer(cons$chosen[keep]))
   rows <- rows[!duplicated(rows$span, fromLast = TRUE), , drop = FALSE]
+  # an arm the span does not have is no choice
+  ok <- is.na(rows$arm) | paste(rows$span, rows$arm) %in% paste(base$span, base$arm)
+  rows <- rows[ok, , drop = FALSE]
   m <- match(paste(rows$span, rows$arm), paste(base$span, base$arm))
-  rows <- rows[!is.na(m), , drop = FALSE]
-  m <- m[!is.na(m)]
-  out <- data.frame(span = rows$span, file = base$file[m], line = base$line[m],
-                    key = base$key[m], expr = base$expr[m], arm = rows$arm,
-                    role = base$role[m], text = base$text[m], stringsAsFactors = FALSE)
+  f <- match(rows$span, first$span)
+  out <- data.frame(span = rows$span, file = first$file[f], line = first$line[f],
+                    key = first$key[f], expr = first$expr[f], arm = rows$arm,
+                    role = ifelse(is.na(m), NA_character_, base$role[m]),
+                    text = ifelse(is.na(m), NA_character_, base$text[m]),
+                    stringsAsFactors = FALSE)
   out <- out[order(out$span), , drop = FALSE]
   rownames(out) <- NULL
   out
@@ -207,9 +246,16 @@ rehearse_child <- function(args_path) {
   a <- readRDS(args_path)
   setwd(a$dir)
   knitr::opts_knit$set(base.dir = a$out)
+  # a rehearsal uses no chunk cache, wherever a chunk's cache was set: the
+  # hook runs for every chunk, whether or not weft is active yet (3.7.2)
   knitr::opts_chunk$set(cache = FALSE)
+  knitr::opts_hooks$set(label = function(options) {
+    options$cache <- FALSE
+    options
+  })
+  # knitr reads and evaluates relative to the document, a `.qmd`'s copy too
+  knitr::opts_knit$set(root.dir = a$dir)
   envir <- new.env(parent = globalenv())
-  envir$params <- a$params
   # a stand-in for the function Quarto wraps `{r} x` in
   envir$.QuartoInlineRender <- function(x) x
   input <- a$input
@@ -233,6 +279,12 @@ rehearse_child <- function(args_path) {
     writeLines(text, input, useBytes = TRUE)
   }
   err <- tryCatch({
+    # the defaults of `params` are evaluated here, in the document's folder
+    ps <- knitr::knit_params(readLines(a$input, warn = FALSE, encoding = "UTF-8"))
+    params <- lapply(ps, function(p) p$value)
+    names(params) <- vapply(ps, function(p) p$name, "")
+    for (p in names(a$set)) params[p] <- list(a$set[[p]])
+    envir$params <- params
     knitr::knit(input, output = file.path(a$out, "out.md"), envir = envir, quiet = TRUE)
     NULL
   }, error = function(e) conditionMessage(e))
@@ -244,6 +296,7 @@ rehearse_child <- function(args_path) {
                        kind = as.character(cn$kind), expr = as.character(cn$expr),
                        context = as.character(cn$context), chunk = as.character(cn$chunk),
                        option = as.character(cn$option), chosen = as.integer(cn$chosen),
+                       evaluated = as.logical(cn$evaluated), ord = as.integer(cn$ord),
                        stringsAsFactors = FALSE)
   }
   saveRDS(list(error = err, failures = if (is.null(k)) failures_frame_empty() else k$failures,
@@ -266,8 +319,10 @@ print.weft_rehearsal <- function(x, ...) {
     if (nrow(cs$failures)) cat(gsub("(^|\n)", "\\1  ", format_report(cs$failures)), "\n", sep = "")
     if (nrow(cs$chosen)) {
       cat("  arms chosen:\n")
-      cat(sprintf("    %s  arm %d (%s)  %s", where(cs$chosen), cs$chosen$arm, cs$chosen$role,
-                  elide_attrs(cs$chosen$text)), sep = "\n")
+      ch <- cs$chosen
+      cat(ifelse(is.na(ch$arm), sprintf("    %s  chose no arm", where(ch)),
+                 sprintf("    %s  arm %s (%s)  %s", where(ch), ch$arm, ch$role,
+                         elide_attrs(ch$text))), sep = "\n")
     } else {
       cat("  no span chose an arm\n")
     }

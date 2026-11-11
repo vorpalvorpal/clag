@@ -26,6 +26,11 @@ arm_roles <- function(key, narms) {
 #' A file with a construct error is still listed. The errors are in the
 #' attribute `errors`, and the print method ends with them. A span whose arm
 #' count is not one the key accepts is not listed; it is one of the errors.
+#' So is an `n` span with more than one arm in a document whose `lang` is not
+#' English, because weft ships no other plural rules (rules 1.6.4, 1.6.5).
+#'
+#' Only the spans of the files given are listed; a document that a chunk
+#' includes with `child=` is listed only when it is given too.
 #'
 #' @param file One path, or several, to documents.
 #' @return A data frame of class `weft_arms`, one row per arm, with the
@@ -82,9 +87,33 @@ arms_one <- function(path, offset = 0L) {
     }
   }
   gov <- if (nrow(rows)) which(rows$kind %in% names(ARM_ROLES)) else integer()
+  # a two-arm or longer `n` in a language whose plural rules weft does not ship
+  # is a construct error (1.6.4, 1.6.5): listed in `errors`, with no rows
+  lang <- tolower(sub("[-_].*$", "", as.character(read_front_matter(path)$lang)[1L] %||% ""))
+  if (!is.na(lang) && nzchar(lang) && lang != "en" && length(gov)) {
+    plural <- gov[rows$kind[gov] == "n" & lengths(rows$arms[gov]) > 1L &
+                    is.na(rows$error[gov])]
+    if (length(plural)) {
+      errors <- rbind(errors, data.frame(
+        file = rep(path, length(plural)), line = rows$line[plural],
+        message = sprintf(paste0("An `n` span with more than one arm needs the plural rules of `%s`, ",
+                                 "which weft does not ship; English rules are never applied to another ",
+                                 "language (rules 1.6.5, 1.6.7)."),
+                          as.character(read_front_matter(path)$lang)[1L]),
+        stringsAsFactors = FALSE))
+      gov <- setdiff(gov, plural)
+    }
+  }
+  # the place of each row among the rows that read alike: a knit records the
+  # same number, and that is how a rehearsal tells apart the same span twice
+  prose <- rows$context %in% c("prose", "front-matter")
+  grp <- paste(ifelse(prose, "prose", rows$context), rows$line,
+               rows$chunk, gsub("-", ".", rows$option, fixed = TRUE), rows$kind, rows$expr,
+               sep = "\r")
+  ord <- if (nrow(rows)) as.integer(stats::ave(seq_len(nrow(rows)), grp, FUN = seq_along)) else integer()
   gov <- Filter(function(k) !is.null(arm_roles(rows$kind[k], length(rows$arms[[k]]))), gov)
   no_chunks <- data.frame(span = integer(), chunk = character(), option = character(),
-                          stringsAsFactors = FALSE)
+                          ord = integer(), stringsAsFactors = FALSE)
   if (!length(gov)) return(list(arms = arms_empty(), errors = errors, chunks = no_chunks))
   span_of <- rep(NA_integer_, nrow(rows))
   span_of[gov] <- offset + seq_along(gov)
@@ -113,7 +142,8 @@ arms_one <- function(path, offset = 0L) {
   })
   # the chunk and option a caption span is in: a knit knows a caption by these
   chunks <- data.frame(span = span_of[gov], chunk = as.character(rows$chunk[gov]),
-                       option = as.character(rows$option[gov]), stringsAsFactors = FALSE)
+                       option = as.character(rows$option[gov]), ord = ord[gov],
+                       stringsAsFactors = FALSE)
   list(arms = do.call(rbind, parts), errors = errors, chunks = chunks)
 }
 
@@ -121,7 +151,10 @@ arms_one <- function(path, offset = 0L) {
 
 # The attribute braces of an arm's text are shown as `{..}`: the nested
 # spans' own expressions are listed under their own headers.
-elide_attrs <- function(x) gsub("\\{[^{}]*\\}", "{..}", x, perl = TRUE)
+# A newline in an arm is shown as a space.
+elide_attrs <- function(x) {
+  gsub("[ \t]*\r?\n[ \t]*", " ", gsub("\\{[^{}]*\\}", "{..}", x, perl = TRUE))
+}
 
 display_files <- function(files) {
   u <- unique(files)
@@ -160,8 +193,11 @@ print.weft_arms <- function(x, ...) {
   }
   err <- attr(x, "errors")
   if (is.data.frame(err) && nrow(err)) {
+    # named as the tree names them: by the same rule, over every file shown
+    shown <- display_files(c(x$file, err$file))
+    shown <- shown[length(x$file) + seq_len(nrow(err))]
     cat("", sprintf("%d construct error%s:", nrow(err), if (nrow(err) == 1L) "" else "s"),
-        sprintf("  %s:%d  %s", display_files(err$file), err$line,
+        sprintf("  %s:%d  %s", shown, err$line,
                 gsub("\n", " ", err$message)), sep = "\n")
   }
   invisible(x)

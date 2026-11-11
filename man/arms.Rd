@@ -32,6 +32,11 @@ object does nothing.
 A file with a construct error is still listed. The errors are in the
 attribute \code{errors}, and the print method ends with them. A span whose arm
 count is not one the key accepts is not listed; it is one of the errors.
+So is an \code{n} span with more than one arm in a document whose \code{lang} is not
+English, because weft ships no other plural rules (rules 1.6.4, 1.6.5).
+
+Only the spans of the files given are listed; a document that a chunk
+includes with \verb{child=} is listed only when it is given too.
 }
 \seealso{
 \code{\link[=rehearse]{rehearse()}}, which knits a document under several sets of

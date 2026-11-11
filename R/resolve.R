@@ -234,6 +234,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   on.exit({
     if (nr) {
+      # the place of a span among the spans of its line (or of its string) that
+      # read alike, so a rehearsal can tell them apart (3.7.3)
+      grp <- paste(R$context, R$line, R$chunk, gsub("-", ".", R$option, fixed = TRUE),
+                   R$kind, R$expr, sep = "\r")
+      R$ord <- as.integer(stats::ave(seq_len(nr), grp, FUN = seq_along))
       s$constructs[[length(s$constructs) + 1L]] <- R
       if (!is.null(F)) {
         top <- is.na(R$parent) & !(R$kind %in% c("bare", "link"))

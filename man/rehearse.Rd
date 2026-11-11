@@ -20,9 +20,12 @@ failures and the knit finished), \code{error} (the message when the knit
 itself stopped, else \code{NA}), \code{failures} (the data frame of
 \code{last_knit()$failures}) and \code{chosen} (a data frame of \code{span}, \code{file},
 \code{line}, \code{key}, \code{expr}, \code{arm}, \code{role} and \code{text}, one row for each
-governed span the case evaluated; \code{span} matches \code{\link[=arms]{arms()}});
-\item \code{arms}: \code{\link[=arms]{arms()}} of the file with one logical column for each case
-(did the case choose this arm) and \code{reached} (did any);
+governed span the case evaluated; \code{span} matches \code{\link[=arms]{arms()}}; \code{arm},
+\code{role} and \code{text} are \code{NA} for a span that was evaluated and chose no
+arm);
+\item \code{arms}: \code{\link[=arms]{arms()}} of the file (the same object, with its class and
+\code{errors} attribute) with one logical column for each case (did the
+case choose this arm) and \code{reached} (did any);
 \item \code{unreached}: the rows of \code{arms} that no case reached;
 \item \code{unevaluated}: the rows of the spans that no case evaluated at all
 (those nested in arms that were never chosen).
@@ -38,8 +41,13 @@ its parameters may take (rules 3.7.1 to 3.7.4).
 \details{
 Each case is a named list of \code{params}. The knit has the document's
 default parameters with the case's values over them; a name that the
-document does not declare is an error, raised before anything runs. The
-working directory is the document's, as in a render. Draft mode is on, so
+document does not declare is an error, raised before anything runs. A
+default written \code{!r} is evaluated in the child process, in the document's
+folder, and one that cannot be evaluated stops that case with the error. A
+case cannot be named after a column of the result (\code{file}, \code{line},
+\code{context}, \code{span}, \code{key}, \code{expr}, \code{arm}, \code{role}, \code{text}, \code{parent_span},
+\code{parent_arm} or \code{reached}). The knit's working directory is the
+document's, as in a render, for a \code{.qmd} too. Draft mode is on, so
 a case with failures runs to its end; a case whose knit stops is reported
 in its \code{error} and the next case runs.
 
@@ -47,18 +55,32 @@ Nothing is written to the project. The output and the figures go to a
 temporary directory that is removed, and the child process runs with the
 environment variable \code{WEFT_REHEARSE=1}, which makes weft write no stamp, no
 collection line, no draft JSON file and no ledger, and use no chunk cache
-(\code{cache = FALSE} is forced, so no cache directory appears). A chunk of the
-document that itself writes files is the author's affair.
+(\code{cache = FALSE} is forced for every chunk, wherever its cache was set, so
+no cache directory appears). A chunk of the document that itself writes
+files is the author's affair.
 }
 \section{Limits}{
 
 Only \code{knitr::knit()} runs: not Pandoc and not Quarto, because a rehearsal
 needs the records and not the output. Because Quarto does not run, a
-\verb{\{\{< include >\}\}} is not expanded and project-level metadata is not read.
+\verb{\{\{< include >\}\}} is not expanded and project-level metadata is not read;
+that includes \code{execute-dir}, so the working directory is always the
+document's folder, never the project root.
 A \code{.qmd} whose inline code uses the \code{{r}} form is knitted with a stand-in
 for Quarto's \code{.QuartoInlineRender}. A document that reads its data some
 other way than through its parameters renders the same data in every case
 (rule 3.7.4).
+
+The child process is started in the project root (the nearest folder
+upward that holds \verb{_weft.yml} or \verb{_quarto.yml}, else the document's folder)
+and reads that folder's \code{.Rprofile}, as a render does, so a document that
+activates weft there can be rehearsed. It is not run with \code{--vanilla}.
+
+Only the spans of the file rehearsed are reported: a span in a document
+that a chunk includes with \verb{child=} is not listed or reported. A span that
+a case evaluates more than once (a \code{weft_str()} in a loop) is reported once,
+with the last arm it chose. A case value is not checked against the
+default's type, and \code{cases} cannot be empty.
 
 The child process loads the same weft as this one: when it was loaded by
 \code{pkgload} (as \code{devtools::load_all()} does) from a source directory, the
