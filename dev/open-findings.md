@@ -7,14 +7,6 @@ dropped.
 
 ## Open
 
-- **Netting.** Two limits of the gate are accepted (rules 6.2.6 and 6.3.6):
-  a finding removed and the same text added elsewhere in one commit nets to
-  zero, and a removal and an unrelated addition in one commit net out. How
-  often either hides something in a real history is not known (Q18).
-- **The hook under other git operations.** On `git commit --amend` the hook
-  compares with the commit being amended, so the count is of the new changes
-  only. Merge commits, `git rebase` and `git cherry-pick` (which may not run
-  the hook at all) are untested (Q17).
 - **A guard made optional shows nowhere but the source diff.** A one-arm
   `if` that gains an empty arm keeps its ledger key, and prints the same
   while its condition holds, so `changes()` does not list it.

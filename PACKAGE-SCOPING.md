@@ -10,8 +10,9 @@ Quarto 1.11.9 (Pandoc 3.10) on macOS.
 depends on them, and adds deterministic checks for computational manuscripts.
 It has no users and no backwards-compatibility obligations. Portable by
 design: the package knows about knitr, Quarto, Pandoc, `targets` and git, and
-nothing about any particular book. The repository and the existing code still
-carry the old name, `clag`.
+nothing about any particular book. The old `clag` code is removed, and its
+last state is tagged `clag-0.2.0`. The GitHub repository and the local folder
+keep the name `clag` for now.
 
 The package is two layers. The **prose core** (the syntax of §1 and the
 runtime of §2) makes a computed value cost what knitr inline code already
@@ -70,9 +71,10 @@ attribute block is plain knitr inline code. With an attribute block, Quarto's
 `` `{r} x` `` form and `` `r x` `` behave the same. With none, each prints as
 its own form prints in stock (1.3.1).
 
-**1.1.5** A span is a weft construct when its attribute block carries exactly
-one of the four keys, or carries none of them and a weft text class (`.a`,
-`.cap`, `.strong`, `.em`):
+**1.1.5** A span is a weft construct when its attribute block carries one of
+the four keys, or carries none of them and a weft text class (`.a`, `.cap`,
+`.strong`, `.em`). A span with two of the keys is one construct, with a
+construct error (5.3.1).
 
 | Key | Kind | The span |
 |---|---|---|
@@ -100,8 +102,13 @@ nothing between.
 attribute block, is not a construct. It keeps stock behaviour everywhere: it
 prints as stock prints it (1.3.1), and no rule about constructs applies to
 it, in prose, in `title:` and the other front-matter fields, in tables and in
-captions. A `claim()` in it is still a check (2.4.1), and it still counts as
-a value for the numeral rule (5.2.1). It is recorded in the ledger (7.1.2),
+captions. Three things still apply to it, because they are about R and not
+about constructs. A weft function called in it behaves as it does anywhere: a
+`claim()` is still a check (2.4.1), a `claim()` with no check is an error
+(3.1.10), and a phrase function under a `lang` weft does not ship is an error
+(1.6.8). An expression that does not parse is an error (5.3.5). And it still
+counts as a value for the numeral rule (5.2.1). It is recorded in the ledger
+(7.1.2),
 and the gate counts it when it is removed (6.3.1), because it prints a value
 in the document.
 
@@ -402,7 +409,8 @@ print; the author writes that case with `if`.
 **1.5.18** An `n` or `sign` span with no formatter class, and no `digits` or
 `sigfig`, formats its governor with the class named by the default governor
 class setting (9.1.2). The setting defaults to `.num`, which prints a whole
-number with no decimals (1.4.13).
+number with no decimals (1.4.13). A span that refers to an id uses the
+printed record instead (1.7.8).
 
 ### 1.6 Plural forms
 
@@ -522,7 +530,7 @@ value of `cite` takes one of two forms.
 characters. The bracket is prose and can hold values and governed spans.
 
 **1.8.3** In the citation form the value is written into the output exactly
-as given, in square brackets, directly after the span's prose. Everything
+as given, in square brackets, after the span's prose and one space. Everything
 Pandoc's citation syntax allows therefore works: a locator
 (`cite="@smith2020, p. 4"`), a prefix, several sources separated by `;`, and
 `-@smith2020` for the year alone. The author places the citation by choosing
@@ -534,7 +542,8 @@ value with no `@` is a construct error.
 
 **1.8.5** Each key must follow Pandoc's grammar for a citation key and must
 resolve in the bibliography, in either form. This is checked at knit time and
-by a lint (§5.4).
+by a lint (§5.4). At knit time a key that does not resolve is a collected
+failure (§2.6), not a stop.
 
 **1.8.6** A value with an `@` anywhere in it is the citation form, and words
 before the `@` are a prefix: `cite="smith2020 and @jones2019"` prints
@@ -823,6 +832,7 @@ option, 2.3.2), or in a `weft_str()` string (2.6.8).
 weft: 2 claims failed
   14-percentile-bands.qmd:412  "All 10 models rise"
       all(mod$rising) was FALSE
+      optional text is written [phrase | ]{if="…"}
   14-percentile-bands.qmd:431  `r claim(shift$n_down, . >= 10)`
       . >= 10 was FALSE (value 7)
 Read each sentence. If FALSE is right, rewrite the sentence.
@@ -1446,9 +1456,12 @@ failed checks. A missing value is collected the same way (1.3.4).
   Pandoc's (`.smallcaps`, `.underline`, `.mark`, `custom-style`), and not
   listed in the configuration as a name the project expects (9.1.2) is
   listed. So is a formatter class or a renderer key on a bracket with no
-  governor or marker key (1.1.9). The report gives the nearest weft name when
-  one is close, including a class that differs from one only in letter case
-  (`.Num`, 1.2.10).
+  governor or marker key (1.1.9). So is a key or a class within one edit of a
+  weft name on any bracketed span or inline code, construct or not
+  (`[add more]{iff="n_gap > 10"}`): a misspelt key leaves an ordinary span,
+  and this is the only place it shows. The report gives the nearest weft name
+  when one is close, including a class that differs from one only in letter
+  case (`.Num`, 1.2.10).
 
 **5.3.4** knitr reads inline R only when `r` is followed by a space on the
 same line. A code span that opens with `r` and then a line break is left by
@@ -1558,7 +1571,10 @@ text describes the figure.
 
 **5.10.1** At knit time the `text` hook lists every value, bare or not, and
 every span whose printed text opens a sentence with a digit or a lowercase
-letter. A project can configure the list to fail the render.
+letter. A project can configure the list to fail the render. This is a
+knit-time list and the one exception to 5.1.5: it covers every value in the
+document, not only added material, because whether a value opens a sentence
+with a digit depends on what it prints.
 
 ---
 
@@ -1907,6 +1923,7 @@ rule 8), and its message names `_weft.yml`.
 | the rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
 | the claim-word lexicon | 5.5.4 |
+| whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
 | the `decision:` resolver | 4.5.1 |
 | parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
@@ -1981,9 +1998,9 @@ was called. Each says what it will write.
 | `use_dictionary()` | a dictionary skeleton and its schema |
 | `use_agent_docs()` | agent-facing conventions and the Claude skill |
 
-**9.3.2** The hooks alone write nothing. The condition log, the ledger and
-the failure files are written only in a project that has been set up with
-`use_weft()`.
+**9.3.2** The hooks alone write nothing. The condition log, the ledger, the
+freeze stamps (2.9.2) and the failure files are written only in a project
+that has been set up with `use_weft()`.
 
 **9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
 the CI workflow template, the dictionary schema, the default claim-word
@@ -3247,7 +3264,7 @@ with `HEAD`.
 
 | Fact | Run under |
 |---|---|
-| Hooks installed when the namespace is loaded take effect, including when it is loaded before the knit begins | both |
+| Hooks installed when the namespace is loaded take effect, including when it is loaded before the knit begins. Rule 2.1.3 no longer installs on load; the row is evidence only that hooks installed before a knit take effect | both |
 | Activation from the document's front matter (`!expr` under `knitr:` or `params:`): a construct in the first paragraph resolves | both |
 | Activation from `.Rprofile` at the project root, for documents in the root and in a subdirectory, project and single-file render | Quarto |
 | `!expr` in `_quarto.yml` or `_metadata.yml` is not evaluated | Quarto |
@@ -3480,6 +3497,7 @@ match. How it behaves on a merge commit, and whether `git rebase` and
 text added elsewhere in one commit nets to zero (6.2.6), and a removal and an
 unrelated addition in one commit net out (6.3.6). How often either hides
 something in a real history is not known.
+
 ---
 
 # Part 4 — Plan
@@ -3560,7 +3578,8 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   finding is counted and fails nothing until its rule is made strict (8.1.2,
   8.1.3). `verify(static = TRUE)` renders nothing. `verify(since = )` fails on
   a finding added and reports, without failing, a removal with no trailer
-  (8.2.2). Under rmarkdown each `.Rmd` is rendered once (8.3.3).
+  (8.2.2). Under rmarkdown each `.Rmd` is rendered once (8.3.3). In draft
+  mode it refuses to run (8.1.5).
 - **Names.** Every weft name changed by one edit, where the result is not
   another weft name, is listed by the lint of 5.3.3 with a weft name as the
   nearest. A key changed only in letter case is the key itself (1.2.10), and
@@ -3627,7 +3646,7 @@ renders with it.
   project-registered formatters
 - governed spans with `n` (English) and `if`: two arms, guards, condition
   lists; `n="."`; the default governor class; keys in any letter case
-- `claim()`, `plural()`, the `fmt_*()` functions
+- `claim()`, `plural()`, the `fmt_*()` functions, `glue_vec()`
 - pass-through of classes and keys; `.strong`, `.em`; text spans
 - collected failures, including the record made by a failed check in chunk
   code (2.4.4), missing values and value-dependent errors; the marker; exact
@@ -3635,7 +3654,8 @@ renders with it.
 - the condition log from the `evaluate` wrapper and from values in prose, the
   cache replay, and the severity list
 - the end-of-document check, the `weft-check` filter and the `pre-render`
-  check; `use_quarto()`
+  check; the `post-render` report for a book and the freeze stamp (2.6.6,
+  2.9.2, 2.9.4); `use_quarto()`
 - activation from front matter and from a setup chunk, with `engine: knitr`
 - the syntax fixtures, the scanner and masking tests, and the pinned-internals
   tests
@@ -3666,12 +3686,14 @@ renders with it.
 
 *1e — rehearsal.*
 
-- `arms()` and `rehearse()` (§3.7)
+- `arms()` and `rehearse()` (§3.7). `rehearse()` belongs to the harness (§17)
+  and is built here because it needs only the core's record, and a dynamic
+  report needs it before anything else in the harness.
 
 **Stage 2 — dictionary and ledger.**
 
 - `dict`, `read_dict()`, `dict_local`, the schema, the generated glossary,
-  the pointer resolver, `dict_vale()`
+  the pointer resolver, `dict_vale()`, `use_dictionary()`, `dict_seed()`
 - quantities as `units` objects, `u()`, registering unknown units, and the
   printing of any `units` value (§4.4)
 - `tar_dict()` and `tar_dict_deps()`
@@ -3686,10 +3708,11 @@ renders with it.
 - the scanner over source files, chunk-option captions and `weft_str()`
   strings; the masked Pandoc read; the citation pattern
 - numerals, with the exemptions, `label_seed()` and `.weft-literal`; literal
-  values; construct errors; marker spans and citations; cross-references;
-  hygiene; figure presence
-- the tier-2 lints (claim words, constants in computations, probable
-  constructs), which `changes()` lists
+  values; checks that cannot fail (3.1.6); construct errors; marker spans and
+  citations; cross-references; hygiene; figure presence
+- the tier-2 lints (claim words, long guards, constants and formatting calls
+  in values, the three warnings of 5.3.3, unreferenced anchors), which
+  `changes()` lists
 
 **Stage 4 — the gate.**
 
@@ -3698,7 +3721,8 @@ renders with it.
 - the `commit-msg` hook, its cache, and `use_hooks()`
 - `verify()`, with the freeze sequence, the totals and strict rules, and its
   `files`, `since` and `static` arguments
-- `use_ci()`
+- `use_ci()`; `use_agent_docs()` and the skill; `use_weft()`; `status()` and
+  the version check (9.5.3, 9.5.4)
 
 Stage 2 comes before stage 3 because the numerals rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
