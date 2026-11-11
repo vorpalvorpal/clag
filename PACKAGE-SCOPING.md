@@ -3702,6 +3702,10 @@ renders with it.
 - the syntax fixtures, the scanner and masking tests, and the pinned-internals
   tests
 
+The trials on two real documents (`dev/field-notes.md`) moved the first two
+items of 1c ahead of 1b: captions, `weft_str()` and front-matter constructs
+were built straight after the kernel.
+
 *1b — agreement and direction.*
 
 - `sign`; ids and back-references (`n="#d"`)

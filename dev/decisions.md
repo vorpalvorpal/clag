@@ -14,6 +14,32 @@ around.
   count threshold ten, word limit one hundred. They are all in one list in
   `R/config.R`; change them there and in §9.1.
 
+- **From the trials: an empty list (1.3.4).** A value of length zero is a
+  missing value, so `` `r flagged`{.and} `` fails the render on the ordinary
+  day when nothing is flagged, and every such list needs an `if` around it.
+  A key for the empty case (`none="none"`) would be new syntax. Not made.
+- **From the trials: a check that warns.** Every failed check fails the
+  render (2.6.1). An unattended report wants some checks to be reported and
+  the report still sent. Severity exists for conditions (7.4.2) and not for
+  claims. Not made: it changes what a claim is.
+- **From the trials: a failed render leaves its output.** Outside draft mode
+  knitr has written the document, markers included, before the `document`
+  hook fails the render. A sender that looks only for the file would send
+  the markers. Deleting the output is not weft's to do under rmarkdown
+  (2.6.6 keeps a book's chapters on purpose). Not made; the daily report
+  should test the exit status.
+- **From the trials: `.num` printing a small number as "0.0" (1.4.13).** A
+  standard error or a small difference loses its whole value silently
+  unless the author writes `sigfig`. Options: fail when a non-zero number
+  prints as zero, or fall back to significant figures. Not made.
+- **From the trials: house-style defaults.** The chapter writes a thousands
+  mark from 1,000, words up to and including ten, and a serial comma. The
+  build's defaults (10,000; digits from ten; none) changed its text.
+  `count_threshold` is a setting already; a threshold for the thousands
+  mark and a serial-comma setting are not. Not made.
+- **From the trials: trimmed arms (1.5.12).** A span whose arm is a whole
+  sentence cannot carry the space that follows it. Not made.
+
 ## Made
 
 1. **How the build was run (build prompt, "How to build").** Robin said,
@@ -80,3 +106,9 @@ around.
     knit as stock does; only constructs are collected. The rule says so now.
 18. **9.4.2, the draft-mode JSON file.** Named
     `<document>.weft-failures.json`, beside the document.
+19. **§22, the order of 1b and 1c.** Both trials found that most
+    value-dependent wording they met lives in captions, table titles and
+    strings built in R code, and that a construct written there printed
+    raw with no error. Chosen: build `weft_str()`, captions in chunk options
+    and front-matter constructs (1c, without `.Rprofile` activation) before
+    1b. §22 is edited to say so. Reverse: nothing to reverse.
