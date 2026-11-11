@@ -20,6 +20,17 @@ dropped.
   inline footnotes. Rule 2.10.5's block-type check does not cover a
   disagreement between the two readers.
 
+## Raised by the build's reviews, left as they are
+
+- An indented code block: knitr evaluates inline R in it and Pandoc prints
+  a code block. The scanner reads a construct there; 1.9.2 names only fenced
+  blocks.
+- A `|` inside a shortcode, an inline note or a footnote label within an arm
+  splits the arm. 1.5.14 does not list them.
+- Two project formatters in the text stage run in the order written, so
+  their result depends on order (1.4.1 fixes the order of shipped classes
+  only).
+
 ## Considered and not adopted
 
 So a later review does not raise them again without a new argument.

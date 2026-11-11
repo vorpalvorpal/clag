@@ -206,3 +206,46 @@ A document activates with a setup chunk calling `weft::weft_setup()` unless a
 test is about activation. Quarto renders are slow (about 2 s each): put many
 cases in one document where the cases do not interfere, one case per
 paragraph, and split the output on a marker line.
+
+## Rulings on the review of package A (`dev/review-1a-A.md`)
+
+Findings 1 to 28 are accepted as the reviewer states them unless listed here.
+
+- **Finding 2 (arms).** `arms` stays as it is (the text an author reads,
+  for `arms()`). A new list column `arm_templates` holds the same arms with
+  each `#` placeholder written as U+E001 and each literal `#` as `#`. The
+  resolver fills templates; nothing splits the source a second time.
+- **Finding 3.** A wording class on a number printed with decimals shown is
+  a `weft_value_error` (1.4.12, as printed). `fmt_word(3)` and
+  `fmt_word(3.0000)` print "three"; `fmt_word(2.04)` fails.
+- **Finding 4.** A number is whole when it differs from its rounding by less
+  than 1e-9, absolutely.
+- **Findings 6, 7.** Inline R is exactly what knitr 1.51's inline pattern
+  evaluates. Several expressions in one span are legal; only code that does
+  not parse is the error of 5.3.5.
+- **Finding 8.** A `weft_text` keeps its raw value in an attribute `raw`. A
+  number-stage formatter given a `weft_text` formats the raw value afresh
+  (as 1.7.8 does): `fmt_pct(fmt_pct(0.12))` is "12%". Wording, collapse and
+  text stages use the record.
+- **A (rounding).** Half away from zero on the decimal number as written:
+  0.05 → "0.1", 0.15 → "0.2", 2.5 → "3" at `digits = 0`, −0.05 → "−0.1". A
+  result that rounds to zero prints without a minus sign.
+- **B.** A wording class together with `.pct` or `.sci` is a construct error.
+- **C, H, I.** Left as they are; recorded in `dev/open-findings.md`.
+- **D, E.** A weft key on a link (`[a](u){if="x"}`), and an attribute block
+  on inline R inside a link target, are construct errors.
+- **F.** A check that raises an error is a failed check; its report line
+  gives the check as written and the error's message.
+- **G.** An unknown configuration key is a warning that names the key.
+- **J.** On a text span a formatter class or renderer key passes through
+  (1.1.9).
+- **K, and the bad configuration values.** `decimal_mark` equal to
+  `big_mark`, a `digits`, `count_threshold` or `word_limit` that is not a
+  whole non-negative finite number, a `governor_class` that is not a number-
+  or wording-stage class, and a malformed `formatters:` entry are errors
+  from `read_config()`.
+- **For the resolver.** `apply_formatters(value, classes, keys, config,
+  governor = FALSE)`: with `governor = TRUE` it runs stages i and ii only,
+  and with no formatter class, `digits` or `sigfig` it uses
+  `config$governor_class`. Text classes are applied by the resolver to the
+  chosen arm's final text.
