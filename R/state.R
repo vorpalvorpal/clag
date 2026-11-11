@@ -18,6 +18,8 @@ new_state <- function() {
   s$files <- list()
   s$pending_cache <- NULL
   s$ids <- list()
+  s$sentence_starts <- list()
+  s$bib_keys <- NULL
   s$stack <- list()
   s$eager_ok <- TRUE
   s$exited <- FALSE
@@ -33,7 +35,8 @@ active_state <- function() {
 # ---- failures -------------------------------------------------------------
 
 FAILURE_KINDS <- c("failed claim", "no value", "value error", "construct error",
-                   "unevaluated", "condition")
+                   "unevaluated", "condition", "unknown citation key",
+                   "sentence start")
 
 add_failure <- function(s, kind, file = NA_character_, line = NA_integer_,
                         chunk = NA_character_, expr = NA_character_,
@@ -158,5 +161,11 @@ last_knit <- function() {
     data.frame(source = character(), class = character(), text = character(),
                normalised = character(), stringsAsFactors = FALSE)
   }
-  list(constructs = cons, failures = fr, conditions = conds, config = s$config)
+  ss <- s$sentence_starts
+  col <- function(f, type) if (length(ss)) vapply(ss, function(x) x[[f]][1L], type) else type[0]
+  sentence_starts <- data.frame(file = col("file", ""), line = col("line", 0L),
+                                expr = col("expr", ""), text = col("text", ""),
+                                stringsAsFactors = FALSE)
+  list(constructs = cons, failures = fr, conditions = conds, config = s$config,
+       sentence_starts = sentence_starts)
 }

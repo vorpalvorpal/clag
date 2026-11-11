@@ -96,18 +96,6 @@ test_that("trial 4 + 2.6.2 + 2.4.4: failed checks in one chunk are one entry eac
 
 # ---- 5: an #id is not built yet -----------------------------------------------------
 
-test_that("trial 5 + 1.2.8: an #id on a value or on a governed span is a 'not built yet' construct error", {
-  for (src in c("Value `r k`{.num #myid} here.", "See [a | b]{if=\"flag\" #myid} here.")) {
-    res <- render_rmd(src, code = TB_PRE)
-    expect_true(res$failed, label = src)
-    expect_true("weft_construct_error" %in% res$error$class, label = src)
-    expect_match(res$message, "not built yet", fixed = TRUE, label = src)
-  }
-  # control: the same constructs without an id
-  res <- render_rmd(c("Value `r k`{.num} here.", "", "See [a | b]{if=\"flag\"} here."), code = TB_PRE)
-  expect_false(res$failed, label = res$message)
-})
-
 # ---- 6: a quote inside a value -------------------------------------------------------
 
 test_that("trial 6 + 1.2.3: if=\"x == \\\"a\\\"\" reports the quoting rule and says to bind a name, not 'spaces around ='", {

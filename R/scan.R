@@ -29,7 +29,11 @@ new_scan <- function(text, file, first_line, config) {
   S$reg <- config$formatters %||% list()
   # index vectors are doubles, so findInterval() does not coerce them on every call
   S$nl <- as.numeric(which(chars == "\n"))
-  S$special <- as.numeric(which(chars %in% SCAN_SPECIAL))
+  # the first colon of each fenced-div opening line is special too, so the
+  # walk stops there (a `.weft-literal` div is a row, 1.8.9)
+  dv <- if (n) gregexpr("(?m)^[ \\t]{0,3}\\K:{3,}[ \\t]*\\{", text, perl = TRUE)[[1]] else -1L
+  S$divs <- as.numeric(dv[dv > 0L])
+  S$special <- as.numeric(sort(unique(c(which(chars %in% SCAN_SPECIAL), S$divs))))
   S$dollar <- as.numeric(which(chars == "$"))
 
   r <- rle(chars == "`")
@@ -401,6 +405,8 @@ find_close <- function(S, i) {
     } else if (c == "[") {
       depth <- depth + 1L
       j <- p + 1L
+    } else if (c == ":") {
+      j <- p + 1L
     } else {
       depth <- depth - 1L
       if (depth == 0L) return(p)
@@ -675,9 +681,6 @@ block_errors <- function(S, blk, kind) {
       e <- c(e, "An `#id` on a text span is an error (rule 1.1.9).")
     } else if (kind == "cite") {
       e <- c(e, "An `#id` on a cite span is an error (rule 1.7.5).")
-    } else if (kind %in% c("value", "n", "if")) {
-      e <- c(e, sprintf("An `#id` on a %s is not built yet.",
-                        if (kind == "value") "value" else "governed span"))
     }
   }
   grp <- class_group(cls, S$reg)
@@ -701,17 +704,79 @@ block_errors <- function(S, blk, kind) {
                         paste(c(fm, ky), collapse = " ")))
     }
   }
-  for (nb in intersect(cls, NOT_BUILT_CLASSES)) {
-    e <- c(e, sprintf("The class `%s` is not built yet.", nb))
+  if (length(intersect(cls, c(".p", ".date"))) && any(c("digits", "sigfig") %in% lc)) {
+    e <- c(e, sprintf("`digits` and `sigfig` do not apply to `%s` (rule 1.4.7).",
+                      intersect(cls, c(".p", ".date"))[1L]))
   }
-  for (kk in intersect(lc, c("trunc"))) {
-    e <- c(e, sprintf("The key `%s` is not built yet.", kk))
+  if (kind == "sign" && length(blk$values[lc == "sign"]) &&
+      identical(trim_ws(blk$values[lc == "sign"][1L]), ".")) {
+    e <- c(e, "There is no `sign=\".\"` (rule 1.7.2); only `n=\".\"` inherits.")
   }
-  if (kind %in% c("sign", "cite")) {
-    e <- c(e, sprintf("The `%s` construct is not built yet.", kind))
+  if (kind == "cite") {
+    fm <- intersect(cls, formatter_classes(S$reg))
+    is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
+    fm <- fm[!is_text]
+    if (length(fm)) {
+      e <- c(e, sprintf("A formatter class on a cite span is an error (rule 1.8.7): %s.",
+                        paste(fm, collapse = " ")))
+    }
+    cv <- blk$values[lc == "cite"]
+    if (length(cv)) e <- c(e, cite_errors(cv[1L]))
+  }
+  if (kind == "literal") {
+    why <- blk$values[blk$names == "why"]
+    if (!length(why) || !nzchar(trim_ws(why[1L]))) {
+      e <- c(e, paste0("A `.weft-literal` with no `why` is an error (rule 1.8.10); write ",
+                       "`why=\"...\"` to say where the literal comes from."))
+    }
   }
   e
 }
+
+# Pandoc's citation key grammar: a letter, digit or underscore, then letters,
+# digits, underscores and internal punctuation (`:.#$%&-+?<>~/`) that is
+# followed by a letter, digit or underscore.
+CITE_KEY_RE <- "[[:alnum:]_](?:[[:alnum:]_]|[:.#$%&+?<>~/-](?=[[:alnum:]_]))*"
+
+# The keys of a `cite` value (1.8.1, 1.8.4, 1.8.6): with an `@` anywhere it is
+# the citation form and each `@key` is a key; otherwise it is bare keys
+# separated by `;`.
+cite_keys <- function(value) {
+  if (grepl("@", value, fixed = TRUE)) {
+    m <- gregexpr(paste0("@(?:\\{([^}]*)\\}|(", CITE_KEY_RE, "))"), value, perl = TRUE)[[1L]]
+    if (m[1L] < 0L) return(character())
+    s <- regmatches(value, list(m))[[1L]]
+    sub("^@\\{?([^}]*)\\}?$", "\\1", s)
+  } else {
+    trim_ws(strsplit(value, ";", fixed = TRUE)[[1L]])
+  }
+}
+
+cite_errors <- function(value) {
+  if (grepl("@", value, fixed = TRUE)) {
+    # each `@` must open a key
+    at <- gregexpr("@", value, fixed = TRUE)[[1L]]
+    ok <- gregexpr(paste0("@(?:\\{[^}]+\\}|", CITE_KEY_RE, ")"), value, perl = TRUE)[[1L]]
+    if (length(at) != sum(ok > 0L)) {
+      return(paste0("A `@` in a cite value must open a key that follows Pandoc's key ",
+                    "grammar (rule 1.8.5): letters, digits and `_`, with internal ",
+                    "punctuation."))
+    }
+    return(character())
+  }
+  parts <- strsplit(value, ";", fixed = TRUE)[[1L]]
+  if (!length(parts) || endsWith(value, ";")) parts <- c(parts, "")
+  bad <- !grepl(paste0("^", CITE_KEY_RE, "$"), trim_ws(parts), perl = TRUE)
+  if (any(bad)) {
+    return(sprintf(paste0("A cite value with no `@` is keys only, separated by `;`, each ",
+                          "following Pandoc's key grammar (rules 1.8.4, 1.8.5); `%s` is not a key."),
+                   trim_ws(parts)[bad][1L]))
+  }
+  character()
+}
+
+# A back-reference: the whole value of `n` or `sign` is `#` and an id (1.7.6).
+is_backref <- function(expr) grepl("^#[^[:space:]]+$", trim_ws(expr))
 
 lower_keys <- function(nms) ifelse(tolower(nms) %in% WEFT_KEYS, tolower(nms), nms)
 
@@ -772,10 +837,31 @@ scan_seq <- function(S, from, to, parent) {
       },
       "[" = handle_bracket(S, p, parent),
       "]" = handle_stray_close(S, p, parent),
+      ":" = handle_div(S, p, parent),
       p + 1L
     )
   }
   invisible()
+}
+
+# A fenced-div opening line at `p`. A `.weft-literal` div is a row whose range
+# is the opening line (1.8.9); any other div is Pandoc's and left alone.
+handle_div <- function(S, p, parent) {
+  nl <- S$nl[findInterval(p, S$nl) + 1L]
+  line_end <- if (is.na(nl)) S$n else nl - 1L
+  while (line_end > p && S$chars[line_end] %in% c("\r", " ", "\t")) line_end <- line_end - 1L
+  brace <- p
+  while (brace <= line_end && S$chars[brace] != "{") brace <- brace + 1L
+  blk <- if (brace <= line_end) parse_block(S, brace) else NULL
+  if (is.null(blk) || !blk$ok || !(".weft-literal" %in% blk$classes) || blk$end != line_end) {
+    return(line_end + 1L)
+  }
+  lc <- lower_keys(blk$names)
+  keep <- !lc %in% GOVERNOR_KEYS
+  add_row(S, "literal", p, line_end, brace, NA_character_, blk$classes,
+          named_chr(blk$values[keep], lc[keep]), blk$id, NULL, integer(), parent,
+          block_errors(S, blk, "literal"))
+  line_end + 1L
 }
 
 # A `]` that no `[` opened, followed by an attribute block that holds a weft
@@ -835,6 +921,21 @@ scan_target <- function(S, from, to, parent) {
   invisible()
 }
 
+# Whether the text from `a` to `b` is the whole of its paragraph (1.4.6): what
+# stands before and after it in the paragraph is blank, or a div fence.
+alone_in_paragraph <- function(S, a, b) {
+  k <- findInterval(a - 1L, S$plim)
+  from <- if (k == 0L) 1L else S$plim[k] + 1L
+  to <- para_limit(S, b)
+  blank <- function(x) {
+    x <- gsub("(^|\n)[ \t]*:{3,}[^\n]*", "", x)
+    !nzchar(trim_ws(x))
+  }
+  before <- if (a > from) substr(S$text, from, a - 1L) else ""
+  after <- if (to > b) substr(S$text, b + 1L, to) else ""
+  blank(before) && blank(after)
+}
+
 handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   cs <- code_span(S, p)
   if (!cs$ok) return(cs$open_end + 1L)
@@ -885,6 +986,11 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
       keep <- !lc %in% GOVERNOR_KEYS
       keys <- named_chr(blk$values[keep], lc[keep])
       id <- blk$id
+      if (any(classes %in% LIST_CLASSES) && !alone_in_paragraph(S, p, end)) {
+        errs <- c(errs, sprintf(paste0(
+          "`%s` makes a block, so the value must be alone in its paragraph (rule 1.4.6); ",
+          "put it in a paragraph of its own."), intersect(classes, LIST_CLASSES)[1L]))
+      }
     }
   }
   add_row(S, kind, p, end, bstart, expr, classes, keys, id, NULL, integer(),
@@ -956,25 +1062,25 @@ handle_bracket <- function(S, p, parent) {
   arms <- NULL
   templates <- NULL
   seps <- integer()
-  if (kind %in% c("n", "if", "sign", "cite")) {
+  if (kind %in% c("n", "if", "sign")) {
     sp <- split_arms(S, p + 1L, close - 1L)
     arms <- sp$arms
     templates <- sp$templates
     seps <- sp$seps
-    if (kind != "cite") {
-      allowed <- list(n = 1:4, `if` = 1:2, sign = 2:3)[[kind]]
-      if (!length(arms) %in% allowed) {
-        errs <- c(errs, sprintf(
-          "A `%s` span takes %s arms; this has %d (rules 1.5.2, 1.6.4).", kind,
-          paste(range(allowed), collapse = " to "), length(arms)))
-      }
+    allowed <- list(n = 1:4, `if` = 1:2, sign = 2:3)[[kind]]
+    if (!length(arms) %in% allowed) {
+      errs <- c(errs, sprintf(
+        "A `%s` span takes %s arms; this has %d (rules 1.5.2, 1.6.4).", kind,
+        paste(range(allowed), collapse = " to "), length(arms)))
     }
-    if (sp$unescaped && isTRUE(S$tbl[line_index(S, p)]) && kind != "cite") {
+    if (sp$unescaped && isTRUE(S$tbl[line_index(S, p)])) {
       errs <- c(errs, paste0(
         "An unescaped arm separator in a pipe-table cell (rule 1.5.13); write `\\|`."))
     }
-    if (blk$ok && !is.na(expr) && kind != "cite") {
-      if (kind == "n" && identical(trim_ws(expr), ".")) {
+    if (blk$ok && !is.na(expr)) {
+      if (kind %in% c("n", "sign") && is_backref(expr)) {
+        # a back-reference is an id, not R (1.7.6, 5.3.5)
+      } else if (kind == "n" && identical(trim_ws(expr), ".")) {
         if (!identical(enclosing_governor(S, parent), "n") &&
             !identical(enclosing_governor(S, parent), "sign")) {
           errs <- c(errs, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")
@@ -1038,12 +1144,78 @@ finish_scan <- function(S) {
   structure(out, class = "data.frame", row.names = seq_len(nr))
 }
 
+# ---- ids (1.7.5, 1.7.10, 1.7.11) ----------------------------------------
+
+# The errors about ids across the rows of one document: a duplicate id, and a
+# back-reference to an id that is unknown, defined later, or defined inside an
+# arm the reference is not in. Returns a character vector, `NA` where there is
+# none. Ids belong to a whole document, so a scan of one block of prose does
+# not run this (the knit hands the document's errors to its blocks).
+check_ids <- function(rows) {
+  nr <- nrow(rows)
+  err <- rep(NA_character_, nr)
+  if (!nr) return(err)
+  add <- function(k, msg) err[k] <<- if (is.na(err[k])) msg else paste(err[k], msg, sep = "\n")
+  is_def <- !is.na(rows$id) & rows$kind %in% c("value", "n", "if", "sign")
+  def <- which(is_def)
+  chain <- function(k) {
+    out <- character()
+    cur <- k
+    repeat {
+      p <- rows$parent[cur]
+      if (is.na(p)) break
+      if (rows$kind[p] %in% c("n", "if", "sign")) out <- c(out, paste(p, rows$arm[cur]))
+      cur <- p
+    }
+    out
+  }
+  first <- list()
+  for (k in def) {
+    id <- rows$id[k]
+    if (is.null(first[[id]])) {
+      first[[id]] <- k
+    } else {
+      add(k, sprintf("The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", id))
+    }
+  }
+  refs <- which(rows$kind %in% c("n", "sign") & !is.na(rows$expr) &
+                  vapply(rows$expr, function(e) !is.na(e) && is_backref(e), NA))
+  for (k in refs) {
+    id <- sub("^#", "", trim_ws(rows$expr[k]))
+    d <- first[[id]]
+    if (is.null(d)) {
+      add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
+    } else if (!(rows$end[d] < rows$start[k])) {
+      add(k, sprintf("The id `#%s` is defined further down, not before this span (rule 1.7.10).", id))
+    } else if (!all(chain(d) %in% chain(k))) {
+      add(k, sprintf(paste0("The id `#%s` is defined inside an arm that this span is not in; ",
+                            "an id in an arm can be referred to only from inside the same arm ",
+                            "(rule 1.7.11)."), id))
+    }
+  }
+  err
+}
+
 # ---- entry points -------------------------------------------------------
 
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
 scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
-  scan_block(text, file, first_line, config)$rows
+  rows <- scan_block(text, file, first_line, config)$rows
+  with_id_errors(rows)
+}
+
+# The rows of a whole document with the errors about its ids added; the rows
+# that gained one are listed in the attribute `id_rows`.
+with_id_errors <- function(rows) {
+  ie <- check_ids(rows)
+  hit <- !is.na(ie)
+  if (any(hit)) {
+    rows$error[hit] <- ifelse(is.na(rows$error[hit]), ie[hit], paste(rows$error[hit], ie[hit], sep = "\n"))
+  }
+  attr(rows, "id_rows") <- which(hit)
+  attr(rows, "id_msgs") <- ie[hit]
+  rows
 }
 
 # The same, keeping the scan state `S`, which the knitr resolver uses to read

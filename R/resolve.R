@@ -199,6 +199,15 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     R$line <- rep(NA_integer_, nr)
     R$line_view <- rep(NA_integer_, nr)
   }
+  # the errors about ids belong to the whole document (1.7.10)
+  if (nr && !is_str && !is.null(F) && !is.null(F$id_errors) && nrow(F$id_errors)) {
+    m <- match(row_keys(R$line_view, R$kind), F$id_errors$key)
+    hit <- !is.na(m)
+    if (any(hit)) {
+      R$error[hit] <- ifelse(is.na(R$error[hit]), F$id_errors$error[m[hit]],
+                             paste(R$error[hit], F$id_errors$error[m[hit]], sep = "\n"))
+    }
+  }
   R$context <- rep(if (is_str) (ctx$context %||% "weft_str") else "prose", nr)
   R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
   R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
@@ -307,6 +316,14 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
   lang_check <- function(k, classes, keys, n_arms = 1L) {
     if (!non_english()) return(NULL)
+    expr <- R$expr[k]
+    ph <- if (R$kind[k] %in% c("value", "n", "sign") && !is.na(expr)) {
+      regmatches(expr, regexpr("\\b(of_n|about|ci)[ \t]*\\(", expr, perl = TRUE))
+    } else character()
+    if (length(ph)) {
+      return(sprintf(paste0("`%s()` prints English words, and the document's `lang` is `%s` ",
+                            "(rule 1.6.8)."), sub("[ \t]*\\($", "", ph), s$lang))
+    }
     if (R$kind[k] == "n" && n_arms > 1L) {
       return(sprintf(paste0("An `n` span with more than one arm needs the plural rules of `%s`, ",
                             "which weft does not ship; English rules are never applied to another ",
@@ -332,7 +349,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   apply_text_classes <- function(text, own) {
     reg <- cfg$formatters
-    tcl <- own[own %in% c(".em", ".strong") |
+    tcl <- own[own %in% c(".a", ".cap", ".em", ".strong") |
                  vapply(own, function(c) identical((reg[[c]] %||% list())[["stage"]], "text"), NA)]
     if (!length(tcl) || !nzchar(text)) return(text)
     as.character(apply_formatters(text, tcl, list(), cfg))
@@ -369,12 +386,54 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     items
   }
 
-  render_plain <- function(a, b, items) {
+  # Sentence starts (5.10.1): a value or span of the prose whose printed text
+  # opens a sentence with a digit or a lower-case letter.
+  starts_sentence <- function(st) {
+    pre <- substr(text, 1L, st - 1L)
+    if (!nzchar(trim_ws(pre))) return(TRUE)
+    # after the end of a sentence
+    if (grepl("[.?!][]\"')]*[ \t\n]+$", pre)) return(TRUE)
+    # a new paragraph
+    if (grepl("\n[ \t]*\n[ \t]*$", pre)) return(TRUE)
+    # after a heading or list marker
+    last <- sub("^.*\n", "", pre)
+    grepl("^[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>)[ \t]+)+$", last)
+  }
+  note_sentence <- function(it, out) {
+    if (is_str || !nzchar(out)) return(invisible())
+    body <- sub("^[*_\\[]+", "", out)
+    if (!grepl("^[0-9[:lower:]]", body)) return(invisible())
+    if (!starts_sentence(it$start)) return(invisible())
+    if (it$type == "span") {
+      li <- span_line(it$start)
+      expr <- s$parked[[it$idx]]$code
+      file <- li$file
+      line <- li$line
+    } else {
+      expr <- R$expr[it$k]
+      file <- R$file[it$k]
+      line <- R$line[it$k]
+    }
+    s$sentence_starts[[length(s$sentence_starts) + 1L]] <- list(
+      file = as.character(file), line = as.integer(line),
+      expr = as.character(expr), text = out)
+    if (isTRUE(cfg$sentence_start_fail)) {
+      add_failure(s, "sentence start", file = file, line = line, expr = as.character(expr),
+                  detail = sprintf("a printed \"%s\" opens a sentence; write .cap (with .count or .word for a number) (rule 5.10.1)", out),
+                  chunk = chunk_label)
+    }
+    invisible()
+  }
+
+  render_plain <- function(a, b, items, top = FALSE) {
     out <- character()
     cur <- a
     prev <- ""
     for (it in items) {
       o <- render_item(it)
+      if (top && (it$type == "span" || R$kind[it$k] %in% c("bare", "value", "n", "if", "sign"))) {
+        note_sentence(it, o)
+      }
       # two emphasis constructs side by side would read as `*a**b*`; an empty
       # comment keeps the delimiters apart (1.4.3)
       if (it$start == cur && endsWith(prev, "*") && startsWith(o, "*")) {
@@ -445,8 +504,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!ev$ok) return(fail_from_error(k, ev$error, label))
     v <- ev$value
     reg <- cfg$formatters
+    # `.a` applies to numbers and number words only (1.4.5): a number it
+    # meets is printed as `.num` prints it
     has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
-      any(c("digits", "sigfig") %in% names(cc$keys))
+      ".a" %in% cc$own || any(c("digits", "sigfig", "trunc") %in% names(cc$keys))
     res <- tryCatch({
       if (has_fmt) {
         paste(as.character(apply_formatters(v, cc$own, as.list(cc$keys), cfg, join = ", ")), collapse = "")
@@ -455,7 +516,83 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
     }, error = function(e) e)
     if (inherits(res, "error")) return(fail_from_error(k, res, label))
+    register_id(k, v, cc)
     finish(k, res, cc, ev$claim_failed, text_classes = FALSE)
+  }
+
+  # ---- ids and back-references (1.7) ---------------------------------------
+
+  # The printed record of a governor value under the default class (1.5.18),
+  # or the value's own record when it is one.
+  governor_record <- function(v, cc) {
+    if (inherits(v, "weft_text")) {
+      return(if (length(v) == 1L) v else NULL)
+    }
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v)) return(NULL)
+    tryCatch(apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE),
+             error = function(e) NULL)
+  }
+
+  raw_of <- function(v) {
+    if (inherits(v, "weft_text")) {
+      r <- attr(v, "raw")
+      return(if (is.numeric(r) && length(r) == 1L) r else NA_real_)
+    }
+    if (is.numeric(v) && length(v) == 1L) as.numeric(v) else NA_real_
+  }
+
+  register_id <- function(k, v, cc, rec = NULL) {
+    id <- R$id[k]
+    if (is.na(id) || !nzchar(id)) return(invisible())
+    if (is.null(rec)) rec <- governor_record(v, cc)
+    s$ids[[id]] <- list(rec = rec, raw = raw_of(v))
+    invisible()
+  }
+
+  # Where a back-reference gets its value (1.7.6 to 1.7.8): the printed record
+  # of the occurrence, or, when the span has a formatter of its own, the raw
+  # value formatted afresh. Returns a list with `stop` (a marker) or `v`.
+  backref_value <- function(k, expr, label, own_fmt) {
+    id <- sub("^#", "", trim_ws(expr))
+    ent <- s$ids[[id]]
+    if (is.null(ent)) {
+      return(list(stop = construct_fail(k, sprintf(
+        "The id `#%s` is not defined before this span, or its arm was not chosen (rule 1.7.10).", id))))
+    }
+    if (own_fmt) {
+      if (is.na(ent$raw)) {
+        return(list(stop = record_fail(k, "value error", label, sprintf(
+          "The id `#%s` has no number to format afresh (rule 1.7.8).", id))))
+      }
+      return(list(v = ent$raw, claim_failed = FALSE))
+    }
+    if (is.null(ent$rec)) {
+      return(list(stop = record_fail(k, "value error", label, sprintf(
+        "The id `#%s` has no printed number (rule 1.7.8).", id))))
+    }
+    list(v = ent$rec, claim_failed = FALSE)
+  }
+
+  has_own_format <- function(cc) {
+    any(!is.na(class_group(cc$own, cfg$formatters))) || ".no" %in% cc$own ||
+      any(c("digits", "sigfig") %in% names(cc$keys))
+  }
+
+  # The governor of an `n` or `sign` span: a value to read the number from.
+  # Returns a list with `stop` (a marker, when it failed) or `v`.
+  get_governor <- function(k, label, cc) {
+    expr <- R$expr[k]
+    own_fmt <- has_own_format(cc)
+    if (R$kind[k] == "n" && identical(trim_ws(expr), ".")) {
+      if (is.null(gov)) {
+        return(list(stop = construct_fail(k, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")))
+      }
+      return(list(v = gov, claim_failed = FALSE, inherit = TRUE))
+    }
+    if (is_backref(expr)) return(backref_value(k, expr, label, own_fmt))
+    ev <- eval_expr(k, expr, label)
+    if (!ev$ok) return(list(stop = fail_from_error(k, ev$error, label)))
+    list(v = ev$value, claim_failed = ev$claim_failed)
   }
 
   render_n <- function(k) {
@@ -464,30 +601,83 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     narms <- length(arms)
     msg <- lang_check(k, cc$own, cc$keys, narms)
     if (!is.null(msg)) return(construct_fail(k, msg))
-    expr <- R$expr[k]
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    inherit <- identical(trim_ws(expr), ".")
-    if (inherit) {
-      if (is.null(gov)) return(construct_fail(k, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2)."))
-      v <- gov
-      claim_failed <- FALSE
-    } else {
-      ev <- eval_expr(k, expr, label)
-      if (!ev$ok) return(fail_from_error(k, ev$error, label))
-      v <- ev$value
-      claim_failed <- ev$claim_failed
+    g <- get_governor(k, label, cc)
+    if (!is.null(g$stop)) return(g$stop)
+    v <- g$v
+    claim_failed <- g$claim_failed
+    own_fmt <- has_own_format(cc)
+    # a range of two ends is one governor (1.5.11)
+    if (!(".range" %in% cc$own)) {
+      chk <- check_governor(v)
+      if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
     }
-    chk <- check_governor(v)
-    if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
-    own_fmt <- any(!is.na(class_group(cc$own, cfg$formatters))) || ".no" %in% cc$own ||
-      any(c("digits", "sigfig") %in% names(cc$keys))
-    rec <- if (inherit && !own_fmt) v else tryCatch(
+    rec <- if (inherits(v, "weft_text") && !own_fmt && !(".range" %in% cc$own)) v else tryCatch(
       apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE),
       error = function(e) e)
     if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
+    register_id(k, v, cc, rec)
     i <- choose_arm_n(rec, narms)
     R$chosen[k] <<- i
     out <- render_arm(k, i, as.character(rec)[1L], record = rec)
+    finish(k, out, cc, claim_failed)
+  }
+
+  # The magnitude of a printed change, without its sign (1.5.8): the record
+  # of the number as printed, or of its absolute value when the span
+  # formats the raw value.
+  render_sign <- function(k) {
+    cc <- split_classes(k)
+    arms <- R$arms[[k]]
+    narms <- length(arms)
+    msg <- lang_check(k, cc$own, cc$keys, narms)
+    if (!is.null(msg)) return(construct_fail(k, msg))
+    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+    g <- get_governor(k, label, cc)
+    if (!is.null(g$stop)) return(g$stop)
+    v <- g$v
+    claim_failed <- g$claim_failed
+    chk <- check_governor(v)
+    if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
+    own_fmt <- has_own_format(cc)
+    rec <- if (inherits(v, "weft_text") && !own_fmt) {
+      v
+    } else {
+      # the sign is judged on the number as printed; wording classes and the
+      # magnitude are read from the absolute value
+      judge <- setdiff(cc$own, c(".no", WORDING_CLASSES))
+      tryCatch(apply_formatters(v, judge, as.list(cc$keys), cfg, governor = TRUE),
+               error = function(e) e)
+    }
+    if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
+    num <- attr(rec, "number")[1L]
+    if (!identical(attr(rec, "relation")[1L], "=")) {
+      return(record_fail(k, "value error", label, sprintf(
+        "A `sign` governor that prints as a bound (\"%s\") has no magnitude to print (rule 1.5.17); write that case with `if`.",
+        as.character(rec)[1L])))
+    }
+    if (is.na(num)) {
+      return(record_fail(k, "value error", label, "A `sign` governor needs a number, and this has none."))
+    }
+    i <- if (num > 0) 1L else if (num < 0) 2L else 3L
+    if (i == 3L && narms == 2L) {
+      return(record_fail(k, "failed claim", label, sprintf(
+        "the value printed as \"%s\", which is zero, and a two-arm `sign` has no arm for zero (rule 1.5.3)",
+        as.character(rec)[1L]), hint = "add a third arm for zero"))
+    }
+    mag <- if (inherits(v, "weft_text") && !own_fmt) {
+      txt <- as.character(rec)[1L]
+      if (num < 0 && startsWith(txt, cfg$minus)) txt <- substring(txt, nchar(cfg$minus) + 1L)
+      new_weft_text(txt, abs(num), attr(rec, "decimals")[1L], "=", abs(raw_of(v)))
+    } else {
+      tryCatch(apply_formatters(abs(if (inherits(v, "weft_text")) raw_of(v) else v),
+                                cc$own, as.list(cc$keys), cfg, governor = TRUE),
+               error = function(e) e)
+    }
+    if (inherits(mag, "error")) return(fail_from_error(k, mag, label))
+    register_id(k, v, cc, rec)
+    R$chosen[k] <<- i
+    out <- render_arm(k, i, as.character(mag)[1L], record = mag)
     finish(k, out, cc, claim_failed)
   }
 
@@ -535,6 +725,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       i <- if (all(truth)) 1L else 2L
     }
     R$chosen[k] <<- i
+    register_id(k, NA_real_, cc)
     out <- render_arm(k, i, "#")
     res <- finish(k, out, cc, claim_failed)
     # a failed guard is reported by its phrase as printed (2.6.2, 2.6.3)
@@ -553,10 +744,52 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     finish(k, out, cc, FALSE)
   }
 
-  render_verbatim <- function(k) {
-    a <- R$start[k]
-    b <- R$end[k]
-    render_plain(a, b, range_items(a, b, which(R$parent == k)))
+  # `.weft-literal` (1.8.9 to 1.8.11): the `why` is removed from the output;
+  # the class, the other classes and the other keys stay. A span's prose is
+  # resolved as any prose is; a div is its opening line, the body being
+  # prose of its own.
+  render_literal <- function(k) {
+    cl <- R$classes[[k]]
+    ky <- R$keys[[k]]
+    ky <- ky[names(ky) != "why"]
+    items <- c(cl, if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
+    blk <- sprintf("{%s}", paste(items, collapse = " "))
+    if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
+      return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))
+    }
+    a <- R$start[k] + 1L
+    b <- R$block_start[k] - 2L
+    inner <- if (b >= a) render_plain(a, b, range_items(a, b, which(R$parent == k))) else ""
+    paste0("[", inner, "]", blk)
+  }
+
+  # A `cite` span (1.8): its prose, and in the citation form the value in
+  # brackets after it; each key must be in the bibliography (1.8.5).
+  render_cite <- function(k) {
+    cc <- split_classes(k)
+    a <- R$start[k] + 1L
+    b <- R$block_start[k] - 2L
+    prose <- if (b >= a) render_plain(a, b, range_items(a, b, which(R$parent == k))) else ""
+    value <- R$expr[k]
+    out <- finish(k, prose, cc, FALSE)
+    if (grepl("@", value, fixed = TRUE)) out <- paste0(out, " [", value, "]")
+    keys <- cite_keys(value)
+    known <- bibliography_keys(s)
+    unknown <- unique(keys[!(keys %in% known)])
+    if (length(unknown)) {
+      if (strict) {
+        weft_abort(sprintf("weft: %s: the citation key `%s` is not in the bibliography.",
+                           loc_str(k), unknown[1L]), "weft_value_error")
+      }
+      for (u in unknown) {
+        add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
+                    expr = sprintf("cite=\"%s\"", value),
+                    detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)", u),
+                    chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)
+      }
+      out <- paste0(out, marker("unknown key", R$line[k], chunk_label))
+    }
+    out
   }
 
   render_item <- function(it) {
@@ -579,12 +812,22 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
              value = render_value(k),
              n = render_n(k),
              `if` = render_if(k),
+             sign = render_sign(k),
              text = render_text(k),
-             literal = render_verbatim(k),
+             cite = render_cite(k),
+             literal = render_literal(k),
              construct_fail(k, sprintf("The `%s` construct is not built yet.", R$kind[k]))),
       weft_construct_error = function(e) {
         if (inherits(e, "weft_located")) stop(e)
         construct_fail(k, conditionMessage(e))
+      },
+      weft_value_error = function(e) {
+        if (strict) stop(e)
+        record_fail(k, "value error", source_label(k), conditionMessage(e))
+      },
+      weft_no_value = function(e) {
+        if (strict) stop(e)
+        record_fail(k, "no value", source_label(k), conditionMessage(e))
       })
   }
 
@@ -592,7 +835,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # construct in an unchosen arm is an error too and the render does not depend
   # on the data (1.6.8, 1.6.4)
   if (nr && non_english()) {
-    for (k in which(R$kind %in% c("value", "n") & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign") & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (is.null(msg)) next
@@ -604,9 +847,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   top <- range_items(1L, nchar(text), which(is.na(R$parent)))
-  out <- render_plain(1L, nchar(text), top)
+  out <- render_plain(1L, nchar(text), top, top = TRUE)
   if (nr && draft && non_english()) {
-    for (k in which(R$kind %in% c("value", "n") & !R$evaluated & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign") & !R$evaluated & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (!is.null(msg)) {

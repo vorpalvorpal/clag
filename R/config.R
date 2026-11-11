@@ -30,6 +30,11 @@ default_config <- function() {
     count_threshold = 10,
     word_limit = 100,
     draft = FALSE,
+    date_format = "%-d %B %Y",
+    ci_level = 0.95,
+    about_tolerance = 0.05,
+    sentence_start_fail = FALSE,
+    bibliography = character(),
     formatters = list(),
     severity = character()
   )
@@ -75,7 +80,7 @@ read_config <- function(dir, front = list()) {
   cfg <- merge_config(default_config(), proj)
   cfg <- merge_config(cfg, front)
   cfg$formatters <- check_formatters(cfg$formatters)
-  validate_config(cfg)
+  cfg <- validate_config(cfg)
   if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) cfg$draft <- TRUE
   cfg
 }
@@ -137,14 +142,22 @@ validate_config <- function(cfg) {
   }
   whole("digits"); whole("count_threshold"); whole("word_limit")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
-  lgl("pct_proportion"); lgl("draft")
+  lgl("pct_proportion"); lgl("draft"); lgl("sentence_start_fail")
+  str("date_format")
+  prop <- function(nm, open = TRUE) {
+    v <- cfg[[nm]]
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
+        (open && v >= 1) || v > 1) bad(nm, "a proportion between 0 and 1")
+  }
+  prop("ci_level"); prop("about_tolerance", open = FALSE)
+  cfg$bibliography <- as.character(unlist(cfg$bibliography))
   if (nzchar(cfg$decimal_mark) && identical(cfg$decimal_mark, cfg$big_mark)) {
     weft_abort("`decimal_mark` and `big_mark` must differ.", "weft_config_error")
   }
   reg <- cfg$formatters %||% list()
   proj_ok <- names(reg)[vapply(reg, function(r) (r[["stage"]] %||% "number") %in%
                                  c("number", "wording"), NA)]
-  ok <- c(setdiff(c(NUMBER_CLASSES, ".no", WORDING_CLASSES), NOT_BUILT_CLASSES), proj_ok)
+  ok <- c(NUMBER_CLASSES, ".no", WORDING_CLASSES, proj_ok)
   if (!cfg$governor_class %in% ok) {
     bad("governor_class", paste0("a number- or wording-stage class (one of ",
                                  paste(ok, collapse = ", "), ")"))

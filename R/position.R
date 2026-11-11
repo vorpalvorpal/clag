@@ -134,6 +134,14 @@ new_file_state <- function(path, config) {
                   error = function(e) NULL)
   F$unparseable <- character()
   F$unparse_rows <- NULL
+  # the errors about ids are the whole document's (1.7.10): the blocks of
+  # prose are scanned one by one, so they are kept here
+  F$id_errors <- NULL
+  if (!is.null(exp) && length(attr(exp, "id_rows"))) {
+    ir <- attr(exp, "id_rows")
+    F$id_errors <- data.frame(key = row_keys(exp$line, exp$kind)[ir], error = attr(exp, "id_msgs"),
+                              stringsAsFactors = FALSE)
+  }
   if (!is.null(exp) && nrow(exp)) {
     # inline code that does not parse: knitr stops on it before any hook runs
     bad <- which(exp$kind %in% c("bare", "value") &
@@ -185,6 +193,14 @@ new_file_state <- function(path, config) {
                            stringsAsFactors = FALSE)
   }
   F
+}
+
+# A key for each row of a scan: its line, its kind and its rank among the rows
+# of that line and kind, so that the same row is found in a scan of the whole
+# file and in a scan of its block.
+row_keys <- function(line, kind) {
+  k <- paste(line, kind)
+  paste(k, stats::ave(seq_along(k), k, FUN = seq_along))
 }
 
 # The file and line, as the author wrote them, of lines of the copy knitr read.

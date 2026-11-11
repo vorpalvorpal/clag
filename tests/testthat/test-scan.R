@@ -652,34 +652,6 @@ test_that("5.3.1: an error row carries the line of its construct", {
 
 # ---- "not built yet" ---------------------------------------------------
 
-test_that("design note: constructs of later stages stop with a not-built-yet error", {
-  later <- c(
-    "[a | b]{sign=\"d\"}",
-    "[a | b | c]{sign=\"d\"}",
-    "[a | b]{.pct sign=\"d\"}",
-    "[x]{cite=\"smith2020\"}",
-    "`r x`{.p}",
-    "`r x`{.range}",
-    "`r x`{.date}",
-    "`r x`{.pairs}",
-    "`r x`{.and trunc=\"3\"}",
-    "`r x`{.ul}",
-    "`r x`{.ol}",
-    "`r x`{.dl}",
-    "`r k`{.word .cap}",
-    "`r k`{.a}",
-    "[a]{.cap}",
-    "[a]{.a}",
-    "`r x`{.weft-literal why=\"reason\"}",
-    "[a | b]{n=\"k\" .weft-literal why=\"reason\"}"
-  )
-  for (s in later) {
-    e <- errs(s)
-    expect_gte(length(e), 1L, label = s)
-    expect_match(e[1], "not built yet", ignore.case = TRUE, label = s)
-  }
-})
-
 # ---- scan_file ---------------------------------------------------------
 
 write_bytes <- function(text, path, bom = FALSE, crlf = FALSE) {

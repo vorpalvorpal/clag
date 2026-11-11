@@ -11,6 +11,15 @@
 \alias{fmt_ord}
 \alias{fmt_and}
 \alias{fmt_or}
+\alias{fmt_p}
+\alias{fmt_date}
+\alias{fmt_range}
+\alias{fmt_pairs}
+\alias{fmt_ul}
+\alias{fmt_ol}
+\alias{fmt_dl}
+\alias{fmt_cap}
+\alias{fmt_a}
 \alias{fmt_strong}
 \alias{fmt_em}
 \title{Formatter functions}
@@ -29,9 +38,27 @@ fmt_count(x)
 
 fmt_ord(x)
 
-fmt_and(x, sep = ", ", last = " and ")
+fmt_and(x, sep = ", ", last = " and ", trunc = NULL)
 
-fmt_or(x, sep = ", ", last = " or ")
+fmt_or(x, sep = ", ", last = " or ", trunc = NULL)
+
+fmt_p(x)
+
+fmt_date(x)
+
+fmt_range(x, digits = NULL, sigfig = NULL)
+
+fmt_pairs(x, sep = ", ", last = " and ", trunc = NULL)
+
+fmt_ul(x)
+
+fmt_ol(x)
+
+fmt_dl(x)
+
+fmt_cap(x)
+
+fmt_a(x)
 
 fmt_strong(x)
 
@@ -48,6 +75,8 @@ accepted.}
 \item{sep}{The text between items of a collapse.}
 
 \item{last}{The text before the final item of a collapse.}
+
+\item{trunc}{The number of items a collapse shows before "and N others".}
 }
 \value{
 A \code{weft_text}.

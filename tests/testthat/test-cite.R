@@ -244,7 +244,8 @@ test_that("1.8.1: a cite span is a construct row of kind cite in last_knit()$con
   b_need(res)
   cs <- res$knit$constructs
   ci_rows <- cs[cs$kind == "cite", ]
-  expect_equal(nrow(ci_rows), sum(grepl("cite=", vapply(CITE_ROWS, function(r) r$src, ""), fixed = TRUE)))
+  expect_equal(nrow(ci_rows), sum(lengths(regmatches(vapply(CITE_ROWS, function(r) r$src, ""),
+                                       gregexpr("cite=", vapply(CITE_ROWS, function(r) r$src, ""), fixed = TRUE)))))
   expect_true(all(ci_rows$evaluated))
 })
 

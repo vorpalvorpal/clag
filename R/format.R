@@ -9,10 +9,7 @@ WORDING_CLASSES <- c(".word", ".count", ".ord")
 COLLAPSE_CLASSES <- c(".and", ".or", ".pairs", ".range", ".ul", ".ol", ".dl")
 TEXT_CLASSES <- c(".a", ".cap", ".strong", ".em")
 RENDERER_KEYS <- c("digits", "sigfig", "sep", "last", "trunc")
-# Named by the spec but not built in stage 1a: they stop with a construct
-# error that says so.
-NOT_BUILT_CLASSES <- c(".p", ".date", ".pairs", ".range", ".ul", ".ol", ".dl",
-                       ".a", ".cap", ".weft-literal")
+LIST_CLASSES <- c(".ul", ".ol", ".dl")
 
 shipped_classes <- function() {
   c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, TEXT_CLASSES,
@@ -233,6 +230,140 @@ ordinal_suffix <- function(n) {
   else "th"
 }
 
+# ---- stage helpers (1b, 1d) ---------------------------------------------
+
+EN_MONTHS <- c("January", "February", "March", "April", "May", "June", "July",
+               "August", "September", "October", "November", "December")
+
+# One date or date-time printed by the `date_format` setting. `%-d` and `%-m`
+# (no leading zero) and the month names are expanded here, so the result does
+# not depend on the platform's strftime or on the locale (English words,
+# rule 1.6.8).
+format_dates <- function(x, fmt) {
+  lt <- if (inherits(x, "POSIXt")) as.POSIXlt(x) else as.POSIXlt(x, tz = "UTC")
+  vapply(seq_along(lt$mday), function(i) {
+    f <- fmt
+    f <- gsub("%-d", as.character(lt$mday[i]), f, fixed = TRUE)
+    f <- gsub("%-m", as.character(lt$mon[i] + 1L), f, fixed = TRUE)
+    f <- gsub("%B", EN_MONTHS[lt$mon[i] + 1L], f, fixed = TRUE)
+    f <- gsub("%b", substr(EN_MONTHS[lt$mon[i] + 1L], 1L, 3L), f, fixed = TRUE)
+    format(lt[i], f)
+  }, "")
+}
+
+# A p-value (1.4.3, dev/design-1b.md): "p < 0.001" below 0.001, three
+# decimals below 0.01, two from 0.01, "p > 0.99" above 0.99.
+print_p <- function(p, cfg) {
+  dm <- cfg$decimal_mark
+  mk <- function(str, rel, num) {
+    list(text = paste0("p ", rel, " ", sub(".", dm, str, fixed = TRUE)),
+         number = num, decimals = TRUE, relation = rel)
+  }
+  if (p < 0.001) return(mk("0.001", "<", 0.001))
+  if (p > 0.99) return(mk("0.99", ">", 0.99))
+  if (p < 0.01) {
+    s <- sprintf("%.3f", round_half_away(p, 3L))
+    if (as.numeric(s) < 0.01) return(mk(s, "=", as.numeric(s)))
+  }
+  s <- sprintf("%.2f", round_half_away(p, 2L))
+  mk(s, "=", as.numeric(s))
+}
+
+format_p <- function(value, cfg) {
+  if (any(value < 0 | value > 1)) {
+    value_error(sprintf("`.p` needs a value from 0 to 1; got %s.",
+                        format(value[value < 0 | value > 1][1L])))
+  }
+  res <- lapply(as.numeric(value), print_p, cfg = cfg)
+  new_weft_text(
+    vapply(res, `[[`, "", "text"),
+    number = vapply(res, `[[`, 0, "number"),
+    decimals = rep(TRUE, length(res)),
+    relation = vapply(res, `[[`, "", "relation"),
+    raw = as.numeric(value))
+}
+
+# The sound a printed number or number word opens with: TRUE when it opens
+# with a vowel sound (an eight, an 11, an 80, an eighteen thousand). Text that
+# is neither is a value error (1.4.5, 5.3.2).
+NUMBER_WORDS <- c("zero", "one", "two", "three", "four", "five", "six", "seven",
+                  "eight", "nine", "ten", "eleven", "twelve", "thirteen",
+                  "fourteen", "fifteen", "sixteen", "seventeen", "eighteen",
+                  "nineteen", "twenty", "thirty", "forty", "fifty", "sixty",
+                  "seventy", "eighty", "ninety", "hundred", "thousand", "million",
+                  "billion")
+vowel_sound <- function(text) {
+  m <- regmatches(text, regexpr("^[0-9][0-9,]*", text))
+  if (length(m)) {
+    d <- gsub(",", "", m, fixed = TRUE)
+    L <- nchar(d)
+    k <- if (L %% 3L == 0L) 3L else L %% 3L
+    g <- as.integer(substr(d, 1L, k))
+    return(switch(as.character(k),
+                  "1" = g == 8L,
+                  "2" = g %in% c(11L, 18L, 80:89),
+                  "3" = g >= 800L && g <= 899L))
+  }
+  w <- regmatches(text, regexpr("^[A-Za-z]+", text))
+  if (length(w) && tolower(w) %in% NUMBER_WORDS) {
+    return(tolower(w) %in% c("eight", "eleven", "eighteen", "eighty"))
+  }
+  value_error(sprintf(
+    "`.a` applies to numbers and number words only; \"%s\" is neither (rule 1.4.5).",
+    text))
+}
+
+add_article <- function(text) {
+  vapply(text, function(t) {
+    if (!nzchar(t)) return(t)
+    paste0(if (vowel_sound(t)) "an " else "a ", t)
+  }, "", USE.NAMES = FALSE)
+}
+
+capitalise <- function(text) {
+  vapply(text, function(t) {
+    if (!nzchar(t)) return(t)
+    lead <- attr(regexpr("^\\**", t), "match.length")
+    if (lead >= nchar(t)) return(t)
+    paste0(substr(t, 1L, lead), toupper(substr(t, lead + 1L, lead + 1L)),
+           substr(t, lead + 2L, nchar(t)))
+  }, "", USE.NAMES = FALSE)
+}
+
+# The collapse of `.range` (1.4.4): one number when both ends print the
+# same, " to " when either end is negative, an en dash otherwise.
+collapse_range <- function(text, number, cfg) {
+  if (length(text) != 2L) {
+    value_error(sprintf(
+      "`.range` needs a value of length 2; this has %d (rule 5.3.2).", length(text)))
+  }
+  if (identical(text[1L], text[2L])) return(text[1L])
+  neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus))
+  paste0(text[1L], if (neg) " to " else "–", text[2L])
+}
+
+# `.and`, `.or` and `.pairs` with `trunc` (1.4.7): the first `k` items, then
+# "and N others".
+collapse_items <- function(text, sep, last, trunc) {
+  n <- length(text)
+  if (!is.null(trunc) && n > trunc) {
+    rest <- n - trunc
+    return(paste0(paste(text[seq_len(trunc)], collapse = sep),
+                  " and ", rest, if (rest == 1L) " other" else " others"))
+  }
+  as.character(glue_vec(text, sep = sep, last = last))
+}
+
+# The list formatters (1.4.3): a block with a blank line before and after.
+collapse_list <- function(cls, text, nms) {
+  body <- switch(
+    cls,
+    ".ul" = paste0("- ", text, collapse = "\n"),
+    ".ol" = paste0(seq_along(text), ". ", text, collapse = "\n"),
+    ".dl" = paste0(nms, "\n:   ", text, collapse = "\n\n"))
+  paste0("\n", body, "\n")
+}
+
 # ---- the four stages ----------------------------------------------------
 
 # Format `value` by the classes and renderer keys of a construct (1.4.1).
@@ -250,6 +381,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   keys <- as.list(keys)
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
+  if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
+  nms <- names(value)
 
   if (governor) {
     has_fmt <- any(!is.na(class_group(classes, reg))) || ".no" %in% classes ||
@@ -274,11 +407,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!is.null(keys$digits) && !is.null(keys$sigfig)) {
     construct_error("`digits` and `sigfig` together are an error (rule 1.4.7).")
   }
-  nb <- intersect(classes, NOT_BUILT_CLASSES)
-  if (length(nb)) {
-    construct_error(sprintf("The class `%s` is not built yet.", nb[1]))
+  if (length(intersect(classes, c(".p", ".date"))) &&
+      (!is.null(keys$digits) || !is.null(keys$sigfig))) {
+    construct_error(sprintf("`digits` and `sigfig` do not apply to `%s`.",
+                            intersect(classes, c(".p", ".date"))[1L]))
   }
-  if (!is.null(keys$trunc)) construct_error("The key `trunc` is not built yet.")
   unit_cls <- intersect(classes, c(".pct", ".sci"))
   wording_cls <- c(intersect(classes, WORDING_CLASSES), proj("wording"))
   if (length(unit_cls) && length(wording_cls)) {
@@ -286,36 +419,52 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       "`%s` with `%s` in one construct is an error: the wording class would drop what `%s` prints (rule 1.4.1).",
       unit_cls[1], wording_cls[1], unit_cls[1]))
   }
+  trunc <- NULL
+  if (!is.null(keys$trunc)) {
+    trunc <- key_number(keys, "trunc")
+    if (trunc < 1) construct_error("`trunc` must be at least 1 (rule 1.4.7).")
+  }
 
   what <- "A formatter"
   if (!inherits(value, "weft_text")) check_present(value, what)
   if (is.factor(value)) value <- as.character(value)
 
   # stage i: number. `digits` or `sigfig` imply `.num` (1.4.7).
-  ncls <- c(intersect(classes, c(".num", ".pct", ".sci")), proj("number"))
+  ncls <- c(intersect(classes, NUMBER_CLASSES), proj("number"))
   if (!length(ncls) && (!is.null(keys$digits) || !is.null(keys$sigfig))) {
     ncls <- ".num"
   }
   rec <- NULL
   if (length(ncls)) {
     cls <- ncls[1]
-    if (inherits(value, "weft_text")) {
-      # a number formatter formats the raw value afresh (1.7.8)
-      num <- attr(value, "raw")
-      if (is.null(num)) num <- attr(value, "number")
-      if (!is.numeric(num) || anyNA(num)) {
-        value_error("A number formatter needs a number, and this value has none.")
+    if (cls == ".date") {
+      if (!inherits(value, c("Date", "POSIXt"))) {
+        value_error(sprintf("`.date` needs a Date or a date-time; the value is of class %s.",
+                            class(value)[1]))
       }
-      value <- num
-    }
-    if (!is.numeric(value)) {
-      value_error(sprintf("`%s` needs a number; the value is of class %s.",
-                          cls, class(value)[1]))
-    }
-    if (cls %in% names(reg)) {
-      rec <- apply_project(reg[[cls]], value, value)
+      txt <- format_dates(value, cfg$date_format)
+      rec <- new_weft_text(txt)
     } else {
-      rec <- format_numbers(value, cls, keys, cfg)
+      if (inherits(value, "weft_text")) {
+        # a number formatter formats the raw value afresh (1.7.8)
+        num <- attr(value, "raw")
+        if (is.null(num)) num <- attr(value, "number")
+        if (!is.numeric(num) || anyNA(num)) {
+          value_error("A number formatter needs a number, and this value has none.")
+        }
+        value <- num
+      }
+      if (!is.numeric(value)) {
+        value_error(sprintf("`%s` needs a number; the value is of class %s.",
+                            cls, class(value)[1]))
+      }
+      if (cls %in% names(reg)) {
+        rec <- apply_project(reg[[cls]], value, value)
+      } else if (cls == ".p") {
+        rec <- format_p(value, cfg)
+      } else {
+        rec <- format_numbers(value, cls, keys, cfg)
+      }
     }
   } else if (inherits(value, "weft_text")) {
     rec <- value
@@ -363,19 +512,48 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
 
-  if (!governor) {
+  collapsed <- FALSE
+  if (governor) {
+    # a governor is never collapsed, except that `.range` makes one printed
+    # range of its two ends (1.5.11): the span takes the plural unless both
+    # ends print "1"
+    if (".range" %in% classes) {
+      text <- collapse_range(text, number, cfg)
+      one <- identical(text, "1")
+      number <- if (one) 1 else NA_real_
+      decimals <- FALSE
+      relation <- "="
+      raw <- NA_real_
+    }
+  } else {
     # stage iii: collapse
-    ccls <- c(intersect(classes, c(".and", ".or")), proj("collapse"))
+    ccls <- c(intersect(classes, COLLAPSE_CLASSES), proj("collapse"))
+    if (!length(ccls) && !is.null(trunc)) ccls <- ".and"
     if (length(ccls)) {
       cl <- ccls[1]
       if (cl %in% names(reg)) {
         text <- as.character(apply_project(reg[[cl]], text, NULL))
         text <- text[1]
+      } else if (cl == ".range") {
+        text <- collapse_range(text, number, cfg)
+      } else if (cl %in% c(".pairs", ".dl")) {
+        if (is.null(nms) || anyNA(nms) || any(!nzchar(nms))) {
+          value_error(sprintf("`%s` needs a named vector; this one has no names.", cl))
+        }
+        if (cl == ".pairs") {
+          sep <- keys$sep %||% ", "
+          text <- collapse_items(paste0(nms, " (", text, ")"), sep, keys$last %||% " and ", trunc)
+        } else {
+          text <- collapse_list(cl, text, nms)
+        }
+      } else if (cl %in% LIST_CLASSES) {
+        text <- collapse_list(cl, text, nms)
       } else {
         sep <- keys$sep %||% ", "
-        last <- keys$last %||% (if (cl == ".and") " and " else " or ")
-        text <- as.character(glue_vec(text, sep = sep, last = last))
+        last <- keys$last %||% (if (cl == ".or") " or " else " and ")
+        text <- collapse_items(text, sep, last, trunc)
       }
+      collapsed <- TRUE
       number <- NA_real_
       decimals <- FALSE
       relation <- "="
@@ -386,6 +564,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     # prints an inline vector, joined by `join` (1.4.10 as ruled)
     if (!length(ccls) && !is.null(join) && length(text) > 1L) {
       text <- paste(text, collapse = join)
+      collapsed <- TRUE
       number <- NA_real_
       decimals <- FALSE
       relation <- "="
@@ -398,6 +577,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       text[nz] <- paste0(mark, text[nz], mark)
       text
     }
+    if (".a" %in% classes) text <- add_article(text)
+    if (".cap" %in% classes) text <- capitalise(text)
     if (".em" %in% classes) text <- wrap(text, "*")
     if (".strong" %in% classes) text <- wrap(text, "**")
     for (nm in proj("text")) {
@@ -405,7 +586,9 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
 
-  new_weft_text(text, number, decimals, relation, raw)
+  out <- new_weft_text(text, number, decimals, relation, raw)
+  if (!collapsed && !is.null(nms) && length(nms) == length(text)) names(out) <- nms
+  out
 }
 
 spell_or <- function(n, fallback) {
@@ -497,16 +680,57 @@ fmt_count <- function(x) apply_formatters(x, ".count")
 fmt_ord <- function(x) apply_formatters(x, ".ord")
 
 #' @rdname fmt
+#' @param trunc The number of items a collapse shows before "and N others".
 #' @export
-fmt_and <- function(x, sep = ", ", last = " and ") {
-  apply_formatters(x, ".and", list(sep = sep, last = last))
+fmt_and <- function(x, sep = ", ", last = " and ", trunc = NULL) {
+  apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc))
 }
 
 #' @rdname fmt
 #' @export
-fmt_or <- function(x, sep = ", ", last = " or ") {
-  apply_formatters(x, ".or", list(sep = sep, last = last))
+fmt_or <- function(x, sep = ", ", last = " or ", trunc = NULL) {
+  apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc))
 }
+
+#' @rdname fmt
+#' @export
+fmt_p <- function(x) apply_formatters(x, ".p")
+
+#' @rdname fmt
+#' @export
+fmt_date <- function(x) apply_formatters(x, ".date")
+
+#' @rdname fmt
+#' @export
+fmt_range <- function(x, digits = NULL, sigfig = NULL) {
+  apply_formatters(x, ".range", list(digits = digits, sigfig = sigfig))
+}
+
+#' @rdname fmt
+#' @export
+fmt_pairs <- function(x, sep = ", ", last = " and ", trunc = NULL) {
+  apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc))
+}
+
+#' @rdname fmt
+#' @export
+fmt_ul <- function(x) apply_formatters(x, ".ul")
+
+#' @rdname fmt
+#' @export
+fmt_ol <- function(x) apply_formatters(x, ".ol")
+
+#' @rdname fmt
+#' @export
+fmt_dl <- function(x) apply_formatters(x, ".dl")
+
+#' @rdname fmt
+#' @export
+fmt_cap <- function(x) apply_formatters(x, ".cap")
+
+#' @rdname fmt
+#' @export
+fmt_a <- function(x) apply_formatters(x, ".a")
 
 #' @rdname fmt
 #' @export

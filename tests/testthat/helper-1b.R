@@ -315,7 +315,7 @@ rows_cap <- list(
        r"---([results]{.cap .strong} and [results]{.strong .cap})---", "**Results** and **Results**"),
   b_ok("cap", "1.2.6 + 1.5.7: an empty chosen arm stays empty with .cap",
        r"---(x[ | y]{.cap if="flag"}z)---", "xz"),
-  b_ok("cap", "1.4.1: .cap acts on the collapsed text", r"---(`r c('x', 'y')`{.and .cap})---", "X and Y"),
+  b_ok("cap", "1.4.1: .cap acts on the collapsed text", r"---(`r c('x', 'y')`{.and .cap})---", "X and y"),
   b_ok("cap", "1.4.1: .cap after a phrase picked by lookup()", r"---(`r tier_lab('hi')`{.cap})---", "High"),
   b_ok("cap", "1.4.1: .cap after a phrase picked by brk()", r"---(`r trend(0.9)`{.cap} rates)---", "A fall in rates"),
   b_ok("cap", "1.4.1: .cap after about()", r"---(`r about(0.49)`{.cap})---", "Nearly half"),
