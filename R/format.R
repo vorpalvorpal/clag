@@ -8,7 +8,7 @@ NUMBER_CLASSES <- c(".num", ".pct", ".sci", ".p", ".date")
 WORDING_CLASSES <- c(".word", ".count", ".ord")
 COLLAPSE_CLASSES <- c(".and", ".or", ".pairs", ".range", ".ul", ".ol", ".dl")
 TEXT_CLASSES <- c(".a", ".cap", ".strong", ".em")
-RENDERER_KEYS <- c("digits", "sigfig", "sep", "last", "trunc")
+RENDERER_KEYS <- c("digits", "sigfig", "sep", "last", "trunc", "none")
 LIST_CLASSES <- c(".ul", ".ol", ".dl")
 
 shipped_classes <- function() {
@@ -466,6 +466,30 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (trunc < 1) construct_error("`trunc` must be at least 1 (rule 1.4.7).")
   }
 
+  # stage iv: text (an empty string stays empty, 1.2.6)
+  text_stage <- function(text) {
+    wrap <- function(text, mark) {
+      nz <- nzchar(text)
+      text[nz] <- paste0(mark, text[nz], mark)
+      text
+    }
+    if (".a" %in% classes) text <- add_article(text, cfg$minus)
+    if (".cap" %in% classes) text <- capitalise(text)
+    if (".em" %in% classes) text <- wrap(text, "*")
+    if (".strong" %in% classes) text <- wrap(text, "**")
+    for (nm in proj("text")) {
+      text <- as.character(apply_project(reg[[nm]], text, NULL))
+    }
+    text
+  }
+
+  # a zero-length atomic value under a collapse class prints `none` (stage 1h)
+  if (!governor && !is.null(keys$none) && !is.null(value) && is.atomic(value) &&
+      length(value) == 0L && !inherits(value, "weft_text") &&
+      (length(intersect(classes, COLLAPSE_CLASSES)) || length(proj("collapse")))) {
+    return(new_weft_text(text_stage(as.character(keys$none))))
+  }
+
   what <- "A formatter"
   if (!inherits(value, "weft_text")) check_present(value, what)
   if (is.factor(value)) value <- as.character(value)
@@ -627,19 +651,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       raw <- NA_real_
     }
 
-    # stage iv: text (an empty string stays empty, 1.2.6)
-    wrap <- function(text, mark) {
-      nz <- nzchar(text)
-      text[nz] <- paste0(mark, text[nz], mark)
-      text
-    }
-    if (".a" %in% classes) text <- add_article(text, cfg$minus)
-    if (".cap" %in% classes) text <- capitalise(text)
-    if (".em" %in% classes) text <- wrap(text, "*")
-    if (".strong" %in% classes) text <- wrap(text, "**")
-    for (nm in proj("text")) {
-      text <- as.character(apply_project(reg[[nm]], text, NULL))
-    }
+    text <- text_stage(text)
   }
 
   out <- new_weft_text(text, number, decimals, relation, raw)
@@ -747,15 +759,19 @@ fmt_ord <- function(x) apply_formatters(x, ".ord")
 
 #' @rdname fmt
 #' @param trunc The number of items a collapse shows before "and N others".
+#' @param none Text to print in place of a collapse when `x` is a vector of
+#'   length zero (`fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`,
+#'   `fmt_ol()`, `fmt_dl()`). The default, `NULL`, makes an empty vector a
+#'   `weft_no_value` error. `NULL` itself is always an error.
 #' @export
-fmt_and <- function(x, sep = ", ", last = NULL, trunc = NULL) {
-  apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc))
+fmt_and <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL) {
+  apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc, none = none))
 }
 
 #' @rdname fmt
 #' @export
-fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL) {
-  apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc))
+fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL) {
+  apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc, none = none))
 }
 
 #' @rdname fmt
@@ -774,21 +790,21 @@ fmt_range <- function(x, digits = NULL, sigfig = NULL) {
 
 #' @rdname fmt
 #' @export
-fmt_pairs <- function(x, sep = ", ", last = NULL, trunc = NULL) {
-  apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc))
+fmt_pairs <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL) {
+  apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc, none = none))
 }
 
 #' @rdname fmt
 #' @export
-fmt_ul <- function(x) apply_formatters(x, ".ul")
+fmt_ul <- function(x, none = NULL) apply_formatters(x, ".ul", list(none = none))
 
 #' @rdname fmt
 #' @export
-fmt_ol <- function(x) apply_formatters(x, ".ol")
+fmt_ol <- function(x, none = NULL) apply_formatters(x, ".ol", list(none = none))
 
 #' @rdname fmt
 #' @export
-fmt_dl <- function(x) apply_formatters(x, ".dl")
+fmt_dl <- function(x, none = NULL) apply_formatters(x, ".dl", list(none = none))
 
 #' @rdname fmt
 #' @export

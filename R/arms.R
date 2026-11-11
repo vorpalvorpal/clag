@@ -5,7 +5,9 @@ ARM_ROLES <- list(
   n = list(`1` = "always", `2` = c("one", "other"),
            `3` = c("zero", "one", "other"), `4` = c("zero", "one", "two", "other")),
   `if` = list(`1` = "always", `2` = c("true", "false")),
-  sign = list(`2` = c("positive", "negative"), `3` = c("positive", "negative", "zero"))
+  sign = list(`2` = c("positive", "negative"), `3` = c("positive", "negative", "zero")),
+  list = list(`2` = c("one", "other"),
+              `3` = c("zero", "one", "other"), `4` = c("zero", "one", "two", "other"))
 )
 
 arm_roles <- function(key, narms) {
@@ -16,7 +18,7 @@ arm_roles <- function(key, narms) {
 #' List the arms of every governed span of a document
 #'
 #' Reads one or more `.qmd` or `.Rmd` files with the scanner and lists, for
-#' every `n`, `if` and `sign` span, each of its arms: the span's place, the
+#' every `n`, `if`, `sign` and `list` span, each of its arms: the span's place, the
 #' key and its expression, the arm's role and the text the author wrote. The
 #' spans are those in prose, in captions, in front-matter fields and in
 #' literal `weft_str()` strings. No R is run: the file is parsed, never
@@ -35,8 +37,8 @@ arm_roles <- function(key, narms) {
 #' @param file One path, or several, to documents.
 #' @return A data frame of class `weft_arms`, one row per arm, with the
 #'   columns `file`, `line` (where the span starts), `context`, `span` (the
-#'   span's number in the result, in document order), `key` (`"n"`, `"if"`
-#'   or `"sign"`), `expr` (the key's value), `arm` (the arm's index in its
+#'   span's number in the result, in document order), `key` (`"n"`, `"if"`,
+#'   `"sign"` or `"list"`), `expr` (the key's value), `arm` (the arm's index in its
 #'   span), `role` (`"always"`, `"one"`, `"other"`, `"zero"`, `"two"`,
 #'   `"true"`, `"false"`, `"positive"` or `"negative"`), `text` (the arm as
 #'   written, trimmed), and `parent_span` and `parent_arm` (the span and arm
@@ -91,15 +93,15 @@ arms_one <- function(path, offset = 0L) {
   # is a construct error (1.6.4, 1.6.5): listed in `errors`, with no rows
   lang <- tolower(sub("[-_].*$", "", as.character(read_front_matter(path)$lang)[1L] %||% ""))
   if (!is.na(lang) && nzchar(lang) && lang != "en" && length(gov)) {
-    plural <- gov[rows$kind[gov] == "n" & lengths(rows$arms[gov]) > 1L &
+    plural <- gov[rows$kind[gov] %in% c("n", "list") & lengths(rows$arms[gov]) > 1L &
                     is.na(rows$error[gov])]
     if (length(plural)) {
       errors <- rbind(errors, data.frame(
         file = rep(path, length(plural)), line = rows$line[plural],
-        message = sprintf(paste0("An `n` span with more than one arm needs the plural rules of `%s`, ",
+        message = sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
                                  "which weft does not ship; English rules are never applied to another ",
                                  "language (rules 1.6.5, 1.6.7)."),
-                          as.character(read_front_matter(path)$lang)[1L]),
+                          rows$kind[plural], as.character(read_front_matter(path)$lang)[1L]),
         stringsAsFactors = FALSE))
       gov <- setdiff(gov, plural)
     }

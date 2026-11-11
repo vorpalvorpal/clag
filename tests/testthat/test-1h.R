@@ -257,6 +257,7 @@ E1H_LINES <- c(
   "",
   "```{r setup, include=FALSE}",
   "weft::weft_setup()",
+  "v <- params$v",
   "```",
   "",
   "Three [No sites were | # was | # were]{list=\"v\"} flagged.",
@@ -420,7 +421,7 @@ H_CASES <- c(
 )
 H_WANT <- c(
   "No sites were flagged.", "Ridge was flagged.", "Ridge, Dam and Weir were flagged.",
-  "Ridge or Dam were flagged.", "Flagged sites: none.", "Flagged sites: Ridge, Dam and Weir.",
+  "Ridge, Dam and 1 other were flagged.", "Flagged sites: none.", "Flagged sites: Ridge, Dam and Weir.",
   "Flagged sites: None", "No sites flagged.", "North, South and East were sampled.", "None"
 )
 

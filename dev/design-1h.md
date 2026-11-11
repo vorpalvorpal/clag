@@ -72,3 +72,14 @@ One new file `tests/testthat/test-1h.R`.
 - Exact texts the test-writer guessed (`.cap`, `.word` on a vector,
   `sep`/`last`) follow what the same classes print on a value today; the
   implementer reports any that differ rather than bending the code.
+
+## Rulings on the implementer's report
+
+- Two test fixtures were wrong and are corrected: the `rehearse()`
+  fixture never bound its parameter, and one expected text assumed
+  `trunc` under `.or` drops the tail ("and N others" is what `trunc`
+  prints under every collapse class, `dev/design-1b.md`).
+- A number vector with no number or wording class prints each element as
+  stock knitr prints it, inside a `list` span only. Accepted.
+- `none` is an owned key: it is never passed through, and it is a
+  construct error on a text, `if` or `cite` span. Accepted.

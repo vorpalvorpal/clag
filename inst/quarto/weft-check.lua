@@ -1,7 +1,7 @@
 -- weft-check.lua: the backstop filter of rule 2.5.3.
 --
 -- After knitting, fail the render on anything of weft's that survived:
---   * a span still carrying n, if, sign or cite (any letter case), or a weft
+--   * a span still carrying n, if, sign, cite or list (any letter case), or a weft
 --     text class (.a .cap .strong .em)
 --   * text that still shows an attribute block
 --   * a code span carrying a weft class or key
@@ -22,8 +22,8 @@
 local found = {}
 local seen = {}
 
-local KEYS = { n = true, ["if"] = true, sign = true, cite = true }
-local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true }
+local KEYS = { n = true, ["if"] = true, sign = true, cite = true, list = true }
+local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true }
 local TEXT_CLASSES = { a = true, cap = true, strong = true, em = true }
 local FORMATTER_CLASSES = {}
 for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl]]):gmatch("%S+") do

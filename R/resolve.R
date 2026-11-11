@@ -366,17 +366,17 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   lang_check <- function(k, classes, keys, n_arms = 1L) {
     if (!non_english()) return(NULL)
     expr <- R$expr[k]
-    ph <- if (R$kind[k] %in% c("value", "n", "sign") && !is.na(expr)) {
+    ph <- if (R$kind[k] %in% c("value", "n", "sign", "list") && !is.na(expr)) {
       regmatches(expr, regexpr("\\b(of_n|about|ci)[ \t]*\\(", expr, perl = TRUE))
     } else character()
     if (length(ph)) {
       return(sprintf(paste0("`%s()` prints English words, and the document's `lang` is `%s` ",
                             "(rule 1.6.8)."), sub("[ \t]*\\($", "", ph), s$lang))
     }
-    if (R$kind[k] == "n" && n_arms > 1L) {
-      return(sprintf(paste0("An `n` span with more than one arm needs the plural rules of `%s`, ",
+    if (R$kind[k] %in% c("n", "list") && n_arms > 1L) {
+      return(sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
                             "which weft does not ship; English rules are never applied to another ",
-                            "language (rules 1.6.5, 1.6.7)."), s$lang))
+                            "language (rules 1.6.5, 1.6.7)."), R$kind[k], s$lang))
     }
     eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date")
     bad <- intersect(classes, eng)
@@ -482,7 +482,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   # `n`, `if` and `sign` spans: when one prints nothing, one adjacent space
   # goes with it (1.5.12, stage 1g)
-  governed <- function(it) it$type == "row" && R$kind[it$k] %in% c("n", "if", "sign")
+  governed <- function(it) it$type == "row" && R$kind[it$k] %in% c("n", "if", "sign", "list")
 
   render_plain <- function(a, b, items, top = FALSE) {
     outs <- character()
@@ -490,7 +490,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     for (it in items) {
       o <- render_item(it)
       if (top && (it$type == "span" ||
-                  R$kind[it$k] %in% c("bare", "value", "n", "if", "sign", "text", "cite", "literal"))) {
+                  R$kind[it$k] %in% c("bare", "value", "n", "if", "sign", "list", "text", "cite", "literal"))) {
         o <- paste0(o, note_sentence(it, o))
       }
       outs <- c(outs, o)
@@ -619,7 +619,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   id_loc <- function(k) paste(R$file[k], R$line[k], R$context[k], R$start[k])
 
   has_id <- function(k) {
-    R$kind[k] %in% c("value", "n", "if", "sign") && !is.na(R$id[k]) && nzchar(R$id[k])
+    R$kind[k] %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])
   }
 
   # Where a back-reference gets its value (1.7.6 to 1.7.8): the printed record
@@ -755,6 +755,60 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     register_id(k, v, cc, rec)
     R$chosen[k] <<- i
     out <- render_arm(k, i, as.character(mag)[1L], record = mag)
+    finish(k, out, cc, claim_failed)
+  }
+
+  # A `list` span (stage 1h): the governor is an atomic vector, the arm is
+  # chosen by its length as `n` chooses by a count, and `#` is the vector
+  # collapsed as `.and` collapses it.
+  render_list <- function(k) {
+    cc <- split_classes(k)
+    arms <- R$arms[[k]]
+    narms <- length(arms)
+    msg <- lang_check(k, cc$own, cc$keys, narms)
+    if (!is.null(msg)) return(construct_fail(k, msg))
+    label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
+    ev <- eval_expr(k, R$expr[k], label)
+    if (!ev$ok) return(fail_from_error(k, ev$error, label))
+    v <- ev$value
+    claim_failed <- ev$claim_failed
+    if (is.null(v) || !is.atomic(v)) {
+      return(record_fail(k, "no value", label, paste0(
+        "A `list` governor must be an atomic vector (NULL, an R list and a data frame are not); ",
+        "NULL is not an empty list.")))
+    }
+    if (anyNA(v)) {
+      return(record_fail(k, "no value", label, "A `list` governor has a missing element (NA)."))
+    }
+    len <- length(v)
+    if (len == 0L && narms == 2L) {
+      return(record_fail(k, "failed claim", label, paste0(
+        "the list is empty, and a two-arm `list` span has no arm for the empty case (rule 1.5.3); ",
+        "add a first arm for the empty case"), hint = "add a first arm for the empty case"))
+    }
+    hash <- ""
+    if (len > 0L) {
+      reg <- cfg$formatters
+      is_text <- cc$own %in% c(".a", ".cap", ".em", ".strong") |
+        vapply(cc$own, function(c) identical((reg[[c]] %||% list())[["stage"]], "text"), NA)
+      fcl <- cc$own[!is_text]
+      if (!length(intersect(fcl, c(COLLAPSE_CLASSES, names(reg)[vapply(
+          reg, function(r) identical(r[["stage"]], "collapse"), NA)])))) fcl <- c(fcl, ".and")
+      # a number vector with no number or wording class prints each element as
+      # a bare value prints
+      if (is.numeric(v) && !has_own_format(cc)) {
+        v <- stats::setNames(vapply(v, stock_print, ""), names(v))
+      }
+      out <- tryCatch(
+        paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ")), collapse = ""),
+        error = function(e) e)
+      if (inherits(out, "error")) return(fail_from_error(k, out, label))
+      hash <- out
+    }
+    rec <- new_weft_text(as.character(len), len, FALSE, "=", len)
+    i <- choose_arm_n(rec, narms)
+    R$chosen[k] <<- i
+    out <- render_arm(k, i, hash, record = rec)
     finish(k, out, cc, claim_failed)
   }
 
@@ -909,6 +963,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
              n = render_n(k),
              `if` = render_if(k),
              sign = render_sign(k),
+             list = render_list(k),
              text = render_text(k),
              cite = render_cite(k),
              literal = render_literal(k),
@@ -937,7 +992,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # construct in an unchosen arm is an error too and the render does not depend
   # on the data (1.6.8, 1.6.4)
   if (nr && non_english()) {
-    for (k in which(R$kind %in% c("value", "n", "sign", "text", "cite", "if") & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (is.null(msg)) next
@@ -951,7 +1006,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   top <- range_items(1L, nchar(text), which(is.na(R$parent)))
   out <- render_plain(1L, nchar(text), top, top = TRUE)
   if (nr && draft && non_english()) {
-    for (k in which(R$kind %in% c("value", "n", "sign", "text", "cite", "if") & !R$evaluated & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & !R$evaluated & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (!is.null(msg)) {

@@ -12,8 +12,8 @@ arms(file)
 \value{
 A data frame of class \code{weft_arms}, one row per arm, with the
 columns \code{file}, \code{line} (where the span starts), \code{context}, \code{span} (the
-span's number in the result, in document order), \code{key} (\code{"n"}, \code{"if"}
-or \code{"sign"}), \code{expr} (the key's value), \code{arm} (the arm's index in its
+span's number in the result, in document order), \code{key} (\code{"n"}, \code{"if"},
+\code{"sign"} or \code{"list"}), \code{expr} (the key's value), \code{arm} (the arm's index in its
 span), \code{role} (\code{"always"}, \code{"one"}, \code{"other"}, \code{"zero"}, \code{"two"},
 \code{"true"}, \code{"false"}, \code{"positive"} or \code{"negative"}), \code{text} (the arm as
 written, trimmed), and \code{parent_span} and \code{parent_arm} (the span and arm
@@ -21,7 +21,7 @@ it is nested in, or \code{NA}).
 }
 \description{
 Reads one or more \code{.qmd} or \code{.Rmd} files with the scanner and lists, for
-every \code{n}, \code{if} and \code{sign} span, each of its arms: the span's place, the
+every \code{n}, \code{if}, \code{sign} and \code{list} span, each of its arms: the span's place, the
 key and its expression, the arm's role and the text the author wrote. The
 spans are those in prose, in captions, in front-matter fields and in
 literal \code{weft_str()} strings. No R is run: the file is parsed, never

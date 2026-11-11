@@ -6,8 +6,8 @@
 # goes in the `error` column of its row.
 
 SCAN_SPECIAL <- c("`", "[", "]", "$", "\\", "<")
-GOVERNOR_KEYS <- c("n", "if", "sign", "cite")
-WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "sep", "last", "trunc")
+GOVERNOR_KEYS <- c("n", "if", "sign", "cite", "list")
+WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "sep", "last", "trunc", "none")
 # The placeholder `#` of an arm template (1.5.8).
 ARM_PLACEHOLDER <- "\ue001"
 
@@ -674,7 +674,7 @@ block_errors <- function(S, blk, kind) {
   if (kind %in% c("value", "bare") && length(gov)) {
     e <- c(e, sprintf("The key `%s` on a value is an error (rule 1.3.3).", gov[1]))
   } else if (length(unique(gov)) > 1L) {
-    e <- c(e, sprintf("More than one of n, if, sign and cite in one block: %s (rule 1.1.5).",
+    e <- c(e, sprintf("More than one of n, if, sign, cite and list in one block: %s (rule 1.1.5).",
                       paste(gov, collapse = ", ")))
   }
   cls <- unique(blk$classes)
@@ -728,6 +728,24 @@ block_errors <- function(S, blk, kind) {
   if (kind == "sign" && length(blk$values[lc == "sign"]) &&
       identical(trim_ws(blk$values[lc == "sign"][1L]), ".")) {
     e <- c(e, "There is no `sign=\".\"` (rule 1.7.2); only `n=\".\"` inherits.")
+  }
+  if (kind == "list" && length(blk$values[lc == "list"]) &&
+      identical(trim_ws(blk$values[lc == "list"][1L]), ".")) {
+    e <- c(e, "There is no `list=\".\"`; only `n=\".\"` inherits (stage 1h).")
+  }
+  if (kind == "list" && !is.na(blk$id)) {
+    e <- c(e, "An `#id` on a `list` span is an error (stage 1h).")
+  }
+  if ("none" %in% lc) {
+    nv <- blk$values[lc == "none"][1L]
+    if (kind != "value") {
+      e <- c(e, "The key `none` belongs on a value with a collapse class (stage 1h).")
+    } else if (!any(cls %in% c(COLLAPSE_CLASSES, names(S$reg)[vapply(
+        S$reg, function(r) identical(r[["stage"]], "collapse"), NA)]))) {
+      e <- c(e, "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (stage 1h).")
+    } else if (!nzchar(trim_ws(nv))) {
+      e <- c(e, "The key `none` is empty; give the text to print for an empty value (stage 1h).")
+    }
   }
   if (kind == "cite") {
     fm <- intersect(cls, formatter_classes(S$reg))
@@ -826,7 +844,7 @@ named_chr <- function(values, names) {
 enclosing_governor <- function(S, parent) {
   while (!is.na(parent)) {
     r <- get_row(S, parent)
-    if (r$kind %in% c("n", "sign", "cite")) return(r$kind)
+    if (r$kind %in% c("n", "sign", "cite", "list")) return(r$kind)
     parent <- r$parent
   }
   NA_character_
@@ -1095,7 +1113,7 @@ handle_bracket <- function(S, p, parent) {
     gov <- which(lc %in% GOVERNOR_KEYS)
     kind <- if (length(gov)) {
       lc[gov[1]]
-    } else if (any(blk$classes %in% c(".a", ".cap", ".strong", ".em"))) {
+    } else if (any(blk$classes %in% c(".a", ".cap", ".strong", ".em")) || "none" %in% lc) {
       "text"
     } else if (".weft-literal" %in% blk$classes) {
       "literal"
@@ -1127,16 +1145,19 @@ handle_bracket <- function(S, p, parent) {
   arms <- NULL
   templates <- NULL
   seps <- integer()
-  if (kind %in% c("n", "if", "sign")) {
+  if (kind %in% c("n", "if", "sign", "list")) {
     sp <- split_arms(S, p + 1L, close - 1L)
     arms <- sp$arms
     templates <- sp$templates
     seps <- sp$seps
-    allowed <- list(n = 1:4, `if` = 1:2, sign = 2:3)[[kind]]
+    allowed <- list(n = 1:4, `if` = 1:2, sign = 2:3, list = 2:4)[[kind]]
     if (!length(arms) %in% allowed) {
       errs <- c(errs, sprintf(
         "A `%s` span takes %s arms; this has %d (rules 1.5.2, 1.6.4).", kind,
         paste(range(allowed), collapse = " to "), length(arms)))
+    }
+    if (kind == "list" && length(arms) >= 3L && grepl(ARM_PLACEHOLDER, templates[1L], fixed = TRUE)) {
+      errs <- c(errs, "A `#` in the zero arm of a `list` span has nothing to print: the list is empty there (stage 1h).")
     }
     if (sp$unescaped && isTRUE(S$tbl[line_index(S, p)])) {
       errs <- c(errs, paste0(
@@ -1150,9 +1171,8 @@ handle_bracket <- function(S, p, parent) {
           "The value of `%s` starts with `#`, so it must be exactly a back-reference, `#id` ",
           "(rule 1.7.6); a `#` would make R read the rest as a comment."), kind))
       } else if (kind == "n" && identical(trim_ws(expr), ".")) {
-        if (!identical(enclosing_governor(S, parent), "n") &&
-            !identical(enclosing_governor(S, parent), "sign")) {
-          errs <- c(errs, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")
+        if (!enclosing_governor(S, parent) %in% c("n", "sign", "list")) {
+          errs <- c(errs, "`n=\".\"` outside an `n`, `sign` or `list` span (rule 1.7.2).")
         }
       } else {
         errs <- c(errs, expr_errors(expr, sprintf("The value of `%s`", kind),
@@ -1233,7 +1253,7 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
     repeat {
       p <- rows$parent[cur]
       if (is.na(p)) break
-      if (rows$kind[p] %in% c("n", "if", "sign")) out <- c(out, paste(p, rows$arm[cur]))
+      if (rows$kind[p] %in% c("n", "if", "sign", "list")) out <- c(out, paste(p, rows$arm[cur]))
       cur <- p
     }
     out

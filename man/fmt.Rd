@@ -38,9 +38,9 @@ fmt_count(x)
 
 fmt_ord(x)
 
-fmt_and(x, sep = ", ", last = NULL, trunc = NULL)
+fmt_and(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
 
-fmt_or(x, sep = ", ", last = NULL, trunc = NULL)
+fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
 
 fmt_p(x)
 
@@ -48,13 +48,13 @@ fmt_date(x)
 
 fmt_range(x, digits = NULL, sigfig = NULL)
 
-fmt_pairs(x, sep = ", ", last = NULL, trunc = NULL)
+fmt_pairs(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
 
-fmt_ul(x)
+fmt_ul(x, none = NULL)
 
-fmt_ol(x)
+fmt_ol(x, none = NULL)
 
-fmt_dl(x)
+fmt_dl(x, none = NULL)
 
 fmt_cap(x)
 
@@ -80,6 +80,11 @@ accepted.}
 given here is used as it is.}
 
 \item{trunc}{The number of items a collapse shows before "and N others".}
+
+\item{none}{Text to print in place of a collapse when \code{x} is a vector of
+length zero (\code{fmt_and()}, \code{fmt_or()}, \code{fmt_pairs()}, \code{fmt_ul()},
+\code{fmt_ol()}, \code{fmt_dl()}). The default, \code{NULL}, makes an empty vector a
+\code{weft_no_value} error. \code{NULL} itself is always an error.}
 }
 \value{
 A \code{weft_text}.
