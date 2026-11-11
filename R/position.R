@@ -130,7 +130,18 @@ new_file_state <- function(path, config) {
   # what the scanner finds in the whole file, for the end-of-document check
   F$expected <- NULL
   txt <- paste(F$lines, collapse = "\n")
-  exp <- tryCatch(scan_text(blank_front_matter(txt), config = config),
+  # a child document, or a file that has children, is not the whole document:
+  # a reference to an id it cannot see is the knit's to judge (1.7.10), and so
+  # is a reference to an id a caption defines
+  extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
+                                    project = project_type(path)),
+                    error = function(e) NULL)
+  lenient <- is_child_knit() || any(grepl("child[ \t]*[=:]", F$lines))
+  cap_ids <- if (!is.null(extra) && nrow(extra)) {
+    unique(extra$id[extra$context == "caption" & !is.na(extra$id) & nzchar(extra$id)])
+  } else character()
+  exp <- tryCatch(scan_text(blank_front_matter(txt), config = config, lenient = lenient,
+                            known = cap_ids),
                   error = function(e) NULL)
   F$unparseable <- character()
   F$unparse_rows <- NULL
@@ -175,9 +186,6 @@ new_file_state <- function(path, config) {
   F$label_map <- list()
   F$chunk_lines <- stats::setNames(vapply(ch, function(x) as.integer(x$open), 0L),
                                    vapply(ch, function(x) x$label, ""))
-  extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
-                                    project = project_type(path)),
-                    error = function(e) NULL)
   if (!is.null(extra) && nrow(extra)) {
     top <- is.na(extra$parent) & !(extra$kind %in% c("bare", "link"))
     ok <- top & is.na(extra$error) & extra$context != "weft_str"

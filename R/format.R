@@ -292,7 +292,15 @@ NUMBER_WORDS <- c("zero", "one", "two", "three", "four", "five", "six", "seven",
                   "nineteen", "twenty", "thirty", "forty", "fifty", "sixty",
                   "seventy", "eighty", "ninety", "hundred", "thousand", "million",
                   "billion")
-vowel_sound <- function(text) {
+vowel_sound <- function(text, minus = "\u2212") {
+  orig <- text
+  # emphasis marks and a minus sign do not count: "a \u22128", "an **8**"
+  text <- sub("^[*_~]*", "", text)
+  for (mk in c(minus, "-")) {
+    if (nzchar(mk) && startsWith(text, mk) && grepl("^[0-9]", substring(text, nchar(mk) + 1L))) {
+      return(FALSE)
+    }
+  }
   m <- regmatches(text, regexpr("^[0-9][0-9,]*", text))
   if (length(m)) {
     d <- gsub(",", "", m, fixed = TRUE)
@@ -310,20 +318,20 @@ vowel_sound <- function(text) {
   }
   value_error(sprintf(
     "`.a` applies to numbers and number words only; \"%s\" is neither (rule 1.4.5).",
-    text))
+    orig))
 }
 
-add_article <- function(text) {
+add_article <- function(text, minus = "\u2212") {
   vapply(text, function(t) {
     if (!nzchar(t)) return(t)
-    paste0(if (vowel_sound(t)) "an " else "a ", t)
+    paste0(if (vowel_sound(t, minus)) "an " else "a ", t)
   }, "", USE.NAMES = FALSE)
 }
 
 capitalise <- function(text) {
   vapply(text, function(t) {
     if (!nzchar(t)) return(t)
-    lead <- attr(regexpr("^\\**", t), "match.length")
+    lead <- attr(regexpr("^[^[:alnum:]]*", t), "match.length")
     if (lead >= nchar(t)) return(t)
     paste0(substr(t, 1L, lead), toupper(substr(t, lead + 1L, lead + 1L)),
            substr(t, lead + 2L, nchar(t)))
@@ -336,6 +344,10 @@ collapse_range <- function(text, number, cfg) {
   if (length(text) != 2L) {
     value_error(sprintf(
       "`.range` needs a value of length 2; this has %d (rule 5.3.2).", length(text)))
+  }
+  if (!anyNA(number) && number[1L] > number[2L]) {
+    value_error(sprintf("`.range` needs its first end not above its second; got %s and %s.",
+                        text[1L], text[2L]))
   }
   if (identical(text[1L], text[2L])) return(text[1L])
   neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus))
@@ -383,6 +395,20 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   keys <- keys[!vapply(keys, is.null, NA)]
   if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
   nms <- names(value)
+
+  # the result of of_n(), about(), ci() or pm() is finished wording: a number
+  # or wording class on it is a value error (1.4.1, 1.4.12)
+  if (isTRUE(attr(value, "phrase"))) {
+    bad_cls <- c(intersect(classes, c(NUMBER_CLASSES, ".no", WORDING_CLASSES)),
+                 intersect(classes, names(reg))[vapply(intersect(classes, names(reg)), function(k) {
+                   !identical(reg[[k]][["stage"]] %||% "number", "text")
+                 }, NA)])
+    if (length(bad_cls) || !is.null(keys$digits) || !is.null(keys$sigfig)) {
+      value_error(sprintf(
+        "`%s` cannot format \"%s\": it is finished wording, not a number (rules 1.4.1, 1.4.12).",
+        c(bad_cls, "digits")[1L], as.character(value)[1L]))
+    }
+  }
 
   if (governor) {
     has_fmt <- any(!is.na(class_group(classes, reg))) || ".no" %in% classes ||
@@ -435,6 +461,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     ncls <- ".num"
   }
   rec <- NULL
+  clamp_rel <- NULL
   if (length(ncls)) {
     cls <- ncls[1]
     if (cls == ".date") {
@@ -447,6 +474,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     } else {
       if (inherits(value, "weft_text")) {
         # a number formatter formats the raw value afresh (1.7.8)
+        clamp_rel <- if (isTRUE(attr(value, "clamped"))) attr(value, "relation")
         num <- attr(value, "raw")
         if (is.null(num)) num <- attr(value, "number")
         if (!is.numeric(num) || anyNA(num)) {
@@ -465,10 +493,21 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else {
         rec <- format_numbers(value, cls, keys, cfg)
       }
+      # clamp() keeps its relation: "< 1%" (3.5.4)
+      if (!is.null(clamp_rel) && length(clamp_rel) == length(rec)) {
+        mark <- clamp_rel != "="
+        rec[mark] <- paste(clamp_rel[mark], as.character(rec)[mark])
+        attr(rec, "relation") <- clamp_rel
+      }
     }
   } else if (inherits(value, "weft_text")) {
     rec <- value
   } else if (is.numeric(value)) {
+    # `.range` prints both ends to the same number of decimals (1.4.4)
+    if (".range" %in% classes && is.null(keys$digits) && is.null(keys$sigfig) &&
+        !all(is_whole(value[is.finite(value)]))) {
+      keys$digits <- cfg$digits
+    }
     rec <- format_numbers(value, ".num", keys, cfg)
   } else {
     rec <- new_weft_text(as.character(value))
@@ -577,7 +616,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       text[nz] <- paste0(mark, text[nz], mark)
       text
     }
-    if (".a" %in% classes) text <- add_article(text)
+    if (".a" %in% classes) text <- add_article(text, cfg$minus)
     if (".cap" %in% classes) text <- capitalise(text)
     if (".em" %in% classes) text <- wrap(text, "*")
     if (".strong" %in% classes) text <- wrap(text, "**")

@@ -2,6 +2,51 @@
 # (rules 1.8.5, 5.4.4 to 5.4.6, 2.1.6). Keys are read in R from BibTeX,
 # BibLaTeX, CSL JSON and CSL YAML files; Pandoc is not called.
 
+# The entry keys of BibTeX text: an entry is `@type{key, ...}` at the top
+# level, and its body (braces matched) is skipped, so an `@` inside a field
+# value or a `@comment` block is not a key. `@comment`, `@string` and
+# `@preamble` have no key.
+bibtex_keys <- function(txt) {
+  keys <- character()
+  pos <- 1L
+  n <- nchar(txt)
+  repeat {
+    if (pos > n) break
+    rest <- substring(txt, pos)
+    m <- regexpr("@([A-Za-z]+)[ \t\r\n]*[{(]", rest, perl = TRUE)
+    if (m[1L] < 0L) break
+    hit <- regmatches(rest, m)
+    type <- tolower(sub("^@([A-Za-z]+).*$", "\\1", hit))
+    open <- pos + m[1L] - 1L + attr(m, "match.length") - 1L   # the opening brace
+    delim <- substr(txt, open, open)
+    pair <- if (delim == "{") c("{", "}") else c("(", ")")
+    # the matching close
+    depth <- 0L
+    close <- NA_integer_
+    j <- open
+    while (j <= n) {
+      ch <- substr(txt, j, j)
+      if (ch == pair[1L]) depth <- depth + 1L
+      if (ch == pair[2L]) {
+        depth <- depth - 1L
+        if (depth == 0L) {
+          close <- j
+          break
+        }
+      }
+      j <- j + 1L
+    }
+    body <- substring(txt, open + 1L, if (is.na(close)) n else close - 1L)
+    if (!(type %in% c("comment", "string", "preamble"))) {
+      k <- regmatches(body, regexec("^[ \t\r\n]*([^,[:space:]{}()]+)[ \t\r\n]*,", body))[[1L]]
+      if (length(k)) keys <- c(keys, k[2L])
+    }
+    if (is.na(close)) break
+    pos <- close + 1L
+  }
+  keys
+}
+
 # The keys of one bibliography file, by its extension. A file that cannot be
 # read has no keys.
 read_bib_keys <- function(path) {
@@ -18,13 +63,7 @@ read_bib_keys <- function(path) {
     out[!is.na(out)]
   }
   if (ext %in% c("bib", "bibtex", "biblatex")) {
-    m <- gregexpr("(?<![A-Za-z0-9_])@([A-Za-z]+)[ \t\r\n]*[{(][ \t\r\n]*([^,[:space:]{}()]+)[ \t\r\n]*,",
-                  txt, perl = TRUE)[[1L]]
-    if (m[1L] < 0L) return(character())
-    hits <- regmatches(txt, list(m))[[1L]]
-    type <- tolower(sub("^@([A-Za-z]+).*$", "\\1", hits))
-    key <- sub("^@[A-Za-z]+[ \t\r\n]*[{(][ \t\r\n]*([^,[:space:]{}()]+).*$", "\\1", hits)
-    return(key[!(type %in% c("comment", "string", "preamble"))])
+    return(bibtex_keys(txt))
   }
   if (ext == "json") {
     x <- tryCatch(yaml::yaml.load(txt, eval.expr = FALSE), error = function(e) NULL)
@@ -96,9 +135,12 @@ bibliography_keys <- function(s) {
     }
     NA_character_
   }
+  named <- c(as.character(unlist(lapply(from_meta, `[[`, "files"))),
+             as.character(unlist(s$config$bibliography)))
   files <- c(
     vapply(unlist(lapply(from_meta, `[[`, "files")), where, "", bases = c(docdir, root)),
     vapply(as.character(unlist(s$config$bibliography)), where, "", bases = c(root, docdir)))
+  s$bib_missing <- unique(named[is.na(files)])
   files <- unique(files[!is.na(files)])
   keys <- c(unlist(lapply(from_meta, `[[`, "keys")),
             unlist(lapply(files, read_bib_keys)))

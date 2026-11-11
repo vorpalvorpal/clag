@@ -174,3 +174,16 @@ here; 26 and 27 (cosmetic) are left.
 - **`.range`** prints both ends to the same number of decimals, then
   collapses if they print the same.
 - **`.a`** accepts a negative number ("a −5").
+
+## Rulings on the fixer's report for the review of stages 1b and 1d
+
+- Two older tests are superseded and edited: review A #20 (two ids in one
+  block, now ruling G) and the `fmt_range(c(2, -3))` assertion in
+  `test-number-forms.R` (now a value error, ruling C).
+- Ruling M's "text-only value" cannot be known from the source; only a
+  back-reference to an `if` span's id is the construct error. Accepted.
+- A file with a `child=` chunk, a child file, and a reference to an id
+  defined in a caption are not checked statically for ids; the knit-time
+  registry decides. Accepted.
+- Left open (in `dev/open-findings.md`): a text class or `trunc` with a
+  list class is refused by the scanner only, not by the function forms.

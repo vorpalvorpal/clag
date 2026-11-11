@@ -31,7 +31,7 @@ new_scan <- function(text, file, first_line, config) {
   S$nl <- as.numeric(which(chars == "\n"))
   # the first colon of each fenced-div opening line is special too, so the
   # walk stops there (a `.weft-literal` div is a row, 1.8.9)
-  dv <- if (n) gregexpr("(?m)^[ \\t]{0,3}\\K:{3,}[ \\t]*\\{", text, perl = TRUE)[[1]] else -1L
+  dv <- if (n) gregexpr("(?m)^[ \\t]{0,3}(?:>[ \\t]*)*\\K:{3,}[ \\t]*(?:\\{|[^\\s{}:]+)", text, perl = TRUE)[[1]] else -1L
   S$divs <- as.numeric(dv[dv > 0L])
   S$special <- as.numeric(sort(unique(c(which(chars %in% SCAN_SPECIAL), S$divs))))
   S$dollar <- as.numeric(which(chars == "$"))
@@ -307,6 +307,7 @@ parse_block_strict <- function(ch, i, lim) {
   nms <- character()
   vals <- character()
   quotes <- character()
+  nid <- 0L
   stops <- c(" ", "\t", "\r", "\n", "}")
   token_end <- function(p) {
     while (p <= lim && !(ch[p] %in% stops)) p <- p + 1L
@@ -322,7 +323,8 @@ parse_block_strict <- function(ch, i, lim) {
       if (e <= pos) return(NULL)
       tok <- paste(ch[pos:e], collapse = "")
       if (c == "#") {
-        id <- substring(tok, 2L)   # the last id wins
+        id <- substring(tok, 2L)   # the last id wins (two are an error, 1.7.5)
+        nid <- nid + 1L
       } else {
         classes <- c(classes, tok)
       }
@@ -358,7 +360,7 @@ parse_block_strict <- function(ch, i, lim) {
     quotes <- c(quotes, qq)
   }
   list(ok = TRUE, end = pos, id = id, classes = classes, names = nms,
-       values = vals, quotes = quotes)
+       values = vals, quotes = quotes, nid = nid)
 }
 
 # The end of whatever trails a closing `]`: an attribute block, a link
@@ -676,6 +678,18 @@ block_errors <- function(S, blk, kind) {
                       paste(gov, collapse = ", ")))
   }
   cls <- unique(blk$classes)
+  if ((blk$nid %||% 0L) > 1L) {
+    e <- c(e, "Two ids in one block; an element has one id (rule 1.7.5).")
+  }
+  if (any(cls %in% LIST_CLASSES)) {
+    reg_text <- names(S$reg)[vapply(S$reg, function(r) identical(r[["stage"]], "text"), NA)]
+    tx <- c(intersect(cls, c(TEXT_CLASSES, reg_text)), intersect(lc, "trunc"))
+    if (length(tx)) {
+      e <- c(e, sprintf(paste0("`%s` makes a block, so a text class or `trunc` (`%s`) cannot ",
+                               "go with it (rule 1.4.6)."),
+                        intersect(cls, LIST_CLASSES)[1L], tx[1L]))
+    }
+  }
   if (!is.na(blk$id)) {
     if (kind == "text") {
       e <- c(e, "An `#id` on a text span is an error (rule 1.1.9).")
@@ -720,6 +734,11 @@ block_errors <- function(S, blk, kind) {
       e <- c(e, sprintf("A formatter class on a cite span is an error (rule 1.8.7): %s.",
                         paste(fm, collapse = " ")))
     }
+    ky <- intersect(lc, RENDERER_KEYS)
+    if (length(ky)) {
+      e <- c(e, sprintf("A renderer key on a cite span is an error (rule 1.8.7): %s.",
+                        paste(ky, collapse = " ")))
+    }
     cv <- blk$values[lc == "cite"]
     if (length(cv)) e <- c(e, cite_errors(cv[1L]))
   }
@@ -736,7 +755,7 @@ block_errors <- function(S, blk, kind) {
 # Pandoc's citation key grammar: a letter, digit or underscore, then letters,
 # digits, underscores and internal punctuation (`:.#$%&-+?<>~/`) that is
 # followed by a letter, digit or underscore.
-CITE_KEY_RE <- "[[:alnum:]_](?:[[:alnum:]_]|[:.#$%&+?<>~/-](?=[[:alnum:]_]))*"
+CITE_KEY_RE <- "[\\p{L}\\p{N}_](?:[\\p{L}\\p{N}_]|[:.#$%&+?<>~/-](?=[\\p{L}\\p{N}_]))*"
 
 # The keys of a `cite` value (1.8.1, 1.8.4, 1.8.6): with an `@` anywhere it is
 # the citation form and each `@key` is a key; otherwise it is bare keys
@@ -850,16 +869,37 @@ handle_div <- function(S, p, parent) {
   nl <- S$nl[findInterval(p, S$nl) + 1L]
   line_end <- if (is.na(nl)) S$n else nl - 1L
   while (line_end > p && S$chars[line_end] %in% c("\r", " ", "\t")) line_end <- line_end - 1L
-  brace <- p
-  while (brace <= line_end && S$chars[brace] != "{") brace <- brace + 1L
-  blk <- if (brace <= line_end) parse_block(S, brace) else NULL
-  if (is.null(blk) || !blk$ok || !(".weft-literal" %in% blk$classes) || blk$end != line_end) {
+  # after the colons: Pandoc's `{...}` form, or the bare class `weft-literal`;
+  # colons may trail either (`::: {.weft-literal} :::`)
+  q <- p
+  while (q <= line_end && S$chars[q] == ":") q <- q + 1L
+  while (q <= line_end && S$chars[q] %in% c(" ", "\t")) q <- q + 1L
+  if (q > line_end) return(line_end + 1L)
+  trailing <- function(from) {
+    !nzchar(gsub("[: \t]", "", if (from <= line_end) substr(S$text, from, line_end) else ""))
+  }
+  if (S$chars[q] == "{") {
+    blk <- parse_block(S, q)
+    if (is.null(blk) || !blk$ok || !(".weft-literal" %in% blk$classes) || blk$end > line_end ||
+        !trailing(blk$end + 1L)) {
+      return(line_end + 1L)
+    }
+    lc <- lower_keys(blk$names)
+    keep <- !lc %in% GOVERNOR_KEYS
+    add_row(S, "literal", p, blk$end, q, NA_character_, blk$classes,
+            named_chr(blk$values[keep], lc[keep]), blk$id, NULL, integer(), parent,
+            block_errors(S, blk, "literal"))
     return(line_end + 1L)
   }
-  lc <- lower_keys(blk$names)
-  keep <- !lc %in% GOVERNOR_KEYS
-  add_row(S, "literal", p, line_end, brace, NA_character_, blk$classes,
-          named_chr(blk$values[keep], lc[keep]), blk$id, NULL, integer(), parent,
+  e <- q
+  while (e <= line_end && !(S$chars[e] %in% c(" ", "\t", ":"))) e <- e + 1L
+  if (!identical(substr(S$text, q, e - 1L), "weft-literal") || !trailing(e)) {
+    return(line_end + 1L)
+  }
+  blk <- list(ok = TRUE, names = character(), values = character(), quotes = character(),
+              classes = ".weft-literal", id = NA_character_, nid = 0L)
+  add_row(S, "literal", p, e - 1L, q, NA_character_, ".weft-literal",
+          named_chr(character(), character()), NA_character_, NULL, integer(), parent,
           block_errors(S, blk, "literal"))
   line_end + 1L
 }
@@ -936,6 +976,20 @@ alone_in_paragraph <- function(S, a, b) {
   blank(before) && blank(after)
 }
 
+# The container a block value at `p` sits in, from what stands before it on its
+# line: a pipe-table cell, a block quote, a list item, or an indented block.
+# `NA` at the top level.
+block_container <- function(S, p) {
+  li <- line_index(S, p)
+  if (isTRUE(S$tbl[li])) return("a table cell")
+  from <- if (li == 1L) 1L else S$nl[li - 1L] + 1L
+  pre <- if (p > from) substr(S$text, from, p - 1L) else ""
+  if (grepl("^[ \t]*>", pre)) return("a block quote")
+  if (grepl("^[ \t]*([-*+]|[0-9]+[.)])[ \t]+$", pre)) return("a list item")
+  if (grepl("^( {2,}|\t)", pre) && !nzchar(trim_ws(pre))) return("an indented block (a list item)")
+  NA_character_
+}
+
 handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   cs <- code_span(S, p)
   if (!cs$ok) return(cs$open_end + 1L)
@@ -986,10 +1040,18 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
       keep <- !lc %in% GOVERNOR_KEYS
       keys <- named_chr(blk$values[keep], lc[keep])
       id <- blk$id
-      if (any(classes %in% LIST_CLASSES) && !alone_in_paragraph(S, p, end)) {
-        errs <- c(errs, sprintf(paste0(
-          "`%s` makes a block, so the value must be alone in its paragraph (rule 1.4.6); ",
-          "put it in a paragraph of its own."), intersect(classes, LIST_CLASSES)[1L]))
+      if (any(classes %in% LIST_CLASSES)) {
+        lcls <- intersect(classes, LIST_CLASSES)[1L]
+        box <- block_container(S, p)
+        if (!is.na(box)) {
+          errs <- c(errs, sprintf(paste0(
+            "`%s` makes a block, and a block cannot be put in %s reliably (rule 1.4.6); ",
+            "put it in a paragraph of its own at the top level."), lcls, box))
+        } else if (!alone_in_paragraph(S, p, end)) {
+          errs <- c(errs, sprintf(paste0(
+            "`%s` makes a block, so the value must be alone in its paragraph (rule 1.4.6); ",
+            "put it in a paragraph of its own."), lcls))
+        }
       }
     }
   }
@@ -1080,6 +1142,10 @@ handle_bracket <- function(S, p, parent) {
     if (blk$ok && !is.na(expr)) {
       if (kind %in% c("n", "sign") && is_backref(expr)) {
         # a back-reference is an id, not R (1.7.6, 5.3.5)
+      } else if (kind %in% c("n", "sign") && startsWith(trim_ws(expr), "#")) {
+        errs <- c(errs, sprintf(paste0(
+          "The value of `%s` starts with `#`, so it must be exactly a back-reference, `#id` ",
+          "(rule 1.7.6); a `#` would make R read the rest as a comment."), kind))
       } else if (kind == "n" && identical(trim_ws(expr), ".")) {
         if (!identical(enclosing_governor(S, parent), "n") &&
             !identical(enclosing_governor(S, parent), "sign")) {
@@ -1151,7 +1217,7 @@ finish_scan <- function(S) {
 # arm the reference is not in. Returns a character vector, `NA` where there is
 # none. Ids belong to a whole document, so a scan of one block of prose does
 # not run this (the knit hands the document's errors to its blocks).
-check_ids <- function(rows) {
+check_ids <- function(rows, lenient = FALSE, known = character()) {
   nr <- nrow(rows)
   err <- rep(NA_character_, nr)
   if (!nr) return(err)
@@ -1184,7 +1250,11 @@ check_ids <- function(rows) {
     id <- sub("^#", "", trim_ws(rows$expr[k]))
     d <- first[[id]]
     if (is.null(d)) {
+      # a child document or a caption may define it: the knit decides
+      if (lenient || id %in% known) next
       add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
+    } else if (rows$kind[d] == "if") {
+      add(k, sprintf("The id `#%s` is on an `if` span, which has no printed number to refer to (rule 1.7.5).", id))
     } else if (!(rows$end[d] < rows$start[k])) {
       add(k, sprintf("The id `#%s` is defined further down, not before this span (rule 1.7.10).", id))
     } else if (!all(chain(d) %in% chain(k))) {
@@ -1200,15 +1270,23 @@ check_ids <- function(rows) {
 
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
-scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
+scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL,
+                      lenient = FALSE, known = character()) {
   rows <- scan_block(text, file, first_line, config)$rows
-  with_id_errors(rows)
+  with_id_errors(rows, lenient, known)
+}
+
+# The rows of a place that is not the document's own prose (a caption, a
+# front-matter field, a `weft_str()` string): its ids are checked by the knit,
+# over the document as knitted (1.7.10), not here.
+scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
+  scan_block(text, file, first_line, config)$rows
 }
 
 # The rows of a whole document with the errors about its ids added; the rows
 # that gained one are listed in the attribute `id_rows`.
-with_id_errors <- function(rows) {
-  ie <- check_ids(rows)
+with_id_errors <- function(rows, lenient = FALSE, known = character()) {
+  ie <- check_ids(rows, lenient, known)
   hit <- !is.na(ie)
   if (any(hit)) {
     rows$error[hit] <- ifelse(is.na(rows$error[hit]), ie[hit], paste(rows$error[hit], ie[hit], sep = "\n"))

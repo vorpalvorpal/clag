@@ -336,7 +336,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                             "which weft does not ship; English rules are never applied to another ",
                             "language (rules 1.6.5, 1.6.7)."), s$lang))
     }
-    eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a")
+    eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date")
     bad <- intersect(classes, eng)
     if (length(bad) || "trunc" %in% names(keys)) {
       return(sprintf(paste0("The class `%s` prints English words, and the document's `lang` is ",
@@ -399,18 +399,18 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     pre <- substr(text, 1L, st - 1L)
     if (!nzchar(trim_ws(pre))) return(TRUE)
     # after the end of a sentence
-    if (grepl("[.?!][]\"')]*[ \t\n]+$", pre)) return(TRUE)
+    if (grepl("[.?!][]\"')*_~]*[ \t\n]+$", pre)) return(TRUE)
     # a new paragraph
     if (grepl("\n[ \t]*\n[ \t]*$", pre)) return(TRUE)
     # after a heading or list marker
     last <- sub("^.*\n", "", pre)
-    grepl("^[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>)[ \t]+)+$", last)
+    grepl("^[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|:)[ \t]+)+$", last)
   }
   note_sentence <- function(it, out) {
-    if (is_str || !nzchar(out)) return(invisible())
+    if (is_str || !nzchar(out)) return("")
     body <- sub("^[*_\\[]+", "", out)
-    if (!grepl("^[0-9[:lower:]]", body)) return(invisible())
-    if (!starts_sentence(it$start)) return(invisible())
+    if (!grepl("^[0-9[:lower:]]", body)) return("")
+    if (!starts_sentence(it$start)) return("")
     if (it$type == "span") {
       li <- span_line(it$start)
       expr <- s$parked[[it$idx]]$code
@@ -418,6 +418,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       line <- li$line
     } else {
       expr <- R$expr[it$k]
+      if (R$kind[it$k] == "if") {
+        expr <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", trim_ws(out)))
+      } else if (R$kind[it$k] %in% c("text", "cite", "literal")) {
+        expr <- source_label(it$k)
+      }
       file <- R$file[it$k]
       line <- R$line[it$k]
     }
@@ -428,8 +433,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       add_failure(s, "sentence start", file = file, line = line, expr = as.character(expr),
                   detail = sprintf("a printed \"%s\" opens a sentence; write .cap (with .count or .word for a number) (rule 5.10.1)", out),
                   chunk = chunk_label)
+      return(marker("sentence start", line, chunk_label))
     }
-    invisible()
+    ""
   }
 
   render_plain <- function(a, b, items, top = FALSE) {
@@ -438,8 +444,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     prev <- ""
     for (it in items) {
       o <- render_item(it)
-      if (top && (it$type == "span" || R$kind[it$k] %in% c("bare", "value", "n", "if", "sign"))) {
-        note_sentence(it, o)
+      if (top && (it$type == "span" ||
+                  R$kind[it$k] %in% c("bare", "value", "n", "if", "sign", "text", "cite", "literal"))) {
+        o <- paste0(o, note_sentence(it, o))
       }
       # two emphasis constructs side by side would read as `*a**b*`; an empty
       # comment keeps the delimiters apart (1.4.3)
@@ -552,8 +559,16 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     id <- R$id[k]
     if (is.na(id) || !nzchar(id)) return(invisible())
     if (is.null(rec)) rec <- governor_record(v, cc)
-    s$ids[[id]] <- list(rec = rec, raw = raw_of(v))
+    s$ids[[id]] <- list(rec = rec, raw = raw_of(v), loc = id_loc(k))
     invisible()
+  }
+
+  # where an id was defined, so the same construct met again is not a second
+  # definition, while another one is (1.7.5, over the document as knitted)
+  id_loc <- function(k) paste(R$file[k], R$line[k], R$context[k], R$start[k])
+
+  has_id <- function(k) {
+    R$kind[k] %in% c("value", "n", "if", "sign") && !is.na(R$id[k]) && nzchar(R$id[k])
   }
 
   # Where a back-reference gets its value (1.7.6 to 1.7.8): the printed record
@@ -565,6 +580,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is.null(ent)) {
       return(list(stop = construct_fail(k, sprintf(
         "The id `#%s` is not defined before this span, or its arm was not chosen (rule 1.7.10).", id))))
+    }
+    if (isTRUE(ent$failed)) {
+      return(list(stop = record_fail(k, "no value", label, sprintf(
+        "The id `#%s` was defined by a value that failed, so it has no value (rule 1.7.10).", id))))
     }
     if (own_fmt) {
       if (is.na(ent$raw)) {
@@ -690,6 +709,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   render_if <- function(k) {
     cc <- split_classes(k)
+    msg <- lang_check(k, cc$own, cc$keys)
+    if (!is.null(msg)) return(construct_fail(k, msg))
     arms <- R$arms[[k]]
     narms <- length(arms)
     expr <- R$expr[k]
@@ -745,6 +766,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   render_text <- function(k) {
     cc <- split_classes(k)
+    msg <- lang_check(k, cc$own, cc$keys)
+    if (!is.null(msg)) return(construct_fail(k, msg))
     a <- R$start[k] + 1L
     b <- R$block_start[k] - 2L
     out <- render_plain(a, b, range_items(a, b, which(R$parent == k)))
@@ -759,7 +782,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     cl <- R$classes[[k]]
     ky <- R$keys[[k]]
     ky <- ky[names(ky) != "why"]
-    items <- c(cl, if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
+    items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
+               if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
     blk <- sprintf("{%s}", paste(items, collapse = " "))
     if (startsWith(substr(text, R$start[k], R$start[k]), ":")) {
       return(paste0(substr(text, R$start[k], R$block_start[k] - 1L), blk))
@@ -774,6 +798,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # brackets after it; each key must be in the bibliography (1.8.5).
   render_cite <- function(k) {
     cc <- split_classes(k)
+    msg <- lang_check(k, cc$own, cc$keys)
+    if (!is.null(msg)) return(construct_fail(k, msg))
     a <- R$start[k] + 1L
     b <- R$block_start[k] - 2L
     prose <- if (b >= a) render_plain(a, b, range_items(a, b, which(R$parent == k))) else ""
@@ -782,16 +808,19 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (grepl("@", value, fixed = TRUE)) out <- paste0(out, " [", value, "]")
     keys <- cite_keys(value)
     known <- bibliography_keys(s)
+    gone <- if (length(s$bib_missing)) {
+      sprintf("; the bibliography file `%s` was not found", paste(s$bib_missing, collapse = "`, `"))
+    } else ""
     unknown <- unique(keys[!(keys %in% known)])
     if (length(unknown)) {
       if (strict) {
-        weft_abort(sprintf("weft: %s: the citation key `%s` is not in the bibliography.",
-                           loc_str(k), unknown[1L]), "weft_value_error")
+        weft_abort(sprintf("weft: %s: the citation key `%s` is not in the bibliography%s.",
+                           loc_str(k), unknown[1L], gone), "weft_value_error")
       }
       for (u in unknown) {
         add_failure(s, "unknown citation key", file = R$file[k], line = R$line[k],
                     expr = sprintf("cite=\"%s\"", value),
-                    detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)", u),
+                    detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
                     chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)
       }
       out <- paste0(out, marker("unknown key", R$line[k], chunk_label))
@@ -808,12 +837,21 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     k <- it$k
     R$evaluated[k] <<- TRUE
     if (!is.na(R$error[k])) return(construct_fail(k, R$error[k]))
+    # an id met a second time at another place, over the document as knitted:
+    # a parent and its children, prose and captions (1.7.5)
+    if (has_id(k)) {
+      prev <- s$ids[[R$id[k]]]
+      if (!is.null(prev) && !identical(prev$loc, id_loc(k))) {
+        return(construct_fail(k, sprintf(
+          "The id `%s` is defined twice; an id is unique within a document (rule 1.7.5).", R$id[k])))
+      }
+    }
     # inline R knitr did not park (the `{r}` form under rmarkdown) is not
     # evaluated: it stays as it is, as stock leaves it (1.3.1)
     if (R$kind[k] %in% c("bare", "value") && is.na(match(R$start[k], spans$start))) {
       return(substr(text, R$start[k], R$end[k]))
     }
-    tryCatch(
+    out <- tryCatch(
       switch(R$kind[k],
              bare = render_bare(k),
              value = render_value(k),
@@ -836,13 +874,19 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         if (strict) stop(e)
         record_fail(k, "no value", source_label(k), conditionMessage(e))
       })
+    # a value that failed still defined its id: a reference to it follows
+    # from that failure (1.7.10)
+    if (has_id(k) && is.null(s$ids[[R$id[k]]])) {
+      s$ids[[R$id[k]]] <- list(rec = NULL, raw = NA_real_, failed = TRUE, loc = id_loc(k))
+    }
+    out
   }
 
   # an English-only class under another `lang` is found from the source, so a
   # construct in an unchosen arm is an error too and the render does not depend
   # on the data (1.6.8, 1.6.4)
   if (nr && non_english()) {
-    for (k in which(R$kind %in% c("value", "n", "sign") & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign", "text", "cite", "if") & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (is.null(msg)) next
@@ -856,7 +900,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   top <- range_items(1L, nchar(text), which(is.na(R$parent)))
   out <- render_plain(1L, nchar(text), top, top = TRUE)
   if (nr && draft && non_english()) {
-    for (k in which(R$kind %in% c("value", "n", "sign") & !R$evaluated & is.na(R$error))) {
+    for (k in which(R$kind %in% c("value", "n", "sign", "text", "cite", "if") & !R$evaluated & is.na(R$error))) {
       cc <- split_classes(k)
       msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
       if (!is.null(msg)) {

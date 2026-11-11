@@ -219,13 +219,8 @@ test_that("review A ruling G: an unknown configuration key is a warning naming t
 
 # ---- attribute blocks and messages ---------------------------------------
 
-test_that("review A #20: two ids in one block are not a construct error (5.3.1)", {
-  r <- st('[a]{if="y" #x #z}')
-  expect_equal(nrow(r), 1L)
-  # (an id is "not built yet" between stages 1c and 1b; two ids are not the error)
-  expect_false(grepl("two|twice|duplicate", r$error %||% "", ignore.case = TRUE))
-  expect_equal(r$id, "z")
-})
+# review A #20 (two ids in one block were not an error) is superseded by
+# ruling G on the review of stages 1b and 1d: test-review-d.R covers it.
 
 test_that("review A #21: the does-not-parse message names the real cause (1.2.3)", {
   expect_true(any(!is.na(st('[a]{if="a"b"}')$error)))      # control: quote problem

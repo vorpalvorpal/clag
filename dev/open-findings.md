@@ -82,3 +82,13 @@ So a later review does not raise them again without a new argument.
 - `use_quarto()` does not add `.weft/` to `.gitignore`.
 - An unstamped frozen document is reported but cannot yet fail `verify()`
   (stage 4).
+
+## From the fix round for the review of stages 1b and 1d
+
+- A text class or `trunc` together with `.ul`, `.ol` or `.dl` is refused
+  in markup (scanner) but not when the function forms are combined in R.
+- A back-reference to the id of a value that prints only text is not
+  caught from the source (it cannot be); nothing catches it at knit time
+  either unless the governor fails to be a number.
+- A missing bibliography file is reported only when the document has a
+  `cite` span.

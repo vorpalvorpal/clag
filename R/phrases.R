@@ -14,8 +14,20 @@ check_english <- function(fn) {
   invisible()
 }
 
+# Mark a weft_text as finished wording: a number or wording class on it is a
+# value error (1.4.1, 1.4.12).
+as_phrase <- function(x) {
+  attr(x, "phrase") <- TRUE
+  x
+}
+
 # One finite number of length one, from an argument of a phrase function.
 one_number <- function(x, fn, arg) {
+  # a weft_text from a formatter passes its number on (3.4.2)
+  if (inherits(x, "weft_text") && length(x) == 1L && is.numeric(attr(x, "number")) &&
+      !is.na(attr(x, "number"))) {
+    x <- attr(x, "number")
+  }
   if (length(x) == 0L) no_value_error(sprintf("%s()", fn))
   if (length(x) > 1L) {
     value_error(sprintf("`%s` of %s() must be a single number, not a vector.", arg, fn))
@@ -78,6 +90,9 @@ NULL
 #' @export
 of_n <- function(k, n, singular, plural) {
   check_english("of_n")
+  if (missing(singular) || missing(plural)) {
+    value_error("of_n() needs both the singular and the plural noun.")
+  }
   k <- one_number(k, "of_n", "k")
   n <- one_number(n, "of_n", "n")
   if (k < 0 || n < 0 || !is_whole(k) || !is_whole(n)) {
@@ -98,7 +113,7 @@ of_n <- function(k, n, singular, plural) {
   } else {
     sprintf("%s of the %s %s", as.character(print_num(k)), nn, noun)
   }
-  new_weft_text(txt, number = k, decimals = FALSE, relation = "=", raw = k)
+  as_phrase(new_weft_text(txt, number = k, decimals = FALSE, relation = "=", raw = k))
 }
 
 ABOUT_TARGETS <- list(
@@ -127,7 +142,7 @@ about <- function(x, to = 1 / 2, tolerance = NULL) {
   xp <- round_half_away(x * 100, 0L)
   tp <- round_half_away(to * 100, 0L)
   txt <- if (xp == tp) word else if (xp < tp) paste("nearly", word) else paste("just over", word)
-  new_weft_text(txt)
+  as_phrase(new_weft_text(txt))
 }
 
 #' @rdname phrases
@@ -140,14 +155,19 @@ ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
   cfg <- current_config()
   level <- one_number(level %||% cfg$ci_level %||% 0.95, "ci", "level")
   if (level <= 0 || level >= 1) value_error("`level` of ci() must be between 0 and 1.")
+  if (lo > hi) value_error(sprintf("ci(): `lo` (%s) is more than `hi` (%s).", format(lo), format(hi)))
+  if (est < lo || est > hi) {
+    value_error(sprintf("ci(): `est` (%s) is outside the interval %s to %s.",
+                        format(est), format(lo), format(hi)))
+  }
   pe <- print_num(est, digits, sigfig, cfg)
   pl <- print_num(lo, digits, sigfig, cfg)
   ph <- print_num(hi, digits, sigfig, cfg)
   lv <- format(round(level * 100, 6), trim = TRUE)
   txt <- sprintf("%s (%s%% CI %s to %s)", as.character(pe), lv, as.character(pl),
                  as.character(ph))
-  new_weft_text(txt, number = attr(pe, "number"), decimals = attr(pe, "decimals"),
-                relation = "=", raw = est)
+  as_phrase(new_weft_text(txt, number = attr(pe, "number"), decimals = attr(pe, "decimals"),
+                          relation = "=", raw = est))
 }
 
 #' @rdname phrases
@@ -155,44 +175,58 @@ ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
 pm <- function(est, se, digits = NULL, sigfig = NULL) {
   est <- one_number(est, "pm", "est")
   se <- one_number(se, "pm", "se")
+  if (se < 0) value_error(sprintf("pm(): `se` (%s) must not be negative.", format(se)))
   cfg <- current_config()
   pe <- print_num(est, digits, sigfig, cfg)
   ps <- print_num(se, digits, sigfig, cfg)
-  new_weft_text(paste0(as.character(pe), " ± ", as.character(ps)),
-                number = attr(pe, "number"), decimals = attr(pe, "decimals"),
-                relation = "=", raw = est)
+  as_phrase(new_weft_text(paste0(as.character(pe), " ± ", as.character(ps)),
+                          number = attr(pe, "number"), decimals = attr(pe, "decimals"),
+                          relation = "=", raw = est))
 }
 
 #' @rdname phrases
 #' @export
 clamp <- function(x, floor = NULL, ceiling = NULL) {
   if (length(x) == 0L) no_value_error("clamp()")
+  if (is.logical(x) && all(is.na(x))) no_value_error("clamp()")
   if (!is.numeric(x)) value_error(sprintf("clamp() needs a number, not a %s.", class(x)[1L]))
   if (anyNA(x) || any(!is.finite(x))) no_value_error("clamp()")
   cfg <- current_config()
   fl <- if (!is.null(floor)) one_number(floor, "clamp", "floor")
   ce <- if (!is.null(ceiling)) one_number(ceiling, "clamp", "ceiling")
+  if (!is.null(fl) && !is.null(ce) && fl > ce) {
+    value_error(sprintf("clamp(): `floor` (%s) is more than `ceiling` (%s).", format(fl), format(ce)))
+  }
+  # a bound prints as written (3.5.1): to as many decimals as it has
+  bound <- function(b) {
+    nd <- 0L
+    while (nd < 15L && abs(b - round(b, nd)) > 1e-12 * max(1, abs(b))) nd <- nd + 1L
+    print_num(b, digits = nd, cfg = cfg)
+  }
   one <- function(v) {
     if (!is.null(fl) && v < fl) {
-      p <- print_num(fl, cfg = cfg)
+      p <- bound(fl)
       list(text = paste0("< ", as.character(p)), number = attr(p, "number"),
-           decimals = attr(p, "decimals"), relation = "<")
+           decimals = attr(p, "decimals"), relation = "<", raw = fl)
     } else if (!is.null(ce) && v > ce) {
-      p <- print_num(ce, cfg = cfg)
+      p <- bound(ce)
       list(text = paste0("> ", as.character(p)), number = attr(p, "number"),
-           decimals = attr(p, "decimals"), relation = ">")
+           decimals = attr(p, "decimals"), relation = ">", raw = ce)
     } else {
       p <- print_num(v, cfg = cfg)
       list(text = as.character(p), number = attr(p, "number"),
-           decimals = attr(p, "decimals"), relation = "=")
+           decimals = attr(p, "decimals"), relation = "=", raw = v)
     }
   }
   res <- lapply(as.numeric(x), one)
-  new_weft_text(vapply(res, `[[`, "", "text"),
-                number = vapply(res, `[[`, 0, "number"),
-                decimals = vapply(res, `[[`, NA, "decimals"),
-                relation = vapply(res, `[[`, "", "relation"),
-                raw = as.numeric(x))
+  out <- new_weft_text(vapply(res, `[[`, "", "text"),
+                       number = vapply(res, `[[`, 0, "number"),
+                       decimals = vapply(res, `[[`, NA, "decimals"),
+                       relation = vapply(res, `[[`, "", "relation"),
+                       raw = vapply(res, `[[`, 0, "raw"))
+  # a number class after clamp() formats the bound and keeps the relation
+  attr(out, "clamped") <- TRUE
+  out
 }
 
 #' Phrases chosen by key or by range
@@ -217,9 +251,18 @@ clamp <- function(x, floor = NULL, ceiling = NULL) {
 #' trend(c(0.9, 1, 2))
 #' @export
 lookup <- function(map) {
-  if (is.list(map)) map <- unlist(map)
+  if (is.list(map)) {
+    if (!all(vapply(map, function(m) is.character(m) && length(m) == 1L, NA))) {
+      construct_error("lookup() takes a named character vector (rule 3.3.2).")
+    }
+    map <- unlist(map)
+  }
   if (!is.character(map) || is.null(names(map)) || any(!nzchar(names(map)))) {
     construct_error("lookup() takes a named character vector (rule 3.3.2).")
+  }
+  if (anyDuplicated(names(map))) {
+    construct_error(sprintf("lookup() has a key written twice: \"%s\" (rule 3.3.2).",
+                            names(map)[anyDuplicated(names(map))]))
   }
   force(map)
   function(x) {
@@ -250,7 +293,11 @@ brk <- function(...) {
         env <- environment(f) %||% globalenv()
         cond <- eval(f[[2L]], list(. = xi), env)
         if (length(cond) == 1L && !is.na(cond) && isTRUE(as.logical(cond))) {
-          return(as.character(eval(f[[3L]], list(. = xi), env)))
+          ph <- eval(f[[3L]], list(. = xi), env)
+          if (!is.character(ph) || length(ph) != 1L) {
+            value_error("brk(): the right side of a formula must be one string (rule 3.3.3).")
+          }
+          return(ph)
         }
       }
       value_error(sprintf("brk(): no formula takes the value %s (rule 3.3.3).", format(xi)))

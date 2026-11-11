@@ -213,7 +213,7 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
                             lines[ff$key[i]])
     }
   }
-  rows <- scan_text(paste(mask_lines(txt, keep), collapse = "\n"), file = file,
+  rows <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file,
                     config = config)
   if (!nrow(rows)) return(NULL)
   field <- character(nrow(rows))
@@ -454,7 +454,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   # lines the prefix strip left unaligned are scanned as they are: only line
   # numbers matter
   if (length(regions)) {
-    r <- scan_text(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config)
+    r <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config)
     if (nrow(r)) {
       opt <- character(nrow(r))
       reg <- integer(nrow(r))
@@ -473,7 +473,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
     if (!(nm %in% CAPTION_OPTIONS)) next
     v <- hdr$opts[[nm]]$literal
     if (is.null(v)) next
-    r <- scan_text(v, file = file, first_line = ch$open, config = config)
+    r <- scan_rows(v, file = file, first_line = ch$open, config = config)
     if (!nrow(r)) next
     r$line <- rep(ch$open, nrow(r))
     r$option <- rep(nm, nrow(r))
@@ -589,7 +589,7 @@ scan_chunk_strings <- function(lines, ch, first, label, file, config) {
                       error = function(e) NULL)
       if (!is.character(val) || length(val) != 1L) next
       line <- first + consts$line1[q] - 1L
-      r <- scan_text(val, file = file, first_line = line, config = config)
+      r <- scan_rows(val, file = file, first_line = line, config = config)
       if (!nrow(r)) next
       rows[[length(rows) + 1L]] <- r
     }
