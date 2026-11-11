@@ -1,0 +1,12 @@
+```{r setup, include=FALSE}
+knitr::opts_knit$set(eval.after = c("fig.cap"))
+knitr::opts_hooks$set(fig.cap = function(options) { if (is.character(options$fig.cap)) options$fig.cap <- call("toupper", options$fig.cap); options })
+```
+
+```{r a, fig.cap="caption one"}
+plot(1)
+```
+
+```{r b, engine="dot", fig.cap="caption two", eval=TRUE}
+digraph { a -> b }
+```

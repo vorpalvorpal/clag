@@ -1,0 +1,20 @@
+---
+title: e1
+---
+
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+Line 13 prose.
+
+Line 15.
+
+```{r}
+#| label: bad
+x <- 1
+stop("boom")
+```

@@ -1,0 +1,14 @@
+---
+title: T3
+output: html_document
+---
+
+```{r setup, include=FALSE}
+claim <- function(cond) { if (!isTRUE(cond)) stop("claim failed: cond was FALSE"); invisible(TRUE) }
+```
+
+first para
+
+Bad `r claim(FALSE)` here.
+
+later

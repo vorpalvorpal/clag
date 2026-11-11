@@ -1,0 +1,11 @@
+---
+title: biblatex
+bibliography: n500_biblatex.bib
+---
+
+```{r}
+#| include: false
+source("../../setup.R"); clag_install()
+```
+
+Depth was [10 m]{cite="@smith2020"} and bare @jones2019_j found [3 m]{cite="jones2019_j"}.

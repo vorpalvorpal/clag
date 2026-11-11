@@ -1,0 +1,5 @@
+project:
+  type: default
+filters:
+  - clag-check.lua
+format: html

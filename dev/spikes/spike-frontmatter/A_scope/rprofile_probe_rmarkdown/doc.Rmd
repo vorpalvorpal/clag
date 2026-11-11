@@ -1,0 +1,12 @@
+---
+title: "later=`r exists('later')` rp=`r exists('rp')` params=`r exists('params')` p=`r if (exists('params')) params$p else NA` mt=`r nrow(mtcars)`"
+params:
+  p: 7
+---
+
+```{r}
+later <- 5
+```
+
+BODY later=`r exists('later')` and `r later`{.num}
+

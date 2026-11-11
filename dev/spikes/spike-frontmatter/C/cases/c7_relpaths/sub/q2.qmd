@@ -1,0 +1,11 @@
+---
+format: html
+bibliography: refs.bib
+---
+
+```{r}
+source("probe.R"); probe("chunk")
+```
+
+BODY.
+

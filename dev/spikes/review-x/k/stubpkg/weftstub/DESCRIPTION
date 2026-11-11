@@ -1,0 +1,6 @@
+Package: weftstub
+Version: 0.0.1
+Title: Stub
+Description: Stub.
+License: MIT
+Imports: knitr

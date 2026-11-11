@@ -1,0 +1,28 @@
+---
+title: T1
+output: html_document
+---
+
+```{r setup, include=FALSE}
+LOG <- "log.txt"; unlink(LOG)
+x <- 5; y <- c(1.23,2.5)
+old <- knitr::knit_hooks$get("evaluate.inline")
+knitr::knit_hooks$set(evaluate.inline = function(code, envir) {
+  cat(sprintf("[%s] <<%s>> input=%s opts_label=%s lines=%s\n", "hook", code,
+   tryCatch(knitr::current_input(), error=function(e) "ERR"),
+   tryCatch(knitr::opts_current$get("label"), error=function(e) "ERR"),
+   tryCatch(paste(deparse(knitr:::current_lines()), collapse=""), error=function(e) paste("ERR", conditionMessage(e)))),
+   file = LOG, append = TRUE)
+  old(code, envir)
+})
+```
+
+First `r x` and `r round(mean(y), 1)` here.
+
+
+## Heading with `r x`
+
+Spanning `r
+x + 1` two lines.
+
+Warn: `r as.integer("a")` end.

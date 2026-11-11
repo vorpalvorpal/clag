@@ -1,0 +1,15 @@
+---
+title: t
+format: gfm
+---
+
+```{r}
+v <- Sys.getenv(c("QUARTO_PROJECT_DIR","QUARTO_PROJECT_ROOT","QUARTO_DOCUMENT_PATH","QUARTO_DOCUMENT_FILE","QUARTO_EXECUTE_INFO"))
+print(v)
+print(getwd())
+print(knitr::current_input(dir = TRUE))
+i <- jsonlite::fromJSON(Sys.getenv("QUARTO_EXECUTE_INFO"))
+str(i$format$metadata[c("bibliography","lang")])
+str(names(i))
+str(i[["document-path"]])
+```

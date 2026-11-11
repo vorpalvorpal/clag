@@ -1,0 +1,12 @@
+---
+title: d
+---
+
+```{r}
+#| include: false
+source("clag.R")
+```
+
+Para.
+
+Line 12 `r as.integer("a")` and `r {message("hi"); 2}`

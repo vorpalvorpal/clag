@@ -1,0 +1,36 @@
+---
+title: "Spike Doc"
+---
+
+```{r}
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+# Intro {#sec-intro}
+
+```{r}
+x <- 7
+y <- c(1.23, 4.56, 7.89)
+```
+
+Title is {{< meta title >}}. The value x is {{x}} and the rounded mean is {{round(mean(y), 1)}}.
+See @fig-one, @tbl-one and @sec-foo. Also [@sec-intro].
+
+```{r}
+#| label: fig-one
+#| fig-cap: "A plot of y"
+#| echo: false
+plot(y)
+```
+
+```{r}
+#| label: tbl-one
+#| tbl-cap: "A table of y"
+knitr::kable(data.frame(y = y))
+```
+
+## Foo {#sec-foo}
+
+Back to @sec-intro. End: {{x * 2}}.

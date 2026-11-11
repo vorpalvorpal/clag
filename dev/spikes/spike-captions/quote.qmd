@@ -1,0 +1,96 @@
+---
+format: html
+---
+
+```{r}
+#| include: false
+source("caption.R"); clag_install()
+mode <- Sys.getenv("CAP_MODE", "after")
+if (mode == "after") clag_install_captions() else if (mode == "early") clag_install_captions_early()
+n_sites <- 5; depth <- 0.62; slope <- 0.3; tier <- "sev"
+```
+
+```{r}
+#| label: fig-q1
+#| fig-cap: 'Q1 single-quoted: mean `r depth`{.dec1 claim=". > 0.5"} m, [severe | mild]{if="tier == ''sev''"}.'
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q2
+#| fig-cap: "Q2 double-quoted: mean `r depth`{.dec1 claim=\". > 0.5\"} m, [severe | mild]{if=\"tier == 'sev'\"}."
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q3
+#| fig-cap: |
+#|   Q3 literal block: mean `r depth`{.dec1 claim=". > 0.5"} m,
+#|   [severe | mild]{if="tier == 'sev'"}.
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q4
+#| fig-cap: >
+#|   Q4 folded block: mean `r depth`{.dec1 claim=". > 0.5"} m,
+#|   [severe | mild]{if="tier == 'sev'"}.
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q5
+#| fig-cap: >-
+#|   Q5 folded strip: [a site | # sites]{n="n_sites"}
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q6
+#| fig-cap: "Q6 double-quoted YAML, single-quoted attrs: [a site | # sites]{n='n_sites'}, [severe | mild]{if='tier == \"sev\"'}."
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q7
+#| fig-cap: Q7 plain scalar - [a site | # sites]{n="n_sites"} after
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q8
+#| fig-cap: Q8 plain scalar nohash - [severe | mild]{if="tier == 'sev'"} and `r depth`{.dec1}.
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q9
+#| fig-cap: !expr 'clag_str(r"(Q9 !expr in single quotes: [a site | # sites]{n="n_sites"}, [severe | mild]{if="tier == ''sev''"})")'
+plot(1:3)
+```
+
+```{r}
+#| label: fig-q10
+#| fig-cap: !expr |
+#|   clag_str(r"(Q10 !expr literal block: [a site | # sites]{n="n_sites"}, [severe | mild]{if="tier == 'sev'"})")
+plot(1:3)
+```
+
+```{r}
+#| label: tbl-q11
+#| tbl-cap: |
+#|   Q11 Mt Victoria's "high" tier, [a site | # sites]{n="n_sites"}.
+knitr::kable(data.frame(x=1))
+```
+
+```{r}
+#| label: tbl-q12
+#| tbl-cap: "Q12 Mt Victoria's \"high\" tier"
+knitr::kable(data.frame(x=1))
+```
+
+```{r}
+#| label: tbl-q13
+#| tbl-cap: 'Q13 [severe | mild]{if="tier == ''sev''"} apostrophe: it''s'
+knitr::kable(data.frame(x=1))
+```

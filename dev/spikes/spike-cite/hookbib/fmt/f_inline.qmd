@@ -1,0 +1,16 @@
+---
+title: inl
+references:
+- id: inline2022
+  type: book
+  title: Inline Book
+  author: [{family: Inl, given: Ina}]
+  issued: {date-parts: [[2022]]}
+---
+
+```{r}
+#| include: false
+source("../../setup.R"); clag_install()
+```
+
+Depth was [10 m]{cite="@inline2022"} and bare @inline2022 found [3 m]{cite="inline2022"}.

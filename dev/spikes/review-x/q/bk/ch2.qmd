@@ -1,0 +1,8 @@
+# Depth at [a site | # sites]{n="k"} and `r 3+3` {#sec-two}
+
+```{r}
+#| include: false
+x <- 1
+```
+
+Body `r x`. A value with block `r x`{.num} here.

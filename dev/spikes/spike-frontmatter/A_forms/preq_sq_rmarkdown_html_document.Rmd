@@ -1,0 +1,16 @@
+---
+title: 'TITLE `r 'a'` x'
+subtitle: 'SUBTITLE `r 'a'` x'
+abstract: 'ABSTRACT `r 'a'` x'
+description: 'DESCRIPTION `r 'a'` x'
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+n_sites <- 3
+```
+
+BODY `r nrow(mtcars)`{.num} and [a site | # sites]{n="n_sites"}.
+

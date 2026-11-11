@@ -1,0 +1,16 @@
+---
+title: "a"
+output: html_document
+---
+
+```{r}
+
+source("clag.R")
+depth <- 1.2
+```
+
+A fine: `r depth`{.num claim=". > 0.5"}.
+
+B bad: `r depth`{.num claim=". > 5"} here.
+
+C bad too: `r depth`{claim=". < 0"}.

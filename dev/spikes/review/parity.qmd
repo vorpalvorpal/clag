@@ -1,0 +1,12 @@
+---
+title: "Parity"
+date: "`r format(as.Date('2020-01-02'), '%d %B %Y')`"
+format: gfm
+---
+
+```{r}
+#| label: fig-a
+#| fig-cap: "Mean is `r 1+1` here"
+x <- 1
+plot(1)
+```

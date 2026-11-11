@@ -1,0 +1,12 @@
+---
+title: "P `r params$p`{.num} S `r nrow(mtcars)`{.num} R `r rp`{.num}"
+params:
+  p: 7
+---
+
+```{r}
+later <- 5
+```
+
+BODY later=`r exists('later')` and `r later`{.num}
+

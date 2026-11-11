@@ -1,0 +1,19 @@
+---
+title: T5a
+format: html
+filters: [clag.lua]
+---
+
+```{r setup, include=FALSE}
+source("common.R")
+```
+
+```{r}
+n <- 1
+```
+A. [a person | # people]{.by}`r by(n)` responded.
+
+```{r}
+n <- 12
+```
+B. [a person | # people]{.by}`r by(n)` responded.

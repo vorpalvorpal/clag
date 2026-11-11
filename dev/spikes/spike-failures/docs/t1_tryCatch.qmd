@@ -1,0 +1,23 @@
+---
+title: "t1_tryCatch"
+format: html
+---
+
+```{r}
+#| include: false
+source(Sys.getenv("WEFT_SETUP", "setup.R")); clag_install()
+depth <- 0.3
+```
+
+```{r}
+#| label: first
+#| error: false
+r <- tryCatch(claim(depth, . > 0.5), error = function(e) "caught"); print(r)
+```
+
+```{r}
+#| label: second
+cat("SECOND CHUNK RAN\n")
+```
+
+Prose with a passing value `r claim(depth, . < 0.5)`{.num}.

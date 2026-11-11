@@ -1,0 +1,15 @@
+---
+title: "L `r later`{.num}"
+params:
+  p: 7
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+later <- 5
+```
+
+BODY later=`r exists('later')` and `r later`{.num}
+

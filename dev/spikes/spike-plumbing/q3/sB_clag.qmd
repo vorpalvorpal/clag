@@ -1,0 +1,28 @@
+---
+title: t
+execute:
+  warning: false
+  message: false
+---
+
+```{r}
+#| include: false
+source("clag.R")
+```
+
+Intro paragraph.
+
+```{r c4}
+warning("W-c4")
+message("M-c4")
+x <- 1
+```
+
+```{r c5}
+#| warning: true
+#| message: true
+warning("W-c5")
+message("M-c5")
+```
+
+Closing.

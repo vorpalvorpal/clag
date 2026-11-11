@@ -1,0 +1,26 @@
+---
+format: html
+---
+
+```{r}
+#| include: false
+source("caption.R"); clag_install()
+mode <- Sys.getenv("CAP_MODE", "after")
+if (mode == "after") clag_install_captions() else if (mode == "early") clag_install_captions_early()
+n_sites <- 5; depth <- 0.62; slope <- 0.3; tier <- "sev"
+```
+
+```{r}
+#| label: fig-t1
+#| fig-cap: !expr 'clag_str(r"(T1 fig-cap !expr: [a site | # sites]{n="n_sites"})")'
+#| fig-alt: !expr 'clag_str(r"(T1 alt !expr: [a site | # sites]{n="n_sites"})")'
+n_sites <- 101
+plot(1:3)
+```
+
+```{r}
+#| label: tbl-t3
+#| tbl-cap: !expr 'clag_str(r"(T3 tbl-cap !expr: [a site | # sites]{n="n_sites"})")'
+n_sites <- 103
+knitr::kable(data.frame(x=1))
+```

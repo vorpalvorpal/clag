@@ -1,0 +1,9 @@
+---
+title: "clag syntax, default diagnostics"
+---
+
+A value: {{n_gap}} sites.
+
+A checked value with a chain: {{depth, . > 0.5}.num} m.
+
+A governed span: [a person/# people]{{n}} responded.

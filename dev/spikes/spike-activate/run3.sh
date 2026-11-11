@@ -1,0 +1,18 @@
+#!/bin/bash
+# Extra G probes: _quarto.yml params, _metadata.yml, .Rprofile with cd sub, rmarkdown top-level knitr:, cwd of R
+cd "$(dirname "$0")"; HERE=$PWD; export R_LIBS=$HERE/lib
+rm -rf proj3; mkdir -p proj3; cd proj3
+body() { printf 'FIRST: `r 3.7`{.num} and [a site | # sites]{n="2"} here.\n\n```{r}\n#| include: false\nx <- 1\n```\n\nLATER: `r 3.7`{.num} and [a site | # sites]{n="2"} here.\n'; }
+qdoc() { { printf -- '---\nformat: html\n---\n\n'; body; } > "$1"; }
+show() { Rscript $HERE/check.R $1 | sed 's/^/     /'; }
+echo "--- _quarto.yml params !expr"; mkdir -p q1; ( cd q1; printf 'project:\n  type: default\nparams:\n  w: !expr weftspike::activate()\n' > _quarto.yml; qdoc doc.qmd; quarto render 2>&1 | grep -iE "error|warn"|head -3; show doc.html )
+echo "--- _metadata.yml knitr !expr (dir-level)"; mkdir -p q2/sub; ( cd q2; printf 'project:\n  type: default\n' > _quarto.yml; printf 'knitr:\n  opts_chunk:\n    weft_act: !expr weftspike::activate()\n' > sub/_metadata.yml; qdoc sub/doc.qmd; quarto render 2>&1 | grep -iE "error|warn"|head -3; show sub/doc.html )
+echo "--- _metadata.yml params !expr"; mkdir -p q3/sub; ( cd q3; printf 'project:\n  type: default\n' > _quarto.yml; printf 'params:\n  w: !expr weftspike::activate()\n' > sub/_metadata.yml; qdoc sub/doc.qmd; quarto render 2>&1 | grep -iE "error|warn"|head -3; show sub/doc.html )
+echo "--- .Rprofile; cd sub; quarto render doc.qmd"; mkdir -p q4/sub; ( cd q4; printf 'project:\n  type: default\n' > _quarto.yml; echo 'weftspike::activate()' > .Rprofile; qdoc sub/doc.qmd; cd sub; quarto render doc.qmd 2>&1 | grep -iE "error|warn"|head -3; show doc.html )
+echo "--- .Rprofile only in sub/ (not root), project render"; mkdir -p q5/sub; ( cd q5; printf 'project:\n  type: default\n' > _quarto.yml; echo 'weftspike::activate()' > sub/.Rprofile; qdoc sub/doc.qmd; quarto render 2>&1 | grep -iE "error|warn"|head -3; show sub/doc.html )
+echo "--- .Rprofile, no _quarto.yml, single file in dir"; mkdir -p q6; ( cd q6; echo 'weftspike::activate()' > .Rprofile; qdoc doc.qmd; quarto render doc.qmd 2>&1 | grep -iE "error|warn"|head -3; show doc.html )
+echo "--- rmarkdown top-level knitr: !expr (document)"; mkdir -p r1; ( cd r1; { printf -- '---\noutput: html_document\nknitr:\n  opts_chunk:\n    weft_act: !expr weftspike::activate()\n---\n\n'; body; } > d.Rmd; Rscript -e 'rmarkdown::render("d.Rmd",quiet=TRUE)' 2>&1 | grep -iE "error|warn"|head; show d.html )
+echo "--- rmarkdown, _output.yml missing package"; mkdir -p r2; ( cd r2; { printf -- '---\ntitle: t\n---\n\n'; body; } > d.Rmd; echo 'weftnotinstalled::html_document: default' > _output.yml; Rscript -e 'rmarkdown::render("d.Rmd",quiet=TRUE)' 2>&1 | grep -iE "error|warn|no package"|head -3; show d.html )
+echo "--- rmarkdown, params !expr, missing pkg"; mkdir -p r3; ( cd r3; { printf -- '---\noutput: html_document\nparams:\n  w: !expr weftnotinstalled::activate()\n---\n\n'; body; } > d.Rmd; Rscript -e 'rmarkdown::render("d.Rmd",quiet=TRUE)' 2>&1 | grep -iE "error|warn|no package"|head -3; show d.html )
+echo "--- quarto, doc params !expr missing pkg"; mkdir -p q7; ( cd q7; { printf -- '---\nformat: html\nparams:\n  w: !expr weftnotinstalled::activate()\n---\n\n'; body; } > d.qmd; quarto render d.qmd 2>&1 | grep -iE "error|warn|no package"|head -3; show d.html )
+echo "--- quarto doc-level knitr !expr; params visible in output?"; mkdir -p q8; ( cd q8; { printf -- '---\nformat: html\nparams:\n  w: !expr weftspike::activate()\n---\n\n```{r}\n#| echo: true\nstr(params)\n```\n'; } > d.qmd; quarto render d.qmd 2>&1 | grep -iE "error|warn"|head -3; Rscript -e 'x<-readLines("d.html",warn=FALSE);cat(grep("w",x[grep("List of",x)+0:3],value=TRUE),sep="\n")' )

@@ -1,0 +1,8 @@
+# Preface
+
+```{r}
+#| include: false
+source("probe.R"); probe("book_index")
+```
+
+Hi @smith2020.

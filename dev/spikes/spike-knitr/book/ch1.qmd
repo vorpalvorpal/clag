@@ -1,0 +1,27 @@
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+# Chapter One {#sec-ch1}
+
+```{r}
+#| echo: false
+cat("ch1", format(Sys.time(), "%H:%M:%OS3"), "\n", file = "exec-log.txt", append = TRUE)
+```
+
+```{r}
+v <- c(3, 4, 5)
+```
+
+Mean of v is {{mean(v)}}.
+
+```{r}
+#| label: fig-ch1
+#| fig-cap: "Chapter one figure"
+#| echo: false
+plot(v)
+```
+Extra {{3*3}}.

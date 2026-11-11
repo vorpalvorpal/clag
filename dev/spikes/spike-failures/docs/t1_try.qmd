@@ -1,0 +1,23 @@
+---
+title: "t1_try"
+format: html
+---
+
+```{r}
+#| include: false
+source(Sys.getenv("WEFT_SETUP", "setup.R")); clag_install()
+depth <- 0.3
+```
+
+```{r}
+#| label: first
+#| error: false
+try(claim(depth, . > 0.5), silent = TRUE); cat("after try\n")
+```
+
+```{r}
+#| label: second
+cat("SECOND CHUNK RAN\n")
+```
+
+Prose with a passing value `r claim(depth, . < 0.5)`{.num}.

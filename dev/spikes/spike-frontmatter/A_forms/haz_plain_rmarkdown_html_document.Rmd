@@ -1,0 +1,16 @@
+---
+title: TITLE HZ `r intToUtf8(c(34,32,58,32,35,49,39))` end
+subtitle: SUBTITLE HZ `r intToUtf8(c(34,32,58,32,35,49,39))` end
+abstract: ABSTRACT HZ `r intToUtf8(c(34,32,58,32,35,49,39))` end
+description: DESCRIPTION HZ `r intToUtf8(c(34,32,58,32,35,49,39))` end
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+n_sites <- 3
+```
+
+BODY `r nrow(mtcars)`{.num} and [a site | # sites]{n="n_sites"}.
+

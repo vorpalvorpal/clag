@@ -1,0 +1,19 @@
+---
+title: "t1_errfalse"
+output: html_document
+---
+
+```{r, include=FALSE}
+source(Sys.getenv("WEFT_SETUP", "setup.R")); clag_install()
+depth <- 0.3
+```
+
+```{r first, error=FALSE}
+x <- claim(depth, . > 0.5)
+```
+
+```{r second}
+cat("SECOND CHUNK RAN\n")
+```
+
+Prose with a passing value `r claim(depth, . < 0.5)`{.num}.

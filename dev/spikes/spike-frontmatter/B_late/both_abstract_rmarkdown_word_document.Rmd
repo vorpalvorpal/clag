@@ -1,0 +1,20 @@
+---
+title: "Top title"
+abstract: "EARLYABS top-level"
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+n_sites <- 3
+depth <- 12.345
+```
+
+BODY text here, n=`r n_sites`{.num}.
+
+---
+abstract: |
+  LATEABS We sampled [a site | # sites]{n="n_sites"}, mean depth `r depth`{.num} m.
+---
+

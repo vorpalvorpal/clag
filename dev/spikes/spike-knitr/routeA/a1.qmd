@@ -1,0 +1,34 @@
+---
+title: "Route A"
+format:
+  html:
+    toc: true
+---
+
+```{r}
+#| include: false
+source("setup.R")
+```
+
+```{r}
+x <- 7
+y <- c(1.23, 4.56, 7.89)
+```
+
+```{clag}
+The value is *{{x}}* and mean is **{{round(mean(y), 1)}}**. See @fig-one and [a link](https://example.com).
+
+## Heading in clag {#sec-x}
+
+More text {{x * 2}}.
+```
+
+```{r}
+#| label: fig-one
+#| fig-cap: "A plot"
+plot(y)
+```
+
+## Plain heading {#sec-plain}
+
+Ref to @sec-x and @sec-plain.

@@ -1,0 +1,19 @@
+---
+title: e
+---
+
+```{r}
+#| include: false
+source("clag.R")
+```
+
+```{r}
+#| error: true
+stop("boom-allowed")
+```
+
+```{r}
+stop("boom-fatal")
+```
+
+after

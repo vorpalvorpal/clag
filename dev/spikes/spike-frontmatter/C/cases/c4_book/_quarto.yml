@@ -1,0 +1,17 @@
+project:
+  type: book
+book:
+  title: BookT
+  chapters:
+    - index.qmd
+    - ch2.qmd
+format:
+  html: default
+weft:
+  digits: 2
+  dict_local:
+    sites:
+      value: 4
+      why: "x"
+bibliography: refs.bib
+lang: es

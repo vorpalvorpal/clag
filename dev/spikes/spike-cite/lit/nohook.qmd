@@ -1,0 +1,9 @@
+---
+title: "no hooks"
+---
+
+Inline span: [0.45 µm]{.weft-literal why="pore size, SOP 12"} done.
+
+::: {.weft-literal why="laboratory method, as specified in the SOP"}
+Samples were filtered through 0.45 µm membranes and stored at 4 °C.
+:::

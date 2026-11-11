@@ -1,0 +1,13 @@
+---
+title: t
+output: html_document
+params:
+  site: A
+---
+
+```{r setup, include=FALSE}
+library(weftstub)
+n <- 3
+```
+
+Site `r params$site`: [a site | # sites]{n="n"} responded.

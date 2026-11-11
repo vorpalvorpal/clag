@@ -1,0 +1,13 @@
+---
+title: "code-span spellings"
+---
+
+The gap is `r v(n_gap, . > 10)` sites, or `r v(depth, . > 0.5) |> num()` m.
+
+`r pl(n, "a person | # people")` responded.
+
+[a person | # people]{.by}`r by(n)` responded.
+
+`r by(n)`[*one* site | # sites]{.by} responded.
+
+Council will need to add more sampling sites`r claim(n_gap > 10)`.

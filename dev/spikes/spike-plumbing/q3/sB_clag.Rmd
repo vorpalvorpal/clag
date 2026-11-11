@@ -1,0 +1,29 @@
+---
+title: t
+output:
+  html_document:
+    self_contained: true
+---
+
+```{r, include=FALSE}
+source("clag.R")
+```
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(warning=FALSE, message=FALSE)
+```
+
+Intro paragraph.
+
+```{r c4}
+warning("W-c4")
+message("M-c4")
+x <- 1
+```
+
+```{r c5, warning=TRUE, message=TRUE}
+warning("W-c5")
+message("M-c5")
+```
+
+Closing.

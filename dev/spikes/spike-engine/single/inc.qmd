@@ -1,0 +1,9 @@
+---
+title: inc
+---
+
+```{r}
+x <- 5
+```
+
+{{< include _part.qmd >}}

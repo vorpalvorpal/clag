@@ -1,0 +1,12 @@
+---
+title: csljson
+bibliography: n500.json
+output: html_document
+---
+
+```{r}
+#| include: false
+source("../../setup.R"); clag_install()
+```
+
+Depth was [10 m]{cite="@smith2020"} and bare @jones2019 found [3 m]{cite="jones2019"}.

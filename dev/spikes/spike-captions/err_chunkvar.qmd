@@ -1,0 +1,18 @@
+---
+format: html
+---
+
+```{r}
+#| include: false
+source("caption.R"); clag_install()
+mode <- Sys.getenv("CAP_MODE", "after")
+if (mode == "after") clag_install_captions() else if (mode == "early") clag_install_captions_early()
+n_sites <- 5; depth <- 0.62; slope <- 0.3; tier <- "sev"
+```
+
+```{r}
+#| label: fig-nochunkvar
+#| fig-cap: 'Here `r only_here`{.num} and [a site | # sites]{n="n_sites"}.'
+only_here <- 3
+plot(1:3)
+```

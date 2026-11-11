@@ -1,0 +1,13 @@
+---
+title: d
+output: html_document
+---
+
+```{r, include=FALSE}
+
+source("clag.R")
+```
+
+Para.
+
+Line 12 `r as.integer("a")` and `r {message("hi"); 2}`

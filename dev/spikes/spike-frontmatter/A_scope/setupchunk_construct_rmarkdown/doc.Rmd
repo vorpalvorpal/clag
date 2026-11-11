@@ -1,0 +1,17 @@
+---
+title: "S `r nrow(mtcars)`{.num} [a site | # sites]{n='3'}"
+params:
+  p: 7
+---
+
+```{r}
+#| include: false
+source("setup.R"); clag_install()
+```
+
+```{r}
+later <- 5
+```
+
+BODY later=`r exists('later')` and `r later`{.num}
+

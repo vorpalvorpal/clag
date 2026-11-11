@@ -1,0 +1,12 @@
+---
+title: "a2"
+bibliography: ../refs.bib
+output: html_document
+---
+
+```{r}
+#| include: false
+source("probe.R"); probe("a2_rmd")
+```
+
+Body @smith2020.

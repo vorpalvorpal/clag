@@ -1,0 +1,11 @@
+---
+title: a
+---
+
+```{r}
+#| include: false
+.libPaths(c("lib", .libPaths()))
+library(clagstub)
+```
+
+Text: CLAGSTUB.

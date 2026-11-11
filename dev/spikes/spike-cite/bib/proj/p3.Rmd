@@ -1,0 +1,11 @@
+---
+title: p3
+output: html_document
+---
+
+```{r}
+#| include: false
+source("probe.R"); probe("p3_rmd_in_quarto_project")
+```
+
+Body @smith2020.

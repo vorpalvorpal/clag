@@ -1,0 +1,7 @@
+project:
+  type: book
+book:
+  title: "B"
+  chapters: [index.qmd, ch1.qmd, ch2.qmd]
+format: html
+filters: [chk.lua]

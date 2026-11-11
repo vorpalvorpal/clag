@@ -1,0 +1,8 @@
+---
+title: no chunk
+knitr:
+  opts_chunk:
+    echo: false
+---
+
+Two is `r 1+1`{.num} here.

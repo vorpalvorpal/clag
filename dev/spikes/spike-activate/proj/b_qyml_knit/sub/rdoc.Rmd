@@ -1,0 +1,12 @@
+---
+output: html_document
+---
+
+FIRST: `r 3.7`{.num} and [a site | # sites]{n="2"} here.
+
+```{r}
+#| include: false
+x <- 1
+```
+
+LATER: `r 3.7`{.num} and [a site | # sites]{n="2"} here.

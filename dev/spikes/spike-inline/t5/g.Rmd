@@ -1,0 +1,13 @@
+---
+title: g
+output: html_document
+---
+
+```{r setup, include=FALSE}
+n <- 12
+by2 <- function(n) knitr::asis_output(sprintf('{.by arm="%d" text="%s"}', if (n == 1) 1 else 2, n))
+```
+
+G. [a person | # people]`r by2(n)` responded.
+
+G2. [a *person* | # people]`r by2(n)` responded.

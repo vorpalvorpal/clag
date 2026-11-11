@@ -1,0 +1,6 @@
+---
+title: prose only
+engine: clag
+---
+
+Two is {{1+1}}.

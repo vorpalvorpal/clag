@@ -1,0 +1,10 @@
+project:
+  type: book
+book:
+  title: BookT
+  chapters:
+    - index.qmd
+    - ch2.qmd
+format:
+  html: default
+  docx: default

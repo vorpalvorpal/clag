@@ -1,0 +1,12 @@
+# t
+
+para1 line 3
+more `r 1+1` line 4
+
+```{r}
+x <- 1
+```
+
+para two line 9
+line 10 `r 3` and
+line 11 `r 4`

@@ -1,0 +1,6 @@
+source("lib.R"); source("analysis.R"); source("stress.R")
+file.copy("lines.R", file.path(OUT, "lines.R"), overwrite = TRUE)
+L <- gen_stress("rmarkdown"); wr(L, file.path(OUT, "s_lf.Rmd"))
+Sys.setenv(LINES_LOG = file.path(OUT, "log.tsv"), LINES_TAG = "s_lf"); unlink(file.path(OUT, "log.tsv"))
+setwd(OUT); t <- system.time(knitr::knit("s_lf.Rmd", "s_lf.md", quiet = TRUE)); print(t)
+d <- read_log("log.tsv"); a <- align(d, "inputs"); summarise(a, "stress LF")

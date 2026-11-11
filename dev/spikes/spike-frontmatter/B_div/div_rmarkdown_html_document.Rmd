@@ -1,0 +1,25 @@
+---
+title: "Top title"
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+n_sites <- 3
+```
+
+BODY before.
+
+::: {.abstract}
+DIVABS_class We sampled [a site | # sites]{n="n_sites"}.
+:::
+
+::: {#abstract}
+DIVABS_id We sampled [a site | # sites]{n="n_sites"}.
+:::
+
+::: {custom-style="Abstract"}
+DIVABS_custom We sampled [a site | # sites]{n="n_sites"}.
+:::
+

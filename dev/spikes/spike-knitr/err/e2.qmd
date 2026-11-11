@@ -1,0 +1,14 @@
+---
+title: e2
+---
+
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+Line 13 prose.
+
+Line 15 has {{stop("inline boom")}} here.

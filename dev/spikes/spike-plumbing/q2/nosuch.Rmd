@@ -1,0 +1,14 @@
+---
+title: s
+output: html_document
+---
+
+```{r, include=FALSE}
+
+source("clag1.R")
+```
+
+Para line 10.
+
+Line 12 `r 1` then
+line 13 here `r no_such_object` ok.

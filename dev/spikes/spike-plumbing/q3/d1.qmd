@@ -1,0 +1,13 @@
+---
+title: d
+---
+
+```{r}
+#| include: false
+source("clag.R")
+```
+
+Para line 10.
+
+Line 12 `r 1` then
+line 13 here `r no_such_object` ok.

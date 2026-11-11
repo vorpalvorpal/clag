@@ -1,0 +1,10 @@
+---
+title: "p2_sub_quarto"
+---
+
+```{r}
+#| include: false
+source("../probe.R"); probe("p2_sub_quarto")
+```
+
+Body @smith2020.

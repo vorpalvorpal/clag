@@ -1,0 +1,8 @@
+title: Clag
+author: Robin Shannon
+version: 1.0.0
+quarto-required: ">=1.11.0"
+contributes:
+  engines:
+    - path: clag.js
+

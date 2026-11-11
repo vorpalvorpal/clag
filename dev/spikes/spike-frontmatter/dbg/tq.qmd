@@ -1,0 +1,8 @@
+---
+title: "T `r 1+1`{.num}"
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+BODY `r 2+2`{.num}

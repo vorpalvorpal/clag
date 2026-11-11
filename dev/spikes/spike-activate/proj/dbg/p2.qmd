@@ -1,0 +1,10 @@
+---
+format: html
+knitr:
+  opts_chunk:
+    weft_act: !expr 1+1
+---
+
+```{r}
+str(knitr::opts_chunk$get("weft_act"))
+```

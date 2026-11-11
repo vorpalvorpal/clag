@@ -1,0 +1,6 @@
+Package: weftspike
+Version: 0.0.1
+Title: Spike
+Description: Spike.
+License: MIT
+Imports: knitr

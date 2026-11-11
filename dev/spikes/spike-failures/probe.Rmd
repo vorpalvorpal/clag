@@ -1,0 +1,7 @@
+---
+output: html_document
+---
+```{r}
+print(list(in.knit=knitr::opts_knit$get("in.knit"), input=knitr::current_input(), lab=knitr::opts_current$get("label"), fmt=knitr::opts_knit$get("out.format"), pg=knitr::opts_knit$get("progress")))
+```
+text `r paste(is.null(knitr::current_input()), knitr::opts_current$get("label"))`

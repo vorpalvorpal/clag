@@ -1,0 +1,30 @@
+---
+title: 'Plain title'
+format: html
+---
+
+```{r}
+#| include: false
+source("setup.R"); clag_install(); options(clag.draft = TRUE, weft.marker = Sys.getenv("WEFT_MARKER", "bold"))
+depth <- 0.3
+```
+
+# Heading `r claim(depth, . > 0.5)`{.dec1} m
+
+Paragraph `r claim(depth, . > 0.5)`{.dec1} m, link [text `r claim(depth, . > 0.5)`{.dec1}](https://example.com), no value `r stop("boom")`{.dec1} here.
+
+| a | b |
+|---|---|
+| `r claim(depth, . > 0.5)`{.dec1} | x |
+
+- list `r claim(depth, . > 0.5)`{.dec1}
+
+Footnote.[^1] Bold: **mean `r claim(depth, . > 0.5)`{.dec1} m** and *emph `r claim(depth, . > 0.5)`{.dec1} m*.
+
+[^1]: Note `r claim(depth, . > 0.5)`{.dec1} end.
+
+```{r}
+#| label: fig-x
+#| fig-cap: !expr 'weft_str("Caption `r claim(depth, . > 0.5)`{.dec1} m")'
+plot(1:3)
+```

@@ -1,0 +1,32 @@
+---
+title: "t"
+---
+
+```{r}
+source("../lines.R"); lines_install()
+```
+
+Para one `r 1+1` here.
+
+```{r}
+x <- 1
+```
+
+Same text
+
+```{r}
+y <- 2
+```
+
+Same text
+
+```{r}
+```
+
+
+```{r}
+```
+	tab line `r 3 ` end
+```{r}
+```
+tail no newline `r 1`

@@ -1,0 +1,15 @@
+---
+title: err
+---
+
+```{r}
+source("setup.R")
+```
+
+Prior.
+
+```{clag}
+Line one.
+
+Line three {{stop("clag boom")}} here.
+```

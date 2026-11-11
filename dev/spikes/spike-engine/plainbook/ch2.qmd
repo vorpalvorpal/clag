@@ -1,0 +1,8 @@
+# Two {#sec-two}
+
+```{r}
+z <- 3
+```
+
+Chapter two z = `r z`. Back to @fig-ch1.
+Added `r z*2`.

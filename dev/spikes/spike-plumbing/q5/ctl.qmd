@@ -1,0 +1,17 @@
+---
+title: before
+---
+
+```{r}
+#| include: false
+source("clag.R")
+```
+
+```{r}
+#| include: false
+depth <- 1.2; slope <- 0.3
+```
+
+Early paragraph: [rose | fell]{if="slope > 0"} and `r depth`{.num claim=". > 0"}.
+
+Later paragraph: [rose | fell]{if="slope > 0"} fine, `r depth`{.num}.

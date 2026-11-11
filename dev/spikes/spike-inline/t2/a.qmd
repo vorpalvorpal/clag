@@ -1,0 +1,30 @@
+---
+title: T2
+format: html
+---
+
+```{r setup, include=FALSE}
+x <- 5
+num <- function(x) structure(list(text=paste0("N",x), number=x), class="clag_val")
+kp <- function(x, ...) { cat("knit_print called inline=", list(...)$inline, "\n", file="kp.log", append=TRUE); knitr::asis_output(paste0("KP[", x$text, "]")) }
+registerS3method("knit_print", "clag_val", kp, envir = asNamespace("knitr"))
+if (nzchar(Sys.getenv("IH"))) knitr::knit_hooks$set(inline = function(x) { cat("inline hook got:", class(x), format(x), "\n", file="ih.log", append=TRUE); paste0("IH(", as.character(x), ")") })
+```
+
+a `r x`
+
+b `r num(x)`
+
+c `r x |> num()`
+
+d `r knitr::asis_output("*emph* and []{.marker k=\"1\"}")`
+
+e `r "*emph* and []{.marker k=\"1\"}"`
+
+f `{r} x`
+
+g `{r} num(x)`
+
+h `{r} knitr::asis_output("*emph* and []{.marker k=\"1\"}")`
+
+i `{r} "*emph* and []{.marker k=\"1\"}"`

@@ -1,0 +1,8 @@
+source("setup.R")
+cat("in_knit:", in_knit(), "\n")
+r <- tryCatch(claim(0.3, . > 0.5), error = function(e) conditionMessage(e)); print(r)
+cat("recorded:", length(clag$fails), "\n")
+r <- tryCatch(weft_str("mean `r claim(0.3, . > 0.5)`{.num} m"), error = function(e) conditionMessage(e)); print(r)
+cat("recorded:", length(clag$fails), "\n")
+print(weft_str("ok `r claim(0.7, . > 0.5)`{.num} m"))
+claim(0.3, . > 0.5)

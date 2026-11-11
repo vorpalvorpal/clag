@@ -1,0 +1,15 @@
+---
+title: T4
+output: html_document
+---
+
+```{r setup, include=FALSE}
+x <- 5; unlink("log.txt")
+old <- knitr::knit_hooks$get("evaluate.inline")
+knitr::knit_hooks$set(evaluate.inline = function(code, envir) {
+  cat("<<", code, ">>\n", file="log.txt", append=TRUE)
+  if (grepl(",", code, fixed=TRUE)) return("HANDLED")
+  old(code, envir) })
+```
+
+A `r x, x > 1` end.

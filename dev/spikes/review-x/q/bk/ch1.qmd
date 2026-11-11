@@ -1,0 +1,7 @@
+---
+title: |
+  Results for `r 1+1` sites
+engine: knitr
+---
+
+Body `r 2+2`. See @sec-two.

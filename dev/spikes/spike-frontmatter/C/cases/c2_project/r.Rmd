@@ -1,0 +1,10 @@
+---
+output: html_document
+---
+
+```{r}
+source("probe.R"); probe("chunk")
+```
+
+BODY.
+

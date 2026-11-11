@@ -1,0 +1,17 @@
+---
+title: T1b
+format: html
+---
+
+```{r setup, include=FALSE}
+x <- 5
+old <- knitr::knit_hooks$get("evaluate.inline")
+knitr::knit_hooks$set(evaluate.inline = function(code, envir) {
+  w <- character()
+  v <- withCallingHandlers(old(code, envir), warning = function(c) { w <<- c(w, conditionMessage(c)); invokeRestart("muffleWarning") })
+  if (length(w)) paste0("[", v, " WARNED:", w, "]") else v
+})
+```
+
+Multi `r x +
+1` end. Single `r x + 1` end. Warn `r as.integer("a")` end. Q `{r} as.integer("b")` end.

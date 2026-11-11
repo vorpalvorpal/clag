@@ -1,0 +1,9 @@
+---
+title: >
+  `r nrow(mtcars)`{.num} sites sampled
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+BODY

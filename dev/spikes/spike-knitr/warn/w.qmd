@@ -1,0 +1,25 @@
+---
+title: w
+---
+
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+```{r}
+warning("w1")
+message("m1")
+print("printed")
+```
+
+```{r}
+#| label: cached
+#| cache: true
+cat("exec\n", file = "cache-log.txt", append = TRUE)
+v <- 5
+```
+
+Inline warn: {{as.integer("a")}} done.

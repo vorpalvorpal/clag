@@ -1,0 +1,55 @@
+---
+title: "captions rmd"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+source("caption.R"); clag_install()
+mode <- Sys.getenv("CAP_MODE", "after")
+if (mode == "after") clag_install_captions(c("fig.cap", "fig.alt", "fig.subcap", "fig.scap"))
+if (mode == "early") clag_install_captions_early()
+n_sites <- 5; depth <- 0.62; slope <- 0.3; tier <- "sev"
+library(ggplot2)
+```
+
+```{r fig-a, fig.cap='A. Depth at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1 claim=". > 0.5"} m, [rose | fell]{if="slope > 0"}.', fig.alt='ALT A. [a site | # sites]{n="n_sites"}'}
+n_sites <- 7
+plot(1:3)
+```
+
+```{r fig-b, fig.cap=clag_str('B. explicit [a site | # sites]{n="n_sites"}'), fig.alt=clag_str('ALT B. [a site | # sites]{n="n_sites"}')}
+n_sites <- 8
+plot(1:3)
+```
+
+```{r fig-c}
+#| fig-cap: 'C. yaml-form [a site | # sites]{n="n_sites"}'
+#| fig-alt: 'ALT C. [a site | # sites]{n="n_sites"}'
+n_sites <- 9
+plot(1:3)
+```
+
+```{r fig-d, fig.cap='D. main [a site | # sites]{n="n_sites"}', fig.subcap=c('D1 [a site | # sites]{n="n_sites"}', 'D2 mean `r depth`{.dec1}'), fig.ncol=2}
+n_sites <- 10
+plot(1:3); plot(3:1)
+```
+
+```{r tbl-a}
+n_sites <- 11
+knitr::kable(data.frame(x = 1:2, y = 3:4), caption = clag_str('TA. kable [a site | # sites]{n="n_sites"}, `r depth`{.dec1}'))
+```
+
+```{r tbl-b}
+n_sites <- 12
+gt::gt(data.frame(x = 1:2, y = 3:4)) |> gt::tab_caption(clag_str('TB. gt [a site | # sites]{n="n_sites"}'))
+```
+
+```{r tbl-c, tab.cap='TC. tab.cap string [a site | # sites]{n="n_sites"}'}
+n_sites <- 13
+knitr::kable(data.frame(x = 1:2, y = 3:4))
+```
+
+```{r tbl-d}
+n_sites <- 14
+knitr::kable(data.frame(x = 1:2, y = 3:4), caption = 'TD. kable caption NOT wrapped [a site | # sites]{n="n_sites"}')
+```

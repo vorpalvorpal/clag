@@ -1,0 +1,19 @@
+---
+title: p5
+output:
+  html_document:
+    pandoc_args: ["--bibliography=refs.bib"]
+references:
+- id: inline2022
+  type: book
+  title: Inline Book
+  author: [{family: Inl, given: Ina}]
+  issued: {date-parts: [[2022]]}
+---
+
+```{r}
+#| include: false
+source("probe.R"); probe("p5_rmd_pandoc_args")
+```
+
+Body @smith2020 @inline2022.

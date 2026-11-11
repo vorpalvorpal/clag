@@ -1,0 +1,8 @@
+---
+title: f
+output: html_document
+---
+
+```{r}
+stop("fatal")
+```

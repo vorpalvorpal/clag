@@ -1,0 +1,13 @@
+---
+title: "attribute blocks on code spans and brackets"
+---
+
+Depth is `r depth`{.num} m and the gap is `r n_gap`{claim=". > 10"} sites.
+
+Share is `r p`{.pct .strong claim=". < 1"}.
+
+[# metre | # metres]{n="depth" claim=". > 0.5" .num} deep.
+
+Council will need to [add more sampling sites]{claim="n_gap > 10"}.
+
+[rose | fell]{if="slope > 0"} and [# sample[ | s]{n=.} [was | were]{n=.} taken]{n="n"}.

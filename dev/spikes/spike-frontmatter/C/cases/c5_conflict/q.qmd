@@ -1,0 +1,13 @@
+---
+format: html
+lang: fr
+weft:
+  digits: 9
+---
+
+```{r}
+source("probe.R"); probe("chunk")
+```
+
+BODY.
+

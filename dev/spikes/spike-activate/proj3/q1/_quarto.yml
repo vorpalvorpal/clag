@@ -1,0 +1,4 @@
+project:
+  type: default
+params:
+  w: !expr weftspike::activate()

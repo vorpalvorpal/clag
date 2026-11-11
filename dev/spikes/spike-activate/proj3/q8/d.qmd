@@ -1,0 +1,10 @@
+---
+format: html
+params:
+  w: !expr weftspike::activate()
+---
+
+```{r}
+#| echo: true
+str(params)
+```

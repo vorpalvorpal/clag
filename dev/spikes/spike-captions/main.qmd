@@ -1,0 +1,112 @@
+---
+title: "captions"
+format: html
+---
+
+```{r}
+#| include: false
+source("caption.R"); clag_install()
+mode <- Sys.getenv("CAP_MODE", "after")
+if (mode == "after") clag_install_captions() else if (mode == "early") clag_install_captions_early() else if (mode == "chunk") clag_install_captions_chunkhook()
+n_sites <- 5; depth <- 0.62; slope <- 0.3; tier <- "sev"
+library(ggplot2)
+```
+
+```{r}
+#| label: fig-a
+#| fig-cap: 'A. Depth at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1 claim=". > 0.5"} m, [rose | fell]{if="slope > 0"}.'
+#| fig-alt: 'ALT A. Depth at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1} m.'
+n_sites <- 7
+plot(1:3)
+```
+
+```{r}
+#| label: fig-b
+#| fig-cap: !expr 'clag_str(r"(B. Depth at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1} m.)")'
+#| fig-alt: !expr 'clag_str(r"(ALT B. [a site | # sites]{n="n_sites"})")'
+n_sites <- 8
+plot(1:3)
+```
+
+```{r}
+#| label: fig-d
+#| fig-cap: 'D. Panels at [a site | # sites]{n="n_sites"}'
+#| fig-subcap:
+#|   - 'D1. first: [a site | # sites]{n="n_sites"}'
+#|   - 'D2. second: mean `r depth`{.dec1} m'
+#| layout-ncol: 2
+n_sites <- 11
+plot(1:3); plot(3:1)
+```
+
+```{r}
+#| label: tbl-a
+#| tbl-cap: 'TA. kable at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1} m.'
+n_sites <- 12
+knitr::kable(data.frame(x = 1:2, y = 3:4))
+```
+
+```{r}
+#| label: tbl-b
+#| tbl-cap: 'TB. gt at [a site | # sites]{n="n_sites"}.'
+n_sites <- 13
+gt::gt(data.frame(x = 1:2, y = 3:4))
+```
+
+```{r}
+#| label: tbl-c
+#| tbl-cap: !expr 'clag_str(r"(TC. expr at [a site | # sites]{n="n_sites"})")'
+n_sites <- 14
+knitr::kable(data.frame(x = 1:2, y = 3:4))
+```
+
+```{r}
+#| label: tbl-d
+n_sites <- 15
+knitr::kable(data.frame(x = 1:2, y = 3:4), caption = clag_str(r"(TD. kable(caption=) at [a site | # sites]{n="n_sites"})"))
+```
+
+```{r}
+#| label: tbl-e
+n_sites <- 16
+gt::gt(data.frame(x = 1:2, y = 3:4)) |> gt::tab_caption(clag_str(r"(TE. gt tab_caption at [a site | # sites]{n="n_sites"})"))
+```
+
+```{r}
+#| label: tbl-f
+#| tbl-cap: "TF. kable with BOTH tbl-cap and caption"
+n_sites <- 17
+knitr::kable(data.frame(x = 1:2, y = 3:4), caption = clag_str(r"(TF-inner [a site | # sites]{n="n_sites"})"))
+```
+
+```{r}
+#| label: gg
+n_sites <- 18
+p <- ggplot(data.frame(x=1:3,y=1:3), aes(x,y)) + geom_point() + labs(caption = clag_str(r"(GG. [a site | # sites]{n="n_sites"})"))
+cat("GGCAPTION:", p$labels$caption, "\n")
+```
+
+::: {#tbl-g}
+
+```{r}
+#| echo: false
+n_sites <- 19
+knitr::kable(data.frame(x = 1:2, y = 3:4))
+```
+
+TG. div-route table at [a site | # sites]{n="n_sites"}, mean `r depth`{.dec1} m.
+
+:::
+
+::: {#fig-h}
+
+```{r}
+#| echo: false
+plot(1:3)
+```
+
+H. div-route figure at [a site | # sites]{n="n_sites"}.
+
+:::
+
+Refs: @fig-a @fig-b @fig-d @tbl-a @tbl-b @tbl-c @tbl-d @tbl-e @tbl-f @tbl-g @fig-h.

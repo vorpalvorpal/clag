@@ -1,0 +1,15 @@
+---
+title: e
+output: html_document
+---
+
+```{r, include=FALSE}
+
+source("clag.R")
+```
+
+```{r, error=TRUE}
+stop("boom-allowed")
+```
+
+after

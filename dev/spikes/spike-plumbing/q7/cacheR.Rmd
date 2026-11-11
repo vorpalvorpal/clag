@@ -1,0 +1,17 @@
+---
+title: cache
+output: html_document
+---
+
+```{r, include=FALSE}
+source("clag.R")
+threshold <- as.numeric(Sys.getenv("THRESH", "0"))
+```
+
+```{r, cache=TRUE}
+cat("COMPUTED\n", file = "computed.log", append = TRUE)
+x <- 3
+warning("cached-warning")
+```
+
+Prose: `r x`{.num claim=". > threshold"} [rose | fell]{if="x > threshold"}.

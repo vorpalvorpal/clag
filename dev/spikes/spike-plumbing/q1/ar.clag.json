@@ -1,0 +1,16 @@
+[
+  {
+    "file": "ar.Rmd",
+    "line": 14,
+    "expr": ". > 5",
+    "value": "1.2",
+    "what": "`r depth`"
+  },
+  {
+    "file": "ar.Rmd",
+    "line": 16,
+    "expr": ". < 0",
+    "value": "1.2",
+    "what": "`r depth`"
+  }
+]

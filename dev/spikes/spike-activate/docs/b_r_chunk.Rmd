@@ -1,0 +1,13 @@
+---
+output: html_document
+knit: (function(i, ...) { weftspike::activate(); rmarkdown::render(i, ...) })
+---
+
+FIRST: `r 3.7`{.num} and [a site | # sites]{n="2"} here.
+
+```{r}
+#| include: false
+x <- 1
+```
+
+LATER: `r 3.7`{.num} and [a site | # sites]{n="2"} here.

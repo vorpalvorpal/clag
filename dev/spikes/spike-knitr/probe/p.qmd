@@ -1,0 +1,11 @@
+---
+title: probe
+---
+
+```{r}
+cat("INPUT:", knitr::current_input(dir=TRUE), "\n"); cat("WD:", getwd(), "\n")
+cat("LABEL:", knitr::opts_current$get("label"), "\n")
+l <- readLines(knitr::current_input(dir=TRUE)); cat(l, sep="\n")
+```
+
+{{< include _part.qmd >}}

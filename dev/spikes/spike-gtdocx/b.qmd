@@ -1,0 +1,14 @@
+---
+title: t
+format:
+  docx: default
+  html: default
+  typst:
+    keep-typ: true
+---
+
+```{r}
+#| label: chunk-b
+library(gt)
+gt(head(mtcars[1:2],2)) |> tab_caption("Plain caption")
+```

@@ -1,0 +1,5 @@
+```{r}
+z <- 42
+```
+
+Included prose z is {{z}}.

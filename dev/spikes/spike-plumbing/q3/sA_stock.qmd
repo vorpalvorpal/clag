@@ -1,0 +1,27 @@
+---
+title: t
+---
+
+Intro paragraph.
+
+```{r c1}
+x <- 1
+warning("W-c1")
+message("M-c1")
+y <- 2
+```
+
+```{r c2}
+#| warning: false
+#| message: false
+warning("W-c2")
+message("M-c2")
+z <- 3
+```
+
+```{r c3}
+#| echo: false
+warning("W-c3-only-output")
+```
+
+Closing.

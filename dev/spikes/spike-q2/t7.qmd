@@ -1,0 +1,7 @@
+---
+title: "unquoted values"
+---
+
+A bare name: [a person | # people]{n=n_resp} responded.
+
+A call: [a person | # people]{n=nrow(mod)} responded.

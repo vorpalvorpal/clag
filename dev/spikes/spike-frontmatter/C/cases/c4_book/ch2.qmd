@@ -1,0 +1,10 @@
+---
+title: "Ch2"
+---
+
+```{r}
+source("probe.R"); probe("chunk")
+```
+
+BODY.
+

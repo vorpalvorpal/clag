@@ -1,0 +1,9 @@
+# Chapter 1
+
+```{r}
+#| include: false
+source("clag.R")
+val <- read.csv("data.csv")$v[1]
+```
+
+The value is `r val`{.num claim=". < 10"}.

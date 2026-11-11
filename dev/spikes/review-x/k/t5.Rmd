@@ -1,0 +1,8 @@
+```{r setup, include=FALSE}
+knitr::opts_knit$set(eval.after = c("fig.cap"))
+capf <- function() { cat("CAPTION EVALUATED\n", file="capcount.txt", append=TRUE); paste("n is", n_outside) }
+```
+
+```{r fig, cache=TRUE, fig.cap=capf()}
+plot(1)
+```

@@ -1,0 +1,29 @@
+---
+title: T5e
+format: html
+---
+
+```{r setup, include=FALSE}
+source("common.R")
+n <- 12; n1 <- 1; n0 <- 0
+LOG <- "evlog.txt"; unlink(LOG)
+lg <- function(s) { cat(s, "\n", file = LOG, append = TRUE); "" }
+```
+
+A1. [a person | # people]{.by}`r by(n1)` responded.
+
+A12. [a person | # people]{.by}`r by(n)` responded.
+
+C. [none | `r n` of them]{.by}`r by(n0)` here.
+
+C2. [none | `r n` of them]{.by}`r by(n)` here.
+
+## Heading [a person | # people]{.by}`r by(n)`
+
+| col | val |
+|-----|-----|
+| x   | [a person \| # people]{.by}`r by(n)` responded |
+
+F1. [a`r lg("arm1")` person | # people`r lg("arm2")`]{.by}`r lg("by-called"); by(n)` end.
+
+F2. `r lg("gov-first"); by(n)`[a`r lg("g-arm1")` person | # people`r lg("g-arm2")`]{.by} end.

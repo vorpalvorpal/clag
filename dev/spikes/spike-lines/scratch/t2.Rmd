@@ -1,0 +1,15 @@
+---
+title: "t"
+---
+
+```{r}
+knitr::opts_knit$set(concordance = TRUE)
+x <- 1
+```
+
+Para `r x`.
+
+```{r lbl, results='asis'}
+a <- knitr::knit_code$get("lbl"); print(attributes(a)); 
+print(names(knitr::knit_code$get()))
+```

@@ -1,0 +1,10 @@
+---
+title: "Intro"
+---
+
+```{r}
+source("probe.R"); probe("chunk")
+```
+
+BODY.
+

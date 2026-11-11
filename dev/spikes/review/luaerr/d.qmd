@@ -1,0 +1,8 @@
+---
+title: t
+format: html
+filters:
+  - err.lua
+---
+
+Hello.

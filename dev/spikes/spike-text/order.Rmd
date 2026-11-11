@@ -1,0 +1,11 @@
+---
+title: "order"
+---
+
+```{r setup, include=FALSE}
+lg <- function(tag) { cat(tag, "\n", file = "order.log", append = TRUE); "" }
+knitr::knit_hooks$set(text = function(x) { cat("TEXTHOOK sees:", gsub("\n", " ", paste(x, collapse=" ")), "\n", file = "order.log", append = TRUE); x })
+n <- 5
+```
+
+Value `r lg("inline-evaluated")``r n` and [none | `r lg("nested-arm2")`some]{r="n"}.

@@ -1,0 +1,6 @@
+Parent prose XX before.
+
+```{r, child = "child.Rmd"}
+```
+
+Parent prose XX after.

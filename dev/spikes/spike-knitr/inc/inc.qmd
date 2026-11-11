@@ -1,0 +1,23 @@
+---
+title: inc
+---
+
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+Before include.
+
+{{< include _part.qmd >}}
+
+After include: {{z + 1}}.
+
+```{r}
+cat("INPUT:", knitr::current_input(dir=TRUE), "\n")
+cat("INPUT (no dir):", knitr::current_input(), "\n")
+cat("WD:", getwd(), "\n")
+cat("ROOT:", knitr::opts_knit$get("root.dir"), "base.dir:", knitr::opts_knit$get("base.dir"), "\n")
+```

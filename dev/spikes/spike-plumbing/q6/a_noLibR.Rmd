@@ -1,0 +1,10 @@
+---
+title: a
+output: html_document
+---
+
+```{r, include=FALSE}
+.libPaths(c("lib", .libPaths()))
+```
+
+Text: CLAGSTUB.

@@ -1,0 +1,5 @@
+project:
+  type: default
+knitr:
+  opts_chunk:
+    weft_act: !expr weftspike::activate()

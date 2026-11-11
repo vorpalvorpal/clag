@@ -1,0 +1,10 @@
+project:
+  type: book
+book:
+  title: "B"
+  chapters:
+    - index.qmd
+    - ch/c1.qmd
+bibliography: refs.bib
+format:
+  html: default

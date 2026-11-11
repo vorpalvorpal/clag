@@ -1,0 +1,15 @@
+```{r}
+#| label: clag-bootstrap
+#| echo: false
+#| output: asis
+source("clag.R"); clag_self_compile()
+```
+
+# Chapter Two {#sec-ch2}
+
+```{r}
+#| echo: false
+cat("ch2", format(Sys.time(), "%H:%M:%OS3"), "\n", file = "exec-log.txt", append = TRUE)
+```
+
+See @fig-ch1 and @sec-ch1. Two plus two is {{2+2}}.

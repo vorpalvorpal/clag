@@ -1,0 +1,49 @@
+---
+title: "lazy"
+---
+
+```{r}
+#| label: setup
+#| include: false
+lg <- function(tag, val = "") { cat(tag, "\n", file = "lazy.log", append = TRUE); val }
+pend <- list()
+O <- ""; C <- ""
+# 1. inline code is NOT evaluated here: it is parked and a placeholder is returned
+knitr::knit_hooks$set(evaluate.inline = function(code, envir) {
+  pend[[length(pend) + 1]] <<- code
+  paste0(O, length(pend), C)
+})
+force1 <- function(txt) {            # evaluate the placeholders left in txt, in textual order
+  rx <- paste0(O, "([0-9]+)", C)
+  while (grepl(rx, txt, perl = TRUE)) {
+    m <- regmatches(txt, regexec(rx, txt, perl = TRUE))[[1]]
+    v <- eval(parse(text = pend[[as.integer(m[2])]]), knitr::knit_global())
+    txt <- sub(m[1], paste0("", paste(format(v), collapse = ", "), ""), txt, fixed = TRUE)
+  }
+  txt
+}
+knitr::knit_hooks$set(text = function(x) {
+  txt <- paste(x, collapse = "\n")
+  rx <- "\\[([^\\[\\]]*)\\]\\{n=\"([^\"]*)\"\\}"
+  while (grepl(rx, txt, perl = TRUE)) {       # spans first; only the chosen arm survives
+    m <- regmatches(txt, regexec(rx, txt, perl = TRUE))[[1]]
+    val <- eval(parse(text = m[3]), knitr::knit_global())
+    arms <- trimws(strsplit(m[2], "|", fixed = TRUE)[[1]])
+    arm <- arms[if (val == 0) 1 else 2]
+    txt <- sub(m[1], gsub("#", format(val), arm, fixed = TRUE), txt, fixed = TRUE)
+  }
+  gsub("[]", "", force1(txt))     # then whatever inline code is left
+})
+n <- 0
+evil <- '[x | y]{n="lg(\'INJECTED-CODE-RAN\', 1)"}'
+```
+
+Zero case: [no samples | # samples, mean `r lg("UNCHOSEN-ARM-RAN", 99)` mg/L]{n="n"} here, plain `r lg("plain-inline-ran", 7)`.
+
+```{r}
+n <- 3
+```
+
+Three case: [no samples | # samples, mean `r lg("chosen-arm-ran", 4.2)` mg/L]{n="n"} here.
+
+Data containing span syntax: `r evil` end.

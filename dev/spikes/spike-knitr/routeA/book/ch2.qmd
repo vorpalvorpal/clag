@@ -1,0 +1,9 @@
+---
+engine: knitr
+---
+
+# Chapter Two {#sec-ch2}
+
+```{clag}
+Two is {{1+1}}. See @sec-ch1.
+```

@@ -1,0 +1,16 @@
+---
+title: "t"
+format: html
+keep-md: true
+---
+
+```{r}
+#| include: false
+s <- "Site_A *bold* [x]"
+z <- NULL
+big <- 123456789
+```
+
+Old form: `r s` | `r z` | `r big` |
+
+New form: `{r} s` | `{r} z` | `{r} big` |

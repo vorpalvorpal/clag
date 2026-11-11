@@ -1,0 +1,8 @@
+project:
+  type: book
+book:
+  title: "Book A"
+  chapters:
+    - index.qmd
+    - ch1.qmd
+    - ch2.qmd

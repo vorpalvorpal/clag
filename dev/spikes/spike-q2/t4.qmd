@@ -1,0 +1,11 @@
+---
+title: "span spellings"
+---
+
+Council will need to [add more sampling sites]{r="n_gap > 10"}.
+
+[a person | # people]{r="n"} responded, and [All]{r="all(mod$rising)"} models rise.
+
+The site is [moderate | severe]{r="tier == 'sev'"}.
+
+The gap is `r claim(n_gap, . > 10)` sites.

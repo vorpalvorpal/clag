@@ -1,0 +1,5 @@
+---
+title: prose only
+---
+
+Two is {{1+1}}.

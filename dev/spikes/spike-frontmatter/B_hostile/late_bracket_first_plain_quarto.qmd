@@ -1,0 +1,18 @@
+---
+title: "T"
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+n_sites <- 3
+depth <- 12.345
+```
+
+BODY
+
+---
+abstract: [a site | # sites]{n='n_sites'} sampled
+---
+

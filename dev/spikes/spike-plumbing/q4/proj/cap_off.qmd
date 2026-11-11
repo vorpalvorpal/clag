@@ -1,0 +1,18 @@
+---
+title: h
+---
+
+```{r}
+#| include: false
+depth <- 1.2
+```
+
+# Depth of [# metre | # metres]{n="depth"}
+
+Body text.
+
+```{r}
+#| label: fig-a
+#| fig-cap: "Plot at [# metre | # metres]{n=\"depth\"} depth"
+plot(1)
+```

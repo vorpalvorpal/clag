@@ -1,0 +1,1 @@
+library(gt); g<-gt(head(mtcars[1:2],2)) |> tab_caption("Plain caption"); x<-as_word(g); cat(substr(x,1,900)); cat("\n---\n"); x2<-as_word(gt(head(mtcars[1:2],2)) |> tab_header(title="T1")); cat(substr(x2,1,900))

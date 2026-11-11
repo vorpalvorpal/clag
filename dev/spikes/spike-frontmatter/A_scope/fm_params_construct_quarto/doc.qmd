@@ -1,0 +1,15 @@
+---
+title: "P `r params$p`{.num} S `r nrow(mtcars)`{.num} R `r rp`{.num}"
+params:
+  p: 7
+knitr:
+  opts_knit:
+    weft: !expr source("act.R")$value
+---
+
+```{r}
+later <- 5
+```
+
+BODY later=`r exists('later')` and `r later`{.num}
+

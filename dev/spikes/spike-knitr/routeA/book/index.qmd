@@ -1,0 +1,8 @@
+---
+title: "Preface"
+engine: knitr
+---
+
+```{clag}
+Hello {{1+1}}.
+```

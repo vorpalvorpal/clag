@@ -1,0 +1,16 @@
+# One {#sec-one}
+
+```{r}
+n <- 7
+```
+
+Chapter one has n = `r n`; squared `r n^2`.
+
+```{r}
+#| label: fig-ch1
+#| fig-cap: "Chapter one plot."
+#| echo: false
+plot(1:n)
+```
+
+See @fig-ch1 and @sec-two.

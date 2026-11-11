@@ -1,0 +1,11 @@
+project:
+  type: book
+book:
+  title: "Clag book"
+  chapters:
+    - index.qmd
+    - ch1.qmd
+    - ch2.qmd
+execute:
+  freeze: auto
+format: html

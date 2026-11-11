@@ -1,0 +1,6 @@
+project:
+  type: default
+format:
+  html:
+    lang: de
+    bibliography: refs.bib

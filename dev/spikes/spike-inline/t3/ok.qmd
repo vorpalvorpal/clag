@@ -1,0 +1,21 @@
+---
+title: T3
+format: html
+---
+
+```{r setup, include=FALSE}
+claim <- function(cond) { if (!isTRUE(cond)) stop("claim failed: cond was FALSE"); invisible(TRUE) }
+```
+
+A Sentence`r invisible(NULL)`.
+
+B Sentence`r knitr::asis_output("")`.
+
+C Sentence`r ""`.
+
+D Sentence`r claim(TRUE)`.
+
+E Sentence`r NULL`.
+
+F raw `r I("*emph*")` end.
+

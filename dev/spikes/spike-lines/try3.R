@@ -1,0 +1,6 @@
+source("../analysis.R")
+unlink(c("log.tsv","inputs"), recursive=TRUE)
+Sys.setenv(LINES_LOG = "log.tsv", LINES_TAG = "pb1", LINES_METHODS = "cs,cl,kc,pb")
+options(knitr.progress.linenums = TRUE, knitr.progress.simple = TRUE, knitr.progress.output = file.path(getwd(), "pb.txt"))
+invisible(capture.output(knitr::knit("s_r.Rmd", "s_r.md", quiet = FALSE)))
+d <- read_log("log.tsv"); a <- align(d, "inputs"); summarise(a, "pb direct knit"); print(readLines("pb.txt"))

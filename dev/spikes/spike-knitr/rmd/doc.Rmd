@@ -1,0 +1,21 @@
+---
+title: "Rmd spike"
+output: html_document
+---
+
+```{r clag-bootstrap, echo=FALSE, results='asis'}
+source("clag.R"); clag_self_compile()
+```
+
+```{r}
+cat("INPUT:", knitr::current_input(dir = TRUE), "\n")
+x <- 7; y <- c(1.23, 4.56, 7.89)
+```
+
+## Section
+
+The value x is {{x}} and the rounded mean is {{round(mean(y), 1)}}.
+
+```{r fig-one, fig.cap="A plot"}
+plot(y)
+```

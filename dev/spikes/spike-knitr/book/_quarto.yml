@@ -1,0 +1,13 @@
+project:
+  type: book
+book:
+  title: "Spike Book"
+  chapters:
+    - index.qmd
+    - ch1.qmd
+    - ch2.qmd
+format:
+  html:
+    theme: default
+execute:
+  freeze: auto

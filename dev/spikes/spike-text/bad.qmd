@@ -1,0 +1,52 @@
+---
+title: "Text hook"
+---
+
+```{r}
+#| label: setup
+#| include: false
+calls <- 0
+gov <- function(txt) {
+  rx <- "\\[([^\\[\\]]*)\\]\\{r=\"([^\"]*)\"\\}"
+  while (grepl(rx, txt, perl = TRUE)) {
+    m <- regmatches(txt, regexec(rx, txt, perl = TRUE))[[1]]
+    val <- eval(parse(text = m[3]), knitr::knit_global())
+    arms <- trimws(strsplit(m[2], "|", fixed = TRUE)[[1]])
+    out <- if (is.logical(val)) {
+      if (length(arms) == 1) { if (!isTRUE(val)) stop("Claim \"", arms, "\" failed: ", m[3], " was FALSE") ; arms }
+      else arms[if (isTRUE(val)) 1 else 2]
+    } else gsub("#", format(val), arms[if (val == 1) 1 else 2], fixed = TRUE)
+    txt <- sub(m[1], out, txt, fixed = TRUE)
+  }
+  txt
+}
+knitr::knit_hooks$set(text = function(x) {
+  calls <<- calls + 1
+  cat(sprintf("[text hook %d] lines=%s nchar=%d head=%s\n", calls,
+      tryCatch(knitr:::current_lines(), error = function(e) "?"), sum(nchar(x)),
+      substr(gsub("\n", "\\\\n", paste(x, collapse = "\n")), 1, 50)), file = "hook.log", append = TRUE)
+  gov(x)
+})
+n <- 1
+n_gap <- 12
+```
+
+First: [a person | # people]{r="n"} responded. Inline is `r n`.
+
+```{r}
+n <- 12
+```
+
+Second: [a person | # people]{r="n"} responded, with *[one] | **# sites***... and
+Council will need to [add more sampling sites]{r="n_gap > 10"}.
+
+## Heading with [one site | # sites]{r="n"}
+
+```{r}
+#| label: fig-one
+#| fig-cap: "A plot"
+#| echo: false
+plot(1:3)
+```
+
+See @fig-one. Third: [rose | fell]{r="n_gap < 0"}. [this is false]{r="n_gap > 100"}

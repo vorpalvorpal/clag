@@ -1,0 +1,16 @@
+---
+title: "clag syntax, brace diagnostics switched off"
+diagnostics:
+  Q-2-50:
+    level: off
+    reason: "testing whether doubled braces pass through as literal text"
+  Q-2-41:
+    level: off
+    reason: "testing whether brace runs pass through as literal text"
+---
+
+A value: {{n_gap}} sites.
+
+A checked value with a chain: {{depth, . > 0.5}.num} m.
+
+A governed span: [a person/# people]{{n}} responded.

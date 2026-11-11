@@ -1,0 +1,12 @@
+---
+title: "b1"
+bibliography: [../refs.bib, ../refs2.bib]
+format: html
+---
+
+```{r}
+#| include: false
+source("probe.R"); probe("b1_quarto")
+```
+
+Body @smith2020.

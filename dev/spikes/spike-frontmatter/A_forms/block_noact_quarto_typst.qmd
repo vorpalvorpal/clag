@@ -1,0 +1,17 @@
+---
+title: |
+  TITLE We sampled [a site | # sites]{n="3"}, mean `r nrow(mtcars)`{.num} m.
+subtitle: |
+  SUBTITLE We sampled [a site | # sites]{n="3"}, mean `r nrow(mtcars)`{.num} m.
+abstract: |
+  ABSTRACT We sampled [a site | # sites]{n="3"}, mean `r nrow(mtcars)`{.num} m.
+description: |
+  DESCRIPTION We sampled [a site | # sites]{n="3"}, mean `r nrow(mtcars)`{.num} m.
+---
+
+```{r}
+n_sites <- 3
+```
+
+BODY `r nrow(mtcars)`{.num} and [a site | # sites]{n="n_sites"}.
+

@@ -1,0 +1,13 @@
+---
+title: h
+---
+
+```{r}
+#| include: false
+depth <- 1.2
+```
+
+# Depth of [# metre | # metres]{n="depth"}
+
+Body text.
+

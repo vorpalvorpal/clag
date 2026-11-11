@@ -1,0 +1,22 @@
+---
+title: "t2_bare"
+output: html_document
+---
+
+```{r, include=FALSE}
+source("setup.R"); clag_install()
+depth <- 0.3
+```
+
+```{r s}
+s <- weft_str("mean `r claim(depth, . > 0.5)`{.dec1} m")
+print(s)
+```
+
+```{r bare}
+claim(depth, . > 0.5)
+```
+
+```{r never}
+cat("SHOULD NOT RUN\n")
+```

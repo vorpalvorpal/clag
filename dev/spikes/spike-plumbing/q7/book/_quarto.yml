@@ -1,0 +1,10 @@
+project:
+  type: book
+  pre-render: Rscript pre.R
+  post-render: Rscript post.R
+book:
+  title: "Frozen"
+  chapters: [index.qmd, ch1.qmd]
+format: html
+execute:
+  freeze: auto

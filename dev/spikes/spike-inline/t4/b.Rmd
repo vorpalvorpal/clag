@@ -1,0 +1,10 @@
+---
+title: T4
+output: html_document
+---
+
+```{r setup, include=FALSE}
+x <- 5; unlink("log.txt")
+```
+
+A `r x, x > 1` end.

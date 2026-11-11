@@ -1,0 +1,16 @@
+[
+  {
+    "file": "a.rmarkdown",
+    "line": 13,
+    "expr": ". > 5",
+    "value": "1.2",
+    "what": "`r depth`"
+  },
+  {
+    "file": "a.rmarkdown",
+    "line": 15,
+    "expr": ". < 0",
+    "value": "1.2",
+    "what": "`r depth`"
+  }
+]

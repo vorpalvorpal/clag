@@ -1,0 +1,18 @@
+---
+title: w
+---
+
+```{r}
+warning("w1")
+message("m1")
+print("printed")
+```
+
+```{r}
+#| label: cached
+#| cache: true
+cat("exec\n", file = "cache-log.txt", append = TRUE)
+v <- 5
+```
+
+Inline warn: `r as.integer("a")` done.

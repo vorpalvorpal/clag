@@ -1,0 +1,11 @@
+---
+title: b
+output: html_document
+---
+
+```{r, include=FALSE}
+.libPaths(c("lib", .libPaths()))
+invisible(clagstub::something())
+```
+
+Text: CLAGSTUB.

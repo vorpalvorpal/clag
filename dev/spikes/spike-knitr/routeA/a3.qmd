@@ -1,0 +1,8 @@
+---
+title: "Only clag"
+engine: knitr
+---
+
+```{clag}
+Hello {{1+1}} from clag only.
+```

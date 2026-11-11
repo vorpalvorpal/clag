@@ -1,0 +1,8 @@
+---
+format: html
+knitr:
+  opts_chunk:
+    weft_act: !expr cat("HIT-doc\n", file="hit.txt", append=TRUE)
+---
+
+hi

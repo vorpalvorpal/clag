@@ -1,0 +1,8 @@
+```{r setup}
+if (!isTRUE(getOption("fakeweft.attached"))) {
+  options(fakeweft.attached = TRUE)   # stands in for .onAttach running once per session
+  knitr::knit_hooks$set(text = function(x) gsub("XX", "RESOLVED", x))
+}
+```
+
+Value XX here.

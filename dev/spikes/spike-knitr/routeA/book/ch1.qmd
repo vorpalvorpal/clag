@@ -1,0 +1,9 @@
+---
+engine: knitr
+---
+
+```{clag}
+# Chapter One {#sec-ch1}
+
+Value {{2*21}}. See @sec-ch2.
+```

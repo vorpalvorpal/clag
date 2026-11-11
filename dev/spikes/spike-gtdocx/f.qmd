@@ -1,0 +1,13 @@
+---
+title: t
+format:
+  docx: default
+  html: default
+  typst:
+    keep-typ: true
+---
+
+```{r}
+#| label: tbl-f
+knitr::kable(head(mtcars[1:2],2), caption = "Plain caption")
+```

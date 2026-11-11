@@ -1,0 +1,12 @@
+---
+title: s
+output: html_document
+---
+
+```{r}
+x <- 1
+```
+
+Para line 8.
+
+Here `r as.integer("a")` too.

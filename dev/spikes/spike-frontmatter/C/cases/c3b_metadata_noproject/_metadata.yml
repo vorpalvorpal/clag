@@ -1,0 +1,8 @@
+weft:
+  digits: 2
+  dict_local:
+    sites:
+      value: 4
+      why: "x"
+bibliography: refs.bib
+lang: it

@@ -1,0 +1,22 @@
+---
+title: "classes"
+---
+
+```{r}
+#| include: false
+source("setup.R")
+depth <- 1.2
+```
+
+A: `r depth`{.num} m, plain `r depth`.
+
+B: [# metre | # metres]{n="depth" claim=". > 0.5" .num} deep.
+
+C: [# metre | # metres]{n="depth"} deep.
+
+D: after round trip order [# metre | # metres]{.num n="depth" claim=". > 0.5"} deep.
+
+E: check sees raw value: `r depth`{.num claim=". > 1.1"} passes although it prints 1.
+
+F: chain [# metre | # metres]{n="depth" .num .word} deep.
+G: `r depth`{.num claim=". > 5"} fails.

@@ -1,0 +1,5 @@
+project:
+  type: default
+knitr:
+  opts_chunk:
+    echo: false

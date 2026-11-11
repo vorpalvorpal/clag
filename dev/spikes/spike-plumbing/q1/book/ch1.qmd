@@ -1,0 +1,9 @@
+# ch1
+
+```{r}
+#| include: false
+source("clag.R")
+depth <- 1.2
+```
+
+Claim: `r depth`{.num claim=". > 5"}.

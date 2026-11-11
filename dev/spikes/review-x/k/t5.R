@@ -1,0 +1,5 @@
+unlink(c("capcount.txt","t5_cache","t5_files", "cache", "figure"), recursive=TRUE)
+n_outside <- 1; knitr::knit("t5.Rmd", quiet=TRUE); a <- grep("n is", readLines("t5.md"), value=TRUE)
+n1 <- length(readLines("capcount.txt"))
+n_outside <- 2; knitr::knit("t5.Rmd", quiet=TRUE); b <- grep("n is", readLines("t5.md"), value=TRUE)
+cat("first:", a, "\nsecond:", b, "\ncaption evaluations after 1st:", n1, " after 2nd:", length(readLines("capcount.txt")), "\n")

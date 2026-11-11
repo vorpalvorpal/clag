@@ -1,0 +1,7 @@
+Package: clagstub
+Title: Stub that installs knitr hooks on load
+Version: 0.0.1
+Description: Spike.
+License: MIT
+Encoding: UTF-8
+Imports: knitr

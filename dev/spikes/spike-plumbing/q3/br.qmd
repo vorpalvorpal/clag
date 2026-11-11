@@ -1,0 +1,13 @@
+---
+title: br
+---
+
+```{r}
+#| include: false
+source("clag.R")
+depth <- 1.2; slope <- 0.3; n_gap <- 3
+```
+
+Depth `r depth`{.num} m, [# metre | # metres]{.num n="depth"} deep.
+
+The level [rose | fell]{if="slope > 0"}; [add more sites]{claim="n_gap > 10"}.

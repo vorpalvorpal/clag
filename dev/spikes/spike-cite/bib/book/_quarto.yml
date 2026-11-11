@@ -1,0 +1,10 @@
+project:
+  type: book
+book:
+  title: "Test book"
+  chapters:
+    - index.qmd
+    - ch1.qmd
+bibliography: [refs.bib, refs2.bib]
+format:
+  html: default

@@ -1,0 +1,5 @@
+ns <- asNamespace("knitr")
+src <- unlist(lapply(ls(ns, all.names=TRUE), function(n){f<-get(n,ns); if(is.function(f)) deparse(f) else NULL}))
+m <- unlist(regmatches(src, gregexpr("knitr\\.[A-Za-z_.]+", src)))
+print(sort(unique(m)))
+print(knitr::current_input)
