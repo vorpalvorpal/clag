@@ -541,5 +541,5 @@ test_that("review D ruling H: .p applies its thresholds to the rounded number", 
   expect_equal(b_txt(fmt_p(0.001)), "p = 0.001")
   expect_match(b_txt(fmt_p(0.0095)), "^p = 0\\.010?$")
   expect_equal(b_txt(fmt_p(0.9991)), "p > 0.99")
-  expect_equal(b_txt(fmt_p(0.03)), "p = 0.03")
+  expect_equal(b_txt(fmt_p(0.03)), "p = 0.030")
 })

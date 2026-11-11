@@ -55,7 +55,8 @@ test_that("review A #4 / ruling: wholeness is judged absolutely, to 1e-9 (1.4.13
   expect_equal(txt(fmt_num(3)), "3")                       # control
   expect_equal(txt(fmt_num(1e10 + 0.3)), "10,000,000,000.3")
   expect_equal(txt(fmt_num(123456789012.3)), "123,456,789,012.3")
-  expect_equal(txt(fmt_num(1e-6)), "0.0")
+  expect_error(fmt_num(1e-6), class = "weft_value_error")   # entry 33
+  expect_equal(txt(fmt_num(1e-6, digits = 1)), "0.0")
   expect_equal(txt(fmt_no(1e-6)), "0.0")
   expect_equal(txt(fmt_no(0)), "no")
 })
@@ -317,7 +318,7 @@ test_that("review A ruling A: rounding is half away from zero on the decimal as 
   expect_equal(txt(fmt_num(2.5, digits = 0)), "3")
   expect_equal(txt(fmt_num(3.5, digits = 0)), "4")
   expect_equal(txt(fmt_num(-0.05)), paste0(MINUS_, "0.1"))
-  expect_equal(txt(fmt_num(-0.04)), "0.0")                 # rounds to zero: no minus
+  expect_equal(txt(fmt_num(-0.04, digits = 1)), "0.0")                 # rounds to zero: no minus
 })
 
 test_that("review A ruling B: a wording class with .pct or .sci is a construct error", {

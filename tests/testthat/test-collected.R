@@ -63,7 +63,7 @@ FAIL_ROWS <- list(
   b_row("C06", "`r trend(1)`{.cap} x", "control (S25): a value brk() takes", want = "C06 Steady x", collected = FALSE),
   b_row("C07", "[apple]{.strong} x", "control (S11): a text span that is not a number, with a class that does not care",
         want = "C07 **apple** x", collected = FALSE),
-  b_row("C08", "`r 0.03`{.p} x", "control (S13): .p inside 0 to 1", want = "C08 p = 0.03 x", collected = FALSE)
+  b_row("C08", "`r 0.03`{.p} x", "control (S13): .p inside 0 to 1", want = "C08 p = 0.030 x", collected = FALSE)
 )
 FAIL_COLLECTED <- Filter(function(r) isTRUE(r$collected), FAIL_ROWS)
 
@@ -234,7 +234,7 @@ LANG_ROWS <- list(
   b_row("N04", "[abc]{.cap} y", "control: .cap prints no words", want = "N04 Abc y", collected = FALSE),
   b_row("N05", "`r pm(2.1, 0.3)`{.strong} y", "control: pm() prints a sign, no word",
         want = "N05 **2.1 ± 0.3** y", collected = FALSE),
-  b_row("N06", "`r 0.03`{.p} y", "control: .p prints no word the rule lists", want = "N06 p = 0.03 y", collected = FALSE)
+  b_row("N06", "`r 0.03`{.p} y", "control: .p prints no word the rule lists", want = "N06 p = 0.030 y", collected = FALSE)
 )
 LANG_ERRORS <- Filter(function(r) isTRUE(r$collected), LANG_ROWS)
 

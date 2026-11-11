@@ -191,17 +191,17 @@ rows_ids <- list(
 )
 
 rows_p <- list(
-  b_ok("p", "1.4.3: .p, two decimals", r"---(Result: `r 0.03`{.p}.)---", "Result: p = 0.03."),
-  b_ok("p", "design: .p keeps a trailing zero (two decimals from 0.01)",
+  b_ok("p", "1.4.3 + entry 35: .p, three decimals below 0.1", r"---(Result: `r 0.03`{.p}.)---", "Result: p = 0.030."),
+  b_ok("p", "design + entry 35: .p keeps a trailing zero (two decimals from 0.1)",
        r"---(`r 0.2`{.p} and `r 0.5`{.p})---", "p = 0.20 and p = 0.50"),
-  b_ok("p", "design: .p, three decimals below 0.01", r"---(`r 0.004`{.p})---", "p = 0.004"),
+  b_ok("p", "design: .p, three decimals below 0.1", r"---(`r 0.004`{.p})---", "p = 0.004"),
   b_ok("p", "1.4.3: .p is never p = 0.000", r"---(`r 0.0004`{.p})---", "p < 0.001"),
   b_ok("p", "design: .p of exactly 0.001 is not below it", r"---(`r 0.001`{.p})---", "p = 0.001"),
   b_ok("p", "design: .p above 0.99", r"---(`r 0.9991`{.p})---", "p > 0.99"),
   b_ok("p", "1.4.1: a text class after .p", r"---(`r 0.0004`{.p .strong})---", "**p < 0.001**"),
-  b_ok("p", "1.4.1: .p then .cap", r"---(`r 0.03`{.p .cap})---", "P = 0.03"),
+  b_ok("p", "1.4.1: .p then .cap", r"---(`r 0.03`{.p .cap})---", "P = 0.030"),
   b_ok("p", "1.4.1: .p then a collapse class",
-       r"---(`r c(0.03, 0.0004)`{.p .and})---", "p = 0.03 and p < 0.001")
+       r"---(`r c(0.03, 0.0004)`{.p .and})---", "p = 0.030 and p < 0.001")
 )
 
 rows_clamp <- list(
@@ -267,7 +267,7 @@ B_ROWS_A <- c(rows_sign, rows_ids, rows_p, rows_clamp, rows_range, rows_date)
 a_digit_rows <- lapply(
   list(c(8, "an 8"), c(11, "an 11"), c(18, "an 18"), c(80, "an 80"), c(85, "an 85"),
        c(800, "an 800"), c(899, "an 899"), c(1, "a 1"), c(12, "a 12"), c(100, "a 100"),
-       c(8000, "an 8000"), c(11000, "an 11,000"), c(18000, "an 18,000")),
+       c(8000, "an 8,000"), c(11000, "an 11,000"), c(18000, "an 18,000")),
   function(v) b_ok("a", paste0("design: .a by sound, ", v[1], " (digits)"),
                    sprintf("`r %s`{.a}", v[1]), v[2]))
 a_word_rows <- lapply(

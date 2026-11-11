@@ -128,12 +128,12 @@ test_that("1.4.13: digits and sigfig on the construct ask for decimals", {
   expect_identical(attr(fmt_num(2.7, digits = 0), "decimals"), FALSE)
 })
 
-test_that("9.1.5: big mark applies from 10,000 up, never below; minus is U+2212", {
+test_that("9.1.5: thousands mark applies from 1000 up (entry 34), never below; minus is U+2212", {
   cases <- list(
-    list(999, "999"), list(1000, "1000"), list(9999, "9999"),
+    list(999, "999"), list(1000, "1,000"), list(9999, "9,999"),
     list(10000, "10,000"), list(1234567, "1,234,567"),
     list(12345.678, "12,345.7"),
-    list(-5, paste0(MINUS, "5")), list(-1234.5, paste0(MINUS, "1234.5")),
+    list(-5, paste0(MINUS, "5")), list(-1234.5, paste0(MINUS, "1,234.5")),
     list(-12345, paste0(MINUS, "12,345"))
   )
   for (cs in cases) {
@@ -391,7 +391,7 @@ test_that("1.5.8: # is the governor printed by the default class", {
   expect_equal(plural(12345, "# site", "# sites"), "12,345 sites")
   expect_equal(plural(2.5, "# site", "# sites"), "2.5 sites")
   expect_equal(plural(-3, "# site", "# sites"), paste0(MINUS, "3 sites"))
-  expect_equal(plural(1234, "# site", "# sites"), "1234 sites")
+  expect_equal(plural(1234, "# site", "# sites"), "1,234 sites")
 })
 
 test_that("1.5.12: arms are trimmed", {

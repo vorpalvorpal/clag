@@ -72,3 +72,15 @@ Before any knit it returns `NULL`.
 One new file, `tests/testthat/test-1f.R`. Existing tests that assert the
 old `.p` form, the old thousands default, or that `last_knit` is internal
 are amended by the test-writer and listed in its report.
+
+## Rulings on the test-writer's report
+
+- **Where the zero rule applies.** To a value construct formatted by `.num`
+  or `.pct` (including a value whose default class is `.num`) and to
+  `fmt_num()` and `fmt_pct()`, per element. It does not apply to `.no`, to
+  a governor, or to `#` in a span: a `sign` or `n` governor that prints as
+  zero takes its zero arm as before (1.5.10).
+- **A `level` key on an `if` span** is a construct error.
+- **A truncated list's tail** counts as an item for the serial comma.
+- **`fmt_p(0.0095)`** may print "p = 0.009" or "p = 0.010" (binary
+  rounding); the existing test accepts either.
