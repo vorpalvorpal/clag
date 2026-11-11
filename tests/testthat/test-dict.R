@@ -81,7 +81,7 @@ test_that("2a read: attributes file, scope, entries, registered, local_keys (the
   e <- attr(d, "entries")
   expect_s3_class(e, "data.frame")
   expect_true("display" %in% names(e))   # 2f gains a display column
-  expect_identical(setdiff(names(e), "display"), c("key", "type", "definition", "unit", "decision", "why", "line"))
+  expect_identical(setdiff(names(e), c("display", "term", "avoid")), c("key", "type", "definition", "unit", "decision", "why", "line"))
   expect_identical(e$key, FX_KEYS)
   expect_identical(e$type, c("number", "quantity", "quantity", "quantity", "quantity",
                              "quantity", "quantity", "year", "date", "string", "labels", "breaks"))

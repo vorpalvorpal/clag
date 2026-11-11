@@ -1,0 +1,7 @@
+```{r setup}
+alpha <- 0.05
+n_boot <- 2000L
+site_name = "Northern catchment"
+-1 -> offset
+zones <- c(upper = "Upper reach", lower = "Lower reach")
+```

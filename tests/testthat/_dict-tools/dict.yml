@@ -1,0 +1,48 @@
+# yaml-language-server: $schema=_weft/dict.schema.json
+min_samples:
+  value: 5
+  type: number
+  term: minimum sample size
+  avoid: [min sample size, minimum sample-size]
+  definition: "Fewest samples a site needs before its mean is reported."
+core_len:
+  value: 50
+  type: quantity
+  unit: cm
+  display: m
+  term: core length
+  definition: "Length of each sediment core."
+  decision: 12
+salinity_res:
+  value: 0.01
+  type: quantity
+  unit: PSU
+  definition: "Logger resolution for salinity."
+method_change:
+  value: 2014
+  type: year
+  term: Method change
+  definition: |
+    First year of the
+    instrument method.
+  decision: "dec-method"
+survey_start:
+  value: 2024-06-01
+  type: date
+  definition: "First day of the summer survey."
+study_area:
+  value: "Northern catchment"
+  type: string
+  definition: "Name used for the study region."
+  avoid: ["northern catchment", "Nth. catchment"]
+zone_lab:
+  value: {upper: Upper reach, lower: Lower reach, yes: Included}
+  type: labels
+  term: zone names
+  definition: "Display names for the survey zones."
+trend_word:
+  value:
+    - {below: 0.95, phrase: "a fall in"}
+    - {below: .inf, phrase: "a rise in"}
+  type: breaks
+  definition: "Wording for the ratio of this year's mean to last year's."

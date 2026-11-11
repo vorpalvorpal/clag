@@ -1,0 +1,11 @@
+```{r}
+#| label: consts
+alpha <- 5e-2
+offset <- -1
+1000 -> n_boot
+inner <- 3
+```
+
+```{python}
+alpha = 0.5
+```

@@ -1,0 +1,26 @@
+---
+title: "One"
+---
+
+```{r}
+alpha <- 0.05
+n_boot = 1000
+site_name <- "Northern catchment"
+zones <- c(upper = "Upper reach", lower = "Lower reach")
+f <- function() { inner <- 3 }
+x <- mean(1:3)
+```
+
+```{r, eval = FALSE}
+alpha <- 0.1
+```
+
+```{r}
+if (TRUE) {
+  hidden <- 4
+}
+```
+
+```{r}
+broken <- (
+```

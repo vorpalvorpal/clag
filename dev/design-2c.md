@@ -1185,3 +1185,14 @@ Built as recommended until answered.
   Recommended: reported and counted, not failing unless the rule is strict,
   so a laptop offline passes and CI (network and `GITHUB_TOKEN`) checks.
   Alternative: fail, which makes `verify()` need the network.
+
+## Rulings on the test-writer's report
+
+- **`decisions: githb`.** A syntactic R name is a function route, so
+  `read_config()` accepts it and `check_decisions()` raises "Cannot find
+  the decisions function". The test plan's line that made it a
+  configuration error is wrong. A value that is no route at all (`1`) is
+  the configuration error.
+- With no pointers, a resolver that cannot be found is not looked for:
+  zero rows, no error.
+- The test-writer's other readings (its items 3 to 11) are accepted.
