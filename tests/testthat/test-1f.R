@@ -271,16 +271,16 @@ test_that("1f claim level: a Quarto project lists warned checks after the failur
   expect_identical(r1$status, 0L, info = r1$log)
   expect_match(r1$log, "warned check\\(s\\)")
   expect_match(r1$log, ". > 795", fixed = TRUE)
-  # a failing chapter (a number that prints as zero) beside a warned one
+  # a failing chapter (a failed check; a small number no longer fails, 1g) beside a warned one
   d2 <- mk_project(list(`_quarto.yml` = yml,
                         `a.qmd` = mk("A", "Warn `r claim(k, . > 796, level = \"warn\")`{.num} here."),
-                        `b.qmd` = mk("B", "Zero `r 0.04`{.num} here.")))
+                        `b.qmd` = mk("B", "Fail `r claim(k, . > 797)`{.num} here.")))
   withr::defer(unlink(d2, recursive = TRUE))
   r2 <- qrender(d2)
   expect_false(identical(r2$status, 0L))
-  expect_match(r2$log, "sigfig", fixed = TRUE)           # 1f zero: the failure is reported
+  expect_match(r2$log, ". > 797", fixed = TRUE)           # the failure is reported
   expect_match(r2$log, ". > 796", fixed = TRUE)           # and the warning too
-  expect_lt(regexpr("sigfig", r2$log, fixed = TRUE)[1], regexpr(". > 796", r2$log, fixed = TRUE)[1])
+  expect_lt(regexpr(". > 797", r2$log, fixed = TRUE)[1], regexpr(". > 796", r2$log, fixed = TRUE)[1])
   f <- file.path(d2, ".weft", "failures.jsonl")
   if (file.exists(f)) {
     ls <- readLines(f, warn = FALSE)
@@ -294,25 +294,13 @@ test_that("1f claim level: a Quarto project lists warned checks after the failur
 
 # ---- 2. a number that prints as zero --------------------------------------------------
 
-test_that("1f zero: .num and .pct of a non-zero number that prints as zero is a value error naming sigfig and digits", {
-  as_error <- function(expr) tryCatch({ expr; NULL }, error = function(e) e)
-  e <- as_error(fmt_num(0.04))
-  expect_s3_class(e, "weft_value_error")
-  if (inherits(e, "error")) {
-    expect_match(conditionMessage(e), "zero", ignore.case = TRUE)
-    expect_match(conditionMessage(e), "sigfig", fixed = TRUE)
-    expect_match(conditionMessage(e), "digits", fixed = TRUE)
-  }
-  expect_error(fmt_num(-0.04), class = "weft_value_error")
-  expect_error(fmt_num(1e-6), class = "weft_value_error")
-  expect_error(fmt_num(c(3, 0.04)), class = "weft_value_error")
-  e2 <- as_error(fmt_pct(0.0004))
-  expect_s3_class(e2, "weft_value_error")
-  if (inherits(e2, "error")) {
-    expect_match(conditionMessage(e2), "sigfig", fixed = TRUE)
-    expect_match(conditionMessage(e2), "digits", fixed = TRUE)
-  }
-  expect_error(fmt_pct(-0.0004), class = "weft_value_error")
+test_that("1f zero (amended by 1g): .num and .pct of a non-zero number that would print as zero print to the first non-zero decimal, with no value error", {
+  expect_equal(b_txt(fmt_num(0.04)), "0.04")
+  expect_equal(b_txt(fmt_num(-0.04)), paste0(B_MINUS, "0.04"))
+  expect_equal(b_txt(fmt_num(1e-6)), "0.000001")
+  expect_equal(b_txt(fmt_num(c(3, 0.04))), c("3", "0.04"))
+  expect_equal(b_txt(fmt_pct(0.0004)), "0.04%")
+  expect_equal(b_txt(fmt_pct(-0.0004)), paste0(B_MINUS, "0.04%"))
 })
 
 test_that("1f zero: with digits or sigfig given it prints as asked; exact zero and ordinary values print as before", {
@@ -330,42 +318,39 @@ test_that("1f zero: with digits or sigfig given it prints as asked; exact zero a
 })
 
 Z_ROWS <- list(
-  b_row("Z01", "`r 0.04`{.num}", "1f zero: default digits", rx = "weft: value error, line @L@"),
-  b_row("Z02", "`r 0.0004`{.pct}", "1f zero: .pct", rx = "weft: value error, line @L@"),
+  b_row("Z01", "`r 0.04`{.num}", "1f zero (1g): default digits print the first non-zero decimal", want = "Z01 0.04", collected = FALSE),
+  b_row("Z02", "`r 0.0004`{.pct}", "1f zero (1g): .pct", want = "Z02 0.04%", collected = FALSE),
   b_row("Z03", "`r 0.04`{.num digits=\"1\"}", "1f zero: digits on the construct", want = "Z03 0.0", collected = FALSE),
   b_row("Z04", "`r 0.04`{.num sigfig=\"1\"}", "1f zero: sigfig on the construct", want = "Z04 0.04", collected = FALSE),
   b_row("Z05", "`r 0.0004`{.pct digits=\"1\"}", "1f zero: .pct digits", want = "Z05 0.0%", collected = FALSE),
   b_row("Z06", "`r 0.0004`{.pct sigfig=\"1\"}", "1f zero: .pct sigfig", want = "Z06 0.04%", collected = FALSE),
   b_row("Z07", "`r 0`{.num} and `r 0`{.pct}", "1f zero: exact zero", want = "Z07 0 and 0%", collected = FALSE),
   b_row("Z08", "`r 0.06`{.num} and `r 0.004`{.pct}", "control", want = "Z08 0.1 and 0.4%", collected = FALSE),
-  b_row("Z09", "`r -0.04`{.num}", "1f zero: negative", rx = "weft: value error, line @L@")
+  b_row("Z09", "`r -0.04`{.num}", "1f zero (1g): negative", want = paste0("Z09 ", B_MINUS, "0.04"), collected = FALSE)
 )
 
-test_that("1f zero: in a knit the error is collected; a project default digits in _weft.yml does not count as given", {
+test_that("1f zero (amended by 1g): in a knit nothing is collected; a project default digits in _weft.yml does not count as given", {
   b <- b_body(Z_ROWS)
   res <- render_rmd(b$lines, code = PRE_1F, in_process = TRUE, env = c(WEFT_DRAFT = "1"),
                     files = list("_weft.yml" = "digits: 1"))
   b_need(res)
   b_check_lines(res, b, Z_ROWS, "rmd")
   f <- res$knit$failures
-  expect_equal(sum(f$kind == "value error"), 3L)
-  expect_match(paste(f$detail, collapse = " "), "sigfig", fixed = TRUE)
+  expect_equal(sum(f$kind == "value error"), 0L)
+  expect_equal(NROW(f), 0L)
 })
 
-test_that("1f zero: a project default digits in front matter does not count as given either", {
+test_that("1f zero (amended by 1g): a project default digits in front matter does not count as given either", {
   res <- render_rmd(c("Z `r 0.04`{.num} and `r 0.04`{.num digits=\"1\"}."), code = PRE_1F,
                     in_process = TRUE, front = c("weft:", "  digits: 1"))
-  expect_true(res$failed)
-  expect_equal(nrow(res$knit$failures), 1L)
-  expect_equal(res$knit$failures$kind, "value error")
-  expect_match(res$message, "sigfig", fixed = TRUE)
+  expect_false(res$failed, label = res$message)
+  expect_match(res$md, "Z 0.04 and 0.0.", fixed = TRUE)
 })
 
-test_that("1f zero: without draft mode the render fails once, with the failure reported; with digits given it renders", {
-  bad <- render_rmd(c("Z `r 0.04`{.num} here."), code = PRE_1F, in_process = TRUE)
-  expect_true(bad$failed)
-  expect_true("weft_failures" %in% bad$error$class)
-  expect_match(bad$message, "zero", ignore.case = TRUE)
+test_that("1f zero (amended by 1g): without draft mode a small number renders, as 0.04; with digits given it prints 0.0", {
+  r1 <- render_rmd(c("Z `r 0.04`{.num} here."), code = PRE_1F, in_process = TRUE)
+  expect_false(r1$failed, label = r1$message)
+  expect_match(r1$md, "Z 0.04 here.", fixed = TRUE)
   ok <- render_rmd(c("Z `r 0.04`{.num digits=\"1\"} here."), code = PRE_1F)
   expect_false(ok$failed, label = ok$message)
   expect_match(ok$md, "Z 0.0 here.", fixed = TRUE)

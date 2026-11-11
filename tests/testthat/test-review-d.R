@@ -52,7 +52,7 @@ test_that("review D #2: a number-stage class after clamp() formats the bound and
   expect_equal(b_rec(b)$relation, ">")
   n <- fmt_num(clamp(0.005, floor = 0.01))
   expect_equal(b_rec(n)$relation, "<")
-  expect_match(b_txt(n), "^<")
+  expect_equal(b_txt(n), "< 0.01")   # 1g: the bound 0.01 prints as itself
   expect_equal(b_rec(fmt_sci(clamp(0.005, floor = 0.01)))$relation, "<")
   # control: inside the bounds the class prints the value
   expect_equal(b_txt(fmt_pct(clamp(0.5, 0.1, 0.9))), "50%")

@@ -54,3 +54,13 @@ prints an empty string is not a span and changes nothing.
 
 One new file `tests/testthat/test-1g.R`; the 1f tests for the value error
 and older assertions that conflict are amended by the test-writer.
+
+## Rulings on the test-writer's report
+
+- Only one space is removed, the one before the span, however many there
+  are.
+- A line break inside a paragraph is a space in every bullet.
+- Two empty spans in a row each remove the space before them.
+- An empty span inside an arm is judged against its own arm's text.
+- A bare value with no attribute block is not formatted by weft (1.3.1);
+  the rule for small numbers does not reach it.

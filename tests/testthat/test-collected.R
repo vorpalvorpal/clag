@@ -20,7 +20,7 @@ mk_no_value <- function(tag, src, rule) {
 FAIL_ROWS <- list(
   b_row("S01", "[RISE | FALL]{sign=\"zero_chg\"} x", "1.5.3 + 2.6.8: a two-arm sign at zero is a failed claim",
         rx = "^S01 .*<<weft: failed claim, line @L@>>"),
-  b_row("S02", "[RISE | FALL]{sign=\"0.02\"} x",
+  b_row("S02", "[RISE | FALL]{sign=\"0.02\" digits=\"1\"} x",
         "1.5.3 + 1.5.10: a two-arm sign that prints 0.0 is a failed claim",
         rx = "^S02 .*<<weft: failed claim, line @L@>>"),
   mk_value_error("S03", "[UP | DOWN]{sign=\"clamp(0.05, 1)\"}", "1.5.17 + 5.3.2: a sign governor that prints as a bound"),
