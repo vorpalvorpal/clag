@@ -12,9 +12,6 @@ around.
   day when nothing is flagged, and every such list needs an `if` around it.
   A key for the empty case (`none="none"`) would be new syntax. Not made;
   options put to Robin on 2026-11-12.
-- **From the trials: trimmed arms (1.5.12).** A span whose arm is a whole
-  sentence cannot carry the space that follows it. Not made; options put to
-  Robin on 2026-11-12.
 - **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
   hooks run under the Render buttons of RStudio or Positron first (§22).
 
@@ -192,3 +189,17 @@ and are entries 30 to 37 under "Made".
     record; export it. Chosen: export it with a help page. Why: one name,
     already the name the notes use, and `rehearse()` returns the same
     records. Reverse: drop the export.
+38. **1.4.13, a small number under the default digits (Robin, 2026-11-12;
+    replaces the value error of entry 33).** Robin asked for the first
+    non-zero decimal instead of a failed render, safe against floating
+    point noise. Chosen: one significant figure when the default digits
+    would print zero; a number below 1e-9 in absolute value is zero.
+    Alternatives for the noise rule: a relative tolerance (needs a second
+    number to compare with); `zapsmall()` over a vector (the same value
+    would print differently beside different neighbours). Contract:
+    `dev/design-1g.md`. Reverse: `R/format.R`.
+39. **1.5.12, an empty arm and the space beside it (Robin's choice,
+    2026-11-12).** Of four options (leave; stop trimming; keep one edge
+    space; the span owns the space beside it) Robin chose the last. When a
+    span prints nothing, one adjacent space is removed. Contract:
+    `dev/design-1g.md`. Reverse: `R/resolve.R`.
