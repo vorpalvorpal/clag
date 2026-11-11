@@ -1117,6 +1117,7 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 
 - more than one of `n`, `if`, `sign`, `cite` in one block; any of them on a
   value (1.1.5, 1.3.3)
+- a code span that opens with `r` and a line break (5.3.4)
 - a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9)
 - a bare-form `cite` value that is not keys only; a key outside Pandoc's key
   grammar; a formatter class on a `cite` span (1.8.4, 1.8.5, 1.8.7)
@@ -1146,6 +1147,12 @@ that prints as a bound (1.5.17).
   is listed as a probable construct.
 - An `if` whose condition compares a value with zero is listed as probably
   wanting `sign`.
+
+**5.3.4** knitr reads inline R only when `r` is followed by a space on the
+same line. A code span that opens with `r` and then a line break is left by
+knitr as literal code, and prints its expression. It is a construct error,
+with or without an attribute block, and the `weft-check` filter fails on a
+code span whose text begins `r ` (2.5.3).
 
 ### 5.4 Marker spans and citations — tier 1
 
@@ -1321,8 +1328,7 @@ does not knit, and it does not use the network.
 **6.4.3** It reads the index (`git show :<file>`), not the worktree.
 
 **6.4.4** `use_hooks()` records the paths of R and of Pandoc, and the hook
-uses those. It calls the Pandoc binary itself, not `quarto pandoc`, and starts
-it once for all the files of a commit.
+uses those. It calls the Pandoc binary itself, not `quarto pandoc`.
 
 **6.4.7** The hook reads the staged files that changed, and for the removal
 check their versions in `HEAD`. What it needs from the rest of the book (the
@@ -1387,6 +1393,8 @@ report. It lists:
 
 - removals, each with its acknowledgement
 - additions to the baseline, by kind
+- edited constructs (6.2.2), each with its expression before and after
+- constructs whose expression changed under an unchanged `#id`
 - checks loosened or removed, each with its before and after
 - guards made optional (a one-arm `if` that gained an empty arm)
 - computed values replaced by literals
@@ -2093,6 +2101,9 @@ exempt it as a mix of letters and digits. It is a number.
 switched on. Baselined, it stops new ones at once and leaves the old ones as a
 visible, shrinking list.
 
+**5.3.4** An editor's re-wrap does this without the author typing anything,
+and the page then shows R code where a number was.
+
 **5.3.3** A governor key misspelt beyond a near miss
 (`[a site | # sites]{count="k"}`) leaves an ordinary Pandoc span that prints
 both arms. An `if` on a sign has no arm for zero and no rule for a value that
@@ -2149,14 +2160,17 @@ shell's `PATH`.
 **6.4.6** Correct. See §14.
 
 **6.4.4, 6.4.7** `quarto pandoc` costs about 0.15 s more per call than the
-binary it wraps, and one process per file costs more than one for all. A book
-of twenty chapters took about nine seconds to scan in full (§18), which is too
-long to do on every commit.
+binary it wraps. A book of twenty chapters took about nine seconds to scan in
+full (§18), which is too long to do on every commit.
 
 **6.5** Some costs are legal one at a time and corrosive in bulk. Requiring
 the commit to add the item puts the addition in the diff. Sorted, one per
 line, the file merges cleanly, and moving a paragraph to another file shows as
 one item removed and one added.
+
+**6.6.1** (edits and ids) An edit is not acknowledged, and an `#id` keeps its
+identity whatever its expression becomes. The report is the only place either
+change shows.
 
 **6.6.1** The pressure runs toward widening a bound rather than rewriting a
 sentence, so every changed check is shown with its before and after.
@@ -2458,7 +2472,8 @@ which is unoptimised R.
 | The hook end to end, one changed file of 300 paragraphs: 0.7 to 1.0 s for the staged version alone, 1.7 s with the `HEAD` version and the matching | R, Pandoc, git |
 | Five changed files: 2.9 s staged alone, 8.9 s with matching, of which 5.2 s is the scanner and matcher | R, Pandoc, git |
 | A book of 20 chapters of 300 paragraphs over a commit range: 8.8 s for one version, 28.5 s for both with matching | R, Pandoc, git |
-| Twenty files through one Pandoc process take 1.8 s, against 2.8 s for twenty processes | Pandoc |
+| Twenty files through one Pandoc process take 1.8 s, against 2.8 s for twenty processes; end to end the gain is lost in reading one large JSON file | Pandoc, R |
+| A line wrap directly after `` `r `` stops knitr reading inline R: the code prints as a code span, with no error. A plain re-wrap at 55 columns did this to 530 of 5,500 values in a test document | knitr |
 
 ### Activation
 
@@ -2590,9 +2605,12 @@ state is not decided.
 
 **Q11 — The gate's time.** With the stand-in scanner, a commit of five
 chapters took about nine seconds, most of it in R code scanning and matching.
-Whether the real scanner is fast enough in R, and whether the cache of 6.4.7
-is enough to keep a book-wide check off every commit, is not known. No budget
-is set.
+The cost follows the size of the files touched, not the size of the change.
+About one second for a commit that touches one chapter looks reachable; more
+than that needs the scan limited to the paragraphs that differ from `HEAD`,
+which was not tried. Whether the cache of 6.4.7 keeps a book-wide check off
+every commit is not known. No budget is set, and the timings were taken on a
+machine under load.
 
 **Q12 — The matching thresholds.** The shared-word thresholds of 6.2.4 were
 chosen on the same 72 edits they were scored on, in one synthetic manuscript.
