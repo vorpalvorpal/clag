@@ -18,11 +18,12 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 1a, the kernel | Done, reviewed twice, check clean |
 | Trials on two real documents | Done: `dev/field-notes.md` |
 | Stage 1c (captions, `weft_str()`, front matter, ten trial bugs) | Done. Reviewed once (`dev/review-1c.md`, 18 findings), rulings in `dev/design-1c.md`, 31 regression tests, all fixed and committed |
-| Stages 1b and 1d (contract `dev/design-1b.md`) | Built, 612 tests passed. Reviewed once (`dev/review-1b.md`, 27 findings), rulings in `dev/design-1b.md`, 39 regression tests committed in `test-review-d.R`; fixer running |
-| Stage 1e (`arms()`, `rehearse()`, contract `dev/design-1e.md`) | 27 tests written, parked in `tests/testthat/_1e/` until the 1b fixer is out of `R/`; implementer not yet dispatched |
+| Stages 1b and 1d (contract `dev/design-1b.md`) | Done. Reviewed once (`dev/review-1b.md`, 27 findings), rulings in `dev/design-1b.md`, 39 regression tests, all fixed and committed |
+| Stage 1e (`arms()`, `rehearse()`, contract `dev/design-1e.md`) | Done. Reviewed once (`dev/review-1e.md`, 13 findings), rulings in `dev/design-1e.md`, 13 regression tests, all fixed and committed |
+| Trials again on the finished stage 1 | Done: `dev/field-notes.md` report 3. Same text as the first trials |
 | `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
 | Stages 0, 2, 3, 4 | not started |
-| Usage | weekly window 80% at 07:15. Plan: stop dispatching near 90% |
+| Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
 
 ## How to run things
 
@@ -32,9 +33,11 @@ Newest state first. Read this before anything else after a context reset.
 
 ## Next
 
-1. 1b fixer reports: rule on disputes, run the suite, commit.
-2. Move `tests/testthat/_1e/*.R` up, confirm they fail for the missing
-   functions, dispatch the 1e implementer, commit.
-3. `devtools::check()` from a clean `git archive` export: 0 errors, 0
-   warnings.
-4. Stage 2 (design note first) only if the weekly window allows.
+1. Stage 2 (dictionary, quantities, ledger, `changes()`): write
+   `dev/design-2.md` first, then the same cycle as stage 1 (tests from the
+   contract, a different implementer, an independent review, regression
+   tests, a fixer).
+2. The items in `dev/decisions.md` under "For Robin" and
+   `dev/open-findings.md`.
+3. `.Rprofile` activation and `use_setup()`, once the hooks have been run
+   under the Render buttons.

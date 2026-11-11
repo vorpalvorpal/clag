@@ -159,3 +159,13 @@ around.
     `R/format.R`.
 26. **1.6.8, `.date`.** It prints English month names. Chosen: a construct
     error under a `lang` that is not English; the rule lists it now.
+27. **3.7.2, how a rehearsal's child process starts.** The review of 1e
+    found a document activated from the project `.Rprofile` could not be
+    rehearsed. Chosen: the child starts in the project root and reads its
+    `.Rprofile`, as a render does; the knit's working directory is the
+    document's. Reverse: `R/rehearse.R` (add `--vanilla` back).
+28. **3.7.2, case names.** A case named after a column of the result
+    (`file`, `span`, `reached` and the rest) is an error before anything
+    runs. Reverse: `R/rehearse.R`.
+29. **3.7.3, a span that chose no arm.** It has a row in `chosen` with
+    `arm` `NA` and is not in `unevaluated`. Reverse: `R/rehearse.R`.
