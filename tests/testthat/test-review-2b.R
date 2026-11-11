@@ -102,8 +102,8 @@ test_that("review 2b #2: a sign span prints # with the unit (4.4.4 reversed)", {
   expect_equal(ws("[up by # | down by # | flat]{sign=\"-0.3\"}"), "down by 0.3")   # control
 })
 
-test_that("review 2b #2: a wording class that turns # into a word leaves the unit off (4.4.2)", {
-  expect_equal(ws("[# long]{n=\"u(3, m)\" .count}"), "three long")
+test_that("review 2b #2: a wording class that turns # into a word takes the unit's name (4.4.2, 2f)", {
+  expect_equal(ws("[# long]{n=\"u(3, m)\" .count}"), paste0("three", M, "etres long"))
   expect_equal(ws("[# long]{n=\"u(12, m)\" .count}"), paste0("12", M, " long"))   # digits keep it
 })
 
@@ -130,9 +130,9 @@ test_that("review 2b #4/a: # of a list span over quantities is the collapsed lis
   expect_equal(once(w("")), 1L)
 })
 
-test_that("review 2b #4/a: a list span over sites with .count puts the unit once after the last number (4.4.3)", {
-  expect_equal(ws("[# was | # were]{list=\"u(c(3,12), sites)\" .count}"),
-               paste0("three and 12", NBSP, "sites were"))
+test_that("review 2b #4/a: a list span over metres with .count puts the unit once after the last number (4.4.3)", {
+  expect_equal(ws("[# was | # were]{list=\"u(c(3,12), m)\" .count}"),
+               paste0("three and 12", NBSP, "m were"))
 })
 
 test_that("review 2b #4/a: a list span over plain numbers is unchanged (control)", {

@@ -123,7 +123,7 @@ test_that("2b chain: a collapse given the weft_text places the unit once (D29)",
 })
 
 test_that("2b chain: wording and text classes keep the record's unit rules (stage ii, stage iv)", {
-  expect_equal(tx(fmt_word(fmt_num(u(3, m)))), "three")
+  expect_equal(tx(fmt_word(fmt_num(u(3, m)))), paste0("three", NB, "metres"))
   expect_equal(tx(fmt_a(fmt_num(u(8, m)))), paste0("an 8", NB, "m"))
   expect_match(tx(fmt_strong(fmt_num(u(3, m)))),
                paste0("^(\\*\\*|__)3", NB, "m(\\*\\*|__)$"))
@@ -131,11 +131,13 @@ test_that("2b chain: wording and text classes keep the record's unit rules (stag
 
 # ---- wording classes (stage ii) --------------------------------------------------------
 
-test_that("2b stage ii: an element turned into a word takes no unit; one in digits takes it", {
-  expect_equal(tx(fmt_count(u(3, sites))), "three")
-  expect_equal(tx(fmt_count(u(12, sites))), paste0("12", NB, "sites"))
-  expect_equal(tx(fmt_word(u(3, m))), "three")
-  expect_equal(tx(fmt_no(u(0, m))), "no")
+test_that("2b stage ii: an element turned into a word takes the unit's name (2f, 4.4.2); one in digits takes the symbol", {
+  # 2f: a wording class needs a name, judged on the class: sites has none without a units: entry
+  expect_error(fmt_count(u(3, sites)), class = "weft_value_error")
+  expect_error(fmt_count(u(12, sites)), class = "weft_value_error")
+  expect_equal(tx(fmt_count(u(12, m))), paste0("12", NB, "m"))
+  expect_equal(tx(fmt_word(u(3, m))), paste0("three", NB, "metres"))
+  expect_equal(tx(fmt_no(u(0, m))), paste0("no", NB, "metres"))
   expect_equal(tx(fmt_no(u(2, m))), paste0("2", NB, "m"))   # control: .no leaves a non-zero value
   expect_equal(tx(fmt_ord(u(3, m))), paste0("3rd", NB, "m"))
   expect_equal(tx(fmt_word(u(120, m))), paste0("120", NB, "m"))   # at or above word_limit: digits
@@ -169,9 +171,9 @@ test_that("2b stage iii: with trunc the unit follows the last number printed, be
                paste0("3, 5", NB, "m and 2 others"))
 })
 
-test_that("2b stage iii: when the last element is a word the unit is not added (D24)", {
+test_that("2b stage iii: when the last element is a word the unit after it is its name (2f, D24 replaced)", {
   # 5 prints as a word under .word, 20 stays in digits: only the last element decides
-  expect_equal(tx(fmt_and(fmt_word(u(c(200, 5), m)))), "200 and five")
+  expect_equal(tx(fmt_and(fmt_word(u(c(200, 5), m)))), paste0("200 and five", NB, "metres"))
   expect_equal(tx(glue_vec(fmt_word(u(c(5, 200), m)))), paste0("five and 200", NB, "m"))
 })
 
@@ -308,7 +310,7 @@ BATCH_2B <- c(
   "`r u(c(3, 5, 7, 9), m)`{.and trunc=\"2\"}",                             # 15
   "`r u(c(a = 3, b = 5), m)`{.pairs}",                                     # 16
   "`r u(c(3, 5), m)`{.num}",                                               # 17 each element
-  "`r u(3, sites)`{.count} / `r u(12, sites)`{.count}",                    # 18
+  "`r u(3, m)`{.count} / `r u(12, m)`{.count}",                          # 18
   "`r u(3, m)`{.word}",                                                    # 19 three
   "`r u(0, m)`{.no}",                                                      # 20 no
   "`r u(8, m)`{.a} / `r u(3, m)`{.strong}",                                # 21
@@ -339,9 +341,9 @@ B2B_WANT <- c(
   paste0("3, 5", NB, "m and 2 others"),
   paste0("a (3", NB, "m) and b (5", NB, "m)"),
   paste0("3", NB, "m, 5", NB, "m"),
-  paste0("three / 12", NB, "sites"),
-  "three",
-  "no",
+  paste0("three", NB, "metres / 12", NB, "m"),
+  paste0("three", NB, "metres"),
+  paste0("no", NB, "metres"),
   paste0("an 8", NB, "m / **3", NB, "m**"),
   NA,
   paste0("0.5", NB, "m metres"),
