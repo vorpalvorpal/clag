@@ -117,3 +117,23 @@ around.
     from its front matter rendered unresolved with no error. Chosen:
     `Imports: knitr (>= 1.51)`, and `weft_setup()` stops with a clear error
     on an older knitr. Reverse: needs another answer to Q16.
+21. **Stages 1b and 1d, formats the rules leave open.** `.p` thresholds and
+    decimals, the en dash of `.range`, the sound rule of `.a`, the default
+    date format, the "and N others" of `trunc`, the block forms of the list
+    classes, the named fractions and tolerance of `about()`, the cases of
+    `of_n()`, the argument lists of `ci()`, `pm()` and `clamp()`, and the
+    sentence-start list are each decided in `dev/design-1b.md` ("What the
+    spec leaves open"). Several are matters of wording and are Robin's to
+    confirm. Reverse: each is one function in `R/format.R` or
+    `R/phrases.R`.
+22. **1.10, captions and strings.** Only a caption written as a literal is
+    resolved; a caption computed by R code is data (2.2.4). Bare inline R in
+    a caption stays as stock leaves it; in a `weft_str()` string it is
+    evaluated. A construct in a front-matter field other than the four of
+    1.10.7 is a construct error. Reverse: `R/captions.R`,
+    `R/scan-contexts.R`.
+23. **3.7, how `rehearse()` runs a case.** A Quarto render inside a project
+    writes `_freeze` and the output directory, which 3.7.2 forbids. Chosen:
+    `rehearse()` runs the knit only, in a fresh R process with output in a
+    temporary directory. Cost: `{{< include >}}` is not expanded and
+    project metadata is not read during a rehearsal. Reverse: `R/rehearse.R`.
