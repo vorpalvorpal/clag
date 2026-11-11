@@ -2142,8 +2142,9 @@ a sentence replaced by another from the same template about a different
 thing; the report shows it as an edit, with both expressions, so it is
 visible but not acknowledged.
 
-**6.2.5** A re-wrap can leave `# ` at the start of a line inside an arm, and
-the paragraph then parses as something else with its constructs gone.
+**6.2.5** A re-wrap can break a line directly after `` `r `` (5.3.4), or leave
+`# ` at the start of a line inside an arm. Either way the words survive and
+the constructs do not.
 
 **6.3.1, 6.3.2** An entry in a file is in the diff, where a reviewer sees it,
 and survives a squash or a rebase. A trailer needs the commit message, which
@@ -2464,7 +2465,9 @@ which is unoptimised R.
 | A test manuscript of 10 anchored sections and 156 constructs, and 72 scripted edits with known answers. With no paragraph matching, every real removal is reported, and 35 edits also report a removal that was an edit or a move (139 acknowledgements asked for, against 98 that were due) | R |
 | Pairing by position alone: 61 of 72 right; 8 edits report a false removal; 3 call a real removal an edit | R |
 | Pairing on shared words (at least half within a section, 0.6 across sections), and comparing constructs even when the words are the same: 71 of 72 right, no false removal. The one miss is a templated sentence replaced by the same template about another thing | R |
-| A re-wrap that left `# ` or `> ` at the start of a line changed Pandoc's parse and dropped 31 constructs from it; only the construct-by-construct comparison saw it | R, Pandoc |
+| A plain re-wrap at 55 columns removed 32 constructs from a paragraph without changing a word: 31 where the line broke directly after `` `r ``, one where `# ` landed at the start of a line. Matching on words alone saw one of them; comparing construct by construct saw all 32 | R, knitr, Pandoc |
+| Three changes the rules themselves do not call a removal: an identity removed from one paragraph and added in another (counted as a move); an expression changed under an unchanged `#id`; an unrelated construct put in place of another within one paragraph (counted as an edit) | R |
+| A section headed in the underlined (setext) style was not seen as a section by the spike's line-based splitter | R |
 | Blocks split on blank lines agree with Pandoc's paragraphs, headings and list items on every block start Pandoc reports (93 against 90; the extra ones are inside a table and a code block) | Pandoc |
 | R starts in 0.13 s; loading `jsonlite` and `yaml` adds nothing measurable, `knitr` 0.06 s | R |
 | The Pandoc binary starts in 0.03 s, `quarto pandoc` in 0.18 s | Pandoc |
