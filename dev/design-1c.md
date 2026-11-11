@@ -1,0 +1,113 @@
+# Stage 1c — internal contract
+
+Built straight after the kernel, ahead of 1b (`dev/decisions.md` entry 19).
+`dev/design-1a.md` still holds for everything it says; this note adds to it.
+Where this note and a numbered rule disagree, the rule wins.
+
+## Scope
+
+1. Captions in chunk options (rules 1.10.1–1.10.4, 1.10.6, 2.1.1 rows
+   `opts_hooks` and `chunk`, 2.1.4, 2.3.1–2.3.5).
+2. `weft_str()` (1.10.10, 3.6, 2.6.8 for its marker, 2.4.1).
+3. Constructs in front-matter fields and in a late metadata block
+   (1.10.7–1.10.9, 1.10.11, 2.10.6 for the scanner).
+4. The scanner over those three places (2.10.2): `scan_file()` returns their
+   constructs too.
+5. The trial bugs listed at the end.
+
+NOT in this stage: `.Rprofile` activation and `use_setup()` (§22 holds them
+for Q2), and everything of 1b (`sign`, ids, `.p`, `.range`, `.cap`, `.a`,
+`lookup()`, `brk()`, `cite`, `.weft-literal`), 1d and 1e. Those names still
+give the "not built yet" construct error.
+
+## Interfaces
+
+### `weft_str(x)` (exported)
+
+`x` is a character vector of markup; each element is resolved as a prose
+block and the same-length character vector is returned (markdown text). It
+is evaluated in the caller's environment (`parent.frame()`).
+
+- During a knit, failures are collected (2.4.1, 3.6.3) with the marker naming
+  the chunk: `<<weft: failed claim, chunk fig-depth>>` (2.6.8). The record's
+  `line` is `NA` and its `chunk` is the current chunk label.
+- Outside a knit, a failed check, a missing value, a value error and a
+  construct error each stop at once with their class (`weft_claim_failed`,
+  `weft_no_value`, `weft_value_error`, `weft_construct_error`).
+- A construct error in the string stops the render as one in prose does
+  (2.6.5), named by chunk; in draft mode it is a marker.
+- It works with no hooks installed (it does not need `weft_setup()`), and
+  then behaves as "outside a knit" does.
+- Block-only constructs do not apply; the result of each element is inline
+  markdown.
+
+### Captions
+
+- The caption options are `fig.cap`, `fig.alt`, `fig.scap`, `fig.subcap`,
+  `tbl-cap` (and the names Quarto hands knitr for `fig-cap`, `fig-alt`,
+  `fig-subcap`, `tbl-cap`; find them by experiment and pin them in a test).
+- A caption with no construct and no parked inline R is left exactly as
+  stock leaves it (stock parity).
+- A failure in a caption is recorded with `chunk` = the label and the option
+  named in `detail`; the report locates it "chunk <label>, <option>"
+  (2.3.2, 2.6.2). Its marker is `<<weft: failed claim, chunk <label>>>`.
+- Static errors (found when the knit is initialised, from `scan_file()`):
+  a caption with a construct that is not a YAML block scalar in a `#|`
+  option (1.10.3); a construct in the caption of a chunk with `cache: true`
+  (chunk or document level), `eval: false` or a non-R engine (2.3.5); a
+  construct in `tab.cap`, or under `!expr` in `fig-subcap` (1.10.4). Under
+  rmarkdown a caption written in the chunk header (`fig.cap="..."`) is an R
+  string, and a construct in it is legal when the string is a plain literal.
+
+### Front matter
+
+- Fields: `title`, `subtitle`, `abstract`, `description`, in the first YAML
+  block and in any later metadata block (1.10.9). Block scalars only
+  (1.10.7); a construct in another form of scalar is a construct error found
+  when the knit is initialised.
+- Bare inline R in any field keeps stock behaviour (1.1.8).
+- A construct in `title` in a book or website project is a construct error
+  (1.10.11); "book or website" is read from `_quarto.yml` `project: type:`.
+- Positions point into the YAML (the line in the file).
+- Front-matter constructs need activation that is early enough: the
+  front-matter route (9.2.1). With setup-chunk activation the first block is
+  not processed (9.2.5) and the end-of-document check reports the construct.
+
+### `scan_file(path)` additions
+
+A new column `context`: `"prose"`, `"caption"`, `"front-matter"`,
+`"weft_str"`. For a caption, `chunk` holds the label and `option` the option
+name; `line` is the line in the file where the construct sits. A literal
+string passed to `weft_str()` in chunk code is scanned (3.6.2, 2.10.2):
+`context = "weft_str"`, `chunk` the label, `line` the line of the string's
+start in the file. `scan_text()` is unchanged.
+
+## Trial bugs to fix in this stage (from `dev/field-notes.md`)
+
+1. A construct left raw must never pass silently. In a single document
+   (no `weft-check` filter), a construct in a caption option, a front-matter
+   field or `results: asis` output that the hooks did not resolve is caught:
+   captions and front matter by this stage's code; anything else by the
+   end-of-document check where the scanner can see it. `results: asis` text
+   is built in R and cannot be seen; rule 1.10.10 says it goes through
+   `weft_str()`. Document that; no code.
+2. A span broken by a blank line (`[a\n\nb]{if="x"}`) leaks `]{if=...}` into
+   the output with exit 0. A `]{...}` holding a weft key, with no opening
+   bracket in its paragraph, is a construct error ("the span is split by a
+   blank line").
+3. `claim(vec, . > 0)` where the check returns a vector: the message says
+   the check returned N values and suggests `all()`.
+4. A failed check in chunk code is reported with its chunk AND the check as
+   written and the value (2.6.2), one entry per check; a Date or factor
+   value is shown as `format()` prints it, not as `structure(...)`.
+5. An `#id` on a value or a governed span is a "not built yet" construct
+   error until 1b builds ids (it was silently accepted).
+6. `if="x == \"a\""` reports the quoting rule (1.2.3), not "spaces around =".
+7. A report line for a failed guard gives the phrase and each failing
+   condition as written (2.6.3).
+8. The post-render report prints text unescaped (no `\"`), and keeps two
+   findings with no line as two entries.
+9. The pre-render message does not name `use_setup()` while it is unbuilt;
+   it says to add `engine: knitr` to the file's front matter.
+10. A chunk with no label is located by "the chunk at line N" as well as
+    knitr's generated label.
