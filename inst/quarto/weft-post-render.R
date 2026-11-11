@@ -4,8 +4,8 @@
 # Plain base R: works when weft is not installed. It prints ONE report for
 # the whole render, in the layout of rule 2.6.2:
 #   * the failures the chapters appended to .weft/failures.jsonl and the
-#     filter's findings (a filter line that repeats a knit line, or a
-#     failure recorded in a stamp, is dropped);
+#     filter's findings (a filter line is dropped only when it is a marker
+#     that a knit line or a failure recorded in a stamp explains);
 #   * the failures recorded in the stamp of every document served from
 #     freeze, which was not executed in this render (2.9.4);
 #   * a freeze notice per such document with constructs: how many checks did
@@ -57,6 +57,7 @@ local({
       detail <- paste0(field(l, "message"), ": ", field(l, "text"))
     }
     list(source = field(l, "source"), kind = ifelse(is.na(kind), "failure", kind),
+         text = field(l, "text"),
          file = field(l, "file"), line = ln, chunk = field(l, "chunk"),
          expr = field(l, "expr"), detail = detail, hint = field(l, "hint"),
          option = field(l, "option"), chunk_line = suppressWarnings(as.integer(field(l, "chunk_line"))))
@@ -73,7 +74,10 @@ local({
   run_id <- if (length(run)) run[1] else ""
   run_files <- if (length(run) > 1L) run[-1] else character()
 
-  recs <- lapply(rd(coll), record)
+  # the first line of the collection file names the run; only lines that are
+  # a failure or a finding are records
+  cl <- rd(coll)
+  recs <- lapply(cl[grepl("\"source\":", cl, fixed = TRUE)], record)
   for (i in seq_along(recs)) recs[[i]]$file <- relpath(recs[[i]]$file)
 
   # ---- documents served from freeze ------------------------------------------
@@ -93,16 +97,58 @@ local({
       failures = lapply(sub(",\\s*$", "", fl), record))
   }
 
+  # a document served from freeze that has no stamp at all (a fresh clone:
+  # `_freeze/` is committed, `.weft/stamps/` is not) was never checked on this
+  # machine. It is told from one that holds no construct by looking for a
+  # construct in its source (2.9.2).
+  stamped <- vapply(list.files(sdir, pattern = "\\.json$", full.names = TRUE), function(sf) {
+    f <- field(paste(rd(sf), collapse = ""), "source")
+    if (is.na(f)) "" else f
+  }, "")
+  has_construct <- function(f) {
+    x <- tryCatch(readLines(file.path(root, f), warn = FALSE, encoding = "UTF-8"),
+                  error = function(e) character())
+    if (length(x) && grepl("^---\\s*$", x[1])) {
+      end <- which(grepl("^(---|\\.\\.\\.)\\s*$", x[-1]))
+      if (length(end)) x <- x[-seq_len(end[1] + 1L)]
+    }
+    any(grepl("\\]\\{([^}]*[[:space:]])?(n|if|sign|cite)[[:space:]]*=", x, ignore.case = TRUE, perl = TRUE) |
+          grepl("\\]\\{([^}]*[[:space:]])?\\.(a|cap|strong|em)([[:space:]}]|$)", x, perl = TRUE) |
+          grepl("`(r |R |\\{r\\})[^`]*`\\{[^}]*\\}", x, perl = TRUE))
+  }
+  unchecked <- character()
+  for (f in run_files) {
+    if (!grepl("\\.qmd$", f, ignore.case = TRUE) || f %in% stamped) next
+    stem <- sub("\\.[^.]*$", "", f)
+    if (!dir.exists(file.path(root, "_freeze", stem, "execute-results"))) next
+    if (has_construct(f)) unchecked <- c(unchecked, f)
+  }
+
   # ---- one list of failures -------------------------------------------------
-  key <- function(r) paste(r$file, r$line, r$kind, sep = "\r")
+  # A filter finding has no line (it works on Pandoc's tree). It is keyed by
+  # its file, kind and text, so two different findings are never merged, and
+  # is dropped only when it is a `<<weft:` marker that a knit record already
+  # explains: the same file and kind, and the same line (or, with no line,
+  # the same chunk).
   fails <- Filter(function(r) !identical(r$source, "filter"), recs)
   for (d in frozen) fails <- c(fails, d$failures)
-  seen <- vapply(fails, key, "")
-  for (r in recs) {
-    if (identical(r$source, "filter") && !(key(r) %in% seen)) {
-      fails[[length(fails) + 1L]] <- r
-      seen <- c(seen, key(r))
+  explained <- function(r) {
+    if (is.na(r$detail) || !grepl("<<weft:", r$detail, fixed = TRUE)) return(FALSE)
+    if (is.na(r$line) && is.na(r$chunk)) return(FALSE)
+    for (k in fails) {
+      if (!identical(k$file, r$file) || !identical(k$kind, r$kind)) next
+      if (!is.na(r$line)) { if (identical(k$line, r$line)) return(TRUE) }
+      else if (identical(k$chunk, r$chunk)) return(TRUE)
     }
+    FALSE
+  }
+  seen <- character()
+  for (r in recs) {
+    if (!identical(r$source, "filter")) next
+    k <- paste(r$file, r$kind, r$text, sep = "\r")
+    if (k %in% seen || explained(r)) next
+    seen <- c(seen, k)
+    fails[[length(fails) + 1L]] <- r
   }
 
   where <- function(r) {
@@ -137,12 +183,16 @@ local({
              unlist(lapply(other, entry, tag = TRUE)))
   }
   fz <- Filter(function(d) d$checks > 0L, frozen)
-  if (length(fz)) {
+  if (length(fz) || length(unchecked)) {
     out <- c(out, "", "Served from freeze, not executed in this render (their checks did not run):",
              vapply(names(fz), function(n) {
-               sprintf("  %s: %d check%s did not run; last run %s", n, fz[[n]]$checks,
+               sprintf("  %s: %d construct%s %s not checked; last run %s", n, fz[[n]]$checks,
                        if (fz[[n]]$checks == 1L) "" else "s",
+                       if (fz[[n]]$checks == 1L) "was" else "were",
                        if (is.na(fz[[n]]$executed)) "at an unknown time" else fz[[n]]$executed)
+             }, ""),
+             vapply(unchecked, function(n) {
+               sprintf("  %s: never checked on this machine (there is no stamp for it, so its constructs were not checked here)", n)
              }, ""))
     if (any(vapply(fz, function(d) length(d$failures) > 0L, NA))) {
       out <- c(out, "A frozen document with recorded failures fails the render until it is executed again.")

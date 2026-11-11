@@ -7,9 +7,10 @@
 use_quarto(path = ".")
 }
 \arguments{
-\item{path}{The project root: a directory holding \verb{_quarto.yml}. Where
-there is none, \code{use_quarto()} stops: it does not turn a directory into a
-Quarto project.}
+\item{path}{A directory in the project. \code{use_quarto()} walks up from it to
+the directory that holds \verb{_quarto.yml}, says which directory it took,
+and writes there. Where there is none, it stops: it does not turn a
+directory into a Quarto project.}
 }
 \value{
 The paths it wrote or changed, relative to \code{path}, invisibly.
@@ -29,9 +30,12 @@ It writes:
 }
 
 and edits \verb{_quarto.yml}: \code{weft-check} is added under \verb{filters:}, and the
-two scripts under \verb{project: pre-render:} and \verb{post-render:}. Everything
-else in \verb{_quarto.yml} is kept, and the comments too when the file is
-simple enough to edit as text. Running it again changes nothing.
+two scripts under \verb{project: pre-render:} and \verb{post-render:}. The file is
+edited as text, line by line, and never rewritten from parsed YAML: every
+other line, comments and anchors included, stays as it was. When the edit
+cannot be made safely (a flow-style \verb{filters: [a, b]}, say) \code{use_quarto()}
+stops before it writes anything and prints the lines to add by hand.
+Running it again changes nothing.
 
 The scripts are plain base R and run when weft is not installed. The
 pre-render script fails the render, before anything renders, on a \code{.qmd}

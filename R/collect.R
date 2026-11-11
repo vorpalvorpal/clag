@@ -54,14 +54,62 @@ state_source <- function(s, root) {
   if (startsWith(p, pre)) substring(p, nchar(pre) + 1L) else basename(p)
 }
 
-# The collection file in use: WEFT_COLLECT, or an open .weft/failures.jsonl
-# in the project root. NA when none.
+# The collection file in use: WEFT_COLLECT, or the open .weft/failures.jsonl of
+# the project render this knit is part of. NA when none. A file left behind by
+# a render that stopped is not in use: a knit outside a Quarto render never
+# uses it, and inside one it is used only when the run it names (its first
+# line) is the one in .weft/run, or, with no .weft/run, when it is under an
+# hour old.
 collection_path <- function(root) {
   e <- Sys.getenv("WEFT_COLLECT", "")
   if (nzchar(e)) return(e)
   if (is.na(root)) return(NA_character_)
+  if (!nzchar(Sys.getenv("QUARTO_EXECUTE_INFO", ""))) return(NA_character_)
   p <- file.path(root, ".weft", "failures.jsonl")
-  if (file.exists(p)) p else NA_character_
+  if (!file.exists(p)) return(NA_character_)
+  id <- run_id(root)
+  first <- tryCatch(readLines(p, n = 1L, warn = FALSE), error = function(e) character())
+  mine <- if (length(first)) sub("^.*\"run\":[ ]*\"([^\"]*)\".*$", "\\1", first[1L]) else ""
+  if (!grepl("\"run\"", paste(first, collapse = ""), fixed = TRUE)) mine <- ""
+  if (nzchar(id)) {
+    if (!identical(mine, id)) return(NA_character_)
+  } else {
+    age <- difftime(Sys.time(), file.mtime(p), units = "secs")
+    if (is.na(age) || age > 3600) return(NA_character_)
+  }
+  p
+}
+
+# The failures the chapters rendered so far have appended to the collection
+# file, as a data frame in the layout of failures_frame().
+collected_failures <- function(root) {
+  p <- collection_path(root)
+  empty <- failures_frame_empty()
+  if (is.na(p) || !file.exists(p)) return(empty)
+  x <- tryCatch(readLines(p, warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+  rows <- lapply(x[grepl("\"source\":\"knit\"", x, fixed = TRUE)], function(l) {
+    y <- tryCatch(yaml::yaml.load(l, eval.expr = FALSE), error = function(e) NULL)
+    if (!is.list(y)) return(NULL)
+    data.frame(kind = as.character(y$kind %||% ""), file = as.character(y$file %||% NA_character_),
+               line = suppressWarnings(as.integer(y$line %||% NA_integer_)),
+               chunk = as.character(y$chunk %||% NA_character_),
+               expr = as.character(y$expr %||% NA_character_),
+               detail = as.character(y$detail %||% ""),
+               hint = as.character(y$hint %||% NA_character_),
+               option = as.character(y$option %||% NA_character_),
+               chunk_line = suppressWarnings(as.integer(y$chunk_line %||% NA_integer_)),
+               stringsAsFactors = FALSE)
+  })
+  rows <- Filter(Negate(is.null), rows)
+  if (!length(rows)) return(empty)
+  do.call(rbind, rows)
+}
+
+failures_frame_empty <- function() {
+  data.frame(kind = character(), file = character(), line = integer(),
+             chunk = character(), expr = character(), detail = character(),
+             hint = character(), option = character(), chunk_line = integer(),
+             stringsAsFactors = FALSE)
 }
 
 # The run id the pre-render script wrote (first line of .weft/run), or "".

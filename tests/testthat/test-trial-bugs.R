@@ -12,9 +12,10 @@ tb_head <- c("---", "title: \"t\"", "---", "")
 
 test_that("trial 1 + 2.5 + 1.10.1: a construct in fig.cap in a single rmarkdown document with no filter is never printed raw with a zero exit", {
   doc <- function(hdr, setup = tb_setup) c(tb_head, setup, hdr, "plot(1)", "```", "")
+  # A caption computed by R code is data and is printed as it is (ruling
+  # "computed captions", dev/design-1c.md); test-review-c.R covers it.
   cases <- list(
     literal   = doc("```{r a, echo=FALSE, fig.cap='Cap [a | b]{if=\"TRUE\"}'}"),
-    computed  = doc("```{r b, echo=FALSE, fig.cap=paste0('Cap [a | b]', '{if=\"TRUE\"}')}"),
     cached    = doc("```{r c, echo=FALSE, cache=TRUE, fig.cap='Cap [a | b]{if=\"TRUE\"}'}"),
     unevaluated = doc("```{r d, echo=FALSE, eval=FALSE, fig.cap='Cap [a | b]{if=\"TRUE\"}'}"),
     alt       = doc("```{r e, echo=FALSE, fig.cap='Plain', fig.alt='Alt [a | b]{if=\"TRUE\"}'}")

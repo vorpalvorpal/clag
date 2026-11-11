@@ -165,3 +165,17 @@ left. On the lettered items:
 - **A frozen document with no stamp (finding 6).** Reported in the freeze
   notice as "never checked on this machine", and it fails `verify()` later
   (2.9.3); an ordinary render does not fail on it.
+
+## Rulings on the fixer's report for the review of stage 1c
+
+- The `computed` case of the first test in `test-trial-bugs.R` is dropped:
+  it predates the "computed captions" ruling above and contradicts it.
+- A caption set through `opts_chunk$set()` is a character value and counts
+  as literal, so it is resolved.
+- A knit is in a project render only when `QUARTO_EXECUTE_INFO` is set;
+  otherwise a collection file found by existence is ignored.
+  `WEFT_COLLECT` is always used as given.
+- Left open (in `dev/open-findings.md`): the prose scan reads the code
+  lines of a block-quoted chunk as prose; the filter still uses a stale
+  collection file that is empty and has no run id; `.weft/` is not added
+  to `.gitignore` by `use_quarto()`.

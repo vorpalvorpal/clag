@@ -31,7 +31,7 @@ for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl]]):
 end
 
 local function excerpt(s)
-  s = s:gsub("%s+", " ")
+  s = s:gsub("\0", ""):gsub("%s+", " ")
   if #s > 80 then s = s:sub(1, 77) .. "..." end
   return s
 end
@@ -54,14 +54,18 @@ local function has_placeholder(s)
       or s:find("\xEF[\x80-\xA3][\x80-\xBF]") ~= nil
 end
 
+-- An attribute block that was left behind touches the text before it
+-- (`3{.num}`, rule 1.1.7): braces after a space, or at the start of the text,
+-- are ordinary prose, and so is `]{...}` (an escaped bracket: a span that
+-- was left as a span is found as one by check_span).
 local function attr_block_shown(s)
-  if s:find("{%s*%.[%a_]") then return true end
+  if s:find("[^%s{%]]{%s*%.[%a_]") then return true end
   local lower = s:lower()
   for k in pairs(KEYS) do
-    if lower:find("{%s*" .. k .. "%s*=") then return true end
+    if lower:find("[^%s{%]]{%s*" .. k .. "%s*=") then return true end
   end
   for k in pairs(RENDERER_KEYS) do
-    if lower:find("{%s*" .. k .. "%s*=") then return true end
+    if lower:find("[^%s{%]]{%s*" .. k .. "%s*=") then return true end
   end
   return false
 end
@@ -135,8 +139,7 @@ local function texts(inlines)
   return table.concat(plain), table.concat(all)
 end
 
-local function check_inlines(inlines)
-  local plain, all = texts(inlines)
+local function check_marker_text(all)
   if has_marker_in(all) then
     for body in all:gmatch("<<weft:%s*([^>]*)>*") do
       add("marker", "the marker `<<weft: " .. excerpt(body) .. ">>` is in the text", body)
@@ -145,6 +148,23 @@ local function check_inlines(inlines)
       add("marker", "the text `<<weft:` is in the document", "<<weft:")
     end
   end
+end
+
+-- A code block is chunk output (a block with no language class, or with a
+-- `cell-output` class) or a fenced block that shows code on purpose (it
+-- carries a language class): only chunk output is looked in (2.9.5, 1.9.2).
+local function check_codeblock(el)
+  local classes = el.classes or {}
+  local output = #classes == 0
+  for _, c in ipairs(classes) do
+    if c == "cell-output" or c:find("^cell%-output%-") then output = true end
+  end
+  if output then check_marker_text(el.text) end
+end
+
+local function check_inlines(inlines)
+  local plain, all = texts(inlines)
+  check_marker_text(all)
   if has_placeholder(all) then
     add("placeholder", "a placeholder character is left in the text", excerpt(all))
   end
@@ -207,12 +227,34 @@ local function draft_mode()
   return draft
 end
 
+-- The open collection file of this project render. A file left behind by a
+-- render that stopped is not in use: the filter finds one only inside a Quarto
+-- render, and only when the run it names (its first line) is the one in
+-- .weft/run, or, with no .weft/run, when that run started under an hour ago
+-- (the id begins with its time).
 local function collect_path()
   local p = os.getenv("WEFT_COLLECT")
   if p and p ~= "" then return p end
+  if quarto == nil then return nil end
   local f, path = find_upward(".weft/failures.jsonl")
-  if f then f:close(); return path end
-  return nil
+  if not f then return nil end
+  local first = f:read("l") or ""
+  f:close()
+  local mine = first:match('"run"%s*:%s*"([^"]*)"')
+  local rf = find_upward(".weft/run")
+  local id = nil
+  if rf then id = rf:read("l"); rf:close() end
+  if id and id ~= "" then
+    if mine ~= id then return nil end
+  elseif mine then
+    local y, mo, d, h, mi, sec = mine:match("^(%d%d%d%d)(%d%d)(%d%d)T(%d%d)(%d%d)(%d%d)")
+    if y then
+      local t = os.time({ year = tonumber(y), month = tonumber(mo), day = tonumber(d),
+                          hour = tonumber(h), min = tonumber(mi), sec = tonumber(sec) })
+      if os.time() - t > 3600 then return nil end
+    end
+  end
+  return path
 end
 
 local function json_str(s)
@@ -264,6 +306,7 @@ function Pandoc(doc)
     Inlines = function(inlines) check_inlines(inlines) end,
     Span = function(el) check_span(el) end,
     Code = function(el) check_code(el) end,
+    CodeBlock = function(el) check_codeblock(el) end,
   })
   -- the metadata (title and the rest) carries inlines too
   pcall(function()

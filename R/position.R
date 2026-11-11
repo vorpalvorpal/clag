@@ -168,7 +168,11 @@ new_file_state <- function(path, config) {
   # an error in are the knit's to report when it starts
   F$captions <- NULL
   F$static <- NULL
-  ch <- tryCatch(labelled_chunks(F$lines), error = function(e) list())
+  ch <- tryCatch(labelled_chunks(dequote_chunks(F$lines)), error = function(e) list())
+  F$unnamed <- vapply(ch, function(x) x$label, "")
+  F$unnamed <- F$unnamed[grepl("^unnamed-chunk-[0-9]+$", F$unnamed)]
+  F$unnamed_ptr <- 1L
+  F$label_map <- list()
   F$chunk_lines <- stats::setNames(vapply(ch, function(x) as.integer(x$open), 0L),
                                    vapply(ch, function(x) x$label, ""))
   extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
@@ -266,6 +270,8 @@ locate_block <- function(s, x) {
 reset_file_state <- function(F) {
   F$cursor <- 1L
   F$park_ptr <- 1L
+  F$unnamed_ptr <- 1L
+  F$label_map <- list()
   invisible()
 }
 
@@ -295,4 +301,33 @@ protect_inline_patterns <- function(F) {
   lit <- gsub("([\\\\.|()\\[\\]{}^$*+?#-])", "\\\\\\1", F$unparseable, perl = TRUE)
   knitr::knit_patterns$set(inline.code = paste0("(?#weft)(?!", paste(lit, collapse = "|"), ")", old))
   invisible()
+}
+
+# The name of the file knitr is reading, as the author wrote it: a child's own
+# file, not its parent's (2.6.2, 2.7.1).
+current_file_name <- function(s) {
+  F <- tryCatch(current_file_state(s), error = function(e) NULL)
+  if (!is.null(F) && !is.null(F$name)) F$name else as.character(s$input_name)
+}
+
+# knitr numbers the unlabelled chunks of a child document in one sequence with
+# its parent's, so the `unnamed-chunk-N` it names is not the N that a scan of
+# the child's own file counts. Each unlabelled chunk the child runs is matched,
+# in the order they run, to the next unlabelled chunk of the child's source.
+note_chunk_label <- function(s, label) {
+  if (!is_child_knit() || !is.character(label) || length(label) != 1L ||
+      !grepl("^unnamed-chunk-[0-9]+$", label)) return(invisible())
+  F <- current_file_state(s)
+  if (is.null(F) || is.null(F$unnamed) || !is.null(F$label_map[[label]])) return(invisible())
+  if (F$unnamed_ptr <= length(F$unnamed)) {
+    F$label_map[[label]] <- F$unnamed[F$unnamed_ptr]
+    F$unnamed_ptr <- F$unnamed_ptr + 1L
+  }
+  invisible()
+}
+
+# The label of a chunk as the scan of the file names it.
+source_chunk_label <- function(F, label) {
+  if (is.null(F) || !is.character(label) || length(label) != 1L || is.na(label)) return(label)
+  F$label_map[[label]] %||% label
 }

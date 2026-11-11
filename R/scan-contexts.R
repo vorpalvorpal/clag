@@ -34,9 +34,9 @@ metadata_blocks <- function(lines) {
       k <- k + 1L
       next
     }
-    fm <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
+    fm <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
     if (length(fm)) {
-      fence <- paste0("^[ \t]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
+      fence <- paste0("^[ \t>]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
       k <- k + 1L
       next
     }
@@ -44,7 +44,7 @@ metadata_blocks <- function(lines) {
         k < n && !is_blank(lines[k + 1L])) {
       j <- k + 1L
       while (j <= n && !grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[j])) j <- j + 1L
-      if (j <= n) {
+      if (j <= n && is_yaml_mapping(lines[(k + 1L):(j - 1L)])) {
         open <- c(open, k)
         close <- c(close, j)
         k <- j + 1L
@@ -54,6 +54,20 @@ metadata_blocks <- function(lines) {
     k <- k + 1L
   }
   data.frame(open = open, close = close)
+}
+
+# Whether the lines of a candidate metadata block are a YAML mapping, as Pandoc
+# requires: a `---` rule followed by text is a horizontal rule, not metadata
+# (2.5.2). A block that is broken YAML but starts with `key:` is still metadata
+# (Pandoc stops on it).
+is_yaml_mapping <- function(x) {
+  x <- x[nzchar(trim_ws(x)) & !grepl("^[ \t]*#", x)]
+  if (!length(x)) return(FALSE)
+  looks <- grepl("^[A-Za-z_\"'][^:]*:([ \t]|$)", x[1L])
+  y <- tryCatch(list(v = yaml::yaml.load(paste(x, collapse = "\n"), eval.expr = FALSE)),
+                error = function(e) NULL)
+  if (is.null(y)) return(looks)
+  is.list(y$v) && !is.null(names(y$v))
 }
 
 # The top-level fields of each metadata block: the field name, the first and
@@ -136,14 +150,36 @@ project_type <- function(path) {
   }
 }
 
-# `execute:` options of the document's first metadata block.
+# The chunk options the document sets for every chunk: `knitr: opts_chunk:`,
+# then `execute:` over it (the first metadata block). Option names are as
+# written; a dot and a hyphen are the same name.
 doc_execute <- function(lines) {
   mb <- metadata_blocks(lines)
   if (!nrow(mb) || mb$open[1L] != 1L || mb$close[1L] - 2L < 1L) return(list())
   y <- tryCatch(yaml::yaml.load(paste(lines[2L:(mb$close[1L] - 1L)], collapse = "\n"),
                                 eval.expr = FALSE), error = function(e) NULL)
-  ex <- if (is.list(y)) y$execute else NULL
-  if (is.list(ex)) ex else list()
+  if (!is.list(y)) return(list())
+  oc <- if (is.list(y$knitr)) y$knitr$opts_chunk else NULL
+  ex <- y$execute
+  out <- if (is.list(oc)) oc else list()
+  if (is.list(ex)) for (n in names(ex)) out[[n]] <- ex[[n]]
+  out
+}
+
+# The value of a chunk option written as a constant, or NULL when it is not
+# (an expression that has to be run to be known): `TRUE`, `T`, `FALSE`, a
+# number, and under `!expr` the same written as R.
+static_option_value <- function(text, expr = FALSE) {
+  t <- trim_ws(sub("^!expr[ \t]*", "", sub("(^|[ \t])#.*$", "", text)))
+  if (!nzchar(t)) return(NULL)
+  if (!expr && !grepl("^!expr", trim_ws(text))) return(yaml_scalar_text(text))
+  ex <- tryCatch(parse(text = t, keep.source = FALSE), error = function(e) NULL)
+  if (is.null(ex) || length(ex) != 1L) return(NULL)
+  e <- ex[[1L]]
+  if (is.symbol(e) && as.character(e) %in% c("T", "F")) return(as.character(e) == "T")
+  if (is.atomic(e) && length(e) == 1L) return(e)
+  if (is.call(e) && identical(e[[1L]], as.name("-")) && length(e) == 2L && is.numeric(e[[2L]])) return(-e[[2L]])
+  NULL
 }
 
 truthy <- function(x) {
@@ -224,7 +260,7 @@ find_chunks <- function(lines) {
   mb <- metadata_blocks(lines)
   inyaml <- rep(FALSE, n)
   for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
-  begin <- "^[ \t]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
+  begin <- "^[ \t>]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
   out <- list()
   k <- 1L
   while (k <= n) {
@@ -234,10 +270,10 @@ find_chunks <- function(lines) {
     }
     l <- lines[k]
     m <- regmatches(l, regexec(begin, l, perl = TRUE))[[1]]
-    gen <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
+    gen <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
     if (length(m) || length(gen)) {
       fence <- if (length(m)) m[2] else gen[2]
-      close_re <- paste0("^[ \t]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
+      close_re <- paste0("^[ \t>]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
       j <- k + 1L
       while (j <= n && !grepl(close_re, lines[j], perl = TRUE)) j <- j + 1L
       if (length(m)) {
@@ -252,10 +288,22 @@ find_chunks <- function(lines) {
   out
 }
 
+# `lines` with the block-quote markers of a quoted chunk taken off its lines
+# (knitr runs a chunk written `> ```{r}`; the scan reads it as written
+# without the quote). Line numbers do not change.
+dequote_chunks <- function(lines) {
+  for (ch in find_chunks(lines)) {
+    if (!grepl(">", sub("[^ \t>].*$", "", lines[ch$open]), fixed = TRUE)) next
+    r <- ch$open:min(ch$close, length(lines))
+    lines[r] <- sub("^[ \t>]*", "", lines[r])
+  }
+  lines
+}
+
 # The options in a chunk header, as written: the label, and for each named
 # option the value when it is a literal string, else NULL, with its text.
 parse_header <- function(header) {
-  rest <- trim_ws(header)
+  rest <- sub("^[ \t,]+", "", trim_ws(header))
   label <- NA_character_
   m <- regexpr("^[^,=[:space:]'\"()]+[ \t]*(,|$)", rest, perl = TRUE)
   if (m > 0L) {
@@ -297,6 +345,12 @@ chunk_option_lines <- function(lines, open, close) {
   }
   list(lines = idx, text = sub("^[ \t]*#\\|[ ]?", "", lines[idx]),
        code_first = j)
+}
+
+# The text of a one-line YAML scalar: no trailing comment, no quotes.
+yaml_scalar_text <- function(x) {
+  x <- trim_ws(sub("(^|[ \t])#.*$", "", x))
+  gsub("^[\"']|[\"']$", "", x)
 }
 
 # The options of a `#|` block: for each top-level key, its name, the line of
@@ -351,7 +405,7 @@ labelled_chunks <- function(lines) {
     optblk <- parse_option_block(oi$lines, oi$text)
     lab <- hdr$label
     for (o in optblk) {
-      if (o$name == "label") lab <- gsub("^[\"']|[\"']$", "", o$value)
+      if (o$name == "label") lab <- yaml_scalar_text(o$value)
     }
     if (is.na(lab) || !nzchar(lab)) {
       counter <- counter + 1L
@@ -437,18 +491,27 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   # chunk-level reasons a caption is not resolved (2.3.5)
   cache <- truthy(doc_exec$cache)
   eval_off <- falsy(doc_exec$eval)
-  why <- character()
+  # the option as the chunk writes it: its value when that is a constant,
+  # `NA` when it has to be run to be known, NULL when the chunk does not set it
   co <- function(name) {
-    for (o in optblk) if (o$name == name) return(o$value)
+    for (o in optblk) {
+      if (o$name == name) {
+        v <- static_option_value(o$value, expr = o$form == "expr")
+        return(if (is.null(v)) NA else v)
+      }
+    }
     h <- hdr$opts[[name]]
-    if (!is.null(h)) return(h$text)
+    if (!is.null(h)) {
+      v <- static_option_value(h$text, expr = TRUE)
+      return(if (is.null(v)) NA else v)
+    }
     NULL
   }
-  if (!is.null(co("cache"))) cache <- truthy(co("cache")) || (cache && !falsy(co("cache")))
-  if (!is.null(co("eval"))) eval_off <- falsy(co("eval"))
-  if (cache) why <- c(why, "has `cache: true`, so its caption is not resolved again when it is served from the cache")
-  if (eval_off) why <- c(why, "has `eval: false`, so its code does not run")
-  if (!identical(tolower(ch$engine), "r")) why <- c(why, sprintf("uses the `%s` engine, not R", ch$engine))
+  cv <- co("cache")
+  if (!is.null(cv)) cache <- if (isTRUE(is.na(cv))) FALSE else truthy(cv) || (cache && !falsy(cv))
+  ev <- co("eval")
+  if (!is.null(ev)) eval_off <- !isTRUE(is.na(ev)) && falsy(ev)
+  why <- not_resolved_why(cache, eval_off, ch$engine)
   for (i in which(top)) {
     o <- rows$option[i]
     if (o == "tab.cap") {
@@ -571,6 +634,7 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   caps <- list()
   strs <- list()
   doc_exec <- doc_execute(lines)
+  lines <- dequote_chunks(lines)
   for (ch in labelled_chunks(lines)) {
     caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
                                                     ch$oi, doc_exec, file, config)

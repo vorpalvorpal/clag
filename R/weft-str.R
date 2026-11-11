@@ -31,16 +31,23 @@ weft_str <- function(x) {
   if (!is.character(x)) {
     weft_abort("`weft_str()` takes a character vector of markup.", "weft_construct_error")
   }
-  chunk <- current_chunk_label()
   s <- string_state()
   strict <- !isTRUE(s$live)
+  # called from inline R in prose, the string is prose where it is called
+  # from: it is located by that line, not by the chunk knitr last ran (3.6.3)
+  inl <- weft_env$inline
+  in_prose <- !strict && !is.null(inl) && !is.na(inl$line %||% NA_integer_) &&
+    is.na(inl$chunk %||% NA_character_)
+  chunk <- if (in_prose) NA_character_ else current_chunk_label()
+  where <- if (in_prose) list(file = inl$file, line = inl$line) else list()
   # with no weft_setup() the functions inline code calls are not on the search
   # path; they are made visible to the strings, and to nothing else
   if (strict) env <- with_weft_functions(env)
   out <- vapply(unname(x), function(el) {
     if (is.na(el)) return(NA_character_)
     resolve_string(s, el, list(chunk = chunk, option = NA_character_, envir = env,
-                               strict = strict, context = "weft_str"))
+                               strict = strict, context = "weft_str",
+                               file = where$file, line = where$line))
   }, "", USE.NAMES = FALSE)
   out
 }
@@ -72,10 +79,17 @@ string_state <- function() {
 # Park the inline code of a string exactly as the `evaluate.inline` hook parks
 # the code of a block of prose, so one resolver reads both. Returns the text
 # with a placeholder for each piece of code.
-park_string <- function(s, x, envir) {
+park_string <- function(s, x, envir, bare = TRUE) {
   pat <- knitr::all_patterns$md$inline.code
   m <- gregexpr(pat, x, perl = TRUE)[[1L]]
   if (m[1L] < 0L) return(x)
+  if (!bare) {
+    len <- attr(m, "match.length")
+    after <- substring(x, m + len, m + len)
+    keep <- after == "{"
+    if (!any(keep)) return(x)
+    m <- structure(m[keep], match.length = len[keep])
+  }
   hits <- regmatches(x, list(m))[[1L]]
   codes <- sub(pat, "\\3", hits, perl = TRUE)
   ph <- character(length(codes))
@@ -91,7 +105,9 @@ park_string <- function(s, x, envir) {
 # Resolve one string. `ctx`: chunk, option, envir, strict, context.
 resolve_string <- function(s, x, ctx) {
   x <- enc2utf8(x)
-  x <- park_string(s, x, ctx$envir)
+  # bare inline R in a caption stays literal text, as stock leaves it (1.1.8);
+  # inline code that carries an attribute block is a construct and is run
+  x <- park_string(s, x, ctx$envir, bare = !identical(ctx$context, "caption"))
   if (!grepl("\ue000", x, fixed = TRUE) && !grepl("[", x, fixed = TRUE) &&
       !grepl("]{", x, fixed = TRUE)) return(x)
   resolve_markup(s, x, block = NULL, ctx = ctx)

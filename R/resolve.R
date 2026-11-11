@@ -195,8 +195,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     R$file <- ml$file
     R$line <- ml$line
   } else if (nr) {
-    R$file <- rep(as.character(s$input_name), nr)
-    R$line <- rep(NA_integer_, nr)
+    R$file <- rep(as.character(ctx$file %||% current_file_name(s)), nr)
+    R$line <- rep(as.integer(ctx$line %||% NA_integer_), nr)
     R$line_view <- rep(NA_integer_, nr)
   }
   # the errors about ids belong to the whole document (1.7.10)
@@ -216,7 +216,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   env0 <- if (is_str) (ctx$envir %||% knitr::knit_global()) else knitr::knit_global()
   nlpos <- which(strsplit(text, "")[[1L]] == "\n")
   span_line <- function(start) {
-    if (is_str) return(data.frame(file = as.character(s$input_name), line = NA_integer_,
+    if (is_str) return(data.frame(file = as.character(ctx$file %||% current_file_name(s)),
+                                  line = as.integer(ctx$line %||% NA_integer_),
                                   stringsAsFactors = FALSE))
     lv <- loc$start + sum(nlpos < start)
     map_lines(F, lv)
@@ -243,6 +244,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   loc_str <- function(k) {
     if (!is_str) return(sprintf("%s:%d", R$file[k], R$line[k]))
+    if (!is.null(ctx$line) && !is.na(ctx$line)) return(sprintf("%s:%d", R$file[k], R$line[k]))
     str_where(ctx$chunk, ctx$option)
   }
 
@@ -287,7 +289,12 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   # a condition raised by the expression, or an error it raised (2.6.4, 2.6.9)
   fail_from_error <- function(k, e, label) {
-    if (strict && !inherits(e, "weft_construct_error")) stop(e)
+    if (strict && !inherits(e, "weft_construct_error")) {
+      if (inherits(e, c("weft_claim_failed", "weft_no_value", "weft_value_error"))) stop(e)
+      # an expression that cannot be evaluated is a missing value (2.6.4, 2.6.8)
+      return(record_fail(k, "no value", label,
+                         sprintf("error evaluating %s: %s", label, conditionMessage(e))))
+    }
     if (inherits(e, "weft_construct_error")) return(construct_fail(k, conditionMessage(e)))
     if (inherits(e, "weft_no_value")) {
       return(record_fail(k, "no value", label, conditionMessage(e)))

@@ -72,3 +72,13 @@ So a later review does not raise them again without a new argument.
 - Requiring a person to accept changes to checks: what we want to stop is
   accidental changes, not make purposeful changes needlessly complicated. A
   changed check shows in the source diff and in `changes()`.
+
+## From the fix round for the review of stage 1c
+
+- The prose scan reads the code lines of a chunk inside a block quote as
+  prose (only caption and `weft_str()` rows handle the quote).
+- The Lua filter cannot see a file's age, so a stale collection file that
+  is empty and carries no run id is still used by the filter.
+- `use_quarto()` does not add `.weft/` to `.gitignore`.
+- An unstamped frozen document is reported but cannot yet fail `verify()`
+  (stage 4).

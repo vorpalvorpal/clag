@@ -87,6 +87,7 @@ make_evaluate_hook <- function(prev) {
     if (!is.null(kw) && !is.na(kw)) args$keep_warning <- TRUE
     if (!is.null(km) && !is.na(km)) args$keep_message <- TRUE
     mine <- list()
+    n0 <- length(s$failures)
     note <- function(class, cond) {
       mine[[length(mine) + 1L]] <<- list(class = class, text = conditionMessage(cond))
     }
@@ -106,7 +107,8 @@ make_evaluate_hook <- function(prev) {
         if (!is.na(cl)) note(cl, el)
       }
     }
-    record_chunk_conditions(s, label, mine, opts)
+    fails <- if (length(s$failures) > n0) s$failures[(n0 + 1L):length(s$failures)] else list()
+    record_chunk_conditions(s, label, mine, opts, fails)
     # what the author's settings say to hide is hidden, as evaluate() would
     # have hidden it (2.8.1)
     drop <- function(el) {
@@ -117,8 +119,8 @@ make_evaluate_hook <- function(prev) {
   }
 }
 
-record_chunk_conditions <- function(s, label, mine, opts) {
-  file <- s$input_name
+record_chunk_conditions <- function(s, label, mine, opts, fails = list()) {
+  file <- current_file_name(s)
   for (m in mine) {
     log_condition(s, label, m$class, m$text, file = file, chunk = label)
   }
@@ -130,6 +132,10 @@ record_chunk_conditions <- function(s, label, mine, opts) {
     tryCatch({
       dir.create(dirname(f), showWarnings = FALSE, recursive = TRUE)
       saveRDS(mine, f)
+      # the failures the chunk's code collected (a weft_str() that failed) are
+      # kept with the cache, so that serving the chunk from it reports them
+      # again, as the first knit did (2.9.1)
+      saveRDS(fails, paste0(hash, ".weft-failures.rds"))
     }, error = function(e) NULL, warning = function(w) NULL)
   }
   invisible()
@@ -182,7 +188,12 @@ replay_cached <- function(s, p) {
     f <- fs[order(file.mtime(fs), decreasing = TRUE)][1]
     mine <- tryCatch(readRDS(f), error = function(e) NULL)
     for (m in mine) {
-      log_condition(s, p$label, m$class, m$text, file = s$input_name, chunk = p$label)
+      log_condition(s, p$label, m$class, m$text, file = current_file_name(s), chunk = p$label)
+    }
+    ff <- sub("\\.weft\\.rds$", ".weft-failures.rds", f)
+    fails <- if (file.exists(ff)) tryCatch(readRDS(ff), error = function(e) NULL) else NULL
+    for (x in fails) {
+      if (is.list(x) && !is.null(x$kind)) s$failures[[length(s$failures) + 1L]] <- x
     }
     return(invisible())
   }

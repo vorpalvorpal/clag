@@ -170,7 +170,7 @@ claim_fail <- function(record) {
   if (!is.null(s)) {
     label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
     for (d in detail) {
-      add_failure(s, "failed claim", file = s$input_name,
+      add_failure(s, "failed claim", file = current_file_name(s),
                   chunk = if (is.null(label)) NA_character_ else label, detail = d,
                   expr = NA_character_)
     }
@@ -178,7 +178,14 @@ claim_fail <- function(record) {
     # with `error=TRUE` the knit carries on, and the message is the claim's own
     # (2.4.4, 2.4.5)
     carries_on <- isTRUE(tryCatch(knitr::opts_current$get("error"), error = function(e) NULL))
-    if (!carries_on) msg <- paste0(msg, "\n", format_report(failures_frame(s)))
+    if (!carries_on) {
+      # what the earlier chapters of a project render collected goes with it:
+      # the render stops here and no later script reports it (2.4.5)
+      fr <- failures_frame(s)
+      root <- state_root(s)
+      if (!is.na(root)) fr <- rbind(collected_failures(root), fr)
+      msg <- paste0(msg, "\n", format_report(fr))
+    }
   }
   weft_abort(msg, "weft_claim_failed")
 }

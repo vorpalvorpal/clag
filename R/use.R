@@ -12,9 +12,12 @@
 #' * `_weft.yml`, only when there is none (empty but for a comment)
 #'
 #' and edits `_quarto.yml`: `weft-check` is added under `filters:`, and the
-#' two scripts under `project: pre-render:` and `post-render:`. Everything
-#' else in `_quarto.yml` is kept, and the comments too when the file is
-#' simple enough to edit as text. Running it again changes nothing.
+#' two scripts under `project: pre-render:` and `post-render:`. The file is
+#' edited as text, line by line, and never rewritten from parsed YAML: every
+#' other line, comments and anchors included, stays as it was. When the edit
+#' cannot be made safely (a flow-style `filters: [a, b]`, say) `use_quarto()`
+#' stops before it writes anything and prints the lines to add by hand.
+#' Running it again changes nothing.
 #'
 #' The scripts are plain base R and run when weft is not installed. The
 #' pre-render script fails the render, before anything renders, on a `.qmd`
@@ -22,21 +25,47 @@
 #' (9.2.8). It also opens the collection file `.weft/failures.jsonl`, which
 #' the filter and the documents append to and the post-render script reports.
 #'
-#' @param path The project root: a directory holding `_quarto.yml`. Where
-#'   there is none, `use_quarto()` stops: it does not turn a directory into a
-#'   Quarto project.
+#' @param path A directory in the project. `use_quarto()` walks up from it to
+#'   the directory that holds `_quarto.yml`, says which directory it took,
+#'   and writes there. Where there is none, it stops: it does not turn a
+#'   directory into a Quarto project.
 #' @return The paths it wrote or changed, relative to `path`, invisibly.
 #' @export
 use_quarto <- function(path = ".") {
   if (!dir.exists(path)) {
     stop("`path` is not a directory: ", path, call. = FALSE)
   }
-  path <- normalizePath(path, winslash = "/", mustWork = TRUE)
+  start <- normalizePath(path, winslash = "/", mustWork = TRUE)
   yml_name <- c("_quarto.yml", "_quarto.yaml")
-  yml_name <- yml_name[file.exists(file.path(path, yml_name))][1]
-  if (is.na(yml_name)) {
-    stop("`", path, "` has no _quarto.yml, so it is not a Quarto project. ",
-         "Create the project first (`quarto create project`), then run use_quarto().",
+  path <- start
+  repeat {
+    hit <- yml_name[file.exists(file.path(path, yml_name))][1]
+    if (!is.na(hit)) break
+    up <- dirname(path)
+    if (identical(up, path)) {
+      stop("`", start, "` has no _quarto.yml, so it is not in a Quarto project. ",
+           "Create the project first (`quarto create project`), then run use_quarto().",
+           call. = FALSE)
+    }
+    path <- up
+  }
+  yml_name <- hit
+  if (!identical(path, start)) {
+    message("weft: the Quarto project is at ", path, " (it holds _quarto.yml); using that directory.")
+  }
+
+  # the edit of _quarto.yml is worked out first: when it cannot be made safely,
+  # nothing is written
+  qy <- file.path(path, yml_name)
+  old <- readLines(qy, warn = FALSE, encoding = "UTF-8")
+  new <- quarto_yml_with_weft(old)
+  if (is.null(new)) {
+    stop("weft cannot edit ", yml_name, " as text without risking what is in it, so it has ",
+         "changed nothing. Add these lines by hand, then run use_quarto() again:\n\n",
+         paste(c("filters:", "  - weft-check", "project:", "  pre-render: _weft/pre-render.R",
+                 "  post-render: _weft/post-render.R"), collapse = "\n"),
+         "\n\n(merge them into the `filters:` and `project:` entries the file already has; ",
+         "each of those holds a list, and `weft-check` and the two scripts go into it.)",
          call. = FALSE)
   }
 
@@ -81,9 +110,6 @@ use_quarto <- function(path = ".") {
     written <- c(written, "_weft.yml")
   }
 
-  qy <- file.path(path, yml_name)
-  old <- readLines(qy, warn = FALSE, encoding = "UTF-8")
-  new <- quarto_yml_with_weft(old)
   if (!identical(new, old)) {
     writeLines(new, qy, useBytes = TRUE)
     written <- c(written, yml_name)
@@ -99,11 +125,19 @@ use_quarto <- function(path = ".") {
 weft_pre_entry  <- "_weft/pre-render.R"
 weft_post_entry <- "_weft/post-render.R"
 
-# the lines of _quarto.yml with weft added; the same lines when it is there
+# the lines of _quarto.yml with weft added; the same lines when it is there;
+# NULL when the file cannot be edited as text without risk. The file is never
+# rewritten from its parsed form: that would turn `true` into `yes` (which
+# Quarto's YAML 1.2 refuses), drop the comments and expand the anchors.
 quarto_yml_with_weft <- function(lines) {
-  y <- yaml::yaml.load(paste(c(lines, ""), collapse = "\n"))
-  if (is.null(y)) y <- list()
-  if (!is.list(y)) stop("_quarto.yml is not a YAML mapping", call. = FALSE)
+  load <- function(x) yaml::yaml.load(paste(c(x, ""), collapse = "\n"), eval.expr = FALSE)
+  y <- tryCatch(load(lines), error = function(e) NULL)
+  if (is.null(y)) {
+    if (any(nzchar(trimws(lines[!grepl("^\\s*#", lines)])))) return(NULL)
+    y <- list()
+  }
+  if (!is.list(y)) return(NULL)
+  if (!is.null(y$project) && !is.list(y$project)) return(NULL)
   as_chr <- function(x) as.character(unlist(x))
   need <- list(
     filters = !"weft-check" %in% as_chr(y$filters),
@@ -112,32 +146,27 @@ quarto_yml_with_weft <- function(lines) {
   )
   if (!any(unlist(need))) return(lines)
 
-  edited <- tryCatch({
+  tryCatch({
     x <- lines
     if (need$filters) x <- yml_add_item(x, character(), "filters", "weft-check")
     if (need$pre)  x <- yml_add_item(x, "project", "pre-render", weft_pre_entry)
     if (need$post) x <- yml_add_item(x, "project", "post-render", weft_post_entry)
-    chk <- yaml::yaml.load(paste(c(x, ""), collapse = "\n"))
-    ok <- "weft-check" %in% as_chr(chk$filters) &&
-      weft_pre_entry %in% as_chr(chk$project[["pre-render"]]) &&
-      weft_post_entry %in% as_chr(chk$project[["post-render"]])
-    # nothing else may have changed
-    y2 <- y
-    y2$filters <- c(as_chr(y$filters), if (need$filters) "weft-check")
-    ok && identical(names(chk), c(names(y), setdiff(names(chk), names(y)))) &&
+    chk <- load(x)
+    seq_of <- function(v) if (is.null(v)) list() else as.list(v)
+    ok <- is.list(chk) &&
+      identical(names(chk)[names(chk) %in% names(y)], names(y)) &&
       identical(chk[setdiff(names(chk), c("filters", "project"))],
-                y[setdiff(names(y), c("filters", "project"))]) && x
-  }, error = function(e) FALSE)
-  if (is.character(edited)) return(edited)
-
-  # the file is too unusual to edit as text: rewrite it from its parsed form
-  # (what it says is kept; its comments are not)
-  as_seq <- function(x, add) as.list(unique(c(as_chr(x), add)))
-  y$filters <- as_seq(y$filters, "weft-check")
-  if (is.null(y$project)) y$project <- list()
-  y$project[["pre-render"]]  <- as_seq(y$project[["pre-render"]], weft_pre_entry)
-  y$project[["post-render"]] <- as_seq(y$project[["post-render"]], weft_post_entry)
-  strsplit(sub("\n$", "", yaml::as.yaml(y, indent.mapping.sequence = TRUE)), "\n")[[1]]
+                y[setdiff(names(y), c("filters", "project"))]) &&
+      identical(seq_of(chk$filters),
+                c(seq_of(y$filters), if (need$filters) list("weft-check"))) &&
+      identical(chk$project[setdiff(names(chk$project), c("pre-render", "post-render"))],
+                y$project[setdiff(names(y$project), c("pre-render", "post-render"))]) &&
+      identical(as_chr(chk$project[["pre-render"]]),
+                c(as_chr(y$project[["pre-render"]]), if (need$pre) weft_pre_entry)) &&
+      identical(as_chr(chk$project[["post-render"]]),
+                c(as_chr(y$project[["post-render"]]), if (need$post) weft_post_entry))
+    if (isTRUE(ok)) x else NULL
+  }, error = function(e) NULL)
 }
 
 yml_indent <- function(x) nchar(sub("^( *).*$", "\\1", x))

@@ -73,7 +73,7 @@ unlabelled_chunk_line <- function(s, chunk) {
   if (is.na(chunk) || !grepl("^unnamed-chunk-[0-9]+$", chunk)) return(NA_integer_)
   F <- tryCatch(current_file_state(s), error = function(e) NULL)
   if (is.null(F) || is.null(F$chunk_lines)) return(NA_integer_)
-  v <- F$chunk_lines[chunk]
+  v <- F$chunk_lines[source_chunk_label(F, chunk)]
   if (is.na(v)) return(NA_integer_)
   map_lines(F, v)$line
 }

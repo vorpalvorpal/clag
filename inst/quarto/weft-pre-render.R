@@ -93,16 +93,34 @@ local({
     }
     x[keep]
   }
+  # A line with its code spans and escapes taken out, as Pandoc reads it (1.9):
+  # code spans become blanks, except a code span that starts with `r `, `R ` or
+  # `{r}` and is followed by an attribute block (a value construct), which is
+  # returned as it is in `value`; `\\[`, `\\]` and `\\{` are blanked.
+  plain_of <- function(x) {
+    value <- FALSE
+    m <- gregexpr("(?<!`)(`+)(?!`)(.+?)(?<!`)\\1(?!`)", x, perl = TRUE)[[1]]
+    if (m[1] > 0L) {
+      len <- attr(m, "match.length")
+      for (k in rev(seq_along(m))) {
+        span <- substr(x, m[k], m[k] + len[k] - 1L)
+        rest <- substring(x, m[k] + len[k])
+        inner <- sub("^`+[ ]?", "", sub("[ ]?`+$", "", span))
+        if (grepl("^(r |R |\\{r\\})", inner) && grepl("^\\{[^}]*\\}", rest)) value <- TRUE
+        substr(x, m[k], m[k] + len[k] - 1L) <- strrep(" ", len[k])
+      }
+    }
+    x <- gsub("\\\\[][{}()`*_#<>|\\\\]", "  ", x)
+    list(text = x, value = value)
+  }
   first_construct <- function(prose) {
     # a span: ]{ ... } holding a weft key (any letter case) or a text class
     key  <- "\\]\\{([^}]*[[:space:]])?(n|if|sign|cite)[[:space:]]*="
     cls  <- "\\]\\{([^}]*[[:space:]])?\\.(a|cap|strong|em)([[:space:]}]|$)"
-    # a value: a code span with an attribute block, its text R code
-    code <- "`(r |R |\\{r\\})[^`]*`\\{[^}]*\\}"
     for (j in seq_along(prose)) {
-      if (grepl(key, prose[j], ignore.case = TRUE, perl = TRUE) ||
-          grepl(cls, prose[j], perl = TRUE) ||
-          grepl(code, prose[j], perl = TRUE)) return(j)
+      p <- plain_of(prose[j])
+      if (p$value || grepl(key, p$text, ignore.case = TRUE, perl = TRUE) ||
+          grepl(cls, p$text, perl = TRUE)) return(j)
     }
     NA_integer_
   }
@@ -128,15 +146,17 @@ local({
   }
 
   # ---- open the collection file -------------------------------------------
+  # The run: an id on the first line of .weft/run, then the source files this
+  # render processes. The collection file opens with a line that names the
+  # run, so that a file left behind by a render that stopped is known for what
+  # it is and not used by a later knit (2.6.6). Each executed knit stamps its
+  # document with the id; the post-render script takes a document whose stamp
+  # carries another id to have been served from freeze (2.9.2).
   dir.create(file.path(root, ".weft"), showWarnings = FALSE, recursive = TRUE)
-  file.create(file.path(root, ".weft", "failures.jsonl"))
-  # The run: an id on the first line, then the source files this render
-  # processes. Each executed knit stamps its document with the id; the
-  # post-render script takes a document whose stamp carries another id to
-  # have been served from freeze (2.9.2).
+  id <- sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
+                sample.int(999999L, 1L))
   rels <- substring(normalizePath(files, winslash = "/"), nchar(root) + 2L)
-  writeLines(c(sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
-                       sample.int(999999L, 1L)), rels),
-             file.path(root, ".weft", "run"))
+  writeLines(c(id, rels), file.path(root, ".weft", "run"))
+  writeLines(sprintf("{\"run\":\"%s\"}", id), file.path(root, ".weft", "failures.jsonl"))
   invisible()
 })
