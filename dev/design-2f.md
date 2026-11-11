@@ -431,3 +431,58 @@ Built as recommended until answered.
 - **Open:** the `#` of a `sign` span built from a formatter's text keeps
   the unit text as printed and is not judged again for the singular; in
   `dev/open-findings.md`.
+
+## Rulings on the review of 2f (`dev/review-2f.md`)
+
+Findings 1 to 16 are accepted as the reviewer states them, with these
+particulars. Where a ruling differs from the contract above, the ruling
+wins.
+
+- **1.** A database row with a symbol and an empty name has no name: the
+  no-name value error (4.4.19), never "s".
+- **2.** `#` carries the unit on every route whatever classes or keys the
+  span has: a back-reference and a formatter's text keep the quantity
+  (number and unit), so `.word`, `digits`, `.uname`, `.nounit` and
+  `unit=` on the span act as on the quantity itself.
+- **3.** In a knit to LaTeX weft declares, with the minus sign, the other
+  characters it can print for a unit that LaTeX does not set: the ohm
+  sign, the prime and double prime, the micro sign and the degree sign,
+  for pdflatex and, where the default font lacks the glyph, for xelatex
+  and lualatex.
+- **4.** A collapse over spelled numbers takes the unit's name under
+  `auto` ("three and five metres") and is the value error of U4 under
+  `symbol`.
+- **7.** `.cap` never changes a unit's symbol (a symbol's case is its
+  meaning); it capitalises a name.
+- **8. Which name (replaces part of U7 and U11).** In order: the
+  project's `units:` entry; the shipped table; **what the author typed,
+  when they typed a name or alias of the unit** ("knot", "byte",
+  "revolution" print as "knots", "bytes", "revolutions", plural by the
+  database's alias plural or the English rule); the database's name
+  **only when it is one plain word** ("pascal", "gram"). A technical name
+  ("international_knot", "IT_calorie", "US_liquid_cup") is never
+  printed: the unit has no name, and its symbol form prints as typed, as
+  2b did. The shipped table gains the common ones the reviewer lists
+  (knot, calorie, degree Fahrenheit as "°F", horsepower, byte,
+  revolution, ton, gallon, torr, Btu) with plain names.
+- **9, e.** A unit that `units` reads as a different unit (`Sv` as
+  grays, and the others the reviewer lists) is a `weft_unit_error` from
+  `u()` and a problem from `read_dict()`, saying what it was read as:
+  weft cannot print it truthfully. For Robin: whether to carry such
+  units another way.
+- **11.** `space:` governs the symbol only; a name always has its space.
+- **a.** `.ord` on a quantity with a unit is a value error.
+- **b.** `u()` refuses the misreadings the reviewer lists (`mph`, `pH`,
+  `nmi`, `Ma` and the like), with what `units` read it as and what to
+  write.
+- **c.** Under `unit_form: symbol`, a unit that has no symbol prints its
+  name with a spelled number; no error.
+- **d.** `display:` and `unit` refuse a unit of a different dimension
+  that `units` would reach by inverting the value (metres to "1/m"): a
+  value error (a problem for `display:`). An author who wants the
+  reciprocal writes it in the expression.
+- **f.** A failed read of the configuration clears the `units:` table
+  kept for use outside a knit.
+- **g.** A project name written with markdown needs its own `plural:`;
+  said in the help. Left.
+- **h, i.** Left.
