@@ -315,10 +315,10 @@ again; a collapse given one places it as stage iii says. So
 
 ### Governors and bare values
 
-- An `n`, `sign` or `list` governor that is a quantity contributes its
-  number (4.4.9): it is formatted with `governor = TRUE`, which never adds a
-  unit, so `#` never carries one (4.4.4). `plural(u(1, m), "# metre",
-  "# metres")` is "1 metre".
+- An `n`, `sign` or `list` governor that is a quantity selects by its
+  number (4.4.9), and `#` prints it with its unit as a value would print
+  (4.4.4, as reversed on 12 November 2026; see the rulings at the end).
+  `plural(u(1, m), "# long", "# long")` is "1 m long".
 - A bare value prints as stock knitr prints it: the number alone (4.4.10).
 
 ### Phrase functions
@@ -812,10 +812,29 @@ particulars.
   html and docx; the long report this package is for is built as PDF.
   The no-break space stays U+00A0. The `unit` attribute of a `weft_text`
   holds the same markdown text.
-- **2, 3, 4, a. `#` never carries a unit (4.4.4)**, whatever the governor
-  is: a quantity, a formatter's text for a quantity, an id, `n="."`, a
-  `sign` span, `plural()`, and a `list` span over quantities with or
-  without a number class (`#` is the numbers, collapsed).
+- **2, 3, 4, a. `#` always carries the unit (4.4.4 reversed; Robin,
+  12 November 2026).** The first ruling here was "never", as 4.4.4 then
+  said. Robin's reason for reversing it: a unit the author types in the
+  arm is wrong as soon as the quantity is held in another unit. So `#`
+  prints what the governor would print as a value under the span's
+  classes: with its unit when it prints as digits, without when a
+  wording class made it a word (4.4.2). The same for every route: a
+  quantity, a formatter's text, an id, `n="."`, a `sign` span,
+  `plural()`. In a `list` span `#` is the collapsed list with the unit
+  once (4.4.3), with or without a number class. Selection still sees
+  the number as it prints. The printed record holds the number only.
+- **The `unit` key (new, 4.4.14).** `unit="m"` on a value or a governed
+  span, and `unit =` on the number-stage formatter functions, convert
+  the quantity before anything else, so the number, the unit and the
+  arm chosen are in the display unit. A unit that cannot be converted
+  to, and `unit` on a value that is not a quantity, are value errors.
+  `unit` with no number-stage class implies `.num`, as `digits` does.
+  Alternatives: convert in the expression with `units::set_units()`
+  (works today, long, and hides the intent); a `display:` field on the
+  dictionary entry (one display unit per entry for the whole document;
+  not built, could be added on top and is put to Robin). An author who
+  wants the unit's name in words uses a wording class or
+  `units::drop_units()`.
 - **5.** A list of quantities, and a `mixed_units` vector, are a value
   error: weft prints one unit for one vector.
 - **6.** `ci()`, `pm()` and `clamp()` given a formatter's text that

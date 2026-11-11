@@ -8,8 +8,8 @@
 # both() case. Made-up content only; the dictionary is the 2a fixture.
 
 NB  <- " "     # the no-break space that joins a number and its unit
-SUP2 <- "²"    # superscript two
-DOT <- "⋅"     # the product dot
+SUP2 <- "^2^"   # a Pandoc superscript two (ruling on 1/f replaces D23)
+DOT <- "\u00b7"  # the middle dot that writes a product (ruling on 1/f)
 MIN <- "−"     # minus sign
 ENDASH <- "–"
 TIMES2 <- "×"
@@ -29,14 +29,14 @@ test_that("2b unit text: a plain unit follows the number after a no-break space 
   expect_equal(tx(fmt_num(u(5, mg/L))), paste0("5", NB, "mg/L"))
 })
 
-test_that("2b unit text: an exponent is written in superscript characters (D23)", {
+test_that("2b unit text: an exponent is written as a Pandoc superscript (D23, ruling on 1/f)", {
   d <- pd()
   expect_equal(tx(fmt_num(d$core_len * d$reach_len)), paste0("1", NB, "m", SUP2))
   expect_equal(tx(fmt_num(u(9.81, m/s^2))), paste0("9.8", NB, "m/s", SUP2))
-  expect_equal(tx(fmt_num(u(1, m^3))), paste0("1", NB, "m³"))
+  expect_equal(tx(fmt_num(u(1, m^3))), paste0("1", NB, "m^3^"))
 })
 
-test_that("2b unit text: a product is written with the dot operator (D23)", {
+test_that("2b unit text: a product is written with the middle dot (D23, ruling on 1/f)", {
   expect_equal(tx(fmt_num(u(1, kg * m))), paste0("1", NB, "kg", DOT, "m"))
 })
 
@@ -236,11 +236,11 @@ test_that("2b pct: .p on a ratio is a number (D27)", {
 
 # ---- governors and bare values (4.4.4, 4.4.9, 4.4.10) --------------------------------------
 
-test_that("2b governor: a quantity as the n governor contributes its number, and # carries no unit (4.4.9)", {
+test_that("2b governor: a quantity as the n governor contributes its number, and # carries its unit (4.4.4 reversed)", {
   d <- pd()
-  expect_equal(as.character(plural(u(1, m), "# metre", "# metres")), "1 metre")
-  expect_equal(as.character(plural(u(3, m), "# metre", "# metres")), "3 metres")
-  expect_equal(as.character(plural(d$core_len, "# metre", "# metres")), "0.5 metres")
+  expect_equal(as.character(plural(u(1, m), "# metre", "# metres")), paste0("1", NB, "m metre"))
+  expect_equal(as.character(plural(u(3, m), "# metre", "# metres")), paste0("3", NB, "m metres"))
+  expect_equal(as.character(plural(d$core_len, "# metre", "# metres")), paste0("0.5", NB, "m metres"))
 })
 
 test_that("2b bare: a bare value prints as stock does, the number alone (4.4.10)", {
@@ -344,11 +344,11 @@ B2B_WANT <- c(
   "no",
   paste0("an 8", NB, "m / **3", NB, "m**"),
   NA,
-  "0.5 metres",
+  paste0("0.5", NB, "m metres"),
   "0.5",
-  paste0("0.5", NB, "m and 0.5 metres"),
-  "up 0.5",
-  "1 metre",
+  paste0("0.5", NB, "m and 0.5", NB, "m metres"),
+  paste0("up 0.5", NB, "m"),
+  paste0("1", NB, "m metre"),
   "2"
 )
 
@@ -410,19 +410,19 @@ test_that("2b render: no failure other than the two the batch asks for", {
   expect_equal(length(b2b_failures_text()), 2L)
 })
 
-test_that("2b render: a span with an n or sign governor that is a quantity prints # without a unit (4.4.9, table)", {
+test_that("2b render: a span with an n or sign governor that is a quantity prints # with its unit (4.4.4 reversed, table)", {
   res <- b2b_render()
   skip_if(res$failed, "the batch did not render")
   got <- b2b_got()
-  expect_equal(got[23], "0.5 metres")
-  expect_equal(got[27], "1 metre")
-  expect_equal(got[26], "up 0.5")
+  expect_equal(got[23], paste0("0.5", NB, "m metres"))
+  expect_equal(got[27], paste0("1", NB, "m metre"))
+  expect_equal(got[26], paste0("up 0.5", NB, "m"))
 })
 
-test_that("2b render: the record behind an id holds no unit, so a governor on the id prints no unit (4.4.4, K1)", {
+test_that("2b render: the record behind an id holds no unit, so a governor on the id prints the unit from the value (4.4.4 reversed, K1)", {
   res <- b2b_render()
   skip_if(res$failed, "the batch did not render")
-  expect_equal(b2b_got()[25], paste0("0.5", NB, "m and 0.5 metres"))
+  expect_equal(b2b_got()[25], paste0("0.5", NB, "m and 0.5", NB, "m metres"))
 })
 
 test_that("2b render: a bare value prints as stock knitr prints it (4.4.10)", {

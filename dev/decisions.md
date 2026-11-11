@@ -266,3 +266,15 @@ and are entries 30 to 37 under "Made".
     (`m^2^`) and the middle dot U+00B7, as `.sci` already writes its
     power. Cost: a formatter's text for a quantity is markdown, not plain
     text, so a plot label needs its own unit. Reverse: `R/units.R`.
+46. **4.4.4, `#` carries the unit; 4.4.14, the `unit` key (Robin, 12
+    November 2026; reverses 4.4.4 and the first ruling on the review of
+    2b).** `#` printed the unit on some routes and not on others. The
+    first ruling made it never. Robin's ruling: always, because a unit
+    typed in the arm goes wrong when the quantity changes unit. `#` is
+    what the governor prints as a value under the span's classes. With
+    it comes a way to choose the unit shown: `unit="m"` on a value or
+    span and `unit =` on the number formatters convert first, so the
+    number, the unit and the arm agree. Alternatives for the display
+    unit: `units::set_units()` in the expression (long); a `display:`
+    field per dictionary entry (not built; for Robin). Reverse:
+    `R/resolve.R`, `R/format.R`.

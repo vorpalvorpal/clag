@@ -138,7 +138,7 @@ inside the block.
 | Kind | Names |
 |---|---|
 | governor and marker keys | `n`, `if`, `sign`, `list`, `cite` |
-| renderer keys | `digits`, `sigfig`, `sep`, `last`, `trunc`, `none` |
+| renderer keys | `digits`, `sigfig`, `unit`, `sep`, `last`, `trunc`, `none` |
 | formatter classes | `.num .pct .sci .p .date`, `.no .word .count .ord`, `.and .or .pairs .range .ul .ol .dl`, and project-registered ones (§1.4) |
 | text classes | `.a`, `.cap`, `.strong`, `.em` |
 | identity | `#id` (§1.7) |
@@ -262,12 +262,13 @@ text class or `trunc` with one of them is a construct error too.
 |---|---|---|
 | `digits` | number | decimal places |
 | `sigfig` | number | significant figures |
+| `unit` | number | the unit a quantity is printed in (4.4.14) |
 | `sep` | collapse | the text between items |
 | `last` | collapse | the text before the final item |
 | `trunc` | collapse | the number of items shown before "and N others" |
 | `none` | collapse | the text printed for a vector of length zero (1.4.14) |
 
-`digits` and `sigfig` together are a construct error. Either one on a
+`digits` and `sigfig` together are a construct error. Either one, or `unit`, on a
 construct with no number-stage class implies `.num`.
 
 **1.4.8** A project registers its own formatter (a function, optionally
@@ -849,8 +850,8 @@ knitr does not count, and the `before.knit` hook installs the rest once knitr
 has chosen its output hooks. Called during a knit, `weft_setup()` installs
 them at once.
 
-**2.1.8** `weft_setup()` also puts `claim()`, `plural()`, `glue_vec()` and
-the `fmt_*()` functions on the search path, below everything else, so inline
+**2.1.8** `weft_setup()` also puts `claim()`, `plural()`, `glue_vec()`, `u()`
+and the `fmt_*()` functions on the search path, below everything else, so inline
 R can call them without `library(weft)` and an author's own function of the
 same name wins.
 
@@ -1242,7 +1243,8 @@ write `level = `. A guard has no level (1.5.5).
 
 **3.2.2** `plural()` takes its arms as separate arguments, in the order a span
 writes them, and allows the same counts (§1.6):
-`plural(k, "never", "once", "twice", "# times")`.
+`plural(k, "never", "once", "twice", "# times")`. A `#` in its arms prints
+as a span's does, with the unit of a quantity (4.4.4).
 
 **3.2.3** `if` and `sign` spans have no function. In R code an `if` is R's
 own, and a `sign` span is written as markup in a `weft_str()` string.
@@ -1279,7 +1281,13 @@ function carries the record forward.
 the list formatters, is exported.
 
 **3.4.4** A formatter function given a `units` value prints its unit as the
-class does (4.4.8).
+class does (4.4.8), and takes `unit =` as the key does (4.4.14). The `weft_text` it returns carries the unit as the
+attribute `unit`, holding the unit's markdown text, only when the unit is in
+its text. The printed record does not hold it (4.4.4). A formatter function
+given such a `weft_text` formats the number afresh and places the unit as the
+class does, so `fmt_and(fmt_num(u(c(3, 5, 7), m)))` is "3, 5 and 7 m".
+`glue_vec()` prints a quantity's number as it prints a plain number, with no
+rounding of its own, then the unit.
 
 **3.4.5** `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`, `fmt_ol()` and
 `fmt_dl()` take `none = NULL`, as the key does (1.4.14). A `none` that is
@@ -1290,6 +1298,8 @@ setting applies (1.4.15).
 
 **3.4.6** `fmt_num()`, `fmt_pct()` and `fmt_range()` record a number that prints
 as zero as the classes do (2.6.11).
+
+**3.4.7** Subsetting a `weft_text` that carries a unit keeps the unit.
 
 ### 3.5 Phrase functions
 
@@ -1319,6 +1329,15 @@ from `scales`, registered as a project formatter (1.4.8).
 
 **3.5.6** Deferred: `drange()` for date ranges ("3–5 June 2024") and `dur()`
 for durations ("2 years and 3 months").
+
+**3.5.7** `of_n()` and `about()` given a quantity use its number: they print
+words, which take no unit (4.4.2). Given two quantities, they convert the
+second to the first's unit before they compare, and units that do not
+convert are a value error. `ci()`, `pm()` and `clamp()` given a quantity that
+has a unit, or a formatter's text that carries one, are a value error whose
+message says to pass the numbers or to format the parts with `fmt_num()`:
+weft does not guess where the unit goes. A ratio, with no unit left, is a
+number to them.
 
 ### 3.6 `weft_str()`
 
@@ -1388,10 +1407,21 @@ constructs one. In a knit, weft creates `dict` when the knit is initialised
 **4.1.2** `$` on a `dict` errors on any name that is not an exact key. It
 never returns `NULL`, and never matches partially.
 
-**4.1.3** Keys are valid R symbols. `file` is reserved.
+**4.1.3** Keys are valid R symbols, and not reserved words: `..1` and `...`
+are refused. `file` is reserved.
 
 **4.1.4** Chunk code may not assign to `dict` or redefine one of its keys
 (tier 1, §5.8).
+
+**4.1.5** A dictionary is read-only. `dict$x <- v`, `dict[["x"]] <- v`,
+`dict["x"] <- v` and `names(dict) <- v` are errors, and so is `dict["x"]`:
+write `dict$x` or `dict[["x"]]`. `names()`, `length()`, `str()`, `summary()`
+and `lapply()` work as they do on the plain list of values.
+
+**4.1.6** At the start of each top-level knit, weft removes the `dict` and
+`dict_local` that it assigned in an earlier knit, before it reads this knit's.
+A document with neither dictionary sees neither. A session's own object named
+`dict` is replaced during a knit that has a dictionary, and is not restored.
 
 ### 4.2 Entries
 
@@ -1414,14 +1444,15 @@ salinity_res:
   definition: "Resolution at which the logger records salinity."
 ```
 
-**4.2.1** An entry has a `value`, a `type` and a `definition`. `unit` and
-`decision` are optional.
+**4.2.1** An entry has a `value`, a `type` and a `definition`. `decision` is
+optional. `unit` is required for `type: quantity` and an error on any other
+type. A field that is not named here is an error.
 
 | `type` | `value` is | Read as |
 |---|---|---|
 | `number` | a number | a number |
 | `quantity` | a number, with a `unit` | a `units` object (§4.4) |
-| `year` | a four-digit year | an integer; never given a thousands mark |
+| `year` | a four-digit year | a year (4.2.4), an integer that is never given a thousands mark |
 | `date` | an ISO date | a `Date` |
 | `string` | text | a string |
 | `labels` | a map from key to phrase | a `lookup()` (3.3.2) |
@@ -1433,6 +1464,44 @@ Any other `type` is an error when the dictionary is read.
 chosen. Anything computable belongs in the pipeline.
 
 **4.2.3** A `type: labels` entry is returned as a `lookup()` (3.3.2).
+
+**4.2.4** A `type: year` entry is read as a year: an integer with class
+`weft_year`. A year stays a year through `c()`, `[`, `[[`, `rev()`, `sort()`,
+`unique()`, `min()`, `max()`, `range()` and `seq()`. `year + n`, `n + year`
+and `year - n` are years, and a result that is not whole is a plain number.
+`year - year` and any other arithmetic give a plain number. Comparisons work
+as on integers, and `as.integer()`, `as.numeric()`, `format()` and `print()`
+show the bare integer. Every number and wording class prints a year with no
+thousands mark whatever `thousands_from` says (1.4.16), `.ord` included:
+`dict$era_split` prints "2014", `dict$era_split + 1` prints "2015", and
+`range(c(dict$era_split, dict$era_split + 10))` in `.range` prints
+"2014–2024". When `vctrs` is loaded, a year combined with a year is a year,
+and a year combined with an integer or a double is a plain integer or double.
+
+**4.2.5** The YAML of a dictionary file is restricted to what its author can
+read at a glance. Each of these is a problem, never read silently:
+
+- a number written with a leading zero (`010`), whether or not it is quoted,
+  or in hex or octal (`0x1F`, `0o17`), under `number`, `quantity`, `year` or
+  a bound of `breaks`. The problem says to write it in decimal;
+- a merge key (`<<`). Anchors and aliases without one are allowed;
+- more than one YAML document in the file;
+- an unquoted `null` as a key. A quoted `"null"` is a key;
+- a duplicate key.
+
+`yes`, `no`, `on`, `off`, `true` and `false` stay as text, so a `labels` map
+may be keyed by them. A number written as a string (`"1e-3"`) is accepted
+where a number is wanted, and so is a whole number beyond the integer range
+(read as a double; under `year` it is an error). A string entry must be
+quoted if it looks like a number.
+
+**4.2.6** A dictionary that has problems is not half-read. `read_dict()`
+collects every problem, from every entry, and raises them together as one
+error, one line per problem with the file, the line of the entry's key, the
+field and the rule. A read that reports problems registers no unit (4.4.7).
+Two bands of a `breaks` entry that leave a band which can never be chosen
+(an `at_most` followed by a `below` of the same number, or equal bounds of
+the same kind) are a problem.
 
 ### 4.3 Local entries
 
@@ -1446,7 +1515,15 @@ chapter defines a local `x` is an ambiguity error.
 the source, and nothing else lists it.
 
 **4.3.4** A chapter's local entries are written in its front matter, under
-`weft:` / `dict_local:`, in the form of §4.2 plus the `why`.
+`weft:` / `dict_local:`, in the form of §4.2 plus the `why`. `dict_local` in
+`_weft.yml` is a configuration error. `dict_local` is empty, not absent, in a
+chapter with no local entries and a project that has a dictionary, so that
+4.3.2 gives its error instead of "object not found".
+
+**4.3.5** Local entries belong to the document that is knitted. A child
+document with its own `weft: dict_local:` is an error naming the child. A
+local entry need not exist in `dict.yml`, and its type is not compared with
+the project entry's.
 
 ### 4.4 Quantities
 
@@ -1467,34 +1544,77 @@ multiplication and division, cancels in a ratio, and converts where it can.
 Adding two units that do not convert is an error.
 
 **4.4.5** Comparing or adding a quantity and a bare number is an error. A
-check states its unit: `claim(x, . < u(0.45, ug))`.
+check states its unit: `claim(x, . < u(0.45, ug))`. The failed check's report
+says so: "state the check's unit, as in `. < u(0.45, ug)`".
 
 **4.4.6** weft exports `u(value, unit)`, a short wrapper for
-`units::set_units()`: `u(35, m)`.
+`units::set_units()`: `u(35, m)`. The unit is written as it is, or as a
+string (`u(150, "CFU/100 mL")`), and is never evaluated as R, so a variable
+named `m` is not read. The value is a number or a `units` object, which is
+converted: `u(dict$core_len, cm)` is 50 cm. `u()` registers no unit. A unit
+the units database does not know, a unit the value does not convert to, a
+unit with a power that is not a whole number (`m^0.5`), a value that is not
+a number and a missing unit are each an error of class `weft_unit_error`.
 
 **4.4.7** When it reads the dictionary, weft registers every unit symbol the
 units database does not know, with `units::install_unit()`. `PSU`, `NTU` and
-`sites` are examples.
+`sites` are examples. Reading the same file twice is silent and gives the same
+object: the unit symbols the dictionary needs that the units database does
+not have are listed in the attribute `registered`, whoever installed them. A
+unit that cannot be parsed, or that `units` parses only with a warning, is a
+problem with the dictionary (4.2.6), not a new unit. A power that is not a
+whole number is a problem too.
 
 **4.4.8** Any `units` value, from the dictionary or from the pipeline,
 prints with its unit when it has a weft formatter. The number stage formats
-the number. The unit's symbol follows after a no-break space, with exponents
-as superscripts: "1.2 m²". A value with no unit left, such as a ratio,
-prints the number alone.
+the number. The unit's symbol follows after a no-break space (U+00A0), and is
+Pandoc markdown, as `.sci` writes its power: an exponent is a superscript, so
+"1.2 m²" is written `1.2 m^2^`; a negative exponent uses the minus sign
+U+2212 (`m^−3^`); a product is written with the middle dot U+00B7 (`kg·m`).
+A unit with a numerator keeps its quotient (`mg/L`, `m/s^2^`); a unit with no
+numerator is written with negative powers (`m^−3^`), not "1/m^3^". Anything
+else is written as `units` writes it (`°C`, `sites/ha`). Characters that
+markdown reads (`_`, `*`, `~`, `^`, `[`, `]`, `` ` ``, `\`) are escaped, except
+the superscript marks weft writes. A value with no unit left, such as a
+ratio, prints the number alone.
+
+The number stage gives a project formatter (1.4.8) the bare number, and weft
+adds the unit after it. A project collapse formatter receives each element
+with its unit. A quantity with a text class, `.strong` for one, keeps its
+unit inside the markup (`**3 m**`).
+
+`.pct`, `.p` and `.date` given a quantity that has a unit are a value error:
+dropping the unit would be the silent error of 4.4.5. A quantity with no unit
+left is a plain number to them.
 
 **4.4.2** The unit follows the digits. It is printed when the value prints as
 digits, and not when a wording class has turned it into a word ("three", not
 "three m"): a unit symbol belongs with a numeral, and a spelled number takes
-the unit's name, which the author writes.
+the unit's name, which the author writes. A number still in digits keeps it:
+`.count` at or above its threshold, `.word` at or above its limit, and
+`.ord`. A `.no` that prints "no" takes none.
 
 **4.4.3** A collapse prints the unit once, after the last number: "3–5 m",
-"3, 5 and 7 m". `.pairs` and the list formatters print it with every number.
+"3, 5 and 7 m". With `trunc` the last number is the last one printed: "3, 5 m
+and 2 others". `.pairs`, `.ul`, `.ol` and `.dl` print it with every number.
+A vector that no collapse class joins prints it with every element ("3 m,
+5 m"), as stock prints the vector.
 
-**4.4.4** `#` in an arm never carries the unit, and the printed record
-(1.4.11) does not hold it. A quantity that governs a span is written with its
-unit's name in the arms: `[# metre | # metres]{n="dict$core_len"}`.
+**4.4.4** `#` in an arm prints what the governor would print as a value
+under the span's classes, so it carries the unit whenever it prints as digits,
+and takes none when a wording class has turned it into a word (4.4.2). This
+holds whatever the governor is: a quantity, a formatter's text for a
+quantity, an id, `n="."`, a `sign` span, `plural()`. In a `list` span over
+quantities `#` is the collapsed list with the unit once after the last number
+(4.4.3), with or without a number class. The author does not write the unit
+in the arm: `[# was | # were]{n="dict$core_len"}` prints "5 m were", the
+number and the unit joined by a no-break space. The printed record (1.4.11)
+holds the number, not the unit. An author who wants the unit's name in words
+uses a wording class, or gives the number alone with `units::drop_units()`.
 
-**4.4.9** A quantity that governs a span contributes its number.
+**4.4.9** A quantity that governs a span contributes its number. Selection
+sees the number as it prints, as for any governor (1.5.9), after any
+conversion by `unit` (4.4.14).
 
 **4.4.10** A bare value with no attribute block prints as stock knitr prints
 it (1.3.1): the number, without the unit.
@@ -1503,6 +1623,22 @@ it (1.3.1): the number, without the unit.
 available. Its system requirement is the udunits-2 library. The CRAN
 binaries for macOS and Windows carry it; on Linux it is one system package,
 which every weft installation there needs.
+
+**4.4.12** A list of quantities, and a vector of mixed units
+(`units::mixed_units()`), given to a formatter, a governor or `glue_vec()` are
+a value error: weft prints one unit for one vector.
+
+**4.4.13** A quantity that prints as zero under the default digits prints "0.0"
+and its unit, and records the warned check, as a number does (1.4.13). A
+missing element is the "no value" failure, as for a number.
+
+**4.4.14** The key `unit="m"` on a value construct or a governed span, and the
+argument `unit =` of the number-stage formatter functions, give the unit to
+print in. The quantity is converted before anything else, so the number, the
+unit printed and the arm chosen are all in that unit: a value of 150 cm with
+`unit="m"` prints "1.5 m", and `[# is | # are]{n="x" unit="m"}` with `x` of
+100 cm prints "1 m is". A unit the quantity cannot be converted to, and
+`unit` on a value that is not a quantity, are value errors.
 
 ### 4.5 Decision pointers
 
@@ -2966,6 +3102,15 @@ verifies every read without running R (5.8 rule 6).
 
 **4.2.2** A derivation in the dictionary is a number typed by hand.
 
+**4.2.4** A year is held as a class because an attribute is lost by `c()`,
+`range()`, `seq()` and `year + 0:2`, and "2,014–2,024" would print. A plain
+integer prints "2,014" under `.num`. The `vctrs` methods are registered only
+when `vctrs` is loaded, so weft does not depend on it.
+
+**4.2.5** A dictionary is a committed file of constants, so it must not hold a
+value its author cannot see: YAML 1.1 reads `010` as 8, and a merge key or a
+second document silently changes what an entry holds.
+
 **4.3.1, 4.3.2** A paragraph moved to a chapter with no local `sites` errors,
 instead of quietly changing meaning.
 
@@ -2989,11 +3134,22 @@ in the udunits database, and a count noun such as "sites" never is. Without
 registering them, a dictionary that names one could not be read.
 
 **4.4.8** SI style puts a space between a number and its unit symbol. A
-no-break space keeps them on one line. A ratio has no unit to print.
+no-break space keeps them on one line. A ratio has no unit to print. The
+unit's text is Pandoc markdown, not Unicode superscripts: a Unicode
+superscript stops a pdflatex render and vanishes under xelatex without a
+font, while `m^2^` survives pdflatex, xelatex, HTML and Word. The cost is that
+a formatter's text for a quantity is markdown, so a plot label needs its own
+unit.
 
-**4.4.2 to 4.4.4** SI style puts a unit symbol with a numeral and a unit name
-with a spelled number. A unit inside `#` would print twice in every arm that
-names it.
+**4.4.2, 4.4.3** SI style puts a unit symbol with a numeral and a unit name
+with a spelled number.
+
+**4.4.4** A unit the author types in the arm is wrong as soon as the quantity
+is held in another unit; a unit weft prints cannot be.
+
+**4.4.14** A quantity is stored in the unit the data came in and read in the
+unit the reader expects. Converting in the expression (`units::set_units()`)
+is long and hides the intent.
 
 **4.4.10** A bare value prints as stock prints it (1.1.8), and stock knitr
 prints a `units` value as its number (§18).
@@ -3969,7 +4125,7 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   product prints "m²", adding kilograms to metres errors, and a check against
   a bare number errors. A quantity prints its unit after a no-break space
   under each number class, once after a collapse, with every number under
-  `.pairs`, and not after a spelled number. `#` carries no unit. A bare value
+  `.pairs`, and not after a spelled number. `#` carries it by the same rules. A bare value
   prints the number alone. A dictionary that names `PSU` or `sites` reads,
   and so does one with a compound unit such as "CFU/100 mL".
 - **Condition matching.** The spike's recorded messages, each under two
