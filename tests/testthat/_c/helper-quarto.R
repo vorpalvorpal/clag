@@ -204,3 +204,5 @@ kind_bodies <- function(setup = "") {
     capital_R = c(chunk, "Depth is `R depth`{.num} here.")
   )
 }
+
+as_chr <- function(x) as.character(unlist(x))

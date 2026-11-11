@@ -38,7 +38,6 @@ fresh_project <- function(yml = project_yml()) {
   dir
 }
 
-as_chr <- function(x) as.character(unlist(x))
 
 test_that("9.3.1: use_quarto() writes exactly the files the design note lists", {
   dir <- fresh_project()

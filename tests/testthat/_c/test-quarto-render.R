@@ -78,6 +78,7 @@ test_that("2.5.3, 2.5.4: with the pre-render script absent the filter fails a .q
   y <- yaml::read_yaml(file.path(dir, "_quarto.yml"))
   y$project$`pre-render` <- NULL
   y$project$`post-render` <- NULL
+  y$filters <- as.list(y$filters)   # Quarto rejects a scalar here
   yaml::write_yaml(y, file.path(dir, "_quarto.yml"))
   unlink(file.path(dir, "_weft"), recursive = TRUE)
   expect_true("weft-check" %in% as_chr(y$filters), label = "the filter is still named")
