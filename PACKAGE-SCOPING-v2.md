@@ -67,7 +67,8 @@ filled; then text classes act on the result.
 **Classes are of three kinds.**
 
 - **Formatters** act on the value, left to right (`.num`, `.pct`, `.word`, …).
-- **Text classes** act on the final text (`.cap`, `.a`, `.strong`, `.em`).
+- **Text classes** act on the final text (`.cap`, `.a`, `.strong`, `.em`),
+  in a fixed order: the article, then the capital, then emphasis.
   `.strong` and `.em` emit markdown emphasis, because Pandoc gives those class
   names no meaning.
 - **Everything else is passed through.** Any class or key weft does not own,
@@ -78,7 +79,8 @@ filled; then text classes act on the result.
   `` `r x`{.num .smallcaps custom-style="Key figure"} ``.
 
 An unknown class is therefore not an error. A class within one edit of a
-formatter name (`.nmu`) is (§5).
+formatter name (`.nmu`) is (§5). A formatter on an `if` span, which has no
+number to format, is an error too.
 
 ### Values
 
@@ -89,7 +91,7 @@ formatter name (`.nmu`) is (§5).
 `r x`{.num}                          one formatter
 `r n`{.no .word}                     formatters, left to right
 `r claim(depth, . > 0.5)`{.num}      check and formatter
-`r k`{.count .cap}                   formatter and text class: "Twelve"
+`r k`{.word .cap}                    formatter and text class: "Twelve"
 `r sites`{.or}                       "a, b or c"
 `r sites`{sep="; "}                  renderer argument
 `r sites`{.and trunc="3"}            "a, b, c and 4 others"
@@ -269,12 +271,15 @@ Depth was `r claim(depth, . > 0.5)`{#d .num} m. … The [core | cores]{n="#d"} �
   re-evaluates nothing.
 - **The formatter travels.** With no classes of its own, the referring span
   uses the number as it was printed there, so agreement follows what the
-  reader saw (1.04 printed as "1" takes the singular). With classes, it
-  formats the raw value afresh.
+  reader saw (1.04 printed as "1" takes the singular). With formatters of its
+  own, it formats the raw value afresh.
 - **`[#]{n="#d"}` prints the value again.**
 - **The id must be defined earlier in the same document.** An unknown id, or
   one defined further down, is a construct error found from the source. A
   book chapter cannot refer to another chapter's id.
+- **An id is defined once.** A duplicate is a construct error. An id defined
+  inside an arm exists only when that arm is chosen, so it can be referred to
+  only from inside the same arm.
 - **A back-reference is the whole value of the key.** `#` begins a comment in
   R, so `"#d"` can never be mistaken for an expression.
 - **An R variable names a value; an id names a printed occurrence.** Compute
@@ -347,9 +352,12 @@ plot(d)
   constructs work as in any paragraph.
 
 **`weft_str()` renders a markup string** (exported provisionally). It is for
-the text slots no chunk option reaches: `gt::tab_caption()`,
-`knitr::kable(caption = )`, `ggplot2::labs()`. The lints read a literal
-string passed to it as prose.
+the text slots no chunk option reaches: `ggplot2::labs()`, a `gt` footnote or
+column label, `knitr::kable(caption = )`. The lints read a literal string
+passed to it as prose.
+
+**A numbered table takes its caption from `tbl-cap`.** `gt` drops a caption
+set with `tab_caption()` from Word output, so that form is not portable.
 
 ---
 
@@ -478,6 +486,11 @@ Do not loosen a claim to clear this.
   failures are written to a JSON file beside the document.
 - **An expression that cannot be evaluated** (an unknown object, a syntax
   error) is reported the same way, naming the expression and its line.
+- **A construct error stops the render at once**: a wrong arm count, an
+  unknown id, a near-miss class, a governor of the wrong type. These are the
+  errors the lints find from the source (§5), and nothing after one can be
+  trusted.
+- **A failed guard is reported by its phrase**, with each failing condition.
 
 ### Positions
 
@@ -485,9 +498,17 @@ Every error and every log entry names the source file and the exact line of
 the construct: the block's first line plus the newlines before the construct.
 Placeholders contain no newlines, so the count is stable.
 
-- The block's first line comes from `knitr:::knit_concord`, which is not
-  exported. An integration test pins it (§11); without it weft falls back to
-  the block's line range.
+- **The block's first line is found by searching for the block in the file
+  knitr is reading**, forward from the end of the previous block. The `text`
+  hook receives each block in order; weft puts the parked expressions' source
+  back and matches whole lines, requiring a chunk boundary on each side, so a
+  block that repeats a line of the chunk above it cannot match there. Only
+  exported functions are used.
+- A block that cannot be found is reported with the end of the previous block
+  as a lower bound. `knit(text = )` has no file, so its positions are relative
+  to the block.
+- knitr's own unexported record of block positions agreed with the search on
+  every block tested (§13). weft does not depend on it.
 - Under Quarto, knitr reads an intermediate file with `{{< include >}}`
   already expanded. weft maps lines back through the includes, so an error in
   an included file names that file.
@@ -919,7 +940,9 @@ Tier-1 errors, found without running R:
 
 - a wrong arm count for its key, or for the document's language
 - a back-reference to an id that is unknown or defined later
-- a class within one edit of a formatter or text-class name (`.nmu`)
+- a class within one edit of a formatter or text-class name (`.nmu`). The
+  rule applies to names of three or more letters; one edit from `.no` or `.a`
+  is half the alphabet
 - a key within one edit of a weft key (`sing=`, `trunk=`). Other unknown keys
   and classes are passed through (§0), so only a near miss can be told from an
   attribute meant for Pandoc
@@ -1185,8 +1208,22 @@ One entry point. Runs, in order:
 
 ```
 L4 → L2 → construct errors → L10 → L1 → L8 → ratchet
-   → render with freeze disabled (L6) → L3 + L11 → L5
+   → render, re-executing every document (L6) → L3 + L11 → L5
 ```
+
+**The render step re-executes every document it verifies.** `verify()` moves
+those documents' entries in `_freeze` aside, runs one ordinary project render,
+and puts the entries back if the render fails.
+
+- Each document executes once, and the freezer is left holding the verified
+  results, so the next ordinary render serves what was checked.
+- Moving the whole folder verifies the project; moving one document's entry
+  verifies that document (`verify(files = )`).
+- Overriding `freeze` from the command line (`-M freeze:false`, or a profile)
+  also re-executes everything, but removes `_freeze`, and the next ordinary
+  render then executes everything again.
+- A single render keeps the single end-of-book report (§1), which separate
+  renders of each file would not.
 
 A chapter that is nevertheless served from freeze fails `verify()`. An
 ordinary render only reports it (§1).
@@ -1215,7 +1252,10 @@ fixture pair.
   render to the same text.
 - **Attribute forms.** Each fixture is also run with its attribute blocks
   reordered, single-quoted and unquoted, and must render the same text.
-- **Pinned internals.** One test each for `knitr:::knit_concord`, the
+- **Positions.** The block search against a stress document: repeated
+  blocks, blank blocks, a block identical to a line of the chunk above it,
+  CRLF, no final newline, a byte-order mark.
+- **Pinned internals.** One test each for the
   signature of knitr's `evaluate` hook, knitr's evaluation of `eval.after`
   options after the chunk, Quarto's `.QuartoInlineRender` wrapper, Quarto's
   forwarding of a `NULL` `tbl-cap`, and a Lua `os.exit` failing a Quarto
@@ -1286,9 +1326,14 @@ and Quarto 1.11.9 (Pandoc 3.10). "Both" means under `quarto render` and under
 |---|---|
 | The `text` hook receives each prose block, in order, with the environment of that point in the document | both |
 | Parked inline code: unchosen arms never run; data that looks like a span is printed | both |
-| 108 syntax cases: values, formatters, checks, every arm rule, escapes, nesting, `n="."`, carve-outs, spans in headings, lists, quotes, table cells, footnotes, divs | both (two cases Quarto-only) |
+| 250 syntax cases in the form §0 gives: values, formatters and text classes, `claim()`, `n` with one to four arms, `if` with two arms, guards and condition lists, `sign`, back-references, pass-through, attribute blocks in every order and quoting, escapes, nesting, `n="."`, carve-outs, spans in headings, lists, quotes, table cells, footnotes, divs, and every error path | both (two cases Quarto-only) |
+| `.range` alone and as an `n` governor, `.p` with its relation, `.count`, `.pairs`, `trunc`, and the error for an `n` span under a non-English `lang` | both |
+| `claim()` outside a knit returns its value when it passes and stops at once when it fails | R |
+| Inline R inside a fence that is not executed: output identical with and without the hooks | both |
+| `.strong` reaches docx as a bold run and Typst as `#strong[…]` | Quarto |
 | Every error names the exact source line | both |
-| Bare values print as stock knitr, 24 kinds of value | both |
+| The block search finds the same first line as knitr's own record on 4,320 of 4,320 blocks, across stress documents, the syntax cases, includes and child documents; a block identical to a line in the chunk above it needs the chunk-boundary rule | both |
+| Bare values print as stock knitr, 23 kinds of value | both |
 | Quarto's `` `{r} x` `` form, bare and with attribute blocks | Quarto |
 | A caption written as prose in a figure div or a table div resolves, and the float is numbered and referenced | Quarto |
 | Constructs in `fig-cap`, `fig-alt`, `fig-subcap` and `tbl-cap` (kable and gt) resolve through an option hook and `eval.after`, and see objects made in the same chunk; numbering and cross-references hold | Quarto (html, docx, Typst) |
@@ -1315,17 +1360,15 @@ and Quarto 1.11.9 (Pandoc 3.10). "Both" means under `quarto render` and under
 | Activation from `_output.yml` through an output format that carries the hooks | rmarkdown |
 | Chunk cache: checks still run on cached values | both |
 | `freeze: auto`: checks do not run; the stamp mechanism detects it | Quarto |
+| With `_freeze` (or one document's entry) moved aside, one project render re-executes those documents once and rewrites their entries; `-M freeze:false` and a profile re-execute but remove `_freeze`; `--execute`, `--cache-refresh` and `touch` do not thaw; book and website | Quarto |
 | Pandoc's markdown writer keeps values and governed spans as constructs, writing `\|` and `\#` inside them | Pandoc |
 | Pandoc's position-tracking reader parses values and spans into nodes with line and column | Pandoc |
-| Knit time with 4,000 constructs: about 1.5 s against 0.2 s stock | knitr |
+| Knit time with 4,000 constructs: about 1.6 s against 0.2 s stock | knitr |
+| `gt` 1.3.0 drops a `tab_caption()` or `gt(caption = )` caption from docx output, with no hooks installed; `tbl-cap` with a `tbl-` label is correct in docx, html and Typst | Quarto |
 
-The stand-in for the syntax cases spelled a check as an attribute, stopped at
-three arms, rejected unknown classes and left inline R in a fence unevaluated.
-Not run in the form §0 gives them: `claim()` in the expression under the
-hooks; `sign`; a four-arm `n`; a one-arm `if`; pass-through classes and keys;
-attribute blocks in other orders and quotings at knit time; stock evaluation
-inside a fence with the hooks installed; the formatters, text classes and
-functions other than `.num`, `.pct`, `.word`, `.no`, `.or` and `.ul`.
+Not run in the syntax stand-in: the end-of-document check together with the
+new forms (it was run with the earlier ones), `.date`, `.sci`, `.ord`,
+`.ol`, `.dl`, and the functions `of_n()`, `about()`, `ci()` and `pm()`.
 
 Not run at all: Windows; the Render button in RStudio or Positron; running
 chunks interactively with the hooks loaded; LaTeX PDF; bookdown; nested
@@ -1345,25 +1388,21 @@ has a quoted value, and rejects a key written before a class and an unquoted
    placeholder characters are private-use Unicode and exist only in memory.
 2. **The editors.** Whether the Render button, chunk-by-chunk execution and
    the inline preview behave with the hooks loaded.
-3. **`knitr:::knit_concord`.** Exact lines depend on it. Ask for an exported
-   accessor, or accept the pin.
-4. **Disabling freeze for `verify()`.** Editing the file, `execute: freeze:
-   false`, deleting `_freeze` and a single-file render all re-execute; there
-   is no command-line flag. The mechanism `verify()` uses is undecided.
-5. **Quarto 2 execution.** It hands knitr text re-serialised from its parsed
+3. **A render that fails part-way through `verify()`.** What `_freeze` holds
+   after a chunk errors mid-render is untested, and the put-back step of §10
+   depends on it.
+4. **Quarto 2 execution.** It hands knitr text re-serialised from its parsed
    tree. Whether the hooks then see the constructs unchanged is untested.
-6. **`tar_dict()` beyond the toy pipeline.** Not run: branching, parallel
+5. **`tar_dict()` beyond the toy pipeline.** Not run: branching, parallel
    workers, functions in a package namespace, Windows.
-7. **Matching a construct across versions** when it has no `#id` is a
+6. **Matching a construct across versions** when it has no `#id` is a
    heuristic. How often the check-loosening report mismatches is unmeasured.
-8. **Plural rules for languages other than English are not shipped.** The
+7. **Plural rules for languages other than English are not shipped.** The
    table would be generated from CLDR's `plurals.xml`; no R package was found
    that exposes those rules.
-9. **A `gt::tab_caption()` caption went missing in Word output** in one test,
-   while the same chunk was correct in Typst. Unexplained.
-10. **`weft_str()`** is exported provisionally. Whether a string renderer in R
+8. **`weft_str()`** is exported provisionally. Whether a string renderer in R
     code earns its place beside the function forms is open.
-11. **`.Rprofile` activation beside `renv`**, which owns that file, and under
+9. **`.Rprofile` activation beside `renv`**, which owns that file, and under
     the editors' Render buttons, is untested.
 
 ---
@@ -1377,21 +1416,44 @@ lints, run against the audit corpus of the companion plan. The result ranks
 the layers. It is suggestive: one corpus cannot remove a layer from a package
 meant for more than one project (P12).
 
-**Stage 1 — the prose core.** Usable alone.
+**Stage 1 — the prose core.** Usable alone. It is built in four steps. Each
+step ends when its fixtures pass under Quarto and rmarkdown and a real chapter
+renders with it.
 
-- the scanner and the hooks
-- values and governed spans with `n`, `if` and `sign`; pass-through of
-  classes, keys and ids
-- `claim()`, `plural()`, `lookup()`, `brk()`, `cite()`, `is_year()`
-- the formatters and text classes of §0, with the relation in the printed
-  record; `of_n()`, `about()`, `ci()`, `pm()`, `clamp()`
-- captions in chunk options; `weft_str()`
+*1a — the kernel.* Enough to write a chapter.
+
+- the scanner; the `evaluate.inline`, `text` and `document` hooks
+- values; the formatters `.num`, `.pct`, `.sci`, `.word`, `.count`, `.ord`,
+  `.no`, `.and`, `.or`; project-registered formatters
+- governed spans with `n` (English) and `if`: two arms, guards, condition
+  lists; `n="."`
+- `claim()`, `plural()`
+- pass-through of classes, keys and ids; `.strong`, `.em`
 - collected failures, exact positions, draft mode
-- the sentence-start report
-- the condition log and severity list
-- the end-of-document check and the `weft-check` filter
-- `use_setup()`, `use_quarto()`
-- the syntax fixtures, conformance and pinned-internals tests
+- the end-of-document check and the `weft-check` filter; `use_quarto()`
+- activation from front matter and from a setup chunk
+- the syntax fixtures, the conformance test and the pinned-internals tests
+
+*1b — agreement and direction.*
+
+- `sign`; back-references (`n="#d"`)
+- the relation in the printed record; `.p`, `clamp()`; `.range`, alone and as
+  an `n` governor
+- `.cap`, `.a`; the sentence-start report
+- `lookup()`, `brk()`, `cite()`, `is_year()`
+
+*1c — captions and conditions.*
+
+- captions in chunk options; `weft_str()`
+- the `evaluate` hook: the condition log and severity list
+- `.Rprofile` activation and `use_setup()`. These wait until the hooks have
+  been run under the Render buttons of RStudio and Positron, and with chunks
+  run interactively (§14)
+
+*1d — phrases and lists.*
+
+- `of_n()`, `about()`, `ci()`, `pm()`
+- `.pairs`, `trunc`, `.date`; `.ul`, `.ol`, `.dl`
 
 **Stage 2 — dictionary and ledger (L10, L5).**
 
@@ -1416,5 +1478,8 @@ Stage 2 comes before stage 3 because L2's tier-1 rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
 to go.
 
-**Planned, after stage 4.** `drange()` and `dur()` (§4). They are not in a
-stage: both need calendar arithmetic and a decision on date order.
+**Planned, after stage 4.** Neither is in a stage.
+
+- `drange()` and `dur()` (§4): both need calendar arithmetic and a decision on
+  date order.
+- Plural rules for languages other than English (§0).
