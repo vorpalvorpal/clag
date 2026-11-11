@@ -41,3 +41,17 @@ written. Built after stage 1h.
 rows amended for stage 1g are amended again by the test-writer (the
 `digits="1"` added to older rows may stay: it is still correct and keeps
 them quiet).
+
+## Rulings on the test-writer's report
+
+- `.no` replaces a printed zero, and "0.0" is one: `fmt_no(0.04)` prints
+  "no" and the warned check is still recorded.
+- **A `clamp()` bound is never printed as zero.** When a number class
+  under default digits would print the bound as zero, the bound prints as
+  the author wrote it (`fmt_num(clamp(0.005, floor = 0.01))` is "< 0.01")
+  and nothing is recorded.
+- "The count" in the message is the number of elements that printed as
+  zero.
+- In draft mode the JSON file is written when there are warned checks and
+  no failures.
+- The record's number for a value that printed "0.0" is 0.

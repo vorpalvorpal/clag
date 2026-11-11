@@ -55,9 +55,9 @@ test_that("review A #4 / ruling: wholeness is judged absolutely, to 1e-9 (1.4.13
   expect_equal(txt(fmt_num(3)), "3")                       # control
   expect_equal(txt(fmt_num(1e10 + 0.3)), "10,000,000,000.3")
   expect_equal(txt(fmt_num(123456789012.3)), "123,456,789,012.3")
-  expect_equal(txt(fmt_num(1e-6)), "0.000001")             # entry 33 replaced by 1g: first non-zero decimal
+  suppressWarnings(expect_equal(txt(fmt_num(1e-6)), "0.0"))   # 1i: default digits, with a warning (test-1i.R)
   expect_equal(txt(fmt_num(1e-6, digits = 1)), "0.0")
-  expect_equal(txt(fmt_no(1e-6)), "0.000001")   # not zero under 1g, so .no keeps it
+  suppressWarnings(expect_equal(txt(fmt_no(1e-6)), "no"))     # 1i: 0.0 is a printed zero, so .no replaces it
   expect_equal(txt(fmt_no(0)), "no")
 })
 

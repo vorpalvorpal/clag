@@ -1,5 +1,6 @@
-# Stage 1g: a small number under the default digits prints to its first
-# non-zero decimal (1e-9 noise tolerance), and an empty governed span takes
+# Stage 1g: a small number under the default digits (amended by 1i: it now
+# prints to the default digits and warns; test-1i.R covers that) with a 1e-9
+# noise tolerance, and an empty governed span takes
 # one adjacent space with it. Contract: dev/design-1g.md.
 #
 # Renders are slow, so the markup rows of each topic are batched into one
@@ -25,21 +26,6 @@ g_cases <- function(cases, engine = "rmd", format = "md", ...) {
 
 # ---- 1. a small number under the default digits -----------------------------
 
-test_that("1g small: fmt_num and fmt_pct print a small number to its first non-zero decimal", {
-  expect_equal(b_txt(fmt_num(0.04)), "0.04")
-  expect_equal(b_txt(fmt_num(0.0449)), "0.04")
-  expect_equal(b_txt(fmt_num(0.00061)), "0.0006")
-  expect_equal(b_txt(fmt_num(-0.04)), paste0(B_MINUS, "0.04"))
-  expect_equal(b_txt(fmt_pct(0.0004)), "0.04%")
-  expect_equal(b_txt(fmt_pct(-0.0004)), paste0(B_MINUS, "0.04%"))
-  expect_equal(b_txt(fmt_num(1e-6)), "0.000001")
-})
-
-test_that("1g small: the record's number is the number printed", {
-  expect_equal(b_rec(fmt_num(0.0449))$number, 0.04)
-  expect_equal(b_rec(fmt_num(0.04))$number, 0.04)
-})
-
 test_that("1g small: floating-point noise is zero and prints 0", {
   expect_equal(b_txt(fmt_num(0.1 + 0.2 - 0.3)), "0")
   expect_equal(b_txt(fmt_num(1e-12)), "0")
@@ -47,8 +33,8 @@ test_that("1g small: floating-point noise is zero and prints 0", {
   expect_false(grepl(B_MINUS, b_txt(fmt_num(-1e-12)), fixed = TRUE))
   expect_equal(b_txt(fmt_pct(1e-12)), "0%")
   expect_equal(b_txt(fmt_pct(-1e-12)), "0%")
-  # control: a difference that is not noise prints its digits, cleanly
-  expect_equal(b_txt(fmt_num(0.3 - 0.26)), "0.04")
+  # control: a difference that is not noise prints to the default digits (1i)
+  suppressWarnings(expect_equal(b_txt(fmt_num(0.3 - 0.26)), "0.0"))   # 1i: 0.0, with a warning
 })
 
 test_that("1g small: digits or sigfig given on the call print as asked", {
@@ -62,9 +48,11 @@ test_that("1g small: digits or sigfig given on the call print as asked", {
 })
 
 test_that("1g small: a vector is printed element by element", {
-  expect_equal(b_txt(fmt_num(c(3.2, 0.04))), c("3.2", "0.04"))
-  expect_equal(b_txt(fmt_num(c(0.04, 0.0449, 0.00061, 12))), c("0.04", "0.04", "0.0006", "12"))
-  expect_equal(b_txt(fmt_num(c(0.1 + 0.2 - 0.3, 0.3 - 0.26))), c("0", "0.04"))
+  suppressWarnings({   # 1i: the small elements warn (see test-1i.R)
+    expect_equal(b_txt(fmt_num(c(3.2, 0.04))), c("3.2", "0.0"))
+    expect_equal(b_txt(fmt_num(c(0.04, 0.0449, 0.00061, 12))), c("0.0", "0.0", "0.0", "12"))
+    expect_equal(b_txt(fmt_num(c(0.1 + 0.2 - 0.3, 0.3 - 0.26))), c("0", "0.0"))
+  })
 })
 
 test_that("1g small: ordinary values are unchanged", {
@@ -77,19 +65,22 @@ test_that("1g small: ordinary values are unchanged", {
 })
 
 test_that("1g small: no weft_value_error is raised for a number that prints as zero", {
-  expect_no_error(fmt_num(0.04))
-  expect_no_error(fmt_num(-0.04))
-  expect_no_error(fmt_num(1e-6))
-  expect_no_error(fmt_num(c(3, 0.04)))
-  expect_no_error(fmt_pct(0.0004))
-  expect_no_error(fmt_pct(-0.0004))
-  e <- tryCatch({ fmt_num(0.04); NULL }, error = function(e) e)
+  suppressWarnings({   # 1i: each of these warns, and none errors
+    expect_no_error(fmt_num(0.04))
+    expect_no_error(fmt_num(-0.04))
+    expect_no_error(fmt_num(1e-6))
+    expect_no_error(fmt_num(c(3, 0.04)))
+    expect_no_error(fmt_pct(0.0004))
+    expect_no_error(fmt_pct(-0.0004))
+  })
+  e <- tryCatch({ suppressWarnings(fmt_num(0.04)); NULL }, error = function(e) e)
   expect_false(inherits(e, "weft_value_error"))
 })
 
-test_that("1g small: .no replaces only a printed zero", {
-  expect_equal(b_txt(fmt_no(1e-6)), "0.000001")
-  expect_equal(b_txt(fmt_no(0.04)), "0.04")
+test_that("1g small: .no replaces only a printed zero (amended by 1i)", {
+  # 1i: 0.0 is a printed zero, so .no replaces it (the warning still fires)
+  suppressWarnings(expect_equal(b_txt(fmt_no(1e-6)), "no"))
+  suppressWarnings(expect_equal(b_txt(fmt_no(0.04)), "no"))
   expect_equal(b_txt(fmt_no(1e-12)), "no")
   expect_equal(b_txt(fmt_no(0)), "no")        # control
 })
@@ -99,11 +90,11 @@ G_SMALL <- c(
   "`r 0.0004`{.pct}",                                            # 2
   "`r 0.04`",                                                    # 3  a bare value: stock printing
   "`r -0.04`{.num}",                                             # 4
-  "[up # | down # | flat]{sign=\"0.02\"}",                       # 5  positive arm, # prints 0.02
-  "[up # | down # | flat]{sign=\"-0.02\"}",                      # 6  negative arm
+  "[up # | down # | flat]{sign=\"0.02\"}",                       # 5  # prints 0.0 (1i): zero arm
+  "[up # | down # | flat]{sign=\"-0.02\"}",                      # 6  as 5, negative
   "[up # | down # | flat]{sign=\"1e-12\"}",                      # 7  below 1e-9: zero arm
-  "[up # | down # | flat]{sign=\"0.02\" digits=\"1\"}",          # 8  digits given: 0.0, zero arm
-  "[up # | down # | flat]{sign=\"0.02\" digits=\"2\"}",          # 9  control: 0.02 prints, positive
+  "[up # | down # | flat]{sign=\"0.02\" digits=\"1\"}",          # 8  digits given: 0.0, zero arm, no warning
+  "[up # | down # | flat]{sign=\"0.02\" digits=\"2\"}",          # 9  control: digits 2 prints 0.02, positive
   "`r 1e-12`{.no}",                                              # 10
   "`r 1e-12`{.num}",                                             # 11
   "`r c(3.2, 0.04)`{.num .and}",                                 # 12
@@ -116,12 +107,12 @@ G_SMALL <- c(
   "`r 0.00061`{.num} and `r 0.0449`{.num}",                      # 19
   "[small | large]{if=\"0.04 > 0\"} and `r 0.04`{#g1id .num} then [up # | down # | flat]{sign=\"#g1id\"}" # 20
 )
-G_SMALL_WANT <- c(
-  "0.04", "0.04%", "0.04", paste0(B_MINUS, "0.04"),
-  "up 0.02", "down 0.02", "flat", "flat", "up 0.02",
-  "no", "0", "3.2 and 0.04", "0.0", "0.04", "0", "0.04",
-  "3.1 and 12 and 0", "0", "0.0006 and 0.04",
-  "small and 0.04 then up 0.04"
+G_SMALL_WANT <- c(   # amended by 1i: a small number prints 0.0; a governor that prints 0.0 takes its zero arm
+  "0.0", "0.0%", "0.04", "0.0",
+  "flat", "flat", "flat", "flat", "up 0.02",
+  "no", "0", "3.2 and 0.0", "0.0", "0.04", "0", "0.0",
+  "3.1 and 12 and 0", "0", "0.0 and 0.0",
+  "small and 0.0 then flat"
 )
 
 test_that("1g small: in markup under rmarkdown, each form prints by the rule and a sign governor follows what prints", {
@@ -129,13 +120,13 @@ test_that("1g small: in markup under rmarkdown, each form prints by the rule and
   expect_equal(unesc(b$got), G_SMALL_WANT)
 })
 
-test_that("1g small: a project default digits in _weft.yml does not count as given", {
+test_that("1g small: a project default digits in _weft.yml does not count as given (amended by 1i)", {
   cases <- c("`r 0.04`{.num}", "`r 0.0004`{.pct}", "`r 3.14`{.num}",
              "`r 0.04`{.num digits=\"1\"}", "[up # | down # | flat]{sign=\"0.02\"}")
   b <- g_cases(cases, files = list("_weft.yml" = "digits: 1"))
-  # the default digits (1) still apply where nothing small is involved (3.14);
-  # a small number prints its first non-zero decimal; digits on the construct counts
-  expect_equal(unesc(b$got), c("0.04", "0.04%", "3.1", "0.0", "up 0.02"))
+  # the default digits (1) still apply (3.14); a small number prints 0.0 (1i) and
+  # the sign governor that prints 0.0 takes its zero arm
+  expect_equal(unesc(b$got), c("0.0", "0.0%", "3.1", "0.0", "flat"))
 })
 
 test_that("1g small: no value error is collected in a knit", {
@@ -148,7 +139,7 @@ test_that("1g small: no value error is collected in a knit", {
 test_that("1g small: under Quarto", {
   b <- g_cases(c("`r 0.04`{.num}", "`r 0.0004`{.pct}",
                  "[up # | down # | flat]{sign=\"0.02\"} and `r 1e-12`{.no}"), engine = "qmd")
-  expect_equal(unesc(b$got), c("0.04", "0.04%", "up 0.02 and no"))
+  expect_equal(unesc(b$got), c("0.0", "0.0%", "flat and no"))
 })
 
 # ---- 2. an empty arm and the space beside it --------------------------------

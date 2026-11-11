@@ -294,13 +294,15 @@ test_that("1f claim level: a Quarto project lists warned checks after the failur
 
 # ---- 2. a number that prints as zero --------------------------------------------------
 
-test_that("1f zero (amended by 1g): .num and .pct of a non-zero number that would print as zero print to the first non-zero decimal, with no value error", {
-  expect_equal(b_txt(fmt_num(0.04)), "0.04")
-  expect_equal(b_txt(fmt_num(-0.04)), paste0(B_MINUS, "0.04"))
-  expect_equal(b_txt(fmt_num(1e-6)), "0.000001")
-  expect_equal(b_txt(fmt_num(c(3, 0.04))), c("3", "0.04"))
-  expect_equal(b_txt(fmt_pct(0.0004)), "0.04%")
-  expect_equal(b_txt(fmt_pct(-0.0004)), paste0(B_MINUS, "0.04%"))
+test_that("1f zero (amended by 1i): .num and .pct of a non-zero number that would print as zero print to the default digits, with no value error", {
+  suppressWarnings({   # 1i: each of these also warns (see test-1i.R)
+    expect_equal(b_txt(fmt_num(0.04)), "0.0")
+    expect_equal(b_txt(fmt_num(-0.04)), "0.0")
+    expect_equal(b_txt(fmt_num(1e-6)), "0.0")
+    expect_equal(b_txt(fmt_num(c(3, 0.04))), c("3", "0.0"))
+    expect_equal(b_txt(fmt_pct(0.0004)), "0.0%")
+    expect_equal(b_txt(fmt_pct(-0.0004)), "0.0%")
+  })
 })
 
 test_that("1f zero: with digits or sigfig given it prints as asked; exact zero and ordinary values print as before", {
@@ -318,18 +320,18 @@ test_that("1f zero: with digits or sigfig given it prints as asked; exact zero a
 })
 
 Z_ROWS <- list(
-  b_row("Z01", "`r 0.04`{.num}", "1f zero (1g): default digits print the first non-zero decimal", want = "Z01 0.04", collected = FALSE),
-  b_row("Z02", "`r 0.0004`{.pct}", "1f zero (1g): .pct", want = "Z02 0.04%", collected = FALSE),
+  b_row("Z01", "`r 0.04`{.num}", "1f zero (1i): default digits print 0.0 and warn", want = "Z01 0.0", collected = FALSE),
+  b_row("Z02", "`r 0.0004`{.pct}", "1f zero (1i): .pct", want = "Z02 0.0%", collected = FALSE),
   b_row("Z03", "`r 0.04`{.num digits=\"1\"}", "1f zero: digits on the construct", want = "Z03 0.0", collected = FALSE),
   b_row("Z04", "`r 0.04`{.num sigfig=\"1\"}", "1f zero: sigfig on the construct", want = "Z04 0.04", collected = FALSE),
   b_row("Z05", "`r 0.0004`{.pct digits=\"1\"}", "1f zero: .pct digits", want = "Z05 0.0%", collected = FALSE),
   b_row("Z06", "`r 0.0004`{.pct sigfig=\"1\"}", "1f zero: .pct sigfig", want = "Z06 0.04%", collected = FALSE),
   b_row("Z07", "`r 0`{.num} and `r 0`{.pct}", "1f zero: exact zero", want = "Z07 0 and 0%", collected = FALSE),
   b_row("Z08", "`r 0.06`{.num} and `r 0.004`{.pct}", "control", want = "Z08 0.1 and 0.4%", collected = FALSE),
-  b_row("Z09", "`r -0.04`{.num}", "1f zero (1g): negative", want = paste0("Z09 ", B_MINUS, "0.04"), collected = FALSE)
+  b_row("Z09", "`r -0.04`{.num}", "1f zero (1i): negative, no minus sign", want = "Z09 0.0", collected = FALSE)
 )
 
-test_that("1f zero (amended by 1g): in a knit nothing is collected; a project default digits in _weft.yml does not count as given", {
+test_that("1f zero (amended by 1i): in a knit no failure is collected (the 0.0 rows warn, see test-1i.R); a project default digits in _weft.yml does not count as given", {
   b <- b_body(Z_ROWS)
   res <- render_rmd(b$lines, code = PRE_1F, in_process = TRUE, env = c(WEFT_DRAFT = "1"),
                     files = list("_weft.yml" = "digits: 1"))
@@ -340,17 +342,17 @@ test_that("1f zero (amended by 1g): in a knit nothing is collected; a project de
   expect_equal(NROW(f), 0L)
 })
 
-test_that("1f zero (amended by 1g): a project default digits in front matter does not count as given either", {
+test_that("1f zero (amended by 1i): a project default digits in front matter does not count as given either", {
   res <- render_rmd(c("Z `r 0.04`{.num} and `r 0.04`{.num digits=\"1\"}."), code = PRE_1F,
                     in_process = TRUE, front = c("weft:", "  digits: 1"))
   expect_false(res$failed, label = res$message)
-  expect_match(res$md, "Z 0.04 and 0.0.", fixed = TRUE)
+  expect_match(res$md, "Z 0.0 and 0.0.", fixed = TRUE)
 })
 
-test_that("1f zero (amended by 1g): without draft mode a small number renders, as 0.04; with digits given it prints 0.0", {
+test_that("1f zero (amended by 1i): without draft mode a small number renders, as 0.0; with digits given it prints 0.0", {
   r1 <- render_rmd(c("Z `r 0.04`{.num} here."), code = PRE_1F, in_process = TRUE)
   expect_false(r1$failed, label = r1$message)
-  expect_match(r1$md, "Z 0.04 here.", fixed = TRUE)
+  expect_match(r1$md, "Z 0.0 here.", fixed = TRUE)
   ok <- render_rmd(c("Z `r 0.04`{.num digits=\"1\"} here."), code = PRE_1F)
   expect_false(ok$failed, label = ok$message)
   expect_match(ok$md, "Z 0.0 here.", fixed = TRUE)
