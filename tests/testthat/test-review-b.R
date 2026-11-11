@@ -283,28 +283,8 @@ test_that("review B #11: Quarto reads a project-level lang (rules 2.1.6, 1.6.5)"
 
 # ---- 12 ---------------------------------------------------------------------
 
-test_that("review B #12: a construct in a front-matter field is a 'not built yet' construct error, however weft is activated (design: scope)", {
-  abstract <- c("abstract: |", "  We found [one | many]{if=\"FALSE\"} and `r 3`{.num} sites.")
-  # activated by a setup chunk
-  a <- render_rmd("Body `r 3`{.num}.", front = abstract, code = RB_PRE, in_process = TRUE)
-  expect_true(a$failed)
-  expect_true("weft_construct_error" %in% a$error$class)
-  expect_match(a$message, "not built yet", ignore.case = TRUE)
-  # activated through the front matter, no setup chunk
-  b <- render_rmd(c("---", "title: T", abstract,
-                    "knitr:", "  opts_knit:", "    weft: !expr weft::weft_setup()",
-                    "output:", "  md_document:", "    variant: markdown", "---", "",
-                    "Body `r 3`{.num}."),
-                  setup = FALSE, in_process = TRUE)
-  expect_true(b$failed)
-  expect_true("weft_construct_error" %in% b$error$class)
-  # control: the same document with a plain abstract renders
-  c0 <- render_rmd("Body `r 3`{.num}.", front = c("abstract: |", "  We found sites."),
-                   code = RB_PRE, in_process = TRUE)
-  expect_false(c0$failed, label = c0$message)
-})
-
-# ---- 13 ---------------------------------------------------------------------
+# review B #12 (front-matter constructs are "not built yet") is superseded:
+# stage 1c builds them; see test-front-matter.R.
 
 test_that("review B #13: n=\".\" is legal inside an if span that sits inside an n span (rule 1.7.2)", {
   src <- c(

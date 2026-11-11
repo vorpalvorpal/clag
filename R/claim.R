@@ -40,25 +40,31 @@ claim <- function(x, ...) {
   assign(".", value, envir = env)
   bad <- integer()
   errs <- character()
+  lens <- integer()
   for (k in seq_along(checks)) {
     res <- tryCatch(eval(checks[[k]], env), error = function(e) e)
     if (inherits(res, "error")) {
       # a check that raises an error is a failed check (2.6.1)
       bad <- c(bad, k)
       errs <- c(errs, conditionMessage(res))
+      lens <- c(lens, NA_integer_)
       next
     }
     ok <- is.logical(res) && length(res) == 1L && !is.na(res) && res
     if (!ok) {
       bad <- c(bad, k)
       errs <- c(errs, NA_character_)
+      # a check that returns a vector is not a single TRUE (3.1.3): say how
+      # many values it returned
+      lens <- c(lens, if (length(res) != 1L) length(res) else NA_integer_)
     }
   }
   if (length(bad)) {
     claim_fail(list(
       checks = written_checks(frames, checks, weft_env$inline$expr)[bad],
       value = claim_value_text(value),
-      errors = errs
+      errors = errs,
+      lens = lens
     ))
   }
   value
@@ -112,7 +118,12 @@ claim_args_as_written <- function(sr, dp) {
 }
 
 claim_value_text <- function(value) {
-  s <- paste(deparse(value, width.cutoff = 500L), collapse = " ")
+  # a date or a factor is shown as format() prints it, not as structure(...)
+  s <- if (inherits(value, c("Date", "POSIXt", "factor", "difftime"))) {
+    paste(format(value), collapse = ", ")
+  } else {
+    paste(deparse(value, width.cutoff = 500L), collapse = " ")
+  }
   if (nchar(s) > 80L) s <- paste0(substr(s, 1L, 77L), "...")
   s
 }
@@ -123,28 +134,36 @@ claim_value_text <- function(value) {
 # its message (2.4.4, 2.4.5). Everywhere else it stops at once (2.4.2).
 claim_fail <- function(record) {
   errs <- record$errors %||% rep(NA_character_, length(record$checks))
+  lens <- record$lens %||% rep(NA_integer_, length(record$checks))
   detail <- ifelse(
-    is.na(errs),
-    sprintf("%s was FALSE (value %s)", record$checks, record$value),
-    sprintf("%s raised an error: %s (value %s)", record$checks, errs, record$value)
-  )
+    !is.na(errs),
+    sprintf("%s raised an error: %s (value %s)", record$checks, errs, record$value),
+    ifelse(
+      !is.na(lens),
+      sprintf("%s returned %d values, not a single TRUE (value %s); write all(%s) to require every element",
+              record$checks, lens, record$value, record$checks),
+      sprintf("%s was FALSE (value %s)", record$checks, record$value)))
   s <- active_state()
   inl <- weft_env$inline
   if (!is.null(s) && !is.null(inl)) {
     for (d in detail) {
       add_failure(s, "failed claim", file = inl$file, line = inl$line,
-                  expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_)
+                  expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_,
+                  option = inl$option %||% NA_character_)
     }
     inl$failed <- TRUE
     weft_env$inline <- inl
     return(invisible(NULL))
   }
   lines <- ifelse(
-    is.na(errs),
-    sprintf("  check `%s` failed (value: %s)", record$checks, record$value),
+    !is.na(errs),
     sprintf("  check `%s` raised an error: %s (value: %s)", record$checks,
-            errs, record$value)
-  )
+            errs, record$value),
+    ifelse(
+      !is.na(lens),
+      sprintf("  check `%s` returned %d values, not a single TRUE (value: %s); write all(%s) to require every element",
+              record$checks, lens, record$value, record$checks),
+      sprintf("  check `%s` failed (value: %s)", record$checks, record$value)))
   msg <- paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
                          if (length(record$checks) == 1L) "" else "s"), lines),
                collapse = "\n")

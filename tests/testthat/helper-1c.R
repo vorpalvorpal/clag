@@ -60,7 +60,7 @@ qmd_html <- function(lines, env = NULL, files = NULL, name = "doc", dir = NULL) 
   d <- write_doc(lines, FALSE, NULL, NULL, files, name, "qmd", dir = dir)
   lib <- weft_test_lib()
   env <- c(NO_COLOR = "1", env)
-  if (nzchar(lib)) env <- c(R_LIBS = lib, env)
+  if (nzchar(lib)) env <- c(R_LIBS = paste(c(lib, .libPaths()), collapse = .Platform$path.sep), env)
   old <- setwd(d$dir)
   on.exit(setwd(old), add = TRUE)
   log <- suppressWarnings(system2(

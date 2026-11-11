@@ -111,3 +111,15 @@ start in the file. `scan_text()` is unchanged.
    it says to add `engine: knitr` to the file's front matter.
 10. A chunk with no label is located by "the chunk at line N" as well as
     knitr's generated label.
+
+## Rulings on the implementer's report
+
+- Bare inline R in a caption is left exactly as stock leaves it (rule
+  1.1.8): literal text. Only constructs are resolved in a caption. (The
+  first build evaluated it; to be corrected in the review round.)
+- A construct in a front-matter field other than the four of 1.10.7 is a
+  construct error found from the source.
+- The `chunk` wrapper is installed from the first option hook of any chunk
+  (the `label` option), not only from a caption hook, because Quarto
+  forwards a `NULL` `tbl-cap` whether or not the document has captions.
+  Rule 2.1.4 already says "from the first call of an option hook".

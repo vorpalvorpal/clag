@@ -59,8 +59,7 @@ attach_functions <- function() {
     return(invisible())
   }
   ns <- asNamespace("weft")
-  nms <- c("claim", "plural", "glue_vec",
-           grep("^fmt_", getNamespaceExports(ns), value = TRUE))
+  nms <- inline_function_names()
   env <- list2env(mget(nms, envir = ns), parent = emptyenv())
   get("attach", envir = baseenv())(env, name = "weft:functions",
                                    pos = length(search()), warn.conflicts = FALSE)
@@ -136,6 +135,7 @@ install_hooks <- function() {
     }
   })
   install_option_hook()
+  install_caption_hooks()
   invisible()
 }
 
@@ -229,6 +229,8 @@ install_option_hook <- function() {
   if (is_weft_hook(cur)) return(invisible())
   new <- function(options) {
     s <- ensure_knit()
+    # late: after Quarto has set its own `chunk` hook (2.1.4)
+    install_chunk_wrapper()
     note_cached_chunk(s, options)
     if (is.function(cur)) cur(options) else options
   }
@@ -264,28 +266,24 @@ read_front_matter <- function(path) {
   if (is.list(y)) y else list()
 }
 
-# A construct in a front-matter field is not built yet (design-1a, scope):
-# it would print raw, so the knit stops when it is initialised.
-check_front_matter <- function(s, path, draft) {
-  fl <- front_matter_lines(path)
-  if (is.null(fl)) return(invisible())
-  rows <- tryCatch(scan_text(paste(fl, collapse = "\n"), first_line = 2L,
-                             config = s$config),
-                   error = function(e) NULL)
-  if (is.null(rows) || !nrow(rows)) return(invisible())
-  rows <- rows[!(rows$kind %in% c("bare", "link")) & is.na(rows$parent), , drop = FALSE]
-  if (!nrow(rows)) return(invisible())
-  qmd <- sub("\\.rmarkdown$", ".qmd", path)
-  name <- basename(if (qmd != path && file.exists(qmd)) qmd else path)
+# Constructs the scanner finds in the front matter and in caption options
+# that cannot be resolved are construct errors, found when the knit is
+# initialised (1.10.3, 1.10.4, 1.10.7, 1.10.11, 2.3.5): the knit stops at the
+# first, or, in draft mode, records them all.
+check_static <- function(s, F, draft) {
+  if (is.null(F) || is.null(F$static) || !nrow(F$static)) return(invisible())
+  rows <- F$static
+  ml <- map_lines(F, rows$line)
   for (k in seq_len(nrow(rows))) {
-    msg <- sprintf(paste0("A `%s` construct in the front matter is not built yet: ",
-                          "constructs are resolved in the body only."), rows$kind[k])
+    msg <- rows$error[k]
+    where <- if (rows$context[k] == "caption") rows$chunk[k] else NA_character_
     if (!draft) {
-      weft_abort(sprintf("weft: %s:%d: %s", name, rows$line[k], msg),
+      weft_abort(sprintf("weft: %s:%d: %s", ml$file[k], ml$line[k], msg),
                  c("weft_construct_error", "weft_located"))
     }
-    add_failure(s, "construct error", file = name, line = rows$line[k],
-                expr = sprintf("a `%s` construct", rows$kind[k]), detail = msg)
+    add_failure(s, "construct error", file = ml$file[k], line = ml$line[k],
+                expr = sprintf("a `%s` construct", rows$kind[k]), detail = msg,
+                chunk = where)
   }
   invisible()
 }
@@ -329,8 +327,8 @@ init_knit <- function() {
   weft_env$config <- cfg
   weft_env$state <- s
   if (!is.null(path)) {
-    check_front_matter(s, path, isTRUE(cfg$draft))
     F <- current_file_state(s)
+    check_static(s, F, isTRUE(cfg$draft))
     s$input_name <- if (is.null(F)) basename(path) else F$name
     if (!is.null(F) && length(F$unparseable)) {
       # knitr parses inline code before any hook runs and stops on code that
@@ -356,6 +354,18 @@ finish_knit <- function() {
 
 # ---- the end of the document (2.5.2, 2.6) ------------------------------------------
 
+unevaluated_detail <- function(context) {
+  switch(context,
+    `front-matter` = paste0("It was never evaluated: the hooks were not installed when knitr ",
+                            "read the front matter (rules 9.2.5, 2.5.2); activate weft from ",
+                            "the front matter: `knitr: opts_knit: weft: !expr weft::weft_setup()` ",
+                            "(rule 9.2.1)."),
+    caption = paste0("It was never evaluated: the caption's chunk did not run, or the hooks ",
+                     "were not installed when it did (rule 2.5.2)."),
+    paste0("It was never evaluated: the hooks were not installed when ",
+           "knitr reached it (rule 2.5.2); call weft_setup() above it."))
+}
+
 finish_document <- function() {
   s <- active_state()
   if (is.null(s)) return(invisible())
@@ -380,8 +390,7 @@ finish_document <- function() {
       ml <- map_lines(F, F$expected$line[k])
       add_failure(s, "unevaluated", file = ml$file, line = ml$line,
                   expr = sprintf("a `%s` construct", F$expected$kind[k]),
-                  detail = paste0("It was never evaluated: the hooks were not installed when ",
-                                  "knitr reached it (rule 2.5.2); call weft_setup() above it."))
+                  detail = unevaluated_detail(F$expected$context[k]))
     }
   }
   fr <- failures_frame(s)

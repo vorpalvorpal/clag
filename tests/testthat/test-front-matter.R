@@ -14,7 +14,7 @@ fm_fields <- function(engine = c("rmd", "qmd")) {
     "subtitle: >",
     "  Mean depth `r 12.5`{.num} m",
     "abstract: |",
-    "  Abstract of [one | many]{if=\"sqrt(9) > 1\"} sites",
+    "  Abstract of [many | one]{if=\"sqrt(9) > 1\"} sites",
     "description: >",
     "  Description of [a site | # sites]{n=\"sqrt(9)\"}",
     if (engine == "qmd") c("engine: knitr", "format: html"),
@@ -29,7 +29,7 @@ fm_late_body <- c(
   "abstract: |",
   "  Late abstract with [a site | # sites]{n=\"late_k\"}, depth `r late_d`{.num} m",
   "title: |",
-  "  Late [one | many]{if=\"late_k > 1\"} sites",
+  "  Late [many | one]{if=\"late_k > 1\"} sites",
   "---", "")
 
 fm_late <- function(engine = c("rmd", "qmd")) {
@@ -50,7 +50,8 @@ expect_resolved_fields <- function(r, label) {
   expect_match(r$text, "Report on 3 sites", fixed = TRUE, label = label)
   expect_match(r$text, "Mean depth 12.5 m", fixed = TRUE, label = label)
   expect_match(r$text, "Abstract of many sites", fixed = TRUE, label = label)
-  expect_match(r$html, "Description of 3 sites", fixed = TRUE, label = label)
+  # stock rmarkdown html_document does not print `description`
+  if (!identical(label, "rmarkdown")) expect_match(r$html, "Description of 3 sites", fixed = TRUE, label = label)
   expect_false(grepl("{n=", r$html, fixed = TRUE), label = label)
   expect_false(grepl("{if=", r$html, fixed = TRUE), label = label)
 }
@@ -139,7 +140,7 @@ test_that("1.10.7 (Quarto): a construct in a plain scalar abstract is a construc
 book_yml <- c("project:", "  type: book", "book:", "  title: \"B\"", "  chapters:", "    - index.qmd", "format: html")
 site_yml <- c("project:", "  type: website", "website:", "  title: \"W\"", "format: html")
 default_yml <- c("project:", "  type: default", "format: html")
-fm_chapter <- function(title = "title: |\n  Chapter [one | many]{if=\"sqrt(9) > 1\"}", extra = NULL) {
+fm_chapter <- function(title = "title: |\n  Chapter [many | one]{if=\"sqrt(9) > 1\"}", extra = NULL) {
   c("---", strsplit(title, "\n", fixed = TRUE)[[1]], extra, "engine: knitr", fm_act, "---", "", "Body text.", "")
 }
 
@@ -151,16 +152,16 @@ test_that("1.10.11 (Quarto): in a book or a website a construct in title is a co
   r <- qrender(dir)
   expect_false(identical(r$status, 0L))
   expect_match(r$log, "title")
-  expect_match(r$log, sprintf("index\\.qmd:%d\\b", file_line(ch, "Chapter [one")))
+  expect_match(r$log, sprintf("index\\.qmd:%d\\b", file_line(ch, "Chapter [many")))
   # a website, late block
   late <- c("---", "title: \"Plain\"", "engine: knitr", fm_act, "---", "", "Body.", "",
-            "---", "title: |", "  Late [one | many]{if=\"sqrt(9) > 1\"}", "---", "")
+            "---", "title: |", "  Late [many | one]{if=\"sqrt(9) > 1\"}", "---", "")
   dir <- mk_project(list(`_quarto.yml` = site_yml, `index.qmd` = late), use = FALSE)
   r <- qrender(dir)
   expect_false(identical(r$status, 0L))
-  expect_match(r$log, sprintf("index\\.qmd:%d\\b", file_line(late, "Late [one")))
+  expect_match(r$log, sprintf("index\\.qmd:%d\\b", file_line(late, "Late [many")))
   # controls: the same construct in abstract, in a book
-  ab <- fm_chapter("title: \"Chapter\"", c("abstract: |", "  Abstract of [one | many]{if=\"sqrt(9) > 1\"} sites"))
+  ab <- fm_chapter("title: \"Chapter\"", c("abstract: |", "  Abstract of [many | one]{if=\"sqrt(9) > 1\"} sites"))
   dir <- mk_project(list(`_quarto.yml` = book_yml, `index.qmd` = ab), use = FALSE)
   r <- qrender(dir)
   expect_identical(r$status, 0L, label = r$log)
@@ -170,7 +171,7 @@ test_that("1.10.11 (Quarto): in a book or a website a construct in title is a co
   expect_identical(r$status, 0L, label = r$log)
   expect_true(file.exists(file.path(dir, "index.html")))
   out <- read_html_file(file.path(dir, "index.html"))
-  expect_match(html_text(out), "Chapter one", fixed = TRUE)
+  expect_match(html_text(out), "Chapter many", fixed = TRUE)
 })
 
 # ---- failures, and activation that is too late -------------------------------
@@ -208,7 +209,7 @@ test_that("2.6.2 + 2.7.1 + 1.10.7 (Quarto): a failed claim in the abstract is re
 })
 
 test_that("9.2.5 + 2.5.2 (rmarkdown): with setup-chunk activation the first block is not processed; the end-of-document check reports the construct at its line", {
-  lines <- c("---", "title: \"t\"", "abstract: |", "  Abstract of [one | many]{if=\"TRUE\"} sites", "---", "",
+  lines <- c("---", "title: \"t\"", "abstract: |", "  Abstract of [many | one]{if=\"TRUE\"} sites", "---", "",
              "```{r setup, include=FALSE}", "weft::weft_setup()", "```", "", "Body.", "")
   r <- rmd_html(lines)
   expect_true(r$failed)
@@ -221,7 +222,7 @@ test_that("9.2.5 + 2.5.2 (rmarkdown): with setup-chunk activation the first bloc
 
 test_that("9.2.5 (Quarto): with setup-chunk activation a construct in the abstract is reported, not printed raw", {
   skip_if_no_quarto()
-  lines <- c("---", "title: \"t\"", "abstract: |", "  Abstract of [one | many]{if=\"TRUE\"} sites",
+  lines <- c("---", "title: \"t\"", "abstract: |", "  Abstract of [many | one]{if=\"TRUE\"} sites",
              "engine: knitr", "format: html", "---", "",
              "```{r setup, include=FALSE}", "weft::weft_setup()", "```", "", "Body.", "")
   r <- qmd_html(lines)

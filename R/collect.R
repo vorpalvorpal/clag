@@ -32,7 +32,9 @@ failure_json <- function(f, file) {
          ",\"chunk\":", json_string(f$chunk),
          ",\"expr\":", json_string(f$expr),
          ",\"detail\":", json_string(f$detail),
-         ",\"hint\":", json_string(f$hint), "}")
+         ",\"hint\":", json_string(f$hint),
+         ",\"option\":", json_string(f$option),
+         ",\"chunk_line\":", json_int(f$chunk_line), "}")
 }
 
 # The project root of the knit in progress and the input's path under it.

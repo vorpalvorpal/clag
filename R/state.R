@@ -37,11 +37,15 @@ FAILURE_KINDS <- c("failed claim", "no value", "value error", "construct error",
 
 add_failure <- function(s, kind, file = NA_character_, line = NA_integer_,
                         chunk = NA_character_, expr = NA_character_,
-                        detail = "", hint = NA_character_) {
+                        detail = "", hint = NA_character_, option = NA_character_) {
+  option <- as.character(option)[1L]
+  if (length(option) && !is.na(option)) detail <- paste0(option, ": ", detail)
+  chunk_line <- unlabelled_chunk_line(s, chunk)
   s$failures[[length(s$failures) + 1L]] <- list(
     kind = kind, file = as.character(file), line = as.integer(line),
     chunk = as.character(chunk), expr = as.character(expr),
-    detail = as.character(detail), hint = as.character(hint))
+    detail = as.character(detail), hint = as.character(hint),
+    option = option, chunk_line = chunk_line)
   invisible(length(s$failures))
 }
 
@@ -54,8 +58,28 @@ failures_frame <- function(s) {
   data.frame(
     kind = col("kind", ""), file = col("file", ""), line = col("line", 0L),
     chunk = col("chunk", ""), expr = col("expr", ""), detail = col("detail", ""),
-    hint = col("hint", ""), stringsAsFactors = FALSE
+    hint = col("hint", ""), option = col("option", ""),
+    chunk_line = col("chunk_line", 0L), stringsAsFactors = FALSE
   )
+}
+
+# A chunk with no label is named by knitr's `unnamed-chunk-N`, which the
+# author never wrote; the line it starts on says where it is (2.6.2).
+unlabelled_chunk_line <- function(s, chunk) {
+  chunk <- as.character(chunk)[1L]
+  if (is.na(chunk) || !grepl("^unnamed-chunk-[0-9]+$", chunk)) return(NA_integer_)
+  F <- tryCatch(current_file_state(s), error = function(e) NULL)
+  if (is.null(F) || is.null(F$chunk_lines)) return(NA_integer_)
+  v <- F$chunk_lines[chunk]
+  if (is.na(v)) return(NA_integer_)
+  map_lines(F, v)$line
+}
+
+# Where a string (a caption, a weft_str() argument) is, for a message.
+str_where <- function(chunk, option = NA_character_) {
+  if (is.null(chunk) || is.na(chunk)) return("a weft_str() string")
+  sprintf("chunk %s%s", chunk,
+          if (is.null(option) || is.na(option)) "" else paste0(", ", option))
 }
 
 # The marker a failure leaves in the text (2.6.8). Plain ASCII.
@@ -71,7 +95,11 @@ failure_where <- function(f) {
   } else if (!is.na(f$line)) {
     sprintf("%s:%d", if (is.na(f$file)) "<text>" else f$file, f$line)
   } else if (!is.na(f$chunk)) {
-    sprintf("%schunk %s", if (is.na(f$file)) "" else paste0(f$file, " "), f$chunk)
+    sprintf("%schunk %s%s%s", if (is.na(f$file)) "" else paste0(f$file, " "), f$chunk,
+            if (!is.null(f$chunk_line) && !is.na(f$chunk_line)) {
+              sprintf(" (the chunk at line %d)", f$chunk_line)
+            } else "",
+            if (!is.null(f$option) && !is.na(f$option)) paste0(", ", f$option) else "")
   } else {
     if (is.na(f$file)) "<unknown>" else f$file
   }

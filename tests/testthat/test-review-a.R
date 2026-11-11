@@ -156,14 +156,14 @@ test_that("review A #15: front matter not at character 1 is not scanned as prose
   d <- withr::local_tempdir()
   f1 <- file.path(d, "a.qmd")
   writeLines("---\ntitle: \"`r x`{.num}\"\n---\nbody", f1)
-  expect_equal(nrow(weft:::scan_file(f1)), 0L)             # control
+  expect_equal(sum(weft:::scan_file(f1)$context == "prose"), 0L)   # control
   f2 <- file.path(d, "b.qmd")
   writeBin(charToRaw("\n---\ntitle: \"`r x`{.num}\"\n---\nbody"), f2)
-  expect_equal(nrow(weft:::scan_file(f2)), 0L)
+  expect_equal(sum(weft:::scan_file(f2)$context == "prose"), 0L)
   f3 <- file.path(d, "c.qmd")
   writeBin(charToRaw("para\n\n---\nb: \"[a]{if='x'}\"\n---\n\nmore"), f3)
-  r <- weft:::scan_file(f3)
-  expect_false(any(!is.na(r$error)))
+  r <- weft:::scan_file(f3)   # a late metadata block (1.10.9), not prose
+  expect_equal(sum(r$context == "prose"), 0L)
 })
 
 test_that("review A #16: a tilde fence inside a block quote is skipped (1.9.2)", {
@@ -222,7 +222,8 @@ test_that("review A ruling G: an unknown configuration key is a warning naming t
 test_that("review A #20: two ids in one block are not a construct error (5.3.1)", {
   r <- st('[a]{if="y" #x #z}')
   expect_equal(nrow(r), 1L)
-  expect_true(is.na(r$error))
+  # (an id is "not built yet" between stages 1c and 1b; two ids are not the error)
+  expect_false(grepl("two|twice|duplicate", r$error %||% "", ignore.case = TRUE))
   expect_equal(r$id, "z")
 })
 

@@ -27,15 +27,18 @@ local({
 
   # ---- a minimal reader for the JSON the weft files hold --------------------
   unescape <- function(v) {
-    m <- gregexpr("\\\\u[0-9a-fA-F]{4}", v)
-    for (u in unique(regmatches(v, m)[[1]])) {
-      v <- gsub(u, intToUtf8(strtoi(substring(u, 3), 16L)), v, fixed = TRUE)
-    }
-    v <- gsub("\\\\n", "\n", v, fixed = TRUE)
-    v <- gsub("\\\\r", "", v, fixed = TRUE)
-    v <- gsub("\\\\t", "\t", v, fixed = TRUE)
-    v <- gsub("\\\\\"", "\"", v, fixed = TRUE)
-    gsub("\\\\\\\\", "\\\\", v)
+    # one left-to-right pass over the JSON escapes, so `\\n` (a backslash
+    # then n) is not read as a newline
+    m <- gregexpr("\\\\(u[0-9a-fA-F]{4}|.)", v, perl = TRUE)
+    tok <- regmatches(v, m)[[1]]
+    if (!length(tok)) return(v)
+    rep <- vapply(tok, function(t) {
+      ch <- substring(t, 2L)
+      if (nchar(ch) == 5L && startsWith(ch, "u")) return(intToUtf8(strtoi(substring(ch, 2L), 16L)))
+      switch(ch, n = "\n", r = "", t = "\t", b = "\b", f = "\f", ch)
+    }, "", USE.NAMES = FALSE)
+    regmatches(v, m) <- list(rep)
+    v
   }
   field <- function(l, k) {
     m <- regmatches(l, regexec(sprintf("\"%s\":\\s*(\"((?:[^\"\\\\]|\\\\.)*)\"|[^,}\"]*)", k),
@@ -55,7 +58,8 @@ local({
     }
     list(source = field(l, "source"), kind = ifelse(is.na(kind), "failure", kind),
          file = field(l, "file"), line = ln, chunk = field(l, "chunk"),
-         expr = field(l, "expr"), detail = detail, hint = field(l, "hint"))
+         expr = field(l, "expr"), detail = detail, hint = field(l, "hint"),
+         option = field(l, "option"), chunk_line = suppressWarnings(as.integer(field(l, "chunk_line"))))
   }
   relpath <- function(f) {
     if (is.na(f)) return(f)
@@ -104,7 +108,9 @@ local({
   where <- function(r) {
     f <- if (is.na(r$file)) "<unknown>" else r$file
     if (!is.na(r$line)) sprintf("%s:%d", f, r$line)
-    else if (!is.na(r$chunk)) sprintf("%s chunk %s", f, r$chunk)
+    else if (!is.na(r$chunk)) sprintf("%s chunk %s%s%s", f, r$chunk,
+                                      if (!is.na(r$chunk_line)) sprintf(" (the chunk at line %d)", r$chunk_line) else "",
+                                      if (!is.na(r$option)) paste0(", ", r$option) else "")
     else f
   }
   entry <- function(r, tag = FALSE) {

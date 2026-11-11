@@ -153,7 +153,36 @@ new_file_state <- function(path, config) {
     F$inline_error <- exp$error[ic]
     exp <- exp[!(exp$kind %in% c("bare", "link")) & is.na(exp$parent), , drop = FALSE]
     F$expected <- data.frame(kind = exp$kind, line = exp$line,
+                             context = rep("prose", nrow(exp)), stringsAsFactors = FALSE)
+  }
+  # the front-matter fields, the caption options and the weft_str() strings
+  # (2.10.2): their constructs are expected too; the ones the scanner finds
+  # an error in are the knit's to report when it starts
+  F$captions <- NULL
+  F$static <- NULL
+  ch <- tryCatch(labelled_chunks(F$lines), error = function(e) list())
+  F$chunk_lines <- stats::setNames(vapply(ch, function(x) as.integer(x$open), 0L),
+                                   vapply(ch, function(x) x$label, ""))
+  extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
+                                    project = project_type(path)),
+                    error = function(e) NULL)
+  if (!is.null(extra) && nrow(extra)) {
+    top <- is.na(extra$parent) & !(extra$kind %in% c("bare", "link"))
+    ok <- top & is.na(extra$error) & extra$context != "weft_str"
+    prev <- F$expected %||% data.frame(kind = character(), line = integer(),
+                                       context = character(), stringsAsFactors = FALSE)
+    F$expected <- rbind(prev, data.frame(kind = extra$kind[ok], line = extra$line[ok],
+                                         context = extra$context[ok],
+                                         stringsAsFactors = FALSE))
+    cap <- ok & extra$context == "caption"
+    F$captions <- data.frame(kind = extra$kind[cap], line = extra$line[cap],
+                             chunk = extra$chunk[cap], option = extra$option[cap],
                              stringsAsFactors = FALSE)
+    bad <- !is.na(extra$error) & extra$context %in% c("front-matter", "caption") & top
+    F$static <- data.frame(kind = extra$kind[bad], line = extra$line[bad],
+                           error = extra$error[bad], context = extra$context[bad],
+                           chunk = extra$chunk[bad], option = extra$option[bad],
+                           stringsAsFactors = FALSE)
   }
   F
 }

@@ -123,7 +123,7 @@ local({
     cat("weft: the render stops before anything is rendered.\n", file = stderr())
     cat(bad, sep = "\n", file = stderr())
     cat("\nAdd `engine: knitr` to each file's own front matter (an `engine:` in _quarto.yml or\n",
-        "_metadata.yml does not count), or run weft::use_setup().\n", sep = "", file = stderr())
+        "_metadata.yml does not count).\n", sep = "", file = stderr())
     quit(save = "no", status = 1L)
   }
 

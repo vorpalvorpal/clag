@@ -1,0 +1,600 @@
+# The scanner over the places that are not prose (rules 1.10.1-1.10.4,
+# 1.10.7-1.10.11, 2.3.5, 2.10.2, 2.10.6, 3.6.2): the caption options of a
+# chunk, the front-matter fields of the first metadata block and of any later
+# one, and the literal strings given to weft_str() in chunk code. Every row
+# carries `context`, and for a caption `chunk` and `option`; `line` is the
+# line in the file. Static errors (found from the source) go in `error`.
+
+FM_FIELDS <- c("title", "subtitle", "abstract", "description")
+# rmarkdown spells a caption option with a dot, Quarto with a hyphen; both are
+# read, and `tab.cap` is the one that is not supported (1.10.4)
+CAPTION_OPTIONS <- c("fig-cap", "fig.cap", "fig-alt", "fig.alt", "fig-scap",
+                     "fig.scap", "fig-subcap", "fig.subcap", "tbl-cap", "tab.cap")
+
+DIV_REMEDY <- paste0("write the caption in a figure or table div instead, ",
+                     "`::: {#fig-name}` ... caption paragraph ... `:::` (rules 1.10.5, 2.3.5)")
+
+# ---- metadata blocks ---------------------------------------------------------
+
+# The metadata blocks of a document, as the line numbers of the delimiters.
+# Like Pandoc, a block opens with a `---` line at the start or after a blank
+# line, followed by a line that is not blank, and closes at the next `---` or
+# `...` line. Fenced blocks are left alone.
+metadata_blocks <- function(lines) {
+  n <- length(lines)
+  is_blank <- function(l) !nzchar(trim_ws(l))
+  fence <- NULL
+  open <- integer()
+  close <- integer()
+  k <- 1L
+  while (k <= n) {
+    l <- lines[k]
+    if (!is.null(fence)) {
+      if (grepl(fence, l, perl = TRUE)) fence <- NULL
+      k <- k + 1L
+      next
+    }
+    fm <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
+    if (length(fm)) {
+      fence <- paste0("^[ \t]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
+      k <- k + 1L
+      next
+    }
+    if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
+        k < n && !is_blank(lines[k + 1L])) {
+      j <- k + 1L
+      while (j <= n && !grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[j])) j <- j + 1L
+      if (j <= n) {
+        open <- c(open, k)
+        close <- c(close, j)
+        k <- j + 1L
+        next
+      }
+    }
+    k <- k + 1L
+  }
+  data.frame(open = open, close = close)
+}
+
+# The top-level fields of each metadata block: the field name, the first and
+# last line of its value, and the form of the scalar: `block` (`|` or `>`:
+# the value starts on the line after the key) or `other` (the value starts on
+# the key's line).
+front_fields <- function(lines) {
+  mb <- metadata_blocks(lines)
+  out <- list()
+  for (b in seq_len(nrow(mb))) {
+    if (mb$close[b] - mb$open[b] < 2L) next
+    idx <- (mb$open[b] + 1L):(mb$close[b] - 1L)
+    keyed <- grepl("^[A-Za-z_][A-Za-z0-9_.-]*[ \t]*:([ \t]|$)", lines[idx])
+    ks <- idx[keyed]
+    for (i in seq_along(ks)) {
+      key <- ks[i]
+      last <- if (i < length(ks)) ks[i + 1L] - 1L else mb$close[b] - 1L
+      name <- sub("[ \t]*:.*$", "", lines[key])
+      rest <- trim_ws(sub("^[^:]*:", "", lines[key]))
+      block <- grepl("^[|>][-+0-9]*[ \t]*(#.*)?$", rest)
+      out[[length(out) + 1L]] <- data.frame(
+        field = name, key = key, first = if (block) key + 1L else key,
+        last = last, form = if (block) "block" else "other",
+        block = b, stringsAsFactors = FALSE)
+    }
+  }
+  if (!length(out)) {
+    return(data.frame(field = character(), key = integer(), first = integer(),
+                      last = integer(), form = character(), block = integer()))
+  }
+  do.call(rbind, out)
+}
+
+# `lines` with every line outside `keep` replaced by spaces (line breaks and
+# columns stay where they were).
+mask_lines <- function(lines, keep) {
+  out <- gsub("[^\t]", " ", lines)
+  out[keep] <- lines[keep]
+  out
+}
+
+# The text with each metadata block blanked but for the value of a field of
+# the four that is a block scalar: what the `text` hook resolves (1.10.7).
+mask_front_matter <- function(text) {
+  if (!nzchar(text)) return(text)
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  mb <- metadata_blocks(lines)
+  if (!nrow(mb)) return(text)
+  ff <- front_fields(lines)
+  keep <- rep(FALSE, length(lines))
+  for (i in seq_len(nrow(ff))) {
+    if (ff$field[i] %in% FM_FIELDS && ff$form[i] == "block" && ff$first[i] <= ff$last[i]) {
+      keep[ff$first[i]:ff$last[i]] <- TRUE
+    }
+  }
+  inyaml <- rep(FALSE, length(lines))
+  for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
+  lines[inyaml & !keep] <- gsub("[^\t]", " ", lines[inyaml & !keep])
+  paste0(paste(lines, collapse = "\n"), if (endsWith(text, "\n")) "\n" else "")
+}
+
+# The type of the project a file is in (`project: type:` of the nearest
+# `_quarto.yml`), or "".
+project_type <- function(path) {
+  if (is.null(path) || is.na(path)) return("")
+  d <- normalizePath(path, mustWork = FALSE)
+  if (!dir.exists(d)) d <- dirname(d)
+  repeat {
+    for (f in c("_quarto.yml", "_quarto.yaml")) {
+      p <- file.path(d, f)
+      if (file.exists(p)) {
+        y <- tryCatch(yaml::yaml.load_file(p, eval.expr = FALSE), error = function(e) NULL)
+        ty <- if (is.list(y)) y$project$type else NULL
+        return(if (is.character(ty) && length(ty) == 1L) ty else "")
+      }
+    }
+    up <- dirname(d)
+    if (identical(up, d)) return("")
+    d <- up
+  }
+}
+
+# `execute:` options of the document's first metadata block.
+doc_execute <- function(lines) {
+  mb <- metadata_blocks(lines)
+  if (!nrow(mb) || mb$open[1L] != 1L || mb$close[1L] - 2L < 1L) return(list())
+  y <- tryCatch(yaml::yaml.load(paste(lines[2L:(mb$close[1L] - 1L)], collapse = "\n"),
+                                eval.expr = FALSE), error = function(e) NULL)
+  ex <- if (is.list(y)) y$execute else NULL
+  if (is.list(ex)) ex else list()
+}
+
+truthy <- function(x) {
+  if (is.null(x) || !length(x)) return(FALSE)
+  if (is.logical(x)) return(isTRUE(x[1L]))
+  if (is.numeric(x)) return(isTRUE(x[1L] > 0))
+  x <- tolower(trim_ws(as.character(x[1L])))
+  x %in% c("true", "t", "yes", "1", "2", "3")
+}
+falsy <- function(x) {
+  if (is.null(x) || !length(x)) return(FALSE)
+  if (is.logical(x)) return(isFALSE(x[1L]))
+  tolower(trim_ws(as.character(x[1L]))) %in% c("false", "f", "no", "0")
+}
+
+# ---- front matter rows -------------------------------------------------------
+
+scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
+                                   project = "") {
+  ff <- front_fields(lines)
+  if (!nrow(ff)) return(NULL)
+  keep <- rep(FALSE, length(lines))
+  txt <- lines
+  for (i in seq_len(nrow(ff))) {
+    if (ff$first[i] > ff$last[i]) next
+    r <- ff$first[i]:ff$last[i]
+    keep[r] <- TRUE
+    if (ff$form[i] == "other") {
+      # the key is not part of the value
+      txt[ff$key[i]] <- sub("^[^:]*:", paste0(strrep(" ", nchar(sub(":.*$", "", lines[ff$key[i]])) + 1L)),
+                            lines[ff$key[i]])
+    }
+  }
+  rows <- scan_text(paste(mask_lines(txt, keep), collapse = "\n"), file = file,
+                    config = config)
+  if (!nrow(rows)) return(NULL)
+  field <- character(nrow(rows))
+  form <- character(nrow(rows))
+  for (i in seq_len(nrow(ff))) {
+    hit <- rows$line >= ff$first[i] & rows$line <= ff$last[i]
+    field[hit] <- ff$field[i]
+    form[hit] <- ff$form[i]
+  }
+  rows$context <- "front-matter"
+  rows$chunk <- NA_character_
+  rows$option <- field
+  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link"))
+  add <- function(i, msg) {
+    rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+  }
+  for (i in which(top)) {
+    f <- field[i]
+    if (!f %in% FM_FIELDS) {
+      add(i, sprintf(paste0("A `%s` construct in the front-matter field `%s`: constructs work in ",
+                            "`title`, `subtitle`, `abstract` and `description` only (rule 1.10.7)."),
+                     rows$kind[i], f))
+      next
+    }
+    if (form[i] != "block") {
+      add(i, sprintf(paste0("A `%s` construct in `%s` must be in a YAML block scalar, written ",
+                            "`%s: |` or `%s: >` (rule 1.10.7)."), rows$kind[i], f, f, f))
+    }
+    if (f == "title" && project %in% c("book", "website")) {
+      add(i, sprintf(paste0("A `%s` construct in `title` of a %s: `title` holds no construct in a ",
+                            "book or a website (rule 1.10.11); write it in `abstract` or `description`, ",
+                            "or in a heading."), rows$kind[i], project))
+    }
+  }
+  rows
+}
+
+# ---- chunks ------------------------------------------------------------------
+
+# The executed chunks of a document: header line, close line, engine, and the
+# header's options as written.
+find_chunks <- function(lines) {
+  n <- length(lines)
+  mb <- metadata_blocks(lines)
+  inyaml <- rep(FALSE, n)
+  for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
+  begin <- "^[ \t]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
+  out <- list()
+  k <- 1L
+  while (k <= n) {
+    if (inyaml[k]) {
+      k <- k + 1L
+      next
+    }
+    l <- lines[k]
+    m <- regmatches(l, regexec(begin, l, perl = TRUE))[[1]]
+    gen <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
+    if (length(m) || length(gen)) {
+      fence <- if (length(m)) m[2] else gen[2]
+      close_re <- paste0("^[ \t]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
+      j <- k + 1L
+      while (j <= n && !grepl(close_re, lines[j], perl = TRUE)) j <- j + 1L
+      if (length(m)) {
+        out[[length(out) + 1L]] <- list(open = k, close = min(j, n + 1L) - 0L,
+                                        engine = m[3], header = m[4], closed = j <= n)
+      }
+      k <- j + 1L
+      next
+    }
+    k <- k + 1L
+  }
+  out
+}
+
+# The options in a chunk header, as written: the label, and for each named
+# option the value when it is a literal string, else NULL, with its text.
+parse_header <- function(header) {
+  rest <- trim_ws(header)
+  label <- NA_character_
+  m <- regexpr("^[^,=[:space:]'\"()]+[ \t]*(,|$)", rest, perl = TRUE)
+  if (m > 0L) {
+    label <- trim_ws(sub(",$", "", substring(rest, 1L, attr(m, "match.length"))))
+    rest <- substring(rest, attr(m, "match.length") + 1L)
+  }
+  rest <- sub("^[ \t,]+", "", rest)
+  opts <- list()
+  if (nzchar(trim_ws(rest))) {
+    ex <- tryCatch(parse(text = paste0("alist(", rest, ")"), keep.source = FALSE),
+                   error = function(e) NULL)
+    if (!is.null(ex)) {
+      args <- as.list(ex[[1L]])[-1L]
+      nms <- names(args)
+      if (is.null(nms)) nms <- rep("", length(args))
+      for (i in seq_along(args)) {
+        if (!nzchar(nms[i])) next
+        a <- args[[i]]
+        opts[[nms[i]]] <- list(
+          literal = if (is.character(a) && length(a) == 1L) a else NULL,
+          text = paste(deparse(a, width.cutoff = 500L), collapse = " "))
+      }
+      if (is.na(label) && !is.null(opts$label) && !is.null(opts$label$literal)) {
+        label <- opts$label$literal
+      }
+    }
+  }
+  list(label = label, opts = opts)
+}
+
+# The `#|` option lines at the top of a chunk: their line numbers and text
+# with the prefix taken off.
+chunk_option_lines <- function(lines, open, close) {
+  idx <- integer()
+  j <- open + 1L
+  while (j < close && grepl("^[ \t]*#\\|", lines[j])) {
+    idx <- c(idx, j)
+    j <- j + 1L
+  }
+  list(lines = idx, text = sub("^[ \t]*#\\|[ ]?", "", lines[idx]),
+       code_first = j)
+}
+
+# The options of a `#|` block: for each top-level key, its name, the line of
+# the key, the line range of its value, and the form of the value: `block`
+# (`|`/`>`), `list` (a YAML sequence), `expr` (`!expr`) or `scalar`. List items
+# are returned in `items`: line range and form of each.
+parse_option_block <- function(idx, text) {
+  if (!length(idx)) return(list())
+  keyed <- grepl("^[A-Za-z0-9_.-]+[ \t]*:([ \t]|$)", text)
+  ks <- which(keyed)
+  out <- list()
+  for (i in seq_along(ks)) {
+    a <- ks[i]
+    b <- if (i < length(ks)) ks[i + 1L] - 1L else length(text)
+    name <- sub("[ \t]*:.*$", "", text[a])
+    rest <- trim_ws(sub("^[^:]*:", "", text[a]))
+    form <- if (grepl("^[|>][-+0-9]*[ \t]*(#.*)?$", rest)) "block" else
+      if (grepl("^!expr", rest)) "expr" else
+        if (!nzchar(rest) && b > a && any(grepl("^[ \t]*-", text[(a + 1L):b]))) "list" else "scalar"
+    items <- NULL
+    if (form == "list") {
+      sub_idx <- (a + 1L):b
+      starts <- sub_idx[grepl("^[ \t]*-([ \t]|$)", text[sub_idx])]
+      items <- lapply(seq_along(starts), function(q) {
+        s0 <- starts[q]
+        e0 <- if (q < length(starts)) starts[q + 1L] - 1L else b
+        r0 <- trim_ws(sub("^[ \t]*-", "", text[s0]))
+        blk <- grepl("^[|>][-+0-9]*[ \t]*(#.*)?$", r0)
+        list(start = idx[s0], first = if (blk) idx[s0] + 1L else idx[s0], last = idx[e0],
+             form = if (blk) "block" else "scalar", dash = s0)
+      })
+    }
+    out[[length(out) + 1L]] <- list(
+      name = name, key = idx[a], first = if (form == "block") idx[a] + 1L else idx[a],
+      last = idx[b], form = form, items = items, value = rest)
+  }
+  out
+}
+
+# ---- caption rows ------------------------------------------------------------
+
+# The executed chunks of a document, each with its label (knitr's
+# `unnamed-chunk-N` when it has none: N counts the chunks without a label),
+# its header options and its `#|` options.
+labelled_chunks <- function(lines) {
+  chunks <- find_chunks(lines)
+  counter <- 0L
+  for (i in seq_along(chunks)) {
+    ch <- chunks[[i]]
+    hdr <- parse_header(ch$header)
+    oi <- chunk_option_lines(lines, ch$open, ch$close)
+    optblk <- parse_option_block(oi$lines, oi$text)
+    lab <- hdr$label
+    for (o in optblk) {
+      if (o$name == "label") lab <- gsub("^[\"']|[\"']$", "", o$value)
+    }
+    if (is.na(lab) || !nzchar(lab)) {
+      counter <- counter + 1L
+      lab <- sprintf("unnamed-chunk-%d", counter)
+    }
+    chunks[[i]]$label <- lab
+    chunks[[i]]$hdr <- hdr
+    chunks[[i]]$oi <- oi
+    chunks[[i]]$optblk <- optblk
+  }
+  chunks
+}
+
+# One chunk's caption rows, with their static errors.
+scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec, file,
+                                config) {
+  rows <- list()
+  keep <- rep(FALSE, length(lines))
+  txt <- lines
+  regions <- list()   # option, first, last, kind of region
+  add_region <- function(option, first, last, form, item = FALSE) {
+    if (first > last) return()
+    keep[first:last] <<- TRUE
+    regions[[length(regions) + 1L]] <<- list(option = option, first = first, last = last,
+                                            form = form, item = item)
+  }
+  for (o in optblk) {
+    if (!(o$name %in% CAPTION_OPTIONS)) next
+    if (o$form == "list") {
+      for (it in o$items) {
+        add_region(o$name, it$first, it$last, it$form, item = TRUE)
+        if (it$form == "scalar") {
+          txt[it$first] <- sub("^[ \t]*#\\|[ ]?[ \t]*-", "", txt[it$first])
+        }
+      }
+    } else {
+      add_region(o$name, o$first, o$last, o$form)
+      if (o$form != "block") {
+        # the key is not part of the value
+        txt[o$first] <- sub("^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:", "", txt[o$first])
+      }
+    }
+  }
+  # the `#|` prefix is not part of a caption
+  txt[keep] <- sub("^([ \t]*)#\\|", "\\1  ", txt[keep])
+  # lines the prefix strip left unaligned are scanned as they are: only line
+  # numbers matter
+  if (length(regions)) {
+    r <- scan_text(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config)
+    if (nrow(r)) {
+      opt <- character(nrow(r))
+      reg <- integer(nrow(r))
+      for (i in seq_along(regions)) {
+        hit <- r$line >= regions[[i]]$first & r$line <= regions[[i]]$last
+        opt[hit] <- regions[[i]]$option
+        reg[hit] <- i
+      }
+      r$option <- opt
+      r$region <- reg
+      rows[[length(rows) + 1L]] <- r
+    }
+  }
+  # captions written in the header (rmarkdown): a literal string is scanned
+  for (nm in names(hdr$opts)) {
+    if (!(nm %in% CAPTION_OPTIONS)) next
+    v <- hdr$opts[[nm]]$literal
+    if (is.null(v)) next
+    r <- scan_text(v, file = file, first_line = ch$open, config = config)
+    if (!nrow(r)) next
+    r$line <- rep(ch$open, nrow(r))
+    r$option <- rep(nm, nrow(r))
+    r$region <- rep(0L, nrow(r))
+    rows[[length(rows) + 1L]] <- r
+  }
+  if (!length(rows)) return(NULL)
+  rows <- bind_scan_rows(rows)
+  rows$context <- "caption"
+  rows$chunk <- label
+  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link"))
+  add <- function(i, msg) {
+    rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
+  }
+  # chunk-level reasons a caption is not resolved (2.3.5)
+  cache <- truthy(doc_exec$cache)
+  eval_off <- falsy(doc_exec$eval)
+  why <- character()
+  co <- function(name) {
+    for (o in optblk) if (o$name == name) return(o$value)
+    h <- hdr$opts[[name]]
+    if (!is.null(h)) return(h$text)
+    NULL
+  }
+  if (!is.null(co("cache"))) cache <- truthy(co("cache")) || (cache && !falsy(co("cache")))
+  if (!is.null(co("eval"))) eval_off <- falsy(co("eval"))
+  if (cache) why <- c(why, "has `cache: true`, so its caption is not resolved again when it is served from the cache")
+  if (eval_off) why <- c(why, "has `eval: false`, so its code does not run")
+  if (!identical(tolower(ch$engine), "r")) why <- c(why, sprintf("uses the `%s` engine, not R", ch$engine))
+  for (i in which(top)) {
+    o <- rows$option[i]
+    if (o == "tab.cap") {
+      add(i, sprintf(paste0("A `%s` construct in `tab.cap`: rmarkdown's `tab.cap` is not ",
+                            "supported (rule 1.10.4); write the caption in `tbl-cap` or in a table div (rule 1.10.5)."),
+                     rows$kind[i]))
+    } else if (!is.na(rows$region[i]) && rows$region[i] > 0L) {
+      rg <- regions[[rows$region[i]]]
+      if (o %in% c("fig-subcap", "fig.subcap") && rg$form == "expr") {
+        add(i, sprintf(paste0("A `%s` construct under `!expr` in `%s` (rule 1.10.4); write each ",
+                              "caption as a YAML list item holding a block scalar."), rows$kind[i], o))
+      } else if (rg$form %in% c("scalar", "expr")) {
+        add(i, sprintf(paste0("A `%s` construct in `%s` must be in a YAML block scalar, written ",
+                              "`%s: |` (rule 1.10.3)."), rows$kind[i], o, o))
+      }
+    }
+    if (length(why)) {
+      add(i, sprintf("A `%s` construct in a caption of chunk `%s`, which %s: %s.",
+                     rows$kind[i], label, paste(why, collapse = " and "), DIV_REMEDY))
+    }
+  }
+  rows
+}
+
+# ---- weft_str() strings ------------------------------------------------------
+
+scan_chunk_strings <- function(lines, ch, first, label, file, config) {
+  if (!identical(tolower(ch$engine), "r") || first >= ch$close) return(NULL)
+  code <- lines[first:(ch$close - 1L)]
+  if (!any(grepl("weft_str", code, fixed = TRUE))) return(NULL)
+  p <- tryCatch(parse(text = paste(code, collapse = "\n"), keep.source = TRUE),
+                error = function(e) NULL)
+  if (is.null(p)) return(NULL)
+  pd <- utils::getParseData(p)
+  if (is.null(pd)) return(NULL)
+  fn <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "weft_str", , drop = FALSE]
+  rows <- list()
+  for (id in fn$id) {
+    fexpr <- pd$parent[pd$id == id]            # the expr that names the function
+    call_id <- pd$parent[pd$id == fexpr]       # the call
+    if (!length(call_id) || call_id == 0L || !any(pd$parent == call_id & pd$token == "'('")) next
+    kids <- pd[pd$parent == call_id, , drop = FALSE]
+    kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+    # the first argument: the first expr after `(`, unless named `x`
+    after <- kids[seq_len(nrow(kids)) > which(kids$token == "'('")[1L], , drop = FALSE]
+    named <- which(after$token == "SYMBOL_SUB")
+    arg <- NULL
+    if (length(named)) {
+      nx <- named[after$text[named] == "x"][1L]
+      if (!is.na(nx)) arg <- after[after$token == "expr" & seq_len(nrow(after)) > nx, ][1L, ]
+      else arg <- NULL
+    } else {
+      arg <- after[after$token == "expr", ][1L, ]
+    }
+    if (is.null(arg) || is.na(arg$id)) next
+    toks <- pd[pd$parent == arg$id, , drop = FALSE]
+    consts <- NULL
+    if (nrow(toks) == 1L && toks$token == "STR_CONST") {
+      consts <- toks
+    } else {
+      sub <- pd[pd$parent %in% c(arg$id, pd$id[pd$parent == arg$id & pd$token == "expr"]), , drop = FALSE]
+      isc <- sub$token == "STR_CONST"
+      txt <- paste(utils::getParseText(pd, arg$id), collapse = " ")
+      ex <- tryCatch(parse(text = txt, keep.source = FALSE)[[1L]], error = function(e) NULL)
+      if (is.call(ex) && identical(ex[[1L]], quote(c)) && length(ex) > 1L &&
+          all(vapply(as.list(ex)[-1L], function(a) is.character(a) && length(a) == 1L, NA)) &&
+          sum(isc) == length(ex) - 1L) {
+        consts <- sub[isc, , drop = FALSE]
+        consts <- consts[order(consts$line1, consts$col1), , drop = FALSE]
+      }
+    }
+    if (is.null(consts)) next
+    for (q in seq_len(nrow(consts))) {
+      val <- tryCatch(eval(parse(text = consts$text[q], keep.source = FALSE)[[1L]]),
+                      error = function(e) NULL)
+      if (!is.character(val) || length(val) != 1L) next
+      line <- first + consts$line1[q] - 1L
+      r <- scan_text(val, file = file, first_line = line, config = config)
+      if (!nrow(r)) next
+      rows[[length(rows) + 1L]] <- r
+    }
+  }
+  if (!length(rows)) return(NULL)
+  rows <- bind_scan_rows(rows)
+  rows$context <- "weft_str"
+  rows$chunk <- label
+  rows$option <- NA_character_
+  rows
+}
+
+# ---- putting the rows together ----------------------------------------------
+
+# rbind scan results, shifting each one's `parent` indices past the rows
+# before it.
+bind_scan_rows <- function(parts) {
+  parts <- Filter(function(p) !is.null(p) && nrow(p), parts)
+  if (!length(parts)) return(NULL)
+  off <- 0L
+  for (i in seq_along(parts)) {
+    p <- parts[[i]]
+    p$parent <- p$parent + off
+    off <- off + nrow(p)
+    parts[[i]] <- p
+  }
+  if (length(parts) == 1L) return(parts[[1L]])
+  nm <- Reduce(union, lapply(parts, names))
+  parts <- lapply(parts, function(p) {
+    for (m in setdiff(nm, names(p))) {
+      p[[m]] <- if (m %in% c("region")) rep(NA_integer_, nrow(p)) else rep(NA_character_, nrow(p))
+    }
+    p[nm]
+  })
+  do.call(rbind, parts)
+}
+
+# The rows of the places beside prose in a document's lines: front matter,
+# captions and weft_str() strings.
+scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "") {
+  fm <- scan_front_matter_rows(lines, file, config, project)
+  caps <- list()
+  strs <- list()
+  doc_exec <- doc_execute(lines)
+  for (ch in labelled_chunks(lines)) {
+    caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
+                                                    ch$oi, doc_exec, file, config)
+    strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
+                                                   file, config)
+  }
+  parts <- c(list(fm), caps, strs)
+  bind_scan_rows(parts)
+}
+
+# All the rows of a document, in textual order, each with its context.
+scan_document <- function(lines, file = NA_character_, config = NULL, project = "") {
+  text <- paste(lines, collapse = "\n")
+  prose <- scan_text(blank_front_matter(text), file = file, config = config)
+  prose$context <- rep("prose", nrow(prose))
+  prose$chunk <- rep(NA_character_, nrow(prose))
+  prose$option <- rep(NA_character_, nrow(prose))
+  extra <- scan_extra_rows(lines, file, config, project)
+  all <- bind_scan_rows(list(prose, extra))
+  if (is.null(all)) return(prose)
+  ord <- order(all$line, seq_len(nrow(all)))
+  all$parent <- match(all$parent, ord)
+  all <- all[ord, , drop = FALSE]
+  rownames(all) <- NULL
+  all$region <- NULL
+  all
+}

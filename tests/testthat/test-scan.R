@@ -761,6 +761,7 @@ test_that("design note: scan_file skips YAML and chunks, keeping file line numbe
   p <- withr::local_tempfile(fileext = ".qmd")
   write_bytes(doc, p)
   r <- weft:::scan_file(p)
+  r <- r[r$context == "prose", ]            # front-matter rows are stage 1c's
   expect_equal(r$expr, c("a", "k"))
   expect_equal(r$line, c(12L, 26L))
   expect_equal(r$kind, c("value", "n"))

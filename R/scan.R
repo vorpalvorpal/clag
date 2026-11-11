@@ -69,7 +69,10 @@ find_fences <- function(S) {
   while (k <= nl) {
     mm <- m[[k]]
     k0 <- k
-    if (length(mm) && !(substr(mm[3], 1, 1) == "`" && grepl("`", mm[4], fixed = TRUE))) {
+    # a backtick fence has no backtick in its info string, except a knitr chunk
+    # header (`{r, fig.cap = "... `r x` ..."}`), which knitr reads as one
+    if (length(mm) && !(substr(mm[3], 1, 1) == "`" && grepl("`", mm[4], fixed = TRUE) &&
+                        !grepl("^[ \t]*\\{.*\\}[ \t\r]*$", mm[4]))) {
       ch <- substr(mm[3], 1, 1)
       len <- nchar(mm[3])
       quoted <- nzchar(mm[2])
@@ -631,7 +634,10 @@ block_errors <- function(S, blk, kind) {
   e <- character()
   if (!blk$ok) {
     raw <- blk$raw %||% ""
-    cause <- if (grepl("[[:space:]]=|=[[:space:]]", raw)) {
+    quoting <- grepl("\\", raw, fixed = TRUE)
+    cause <- if (quoting) {
+      "a `\"` or a `\\` inside a value ends it early"
+    } else if (grepl("[[:space:]]=|=[[:space:]]", raw)) {
       "spaces around `=` are not allowed"
     } else if (grepl("=[[:space:]]*$", raw)) {
       "a key has no value"
@@ -640,8 +646,9 @@ block_errors <- function(S, blk, kind) {
     } else {
       "a `\"` or a `\\` inside a value ends it early"
     }
+    quoted <- quoting || startsWith(cause, "a `\"` or a")
     return(paste0("The attribute block does not parse: ", cause,
-                  " (rules 1.2.3, 1.2.9). ", BIND_HINT))
+                  " (rules 1.2.3, 1.2.9)", if (quoted) paste0(". ", BIND_HINT) else "."))
   }
   if (any(blk$quotes == "'")) {
     e <- c(e, paste0("A single-quoted value in an attribute block (rule 1.2.3). ",
@@ -668,6 +675,9 @@ block_errors <- function(S, blk, kind) {
       e <- c(e, "An `#id` on a text span is an error (rule 1.1.9).")
     } else if (kind == "cite") {
       e <- c(e, "An `#id` on a cite span is an error (rule 1.7.5).")
+    } else if (kind %in% c("value", "n", "if")) {
+      e <- c(e, sprintf("An `#id` on a %s is not built yet.",
+                        if (kind == "value") "value" else "governed span"))
     }
   }
   grp <- class_group(cls, S$reg)
@@ -761,10 +771,31 @@ scan_seq <- function(S, from, to, parent) {
         if (is.na(m)) p + 1L else scan_math(S, p, m, parent)
       },
       "[" = handle_bracket(S, p, parent),
+      "]" = handle_stray_close(S, p, parent),
       p + 1L
     )
   }
   invisible()
+}
+
+# A `]` that no `[` opened, followed by an attribute block that holds a weft
+# key: a span split by a blank line (a span ends with its paragraph), which
+# would otherwise print its block raw.
+handle_stray_close <- function(S, p, parent) {
+  blk <- parse_block(S, p + 1L)
+  if (is.null(blk)) return(p + 1L)
+  keys <- if (blk$ok) lower_keys(blk$names) else blk$gkey
+  hit <- intersect(keys, WEFT_KEYS)
+  if (!length(hit)) return(p + 1L)
+  gov <- intersect(hit, GOVERNOR_KEYS)
+  kind <- if (length(gov)) gov[1L] else "text"
+  add_row(S, kind, p, blk$end, p + 1L, NA_character_, character(),
+          named_chr(character(), character()), NA_character_, NULL, integer(),
+          parent, paste0(
+            "The span is split by a blank line: this `]{...}` has no opening `[` in its ",
+            "paragraph, and a span cannot hold a blank line (rule 1.1.5). Keep the whole ",
+            "span in one paragraph."))
+  blk$end + 1L
 }
 
 # Inline R inside math is read (5.2.6); nothing else in math is a construct.
@@ -1023,8 +1054,11 @@ scan_block <- function(text, file = NA_character_, first_line = 1L, config = NUL
   list(S = S, rows = finish_scan(S))
 }
 
-# Read a `.qmd` or `.Rmd` and scan its prose: BOM, CRLF and a missing final
-# newline are accepted; YAML front matter and fenced blocks are skipped.
+# Read a `.qmd` or `.Rmd` and scan it: the prose, the captions in chunk
+# options, the front-matter fields and the literal strings given to
+# weft_str() (2.10.2). BOM, CRLF and a missing final newline are accepted;
+# fenced blocks that are not captions' chunks are skipped. `context` says
+# which place a row is in.
 scan_file <- function(path, config = NULL) {
   bytes <- readBin(path, "raw", file.info(path)$size)
   if (length(bytes) >= 3L && identical(bytes[1:3], as.raw(c(0xEF, 0xBB, 0xBF)))) {
@@ -1037,46 +1071,19 @@ scan_file <- function(path, config = NULL) {
                "weft_encoding_error")
   }
   text <- gsub("\r\n", "\n", text, fixed = TRUE)
-  text <- blank_front_matter(text)
-  scan_text(text, file = path, config = config)
+  lines <- if (nzchar(text)) strsplit(text, "\n", fixed = TRUE)[[1]] else character()
+  scan_document(lines, file = path, config = config, project = project_type(path))
 }
 
 # Replace each YAML metadata block with spaces, keeping every line break so
-# that offsets and lines stay those of the file. Like Pandoc, a block opens
-# with a `---` line at the start or after a blank line, followed by a line
-# that is not blank, and closes at the next `---` or `...` line. Fenced
-# blocks are left alone.
+# that offsets and lines stay those of the file.
 blank_front_matter <- function(text) {
   if (!nzchar(text)) return(text)
   lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
-  n <- length(lines)
-  is_blank <- function(l) !nzchar(trim_ws(l))
-  fence <- NULL
-  k <- 1L
-  while (k <= n) {
-    l <- lines[k]
-    if (!is.null(fence)) {
-      if (grepl(fence, l, perl = TRUE)) fence <- NULL
-      k <- k + 1L
-      next
-    }
-    fm <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
-    if (length(fm)) {
-      fence <- paste0("^[ \t]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
-      k <- k + 1L
-      next
-    }
-    if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
-        k < n && !is_blank(lines[k + 1L])) {
-      j <- k + 1L
-      while (j <= n && !grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[j])) j <- j + 1L
-      if (j <= n) {
-        lines[k:j] <- gsub("[^\n]", " ", lines[k:j])
-        k <- j + 1L
-        next
-      }
-    }
-    k <- k + 1L
+  mb <- metadata_blocks(lines)
+  for (b in seq_len(nrow(mb))) {
+    r <- mb$open[b]:mb$close[b]
+    lines[r] <- gsub("[^\n]", " ", lines[r])
   }
   paste0(paste(lines, collapse = "\n"), if (endsWith(text, "\n")) "\n" else "")
 }

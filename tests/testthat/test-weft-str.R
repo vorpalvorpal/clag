@@ -129,7 +129,7 @@ str_bad <- c(str_head, str_setup,
   "cat('Mean', weft::weft_str('`r claim(k, . > 100)`{.num} m'), '\\n')",
   "```", "",
   "```{r second, results='asis', echo=FALSE}",
-  "cat(weft::weft_str('[a | b]{if=\"k > 100\"}'), '\\n')",
+  "cat(weft::weft_str('[a]{if=\"k > 100\"}'), '\\n')",
   "```", "")
 
 test_that("2.4.1 + 2.6.2 + 2.6.8 + 3.6.3 (rmarkdown): a failed check in a weft_str() string is collected; the record has no line and names the chunk; the marker names the chunk", {
@@ -195,7 +195,7 @@ test_that("3.6 interface: with no weft_setup() weft_str() works, and behaves as 
     "k <- 3",
     "cat(weft::weft_str('`r claim(k, . > 100)`'))",
     "```", "")
-  res <- render_rmd(bad, setup = FALSE, format = "knit")
+  res <- render_rmd(bad, setup = FALSE)   # knit() alone prints a chunk error and carries on
   expect_true(res$failed)
   expect_match(res$message, ". > 100", fixed = TRUE)
 })

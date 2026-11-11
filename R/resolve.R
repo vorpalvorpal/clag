@@ -102,11 +102,19 @@ in_knit_dir <- function(expr) {
 
 # Evaluate one piece of inline code with the claim context set, the
 # conditions it raises logged and kept out of the document (2.6.4, 2.8).
-run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_) {
+run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
+                       option = NA_character_, live = TRUE) {
   old <- weft_env$inline
   weft_env$inline <- list(file = file, line = line, label = label, expr = expr,
-                          failed = FALSE, chunk = chunk)
+                          failed = FALSE, chunk = chunk, option = option)
   on.exit(weft_env$inline <- old, add = TRUE)
+  if (!live) {
+    # outside a knit (strict): nothing is collected and no condition is hidden
+    out <- tryCatch(list(ok = TRUE, value = in_knit_dir(run())),
+                    error = function(e) list(ok = FALSE, error = e))
+    out$claim_failed <- FALSE
+    return(out)
+  }
   src <- sprintf("%s:%d", file, line)
   out <- withCallingHandlers(
     tryCatch(
@@ -156,35 +164,58 @@ resolve_text <- function(x) {
   on.exit(s$eager_ok <- TRUE, add = TRUE)
   settle_pending(s)
   x <- enc2utf8(paste(as.character(x), collapse = "\n"))
-  if (!grepl("\ue000", x, fixed = TRUE) && !grepl("[", x, fixed = TRUE)) return(x)
+  if (!grepl("\ue000", x, fixed = TRUE) && !grepl("[", x, fixed = TRUE) &&
+      !grepl("]{", x, fixed = TRUE)) return(x)
+  resolve_markup(s, x, block = locate_block(s, x))
+}
+
+# Resolve one piece of markup. `block` is the located block of prose the
+# `text` hook hands over (its inline code is parked as placeholders). With no
+# `block` the markup is a string (a caption, or the argument of weft_str()):
+# `ctx` names its chunk and option, the environment its code is evaluated in,
+# and whether a failure stops at once (`strict`, outside a knit, 3.6.3) or is
+# collected (2.4.1).
+resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   cfg <- s$config
-  loc <- locate_block(s, x)
+  is_str <- is.null(block)
+  strict <- is_str && isTRUE(ctx$strict)
+  loc <- if (is_str) list(F = NULL, start = 1L) else block
   F <- loc$F
   restored <- restore_parked(x, s$parked)
   text <- restored$text
   spans <- restored$spans
-  sb <- scan_block(blank_front_matter(text), file = NA_character_,
+  sb <- scan_block(if (is_str) text else mask_front_matter(text), file = NA_character_,
                    first_line = loc$start, config = cfg)
   S <- sb$S
   R <- sb$rows
   nr <- nrow(R)
   R$line_view <- R$line
-  if (nr) {
+  if (nr && !is_str) {
     ml <- map_lines(F, R$line_view)
     R$file <- ml$file
     R$line <- ml$line
+  } else if (nr) {
+    R$file <- rep(as.character(s$input_name), nr)
+    R$line <- rep(NA_integer_, nr)
+    R$line_view <- rep(NA_integer_, nr)
   }
+  R$context <- rep(if (is_str) (ctx$context %||% "weft_str") else "prose", nr)
+  R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
+  R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
   R$evaluated <- rep(FALSE, nr)
   R$chosen <- rep(NA_integer_, nr)
+  env0 <- if (is_str) (ctx$envir %||% knitr::knit_global()) else knitr::knit_global()
   nlpos <- which(strsplit(text, "")[[1L]] == "\n")
   span_line <- function(start) {
+    if (is_str) return(data.frame(file = as.character(s$input_name), line = NA_integer_,
+                                  stringsAsFactors = FALSE))
     lv <- loc$start + sum(nlpos < start)
     map_lines(F, lv)
   }
   draft <- isTRUE(cfg$draft)
   # text knitted by a child has no file: its lines are relative to the text,
   # and the chunk that knitted it says where (2.7.3)
-  chunk_label <- if (is.null(F) && is_child_knit()) {
+  chunk_label <- if (is_str) as.character(ctx$chunk %||% NA_character_) else if (is.null(F) && is_child_knit()) {
     lab <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
     if (is.character(lab) && length(lab) == 1L) lab else NA_character_
   } else NA_character_
@@ -201,25 +232,29 @@ resolve_text <- function(x) {
     }
   }, add = TRUE)
 
+  loc_str <- function(k) {
+    if (!is_str) return(sprintf("%s:%d", R$file[k], R$line[k]))
+    str_where(ctx$chunk, ctx$option)
+  }
+
   # construct errors found from the source stop the render at once (2.6.5),
   # except in draft mode, where each becomes a marker where it would print
-  if (!draft && nr && any(!is.na(R$error))) {
+  if ((!draft || strict) && nr && any(!is.na(R$error))) {
     k <- which(!is.na(R$error))[1L]
     R$evaluated[k] <- TRUE
-    weft_abort(sprintf("weft: %s:%d: %s", R$file[k], R$line[k], R$error[k]),
+    weft_abort(sprintf("weft: %s: %s", loc_str(k), R$error[k]),
                c("weft_construct_error", "weft_located"))
   }
 
-  loc_str <- function(k) sprintf("%s:%d", R$file[k], R$line[k])
-
   construct_fail <- function(k, msg) {
-    if (!draft) {
+    if (!draft || strict) {
       weft_abort(sprintf("weft: %s: %s", loc_str(k), msg),
                  c("weft_construct_error", "weft_located"))
     }
     add_failure(s, "construct error", file = R$file[k], line = R$line[k],
-                expr = source_label(k), detail = msg, chunk = chunk_label)
-    marker("construct error", R$line[k])
+                expr = source_label(k), detail = msg, chunk = chunk_label,
+                option = ctx$option)
+    marker("construct error", R$line[k], chunk_label)
   }
 
   source_label <- function(k) {
@@ -230,13 +265,20 @@ resolve_text <- function(x) {
   }
 
   record_fail <- function(k, kind, label, detail, hint = NA_character_) {
+    if (strict) {
+      weft_abort(sprintf("weft: %s: %s", loc_str(k), detail),
+                 switch(kind, `failed claim` = "weft_claim_failed",
+                        `no value` = "weft_no_value", "weft_value_error"))
+    }
     add_failure(s, kind, file = R$file[k], line = R$line[k], expr = label,
-                detail = detail, hint = hint, chunk = chunk_label)
-    marker(kind, R$line[k])
+                detail = detail, hint = hint, chunk = chunk_label,
+                option = if (is_str) ctx$option else NA_character_)
+    marker(kind, R$line[k], chunk_label)
   }
 
   # a condition raised by the expression, or an error it raised (2.6.4, 2.6.9)
   fail_from_error <- function(k, e, label) {
+    if (strict && !inherits(e, "weft_construct_error")) stop(e)
     if (inherits(e, "weft_construct_error")) return(construct_fail(k, conditionMessage(e)))
     if (inherits(e, "weft_no_value")) {
       return(record_fail(k, "no value", label, conditionMessage(e)))
@@ -248,14 +290,15 @@ resolve_text <- function(x) {
                 sprintf("error evaluating %s: %s", label, conditionMessage(e)))
   }
 
-  eval_expr <- function(k, expr, label, envir = knitr::knit_global(), stock = FALSE,
+  eval_expr <- function(k, expr, label, envir = env0, stock = FALSE,
                         line_info = NULL) {
     file <- if (is.null(line_info)) R$file[k] else line_info$file
     line <- if (is.null(line_info)) R$line[k] else line_info$line
     run_inline(s, file, line, label, expr, function() {
       if (stock) stock_bare_text(expr, envir) else
         eval(parse(text = expr, keep.source = FALSE), envir)
-    }, chunk = chunk_label)
+    }, chunk = chunk_label, option = if (is_str) ctx$option else NA_character_,
+    live = !strict)
   }
 
   non_english <- function() {
@@ -305,7 +348,7 @@ resolve_text <- function(x) {
   finish <- function(k, text, cc, claim_failed, text_classes = TRUE) {
     if (text_classes) text <- apply_text_classes(text, cc$own)
     text <- passthrough(text, cc$pass, cc$pass_keys)
-    if (claim_failed) text <- paste0(text, marker("failed claim", R$line[k]))
+    if (claim_failed) text <- paste0(text, marker("failed claim", R$line[k], chunk_label))
     text
   }
 
@@ -388,7 +431,7 @@ resolve_text <- function(x) {
       }
       stop(e)
     }
-    if (ev$claim_failed) paste0(ev$value, marker("failed claim", li$line)) else ev$value
+    if (ev$claim_failed) paste0(ev$value, marker("failed claim", li$line, chunk_label)) else ev$value
   }
 
   render_value <- function(k) {
@@ -475,12 +518,16 @@ resolve_text <- function(x) {
     }
     guard_ids <- integer()
     if (narms == 1L) {
+      if (strict && any(!truth)) {
+        weft_abort(sprintf("weft: %s: %s was FALSE", loc_str(k), parts$texts[which(!truth)[1L]]),
+                   "weft_claim_failed")
+      }
       for (i in which(!truth)) {
         guard_ids <- c(guard_ids, add_failure(
           s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
           detail = sprintf("%s was FALSE", parts$texts[i]),
           hint = "optional text is written [phrase | ]{if=\"\u2026\"}",
-          chunk = chunk_label))
+          chunk = chunk_label, option = if (is_str) ctx$option else NA_character_))
         claim_failed <- TRUE
       }
       i <- 1L
