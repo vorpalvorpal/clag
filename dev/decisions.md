@@ -7,6 +7,13 @@ Each entry: the rule, what was found, what was chosen, how to reverse it.
 Choices that are large, hard to undo, or a matter of taste. Not made; built
 around.
 
+- **Stage 2, six items (R1 to R6 in `dev/design-2.md` §5):** the YAML
+  layout of a `breaks` entry (built as `below`/`at_most` maps); where the
+  canonical spellings for `dict_vale()` live (recommended: an `avoid:`
+  field; `dict_vale()` waits); a space before `%` and `°` on a quantity
+  (built as rule 4.4.8 says, "35 %"); `jsonlite` to Imports for the ledger;
+  the ledger's and condition log's file formats (read before 2d is
+  built); an optional `symbol:` field (recommended: not now).
 - **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
   hooks run under the Render buttons of RStudio or Positron first (§22).
 
@@ -217,3 +224,12 @@ and are entries 30 to 37 under "Made".
     Why: fixed decimals are the convention, the render still succeeds and
     the loss is reported. Contract: `dev/design-1i.md`. Reverse:
     `R/format.R`.
+42. **Stage 2, thirty gaps in §4 and §7.** Each is in the table of
+    `dev/design-2.md` §6 with its alternatives, the choice, the reason and
+    how to reverse it (D1 to D30). The three with most reach: a year is an
+    integer with an attribute, not a class (a class breaks `vctrs`); `dict`
+    and `dict_local` are assigned into `knitr::knit_global()` at the start
+    of a knit; an unknown field in a dictionary entry is an error while an
+    unknown unit registers silently. Eight contradictions in the spec
+    (K1 to K8, §10 of the note) are read as the note says and are to be
+    amended in the spec with the package that meets them.

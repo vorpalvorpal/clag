@@ -27,7 +27,8 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 1i (`dev/design-1i.md`) | A number that prints as zero prints "0.0" and records a warned check: contract written, tests being written; replaces 1g's fallback |
 | `PACKAGE-SCOPING.md` | Amended for 1f to 1i in one commit (it states the 1i rule ahead of the code) |
 | `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
-| Stages 0, 2, 3, 4 | not started |
+| Stage 2 | `dev/design-2.md`: five packages (2a dictionary object, 2b printing quantities, 2c tooling, 2d ledger and condition log, 2e pipeline and `changes()`); full contracts for 2a and 2b, outlines for the rest. 2a tests being written |
+| Stages 0, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
 
 ## How to run things
