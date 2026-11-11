@@ -32,6 +32,15 @@
 #' }
 #' @export
 weft_setup <- function() {
+  if (!knit_in_progress() && utils::packageVersion("knitr") < "1.51") {
+    # `before.knit` and `after.knit` are run by knitr 1.51 and later: before
+    # that, activating outside a knit would silently do nothing (2.1.7)
+    weft_abort(sprintf(paste0(
+      "weft_setup() called outside a knit needs knitr 1.51 or later, and this R ",
+      "session has knitr %s (library %s). Update knitr, or call weft_setup() ",
+      "from a setup chunk."), utils::packageVersion("knitr"),
+      dirname(find.package("knitr"))), "weft_knitr_too_old")
+  }
   attach_functions()
   install_boundary_hooks()
   if (knit_in_progress()) {
@@ -86,14 +95,15 @@ install_boundary_hooks <- function() {
         old <- weft_env$state
         if (!is.null(old)) old$finished <- TRUE
       }
-      ensure_knit()
+      s <- ensure_knit()
+      push_knit(s)
       if (is.function(prev)) prev(...)
     }
   })
   wrap_hook("after.knit", function(prev) {
     function(...) {
       on.exit(if (is.function(prev)) prev(...), add = TRUE)
-      if (!is_child_knit()) finish_knit()
+      if (!is_child_knit()) finish_knit() else pop_knit()
     }
   })
   invisible()
@@ -105,8 +115,7 @@ install_hooks <- function() {
       knitr::knit_hooks$get("evaluate.inline", default = TRUE)
     function(code, envir = knitr::knit_global()) {
       s <- ensure_knit()
-      s$parked[[length(s$parked) + 1L]] <- list(code = code, envir = envir)
-      paste0("\ue000", length(s$parked), "\ue002")
+      park_inline(s, code, envir)
     }
   })
   wrap_hook("text", function(prev) {
@@ -127,6 +136,89 @@ install_hooks <- function() {
     }
   })
   install_option_hook()
+  invisible()
+}
+
+# ---- parking inline code ------------------------------------------------------
+
+# knitr hands each piece of inline code to the `evaluate.inline` hook as it
+# parses the block, and sets the position it will name in an error from that
+# piece. weft evaluates later, from the `text` hook, so an error in a bare
+# value would name the block's last inline code. A bare value that no construct
+# in its block precedes is therefore evaluated at once: that keeps textual
+# order, and the error is stock's, at stock's line (1.1.8, 2.7.1).
+park_inline <- function(s, code, envir) {
+  idx <- length(s$parked) + 1L
+  s$parked[[idx]] <- list(code = code, envir = envir)
+  if (grepl("knit_exit", code, fixed = TRUE)) s$exited <- TRUE
+  row <- eager_row(s, code)
+  early <- isTRUE(s$eager_ok) && !is.null(row)
+  if (!early) {
+    s$eager_ok <- FALSE
+  } else {
+    li <- early_line(s)
+    label <- sprintf("`r %s`", code)
+    r <- run_inline(s, li$file, li$line, label, code,
+                    function() stock_bare_text(code, envir))
+    if (r$ok || inherits(r$error, c("weft_no_value", "weft_value_error"))) {
+      s$parked[[idx]]$result <- r
+    } else {
+      stop(r$error)
+    }
+  }
+  paste0("\ue000", idx, "\ue002")
+}
+
+# The top-level bare value in the file's scan that this piece of code is, or
+# NULL. Pieces are matched to the scan in file order.
+eager_row <- function(s, code) {
+  s$early_row <- NULL
+  F <- current_file_state(s)
+  if (is.null(F) || is.null(F$inline_code)) return(NULL)
+  n <- length(F$inline_code)
+  ptr <- F$park_ptr
+  if (ptr > n) return(NULL)
+  j <- match(unwrap_quarto(trim_ws(code)), F$inline_code[ptr:n])
+  if (is.na(j)) return(NULL)
+  j <- ptr + j - 1L
+  F$park_ptr <- j + 1L
+  if (F$inline_kind[j] != "bare" || !is.na(F$inline_parent[j]) ||
+      !is.na(F$inline_error[j])) return(NULL)
+  s$early_row <- list(F = F, line = F$inline_line[j])
+  s$early_row
+}
+
+early_line <- function(s) {
+  er <- s$early_row
+  ml <- map_lines(er$F, er$line)
+  list(file = ml$file, line = ml$line)
+}
+
+# ---- nested knits -----------------------------------------------------------------
+
+# A child knitted from text names the same input as its parent, and has no
+# lines of its own; a child knitted from a file is a fresh pass over that
+# file, so its search starts again at the top.
+push_knit <- function(s) {
+  path <- knit_input_path()
+  if (!is_child_knit()) {
+    s$stack <- list(list(path = path, text = FALSE))
+    return(invisible())
+  }
+  top <- if (length(s$stack)) s$stack[[length(s$stack)]]$path else
+    if (is.na(s$input_path)) NULL else s$input_path
+  is_text <- is.null(path) || identical(path, top)
+  if (!is_text) {
+    F <- s$files[[path]]
+    if (!is.null(F)) reset_file_state(F)
+  }
+  s$stack[[length(s$stack) + 1L]] <- list(path = path, text = is_text)
+  invisible()
+}
+
+pop_knit <- function() {
+  s <- weft_env$state
+  if (!is.null(s) && length(s$stack)) s$stack[[length(s$stack)]] <- NULL
   invisible()
 }
 
@@ -153,16 +245,75 @@ ensure_knit <- function() {
   s
 }
 
-# The document's own front matter (9.1.1, 2.1.6).
-read_front_matter <- function(path) {
-  if (is.null(path)) return(list())
+# The lines of the document's own front matter (9.1.1, 2.1.6): the YAML
+# between the first `---` line and its close, or NULL.
+front_matter_lines <- function(path) {
+  if (is.null(path)) return(NULL)
   lines <- tryCatch(read_view_lines(path), error = function(e) character())
-  if (!length(lines) || !grepl("^---[ \t]*$", lines[1L])) return(list())
+  if (!length(lines) || !grepl("^---[ \t]*$", lines[1L])) return(NULL)
   end <- which(grepl("^(---|\\.\\.\\.)[ \t]*$", lines[-1L]))[1L]
-  if (is.na(end) || end < 2L) return(list())
-  txt <- paste(lines[2L:end], collapse = "\n")
-  y <- tryCatch(yaml::yaml.load(txt, eval.expr = FALSE), error = function(e) list())
+  if (is.na(end) || end < 2L) return(NULL)
+  lines[2L:end]
+}
+
+read_front_matter <- function(path) {
+  fl <- front_matter_lines(path)
+  if (is.null(fl)) return(list())
+  y <- tryCatch(yaml::yaml.load(paste(fl, collapse = "\n"), eval.expr = FALSE),
+                error = function(e) list())
   if (is.list(y)) y else list()
+}
+
+# A construct in a front-matter field is not built yet (design-1a, scope):
+# it would print raw, so the knit stops when it is initialised.
+check_front_matter <- function(s, path, draft) {
+  fl <- front_matter_lines(path)
+  if (is.null(fl)) return(invisible())
+  rows <- tryCatch(scan_text(paste(fl, collapse = "\n"), first_line = 2L,
+                             config = s$config),
+                   error = function(e) NULL)
+  if (is.null(rows) || !nrow(rows)) return(invisible())
+  rows <- rows[!(rows$kind %in% c("bare", "link")) & is.na(rows$parent), , drop = FALSE]
+  if (!nrow(rows)) return(invisible())
+  qmd <- sub("\\.rmarkdown$", ".qmd", path)
+  name <- basename(if (qmd != path && file.exists(qmd)) qmd else path)
+  for (k in seq_len(nrow(rows))) {
+    msg <- sprintf(paste0("A `%s` construct in the front matter is not built yet: ",
+                          "constructs are resolved in the body only."), rows$kind[k])
+    if (!draft) {
+      weft_abort(sprintf("weft: %s:%d: %s", name, rows$line[k], msg),
+                 c("weft_construct_error", "weft_located"))
+    }
+    add_failure(s, "construct error", file = name, line = rows$line[k],
+                expr = sprintf("a `%s` construct", rows$kind[k]), detail = msg)
+  }
+  invisible()
+}
+
+# The document's `lang` (2.1.6): its own front matter, else Quarto's merged
+# metadata, which holds a project-level `lang`: the file named by
+# QUARTO_EXECUTE_INFO, else quarto::quarto_inspect() when it is installed.
+document_lang <- function(front, path) {
+  one <- function(x) if (is.character(x) && length(x) == 1L && !is.na(x)) x else NULL
+  l <- one(front$lang)
+  if (!is.null(l)) return(l)
+  info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
+  if (nzchar(info) && file.exists(info)) {
+    # JSON is read as YAML flow style: yaml is an import, jsonlite is not
+    x <- tryCatch(yaml::yaml.load_file(info, eval.expr = FALSE), error = function(e) NULL)
+    l <- one(x$format$metadata$lang)
+    if (!is.null(l)) return(l)
+    if (!is.null(x)) return("")
+  }
+  if (!is.null(path) && requireNamespace("quarto", quietly = TRUE)) {
+    qmd <- sub("\\.rmarkdown$", ".qmd", path)
+    if (file.exists(qmd) && grepl("\\.qmd$", qmd)) {
+      x <- tryCatch(quarto::quarto_inspect(qmd), error = function(e) NULL)
+      l <- one(x$formats[[1L]]$metadata$lang) %||% one(x$config$lang)
+      if (!is.null(l)) return(l)
+    }
+  }
+  ""
 }
 
 init_knit <- function() {
@@ -174,11 +325,11 @@ init_knit <- function() {
   s$config <- cfg
   s$input_path <- path %||% NA_character_
   s$front <- front
-  lang <- front$lang
-  s$lang <- if (is.character(lang) && length(lang) == 1L && !is.na(lang)) lang else ""
+  s$lang <- document_lang(front, path)
   weft_env$config <- cfg
   weft_env$state <- s
   if (!is.null(path)) {
+    check_front_matter(s, path, isTRUE(cfg$draft))
     F <- current_file_state(s)
     s$input_name <- if (is.null(F)) basename(path) else F$name
     if (!is.null(F) && length(F$unparseable)) {
@@ -213,7 +364,14 @@ finish_document <- function() {
     if (is.null(F$expected) || !nrow(F$expected)) next
     want <- paste(F$expected$kind, F$expected$line)
     have <- F$recorded
+    # knit_exit() ends the document: what is below the point where the knit
+    # stopped is not part of the check (2.5.2)
+    below <- rep(FALSE, length(want))
+    if (isTRUE(s$exited) && F$cursor <= length(F$orig)) {
+      below <- F$expected$line >= F$orig[F$cursor]
+    }
     for (k in seq_along(want)) {
+      if (below[k]) next
       i <- match(want[k], have)
       if (!is.na(i)) {
         have <- have[-i]

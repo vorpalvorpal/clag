@@ -30,7 +30,7 @@ read_view_lines <- function(path) {
 # Under Quarto knitr reads `<name>.rmarkdown`, a copy of `<name>.qmd` with
 # every `{{< include >}}` expanded. Re-expand the source to map a line of the
 # copy back to the file and line that wrote it (2.7.4).
-expand_includes <- function(path, base, seen = character()) {
+expand_includes <- function(path, base, seen = character(), nested = FALSE) {
   lines <- read_view_lines(path)
   rel <- function(p) {
     p <- normalizePath(p, winslash = "/", mustWork = FALSE)
@@ -38,18 +38,28 @@ expand_includes <- function(path, base, seen = character()) {
     if (startsWith(p, paste0(b, "/"))) substring(p, nchar(b) + 2L) else basename(p)
   }
   me <- rel(path)
-  rx <- "^\\s*\\{\\{<\\s*include\\s+([^ >]+)\\s*>\\}\\}\\s*$"
+  # the path may be quoted; Quarto resolves it against the main document's
+  # directory (`base`), and weft falls back to the including file's
+  rx <- paste0("^\\s*\\{\\{<\\s*include\\s+(?:\"([^\"]+)\"|'([^']+)'|([^ >\"']+))\\s*>\\}\\}\\s*$")
+  resolve_inc <- function(p) {
+    cand <- c(file.path(base, p), file.path(dirname(path), p))
+    hit <- cand[file.exists(cand)]
+    if (length(hit)) hit[1L] else NA_character_
+  }
   files <- character()
   nums <- integer()
   for (k in seq_along(lines)) {
-    m <- regmatches(lines[k], regexec(rx, lines[k]))[[1]]
-    inc <- if (length(m) == 2L) file.path(dirname(path), m[2]) else NA_character_
+    m <- regmatches(lines[k], regexec(rx, lines[k], perl = TRUE))[[1]]
+    inc <- if (length(m) == 4L) resolve_inc(m[m != ""][-1L][1L]) else NA_character_
     if (!is.na(inc) && file.exists(inc) &&
         !(normalizePath(inc, winslash = "/") %in% seen)) {
-      sub <- expand_includes(inc, base, c(seen, normalizePath(path, winslash = "/")))
-      # the include is its lines and one blank line (which is the include line)
-      files <- c(files, sub$file, me)
-      nums <- c(nums, sub$line, k)
+      sub <- expand_includes(inc, base, c(seen, normalizePath(path, winslash = "/")),
+                             nested = TRUE)
+      # Quarto splices the file's lines, then a blank line (which is the include
+      # line); an include inside an included file leaves two
+      pad <- if (nested) 2L else 1L
+      files <- c(files, sub$file, rep(me, pad))
+      nums <- c(nums, sub$line, rep(k, pad))
     } else {
       files <- c(files, me)
       nums <- c(nums, k)
@@ -107,6 +117,8 @@ new_file_state <- function(path, config) {
   F$norm <- nf$norm
   F$orig <- nf$orig
   F$cursor <- 1L
+  F$park_ptr <- 1L
+  F$inline_code <- NULL
   F$map <- NULL
   if (quarto && file.exists(src)) {
     F$name <- basename(src)
@@ -133,6 +145,12 @@ new_file_state <- function(path, config) {
       F$unparse_rows <- data.frame(line = exp$line[bad], error = exp$error[bad],
                                    stringsAsFactors = FALSE)
     }
+    ic <- exp$kind %in% c("bare", "value")
+    F$inline_code <- unwrap_quarto(trim_ws(exp$expr[ic]))
+    F$inline_kind <- exp$kind[ic]
+    F$inline_parent <- exp$parent[ic]
+    F$inline_line <- exp$line[ic]
+    F$inline_error <- exp$error[ic]
     exp <- exp[!(exp$kind %in% c("bare", "link")) & is.na(exp$parent), , drop = FALSE]
     F$expected <- data.frame(kind = exp$kind, line = exp$line,
                              stringsAsFactors = FALSE)
@@ -199,8 +217,17 @@ locate_block <- function(s, x) {
   list(F = F, start = r$line, found = r$found)
 }
 
-# The state of the file knitr is reading now (a child has its own).
+# A file knitted a second time (a child in a loop) is searched from its top.
+reset_file_state <- function(F) {
+  F$cursor <- 1L
+  F$park_ptr <- 1L
+  invisible()
+}
+
+# The state of the file knitr is reading now (a child has its own). Text
+# knitted by a child has none.
 current_file_state <- function(s) {
+  if (length(s$stack) && isTRUE(s$stack[[length(s$stack)]]$text)) return(NULL)
   p <- knit_input_path()
   if (is.null(p)) return(NULL)
   F <- s$files[[p]]

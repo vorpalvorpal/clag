@@ -133,7 +133,7 @@ claim_fail <- function(record) {
   if (!is.null(s) && !is.null(inl)) {
     for (d in detail) {
       add_failure(s, "failed claim", file = inl$file, line = inl$line,
-                  expr = inl$label, detail = d)
+                  expr = inl$label, detail = d, chunk = inl$chunk %||% NA_character_)
     }
     inl$failed <- TRUE
     weft_env$inline <- inl
@@ -155,7 +155,11 @@ claim_fail <- function(record) {
                   chunk = if (is.null(label)) NA_character_ else label, detail = d,
                   expr = NA_character_)
     }
-    msg <- paste0(msg, "\n", format_report(failures_frame(s)))
+    # the collected report rides on a check that stops the knit; in a chunk
+    # with `error=TRUE` the knit carries on, and the message is the claim's own
+    # (2.4.4, 2.4.5)
+    carries_on <- isTRUE(tryCatch(knitr::opts_current$get("error"), error = function(e) NULL))
+    if (!carries_on) msg <- paste0(msg, "\n", format_report(failures_frame(s)))
   }
   weft_abort(msg, "weft_claim_failed")
 }

@@ -255,7 +255,7 @@ render_qmd <- function(lines, setup = TRUE, code = NULL, front = NULL,
   out <- file.path(d$dir, paste0(name, ".md"))
   lib <- weft_test_lib()
   env <- c(NO_COLOR = "1", env)
-  if (nzchar(lib)) env <- c(R_LIBS = lib, env)
+  if (nzchar(lib)) env <- c(R_LIBS = paste(c(lib, .libPaths()), collapse = .Platform$path.sep), env)
   old <- setwd(d$dir)
   on.exit(setwd(old), add = TRUE)
   log <- suppressWarnings(system2(

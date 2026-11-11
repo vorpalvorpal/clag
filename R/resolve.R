@@ -13,8 +13,7 @@ owned_classes <- function(cfg) {
 # Under rmarkdown and under Quarto alike, `{r} x` reaches knitr as
 # `r .QuartoInlineRender(x)`; a construct wants the expression as written.
 unwrap_quarto <- function(expr) {
-  m <- regmatches(expr, regexec("^\\.QuartoInlineRender\\((.*)\\)$", expr))[[1]]
-  if (length(m) == 2L) m[2] else expr
+  sub("^\\.QuartoInlineRender\\((.*)\\)$", "\\1", expr)
 }
 
 # Put the parked code back in place of each placeholder. Returns the text and
@@ -89,6 +88,42 @@ finish_stock <- function(res, what) {
   if (length(res)) paste(knitr::knit_hooks$get("inline")(res), collapse = "") else ""
 }
 
+# knitr evaluates inline code in `root.dir` when one is set (1.3.1, 2.2.3);
+# weft evaluates later, from the `text` hook, so it goes there itself.
+in_knit_dir <- function(expr) {
+  root <- knitr::opts_knit$get("root.dir")
+  if (is.character(root) && length(root) == 1L && !is.na(root) && nzchar(root) &&
+      dir.exists(root)) {
+    old <- setwd(root)
+    on.exit(setwd(old), add = TRUE)
+  }
+  expr
+}
+
+# Evaluate one piece of inline code with the claim context set, the
+# conditions it raises logged and kept out of the document (2.6.4, 2.8).
+run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_) {
+  old <- weft_env$inline
+  weft_env$inline <- list(file = file, line = line, label = label, expr = expr,
+                          failed = FALSE, chunk = chunk)
+  on.exit(weft_env$inline <- old, add = TRUE)
+  src <- sprintf("%s:%d", file, line)
+  out <- withCallingHandlers(
+    tryCatch(
+      list(ok = TRUE, value = in_knit_dir(run())),
+      error = function(e) list(ok = FALSE, error = e)),
+    warning = function(w) {
+      log_condition(s, src, "warning", conditionMessage(w), file = file, line = line)
+      invokeRestart("muffleWarning")
+    },
+    message = function(m) {
+      log_condition(s, src, "message", conditionMessage(m), file = file, line = line)
+      invokeRestart("muffleMessage")
+    })
+  out$claim_failed <- isTRUE(weft_env$inline$failed)
+  out
+}
+
 stock_bare_text <- function(code, envir) {
   ev <- weft_env$stock_eval %||% knitr::knit_hooks$get("evaluate.inline", default = TRUE)
   finish_stock(ev(code, envir), code)
@@ -117,6 +152,8 @@ check_governor <- function(v, what = "An `n` governor") {
 
 resolve_text <- function(x) {
   s <- ensure_knit()
+  # the next block's inline code starts a new run of values evaluated early
+  on.exit(s$eager_ok <- TRUE, add = TRUE)
   settle_pending(s)
   x <- enc2utf8(paste(as.character(x), collapse = "\n"))
   if (!grepl("\ue000", x, fixed = TRUE) && !grepl("[", x, fixed = TRUE)) return(x)
@@ -145,6 +182,12 @@ resolve_text <- function(x) {
     map_lines(F, lv)
   }
   draft <- isTRUE(cfg$draft)
+  # text knitted by a child has no file: its lines are relative to the text,
+  # and the chunk that knitted it says where (2.7.3)
+  chunk_label <- if (is.null(F) && is_child_knit()) {
+    lab <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+    if (is.character(lab) && length(lab) == 1L) lab else NA_character_
+  } else NA_character_
   owned <- owned_classes(cfg)
   gov <- NULL
 
@@ -175,7 +218,7 @@ resolve_text <- function(x) {
                  c("weft_construct_error", "weft_located"))
     }
     add_failure(s, "construct error", file = R$file[k], line = R$line[k],
-                expr = source_label(k), detail = msg)
+                expr = source_label(k), detail = msg, chunk = chunk_label)
     marker("construct error", R$line[k])
   }
 
@@ -188,7 +231,7 @@ resolve_text <- function(x) {
 
   record_fail <- function(k, kind, label, detail, hint = NA_character_) {
     add_failure(s, kind, file = R$file[k], line = R$line[k], expr = label,
-                detail = detail, hint = hint)
+                detail = detail, hint = hint, chunk = chunk_label)
     marker(kind, R$line[k])
   }
 
@@ -207,29 +250,12 @@ resolve_text <- function(x) {
 
   eval_expr <- function(k, expr, label, envir = knitr::knit_global(), stock = FALSE,
                         line_info = NULL) {
-    old <- weft_env$inline
     file <- if (is.null(line_info)) R$file[k] else line_info$file
     line <- if (is.null(line_info)) R$line[k] else line_info$line
-    weft_env$inline <- list(file = file, line = line, label = label, expr = expr,
-                            failed = FALSE)
-    on.exit(weft_env$inline <- old, add = TRUE)
-    src <- sprintf("%s:%d", file, line)
-    out <- withCallingHandlers(
-      tryCatch(
-        list(ok = TRUE,
-             value = if (stock) stock_bare_text(expr, envir) else
-               eval(parse(text = expr, keep.source = FALSE), envir)),
-        error = function(e) list(ok = FALSE, error = e)),
-      warning = function(w) {
-        log_condition(s, src, "warning", conditionMessage(w), file = file, line = line)
-        invokeRestart("muffleWarning")
-      },
-      message = function(m) {
-        log_condition(s, src, "message", conditionMessage(m), file = file, line = line)
-        invokeRestart("muffleMessage")
-      })
-    out$claim_failed <- isTRUE(weft_env$inline$failed)
-    out
+    run_inline(s, file, line, label, expr, function() {
+      if (stock) stock_bare_text(expr, envir) else
+        eval(parse(text = expr, keep.source = FALSE), envir)
+    }, chunk = chunk_label)
   }
 
   non_english <- function() {
@@ -303,8 +329,16 @@ resolve_text <- function(x) {
   render_plain <- function(a, b, items) {
     out <- character()
     cur <- a
+    prev <- ""
     for (it in items) {
-      out <- c(out, substr(text, cur, it$start - 1L), render_item(it))
+      o <- render_item(it)
+      # two emphasis constructs side by side would read as `*a**b*`; an empty
+      # comment keeps the delimiters apart (1.4.3)
+      if (it$start == cur && endsWith(prev, "*") && startsWith(o, "*")) {
+        o <- paste0("<!-- -->", o)
+      }
+      out <- c(out, substr(text, cur, it$start - 1L), o)
+      prev <- o
       cur <- it$end + 1L
     }
     paste(c(out, substr(text, cur, b)), collapse = "")
@@ -341,7 +375,11 @@ resolve_text <- function(x) {
     if (is.null(idx)) idx <- spans$idx[match(st, spans$start)]
     p <- s$parked[[idx]]
     label <- sprintf("`r %s`", p$code)
-    ev <- eval_expr(k, p$code, label, p$envir, stock = TRUE, line_info = line_info)
+    # a bare value ahead of every construct in its block was evaluated when
+    # knitr parked it, so that an error there names its own line (1.1.8)
+    ev <- p$result %||% eval_expr(k, p$code, label, p$envir, stock = TRUE,
+                                  line_info = line_info)
+    if (!is.null(p$result)) s$parked[[idx]]$result <- NULL
     li <- if (is.null(line_info)) list(file = R$file[k], line = R$line[k]) else line_info
     if (!ev$ok) {
       e <- ev$error
@@ -368,7 +406,7 @@ resolve_text <- function(x) {
       any(c("digits", "sigfig") %in% names(cc$keys))
     res <- tryCatch({
       if (has_fmt) {
-        paste(as.character(apply_formatters(v, cc$own, as.list(cc$keys), cfg)), collapse = "")
+        paste(as.character(apply_formatters(v, cc$own, as.list(cc$keys), cfg, join = ", ")), collapse = "")
       } else {
         apply_text_classes(stock_print(v), cc$own)
       }
@@ -435,11 +473,14 @@ resolve_text <- function(x) {
       }
       truth[i] <- v
     }
+    guard_ids <- integer()
     if (narms == 1L) {
       for (i in which(!truth)) {
-        add_failure(s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
-                    detail = sprintf("%s was FALSE", parts$texts[i]),
-                    hint = "optional text is written [phrase | ]{if=\"\u2026\"}")
+        guard_ids <- c(guard_ids, add_failure(
+          s, "failed claim", file = R$file[k], line = R$line[k], expr = label,
+          detail = sprintf("%s was FALSE", parts$texts[i]),
+          hint = "optional text is written [phrase | ]{if=\"\u2026\"}",
+          chunk = chunk_label))
         claim_failed <- TRUE
       }
       i <- 1L
@@ -448,7 +489,13 @@ resolve_text <- function(x) {
     }
     R$chosen[k] <<- i
     out <- render_arm(k, i, "#")
-    finish(k, out, cc, claim_failed)
+    res <- finish(k, out, cc, claim_failed)
+    # a failed guard is reported by its phrase as printed (2.6.2, 2.6.3)
+    if (length(guard_ids)) {
+      phrase <- gsub("[ \t\r\n]+", " ", trim_ws(apply_text_classes(out, cc$own)))
+      for (g in guard_ids) s$failures[[g]]$expr <- sprintf("\"%s\"", phrase)
+    }
+    res
   }
 
   render_text <- function(k) {
@@ -494,6 +541,32 @@ resolve_text <- function(x) {
       })
   }
 
+  # an English-only class under another `lang` is found from the source, so a
+  # construct in an unchosen arm is an error too and the render does not depend
+  # on the data (1.6.8, 1.6.4)
+  if (nr && non_english()) {
+    for (k in which(R$kind %in% c("value", "n") & is.na(R$error))) {
+      cc <- split_classes(k)
+      msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
+      if (is.null(msg)) next
+      if (!draft) {
+        weft_abort(sprintf("weft: %s: %s", loc_str(k), msg),
+                   c("weft_construct_error", "weft_located"))
+      }
+    }
+  }
+
   top <- range_items(1L, nchar(text), which(is.na(R$parent)))
-  render_plain(1L, nchar(text), top)
+  out <- render_plain(1L, nchar(text), top)
+  if (nr && draft && non_english()) {
+    for (k in which(R$kind %in% c("value", "n") & !R$evaluated & is.na(R$error))) {
+      cc <- split_classes(k)
+      msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
+      if (!is.null(msg)) {
+        add_failure(s, "construct error", file = R$file[k], line = R$line[k],
+                    expr = source_label(k), detail = msg, chunk = chunk_label)
+      }
+    }
+  }
+  out
 }

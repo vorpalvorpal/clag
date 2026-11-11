@@ -112,3 +112,8 @@ around.
     raw with no error. Chosen: build `weft_str()`, captions in chunk options
     and front-matter constructs (1c, without `.Rprofile` activation) before
     1b. §22 is edited to say so. Reverse: nothing to reverse.
+20. **knitr 1.51 or later.** knitr before 1.51 never calls the
+    `before.knit` hook that decision 10 relies on, so a document activated
+    from its front matter rendered unresolved with no error. Chosen:
+    `Imports: knitr (>= 1.51)`, and `weft_setup()` stops with a clear error
+    on an older knitr. Reverse: needs another answer to Q16.

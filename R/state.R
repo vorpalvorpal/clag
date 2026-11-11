@@ -18,6 +18,9 @@ new_state <- function() {
   s$files <- list()
   s$pending_cache <- NULL
   s$ids <- list()
+  s$stack <- list()
+  s$eager_ok <- TRUE
+  s$exited <- FALSE
   s
 }
 
@@ -63,7 +66,9 @@ marker <- function(kind, line = NA_integer_, chunk = NA_character_) {
 }
 
 failure_where <- function(f) {
-  if (!is.na(f$line)) {
+  if (!is.na(f$line) && !is.na(f$chunk) && identical(f$file, "<text>")) {
+    sprintf("chunk %s, text line %d", f$chunk, f$line)
+  } else if (!is.na(f$line)) {
     sprintf("%s:%d", if (is.na(f$file)) "<text>" else f$file, f$line)
   } else if (!is.na(f$chunk)) {
     sprintf("%schunk %s", if (is.na(f$file)) "" else paste0(f$file, " "), f$chunk)

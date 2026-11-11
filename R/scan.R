@@ -175,11 +175,26 @@ autolink_end <- function(S, i) {
   if (m == -1L) NA_integer_ else i + attr(m, "match.length") - 1L
 }
 
-# A comment or an autolink starting with `<` at `i`: its last character, or `NA`.
+# The end of an inline raw HTML tag, open or close, at `i`, or `NA`. Raw
+# content is never a construct (1.9.1), and that includes its attribute values.
+html_tag_end <- function(S, i) {
+  seg <- substr(S$text, i, min(S$n, i + 2000L))
+  attr_re <- paste0("[A-Za-z_:][-A-Za-z0-9_:.]*(?:[ \\t\\r\\n]*=[ \\t\\r\\n]*",
+                    "(?:\"[^\"]*\"|'[^']*'|[^ \\t\\r\\n\"'=<>`]+))?")
+  m <- regexpr(paste0(
+    "^(?:<[A-Za-z][A-Za-z0-9-]*(?:[ \\t\\r\\n]+", attr_re, ")*[ \\t\\r\\n]*/?>",
+    "|</[A-Za-z][A-Za-z0-9-]*[ \\t\\r\\n]*>)"), seg, perl = TRUE)
+  if (m == -1L) NA_integer_ else i + attr(m, "match.length") - 1L
+}
+
+# A comment, an autolink or a raw HTML tag starting with `<` at `i`: its last
+# character, or `NA`.
 angle_end <- function(S, i) {
   e <- comment_end(S, i)
   if (!is.na(e)) return(e)
-  autolink_end(S, i)
+  e <- autolink_end(S, i)
+  if (!is.na(e)) return(e)
+  html_tag_end(S, i)
 }
 
 is_space <- function(ch) ch %in% c(" ", "\t", "\n", "\r")
@@ -667,6 +682,9 @@ block_errors <- function(S, blk, kind) {
   }
   if (kind == "if") {
     fm <- intersect(cls, formatter_classes(S$reg))
+    # a text-stage class acts on the chosen arm's final text (1.5.7, 1.4.8)
+    is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
+    fm <- fm[!is_text & !(fm %in% c(".em", ".strong"))]
     ky <- intersect(lc, RENDERER_KEYS)
     if (length(fm) || length(ky)) {
       e <- c(e, sprintf("A formatter on an `if` span is an error (rule 1.5.7): %s.",
@@ -706,11 +724,12 @@ named_chr <- function(values, names) {
   stats::setNames(as.character(values), as.character(names))
 }
 
-# The nearest enclosing span that is a governor or marker, for `n="."`.
+# The nearest enclosing span that is a governor or marker, for `n="."`. An
+# `if` span does not hide the governor around it (1.7.2).
 enclosing_governor <- function(S, parent) {
   while (!is.na(parent)) {
     r <- get_row(S, parent)
-    if (r$kind %in% c("n", "if", "sign", "cite")) return(r$kind)
+    if (r$kind %in% c("n", "sign", "cite")) return(r$kind)
     parent <- r$parent
   }
   NA_character_

@@ -240,9 +240,10 @@ ordinal_suffix <- function(n) {
 # resolver of a later package calls this too. Returns a weft_text. With
 # `governor = TRUE` only stages i and ii run, and a construct with no
 # formatter class, `digits` or `sigfig` uses `config$governor_class`
-# (1.5.7, 1.5.18).
+# (1.5.7, 1.5.18). `join` joins a vector that no collapse class joined.
 apply_formatters <- function(value, classes = character(), keys = list(),
-                             config = current_config(), governor = FALSE) {
+                             config = current_config(), governor = FALSE,
+                             join = NULL) {
   cfg <- config
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
@@ -375,6 +376,16 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         last <- keys$last %||% (if (cl == ".and") " and " else " or ")
         text <- as.character(glue_vec(text, sep = sep, last = last))
       }
+      number <- NA_real_
+      decimals <- FALSE
+      relation <- "="
+      raw <- NA_real_
+    }
+
+    # a vector no collapse class joined: an inline value prints as stock
+    # prints an inline vector, joined by `join` (1.4.10 as ruled)
+    if (!length(ccls) && !is.null(join) && length(text) > 1L) {
+      text <- paste(text, collapse = join)
       number <- NA_real_
       decimals <- FALSE
       relation <- "="

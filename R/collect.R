@@ -104,8 +104,29 @@ record_knit <- function(s, fr) {
                useBytes = TRUE)
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE)
+  write_draft_failures(s, src, lines)
   coll <- collection_path(root)
   if (is.na(coll)) return(invisible(FALSE))
   if (length(lines)) cat(lines, file = coll, sep = "\n", append = TRUE)
   invisible(TRUE)
+}
+
+# In draft mode, in a project that has been set up, the failures are also
+# written beside the document as `<name>.weft-failures.json`, an array in the
+# collection-line schema (9.4.2). A render with no failures removes a stale
+# file; a render that stops on its failures leaves it alone.
+write_draft_failures <- function(s, src, lines) {
+  dir <- dirname(normalizePath(s$input_path, winslash = "/", mustWork = FALSE))
+  name <- paste0(sub("\\.[^.]*$", "", basename(src)), ".weft-failures.json")
+  path <- file.path(dir, name)
+  if (!length(lines)) {
+    if (file.exists(path)) unlink(path)
+    return(invisible())
+  }
+  if (!isTRUE(s$config$draft)) return(invisible())
+  tryCatch(
+    writeLines(c("[", paste0("  ", lines, c(rep(",", length(lines) - 1L), "")), "]"),
+               path, useBytes = TRUE),
+    error = function(e) NULL, warning = function(w) NULL)
+  invisible()
 }

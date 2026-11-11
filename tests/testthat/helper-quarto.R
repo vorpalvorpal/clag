@@ -104,7 +104,7 @@ r_fresh <- function(code, dir = NULL) {
 quarto_env <- function(extra = NULL) {
   lib <- weft_test_lib()
   env <- c(NO_COLOR = "1", WEFT_DRAFT = NA, WEFT_COLLECT = NA)
-  if (nzchar(lib)) env <- c(env, R_LIBS = lib)
+  if (nzchar(lib)) env <- c(env, R_LIBS = paste(c(lib, .libPaths()), collapse = .Platform$path.sep))
   for (n in names(extra)) env[[n]] <- extra[[n]]
   env
 }
@@ -172,7 +172,7 @@ render_rmd_filtered <- function(body, name = "doc") {
   writeLines(c(yaml, body), file.path(dir, paste0(name, ".Rmd")))
   vars <- c(WEFT_DRAFT = NA, WEFT_COLLECT = NA)
   lib <- weft_test_lib()
-  if (nzchar(lib)) vars[["R_LIBS"]] <- lib
+  if (nzchar(lib)) vars[["R_LIBS"]] <- paste(c(lib, .libPaths()), collapse = .Platform$path.sep)
   withr::local_envvar(vars)
   withr::local_dir(dir)
   log <- suppressWarnings(system2(

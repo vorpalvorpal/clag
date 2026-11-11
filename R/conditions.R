@@ -81,6 +81,7 @@ make_evaluate_hook <- function(prev) {
     if (!is.null(s$pending_cache) && identical(s$pending_cache$label, label)) {
       s$pending_cache$evaluated <- TRUE
     }
+    if (any(grepl("knit_exit", code, fixed = TRUE))) s$exited <- TRUE
     kw <- args$keep_warning
     km <- args$keep_message
     if (!is.null(kw) && !is.na(kw)) args$keep_warning <- TRUE
@@ -166,12 +167,14 @@ settle_pending <- function(s, upto_label = NULL) {
 replay_cached <- function(s, p) {
   base <- unique(c(knitr::opts_knit$get("root.dir"),
                    if (!is.na(s$input_path)) dirname(s$input_path), getwd()))
-  safe <- gsub("[^[:alnum:]_.-]", "_", p$label)
+  # knitr names the cache files with the label as written, spaces and all
+  esc <- function(x) gsub("([][{}()+*^$|\\\\?.])", "\\\\\\1", x)
+  labels <- unique(c(p$label, gsub("[^[:alnum:]_.-]", "_", p$label)))
   for (b in base) {
     dir <- file.path(b, dirname(paste0(p$path %||% "cache/", "x")))
     if (!dir.exists(dir)) next
-    fs <- list.files(dir, pattern = paste0("^", gsub("([.])", "\\\\\\1", safe),
-                                           "_[0-9a-f]{32}\\.weft\\.rds$"),
+    fs <- list.files(dir, pattern = paste0("^(", paste(esc(labels), collapse = "|"),
+                                           ")_[0-9a-f]{32}\\.weft\\.rds$"),
                      full.names = TRUE)
     fs <- fs[file.exists(sub("\\.weft\\.rds$", ".rdx", fs)) |
                file.exists(sub("\\.weft\\.rds$", ".RData", fs))]
