@@ -92,3 +92,10 @@ So a later review does not raise them again without a new argument.
   either unless the governor fails to be a number.
 - A missing bibliography file is reported only when the document has a
   `cite` span.
+
+## From stage 1e
+
+- `rehearse()` on a `.qmd` does not stage a bibliography that is given
+  relative to the project root, so its `cite` spans can fail in a
+  rehearsal and pass in a render.
+- Stage 1e has had no independent review.

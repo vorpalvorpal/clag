@@ -80,3 +80,18 @@ one caption, one claim that fails for one case, and one chunk that stops
 for one case. Assert on the returned objects, loosely on printed output,
 and that the fixture's directory holds exactly the same files before and
 after (3.7.2), in a project with `_weft.yml` too.
+
+## Rulings on the implementer's report
+
+- The control of the "plain folder" test knitted bare, which defines no
+  `params`; it now renders with rmarkdown. The test's subject (nothing
+  written by `rehearse()`) is unchanged.
+- Chosen arms are read from `last_knit()$constructs` and matched to
+  `arms(file)` by line, key, expression and context; a caption by its
+  option. Accepted.
+- A span with a wrong arm count is left out of the rows and given in
+  `errors`. Accepted.
+- A `.qmd` is staged in a temporary directory as Quarto's `.rmarkdown`
+  copy, with `_weft.yml` and `_quarto.yml`. A bibliography given relative
+  to the project root is not staged, so a `cite` span in a rehearsed
+  `.qmd` can report an unknown key (in `dev/open-findings.md`).

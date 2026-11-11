@@ -127,7 +127,7 @@ record_chunk_conditions <- function(s, label, mine, opts, fails = list()) {
   hash <- opts$hash
   cache <- opts$cache
   cache_on <- (is.logical(cache) && isTRUE(cache)) || (is.numeric(cache) && cache > 0)
-  if (cache_on && !is.null(hash) && nzchar(hash)) {
+  if (cache_on && !rehearsing() && !is.null(hash) && nzchar(hash)) {
     f <- paste0(hash, ".weft.rds")
     tryCatch({
       dir.create(dirname(f), showWarnings = FALSE, recursive = TRUE)

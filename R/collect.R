@@ -130,6 +130,8 @@ count_checks <- function(s) {
 # Write the stamp (2.9.2, 2.9.4) and, when a collection file is open, append
 # the failures to it. Returns TRUE when the failures were collected.
 record_knit <- function(s, fr) {
+  # a rehearsal writes nothing into the project (3.7.2)
+  if (rehearsing()) return(invisible(FALSE))
   root <- state_root(s)
   if (is.na(root) || !is_set_up(root)) return(invisible(FALSE))
   src <- state_source(s, root)

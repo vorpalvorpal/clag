@@ -232,11 +232,12 @@ test_that("3.7.2: nothing is written in a plain folder, with a cache=TRUE chunk 
   expect_equal(r$cases$two$chosen$role, "other")
   expect_equal(r$cases$one$chosen$role, "one")
   # control: an ordinary knit of the same document writes a cache and a figure
-  ctl <- render_rmd(E1_WRITE_LINES, setup = FALSE, format = "knit")
+  # (rendered, not knitted bare: a bare knit defines no `params`)
+  ctl <- render_rmd(E1_WRITE_LINES, setup = FALSE, format = "md")
   ctl_files <- e1_snapshot(ctl$dir)
-  expect_false(ctl$failed)
+  expect_false(ctl$failed, label = ctl$message)
   expect_true(any(grepl("cache", ctl_files)))
-  expect_true(any(grepl("^figure", ctl_files)))
+  expect_true(any(grepl("figure", ctl_files)))
 })
 
 test_that("3.7.2: nothing is written in a project folder that holds _weft.yml (no .weft/ stamp, ledger, collection or draft file)", {

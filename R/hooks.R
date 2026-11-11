@@ -231,6 +231,8 @@ install_option_hook <- function() {
     s <- ensure_knit()
     # late: after Quarto has set its own `chunk` hook (2.1.4)
     install_chunk_wrapper()
+    # a rehearsal uses no chunk cache (3.7.2)
+    if (rehearsing()) options$cache <- FALSE
     note_chunk_label(s, options$label)
     note_cached_chunk(s, options)
     if (is.function(cur)) cur(options) else options
