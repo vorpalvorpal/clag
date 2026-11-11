@@ -129,3 +129,13 @@ So a later review does not raise them again without a new argument.
 - A unit string that `units` cannot parse but only warns about
   (`"m/(s"`) is accepted by `read_dict()` and registered as a new unit.
 - Stage 2a has had no independent review yet.
+
+## From the review of 2a
+
+- `%in%`, `match()`, `cut()` and `findInterval()` compare a quantity with
+  a bare number without an error (base R; finding 15).
+- After a render that stops on a dictionary error, `last_knit()` returns
+  the previous knit's record (question f).
+- `attr<-` and `class<-` can change a dictionary (question g).
+- Units installed by one project's dictionary stay installed for the next
+  document knitted in the same session (question k).

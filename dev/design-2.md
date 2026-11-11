@@ -706,3 +706,67 @@ not registered its unit (4.6.1 with 4.4.7), and the output name that
 - `.ord` keeps the unit ("3rd m") as the other digit forms do.
 - `ci()`, `pm()` and `clamp()` accept a ratio (no unit left).
 - A project formatter given a quantity (D26) is untested.
+
+## Rulings on the review of 2a (`dev/review-2a.md`)
+
+Findings 1 to 22 are accepted as the reviewer states them, except 15 and
+20 as said here.
+
+- **1, a.** At the start of every top-level knit weft removes the `dict`
+  and `dict_local` it assigned in an earlier knit, before it reads this
+  knit's. A document with neither sees neither. A session's own object
+  named `dict` is replaced during a knit that has a dictionary and is not
+  restored (D2's cost; the help says so).
+- **2, c. A year is a class after all (reverses D8).** `weft_year`, an
+  integer underneath, with methods so that the year survives ordinary R:
+  `c()`, `[`, `[[`, `rev()`, `sort()`, `unique()`, `min()`, `max()`,
+  `range()`, `seq()`; `year + n` and `year - n` are years; `year - year`
+  and anything else arithmetic is a plain number; comparisons work as on
+  integers; `as.integer()`, `as.numeric()`, `format()` and `print()` show
+  the bare integer. D8's objection is met by registering `vctrs` methods
+  when `vctrs` is loaded (`vec_ptype2`/`vec_cast` with integer and double
+  give a plain integer or double, year with year gives a year), with no
+  dependency on `vctrs`. Every number and wording class prints a year with
+  no thousands mark, `.ord` included ("2014th").
+- **3, j.** A whole number written with a leading zero (`010`) or as hex
+  or octal (`0x1F`, `0o17`) under `number`, `quantity`, `year` or a bound
+  is a problem that says to write it in decimal. It is never read as
+  octal or hex.
+- **4.** A merge key (`<<`) in the file is a problem: "merge keys are not
+  read". Anchors and aliases without a merge key are allowed.
+- **5.** A file with more than one YAML document is a problem.
+- **6, 7, e.** `registered` is the units this dictionary needs that
+  `udunits` does not have, whenever and by whomever they were installed,
+  so two reads of one file are `identical()` and `print()` always shows
+  the line. A read that reports problems installs no unit.
+- **8.** `str()`, `summary()`, `lapply()`, `Map()` and `mapply()` over a
+  dictionary work and give what they would give for the plain list.
+- **9.** A whole number beyond the integer range is a number (a double);
+  no R warning leaks. Under `year` it is still an error.
+- **10.** Fixed as far as weft's own reading goes; where knitr or Quarto
+  reads the front matter first and stops, the review's case is recorded
+  in `dev/open-findings.md`.
+- **13.** A duplicate top-level key is one problem among the others, not
+  the only one reported.
+- **15.** `%in%`, `match()`, `cut()` and `findInterval()` are base R
+  working on the bare numbers; weft cannot intercept them. Left; stated
+  in the help for `u()` and in `dev/open-findings.md`.
+- **19.** A key must be a syntactic R name that is not reserved; `..1`,
+  `...` and the like are refused.
+- **20.** Fixed if the fix is small; otherwise left and reported.
+- **b.** A child document that has its own `weft: dict_local:` is a
+  `weft_dict_error` naming the child: local entries belong to the
+  document that is knitted (4.3.1).
+- **d.** Two bounds that leave a band that can never be chosen (an
+  `at_most` followed by a `below` of the same number, or equal bounds of
+  the same kind) are a problem. A bound written as a number in a string
+  is accepted as `number` accepts it (D7).
+- **f.** After a render that stops on a dictionary error `last_knit()`
+  still returns the previous knit's record. Left; in
+  `dev/open-findings.md`.
+- **g.** `names<-` on a dictionary is a `weft_dict_error` (4.1.4).
+  `attr<-` and `class<-` cannot be stopped; left.
+- **h.** A unit held in a variable: put to Robin in `dev/decisions.md`
+  (an argument or a second function is new interface). `do.call(u,
+  list(3, "m"))` is documented meanwhile.
+- **i, k.** Left; k is stated in the help for `read_dict()`.

@@ -20,6 +20,11 @@ around.
   literally), so here it is lost. Options: leave; print the unit after
   the last numeral wherever it is ("20 m and five"); make a mixed list a
   value error. Built as the literal reading.
+- **Stage 2a: a unit held in a variable.** `u(1, x)` reads the unit
+  `x`, as written (D17), so `sapply(c("m", "kg"), function(x) u(1, x))`
+  cannot work. Options: leave and document `do.call(u, list(3, "m"))`;
+  an argument (`u(1, unit = x, literal = FALSE)`); a second function
+  (`u_chr(1, x)`). Not made; `do.call()` is documented.
 - **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
   hooks run under the Render buttons of RStudio or Positron first (§22).
 
@@ -239,3 +244,17 @@ and are entries 30 to 37 under "Made".
     unknown unit registers silently. Eight contradictions in the spec
     (K1 to K8, §10 of the note) are read as the note says and are to be
     amended in the spec with the package that meets them.
+43. **4.2.1, how a year is held (reverses D8 of `dev/design-2.md`).** The
+    review of 2a showed an attribute is lost by `c()`, `range()`, `seq()`
+    and `year + 0:2`, so "2,014–2,024" printed. Alternatives: keep the
+    attribute and document the loss; treat any whole number from 1000 to
+    9999 as a year (wrong for counts); a class with the methods that keep
+    it. Chosen: the class `weft_year`, with `vctrs` methods registered
+    only when `vctrs` is loaded, which meets D8's objection. Reverse:
+    `R/dict.R`.
+44. **Stage 2a, the YAML that a dictionary may use.** A number with a
+    leading zero or in hex or octal, a merge key, and a second YAML
+    document are each a problem, never read silently. Alternative: read
+    them as YAML 1.1 does (`010` is 8). Why: a committed file of
+    constants must not hold a value its author cannot see. Reverse:
+    `R/dict.R`.
