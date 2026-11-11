@@ -785,3 +785,17 @@ Findings 1 to 22 are accepted as the reviewer states them, except 15 and
   Accepted.
 - Stage 2b has had no independent review; a project formatter given a
   quantity (D26) is built and untested.
+
+## Rulings on the regression test-writer's report for 2a
+
+- Two reads of one file are `identical()` apart from the environments of
+  the `labels` and `breaks` functions (`identical(...,
+  ignore.environment = TRUE)`).
+- `registered` lists a unit the dictionary needs that `udunits` does not
+  ship, also when something other than weft installed it; if that cannot
+  be told apart, the implementer reports it.
+- Four older assertions in `test-dict.R` are amended: three read the
+  `weft_type` attribute that the class replaces, one expected an empty
+  `registered` on a second read.
+- Finding 10's failing case stops in knitr before weft runs and cannot be
+  tested; in `dev/open-findings.md`.

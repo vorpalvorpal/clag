@@ -36,7 +36,7 @@ test_that("2a read: each type is read as its R class (4.2.1)", {
   expect_s3_class(d$core_len, "units")
   expect_s3_class(d$salinity_res, "units")
   expect_type(d$method_change, "integer")
-  expect_identical(attr(d$method_change, "weft_type"), "year")
+  expect_s3_class(d$method_change, "weft_year")
   expect_identical(as.integer(d$method_change), 2014L)
   expect_s3_class(d$survey_start, "Date")
   expect_identical(format(d$survey_start), "2024-06-01")
@@ -366,7 +366,7 @@ test_that("2a read: a number written as a string that is a literal reads as that
   expect_equal(d$plain, 12.5)
   expect_qty(d$q, 200, "m")
   expect_identical(as.integer(d$yr), 2014L)
-  expect_identical(attr(d$yr, "weft_type"), "year")
+  expect_s3_class(d$yr, "weft_year")
 })
 
 test_that("2a read: yes, no, on, off, true and false stay as text, so a labels map keyed yes/no reads (D6)", {
@@ -417,7 +417,7 @@ test_that("2a units: reading twice is silent and idempotent; a unit is installed
   expect_setequal(attr(d1, "registered"), c("wqzlenx", "wqzcount"))
   expect_silent(units::as_units("wqzlenx"))
   expect_silent(d2 <- read_dict(p))                           # no error, no message, no warning
-  expect_identical(length(attr(d2, "registered")), 0L)
+  expect_identical(attr(d2, "registered"), attr(d1, "registered"))   # stable across reads (review 2a #7)
   expect_equal(as.list(d1), as.list(d2))
   expect_match(paste(capture.output(print(d1)), collapse = "\n"), "Units registered: ", fixed = TRUE)
   expect_match(paste(capture.output(print(d1)), collapse = "\n"), "wqzlenx", fixed = TRUE)
@@ -568,7 +568,7 @@ test_that("2a year: fmt_num of the year prints 2014 with no thousands mark; + 1 
   expect_identical(b_txt_2a(fmt_num(d$method_change)), "2014")
   expect_identical(b_txt_2a(fmt_num(d$method_change + 1)), "2015")
   # the attribute survives arithmetic
-  expect_identical(attr(d$method_change + 1, "weft_type"), "year")
+  expect_s3_class(d$method_change + 1, "weft_year")
   # control: a plain number of the same size prints a thousands mark by the house style
   expect_identical(b_txt_2a(fmt_num(12345)), "12,345")
 })

@@ -139,3 +139,6 @@ So a later review does not raise them again without a new argument.
 - `attr<-` and `class<-` can change a dictionary (question g).
 - Units installed by one project's dictionary stay installed for the next
   document knitted in the same session (question k).
+
+- A `labels` map in `dict_local` keyed by two YAML 1.1 booleans of the same
+  truth value (`yes` and `on`) stops in knitr before weft runs (finding 10).
