@@ -244,7 +244,10 @@ a wording class together with `.pct` or `.sci`.
 | `.strong`, `.em` | markdown emphasis |
 
 **1.4.4** `.range` prints one number when both ends print the same, and
-writes "−5 to −3" when either end is negative.
+writes "−5 to −3" when either end is negative. A first end above the second
+is a collected failure (5.3.2). The ends are compared as numbers, not as
+printed, so a bound beside a number that prints as zero is not out of order
+("< 0.01" beside "0.0").
 
 **1.4.5** `.a` applies to numbers and number words only.
 
@@ -311,7 +314,11 @@ minus sign. A number whose absolute value is below 1e-9 is zero: it prints "0"
 digit other than 0 under the default digits prints so ("0.04" prints "0.0",
 "-0.04" prints "0.0"), and a warned check is recorded (2.6.11). `digits` or
 `sigfig` on the construct or the call silences it. A project default `digits`
-does not.
+does not: a setting copied from the project default is not given. The check
+reaches every construct and call that prints a number under the default
+digits: `.num`, `.pct`, `.range`, `.pairs`, and the phrase functions `ci()`
+and `pm()` (3.5.1). It does not reach `.sci`, a project formatter, `about()`
+or `of_n()`.
 
 **1.4.14** `none` is the text printed when a value with a collapse class
 (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) is an atomic vector of length
@@ -325,15 +332,19 @@ Flagged sites: `r flagged`{.and none="none"}.
 Without `none`, a value of length zero is a missing value (1.3.4). `NULL` is
 missing even with `none`. `none=""`, or `none` of only spaces, is a construct
 error, and so is `none` on a value with no collapse class, on a span, or on a
-`cite` span.
+`cite` span. `.range` is not a collapse class here: `none` with `.range` is a
+construct error, because a range has two ends.
 
 **1.4.15** With the setting `serial_comma` on (9.1.2), `.and`, `.or`, `.pairs`
 and a truncated list put a comma before the last joiner when there are three
 or more items. The tail of a truncated list counts as an item. Two items are
-unchanged. A `last` key on the construct wins over the setting.
+unchanged. A `last` key on the construct wins over the setting. With a `sep` key, the
+mark before the last joiner is the `sep` without its trailing space, also under
+`.pairs` and before the tail of a truncated list.
 
 ```
 a, b, and c          a, b, and 2 others          a and b
+a; b; and c          with sep="; "
 ```
 
 **1.4.16** A number whose absolute value is at least the setting
@@ -396,7 +407,7 @@ true arm. `&&`, `||` and brackets remain available inside a condition.
 **1.5.5** A one-arm `if` is a **guard**. It always prints its phrase. Each
 condition that is not `TRUE` is reported separately. A phrase with an empty
 second arm (`[, apart from the estuary sites | ]`) is optional text and fails
-nothing. A guard has no level (3.1.11), and a `level` key on an `if` span is a
+nothing. A guard has no level (3.1.11), and a `level` key on any span is a
 construct error.
 
 **1.5.6** A governor is checked with `claim()` in its expression, as a value
@@ -424,8 +435,9 @@ digits for a value that is not whole (1.4.13).
 **1.5.10** `sign` judges zero on the number as printed: a change that prints
 as "0.0%" takes the zero arm, whatever its raw value. Under the default class
 a raw zero prints "0", and a value that is not whole prints to the default
-digits, so a small change can print "0.0" and take the zero arm. A governor that
-prints as zero records no warned check (1.4.13).
+digits, so a small change can print "0.0" and take the zero arm. An `n` or
+`sign` governor that prints as zero, and its `#`, record no warned check
+(1.4.13).
 
 **1.5.11** `n` must be a single number. A vector or a string is a collected
 failure (5.3.2) whose message says to write `length(x)`. An `NA` is a "no value"
@@ -493,13 +505,16 @@ and a count passed by mistake prints "3 was flagged".
 
 A vector of length zero takes the zero arm. With no zero arm (two arms) it is
 a failed claim, and its message says to add a first arm for the empty case
-(1.5.3). `NULL`, an R `list`, a data frame, any value that is not an atomic
-vector, and a vector with an `NA` element are missing values (1.3.4): a
-misspelt column must not print "No sites were flagged". `#` in the zero arm is
-a construct error. An `#id` on a `list` span, and `list="."`, are construct
-errors. `claim()` in the expression works as in any governor (1.5.6). Inside
-an inner `n="."` span `#` is the count (1.7.2), and in the span's own arm `#`
-is the collapsed vector: the second example prints "3 sites: a, b and c" for
+(1.5.3). `NULL`, an R `list`, a data frame, a matrix or array, any value that
+is not an atomic vector, and a vector with an `NA` element are missing values
+(1.3.4): a misspelt column must not print "No sites were flagged". `#` in the
+zero arm is a construct error. An `#id` on a `list` span, and `list="."`, are
+construct errors, and so is a list class (`.ul`, `.ol`, `.dl`) on a `list`
+span, because `#` is inline. `#` prints the vector's elements as a value does,
+so a number that prints as zero there records a warned check (1.4.13).
+`claim()` in the expression works as in any governor (1.5.6). Inside an inner
+`n="."` span `#` is the count (1.7.2), and in the span's own arm `#` is the
+collapsed vector: the second example prints "3 sites: a, b and c" for
 a vector of three.
 
 **1.5.20** When a governed span prints nothing, because its chosen arm is
@@ -512,7 +527,9 @@ outside the span. Arms are still trimmed (1.5.12).
   start of a block includes the text after a list, heading, quote or
   ordered-list marker, so the marker keeps its space.
 - Preceded by a space and followed by the end of the block or string, or by
-  one of `. , ; : ! ? )`: the space before is removed.
+  one of `. , ; : ! ? ) ]`, the closing quotation marks U+201D and U+2019, or
+  the em dash: the space before is removed. A straight quote is not one of
+  them, as it may open.
 - Otherwise nothing is removed.
 
 ```
@@ -901,7 +918,8 @@ carries on, and the render still fails at the end with the check in its report
 it is recorded, and the render fails.
 
 **2.4.5** A failed check that stops the knit prints, with its own error, every
-failure collected before it.
+failure collected before it. The warned checks collected so far are reported
+whenever the knit ends (2.6.10), also when it stops on an error of any kind.
 
 **2.4.6** A check given `level = "warn"` (3.1.11) neither collects a failure
 nor stops, in any context. In a knit, in prose, a caption, a `weft_str()`
@@ -1040,14 +1058,22 @@ zero". When neither `digits` nor `sigfig` is given for the value, and a number
 that is not zero prints with no digit other than 0, one is recorded for the
 construct or the call, however many of its elements print so: the message
 gives the first value, what printed and the count. A project default `digits`
-does not count as given. It applies to a value formatted by `.num` or `.pct`,
-including the default class of a value with an attribute block, and to
-`fmt_num()` and `fmt_pct()`. It does not apply to `.no`, to a governor, or to
-`#` in a span: a `sign` governor that prints "0.0" takes its zero arm (1.5.10).
-A number below 1e-9 is zero (1.4.13) and is never warned about.
+does not count as given. It applies wherever weft prints a number under the
+default digits (1.4.13): to a value formatted by `.num`, `.pct`, `.range` or
+`.pairs`, including the default class of a value with an attribute block, to
+`fmt_num()`, `fmt_pct()` and `fmt_range()`, and to `ci()` and `pm()`, which
+record one check per call. `.no` replaces a printed zero and the check is
+still recorded. A number class applied to text that a formatter already made
+warns by what it prints itself: if the class prints zero for a number that is
+not zero, and has no `digits` or `sigfig` of its own, it records the check,
+whatever the earlier formatter was given. The rule does not apply to `.sci`,
+to `about()` or `of_n()`, or to a project formatter. An `n` or `sign`
+governor, and its `#`, are exempt: a `sign` governor that prints "0.0" takes
+its zero arm (1.5.10). The `#` of a `list` span is not exempt (1.5.19). A
+number below 1e-9 is zero (1.4.13) and is never warned about.
 
 ```
-0.04 printed as 0.0: add sigfig to show it, or digits to confirm
+0.04 printed as 0.0: add sigfig to show it, or digits to confirm it
 ```
 
 Outside a knit, `fmt_num(0.04)` returns "0.0" and signals a `warning()` of
@@ -1201,7 +1227,8 @@ recorded as a warning (2.4.6, 2.6.10) and the value is returned. Outside a
 knit it signals a `warning()` of class `weft_claim_warning`, whose message
 quotes the check and the value, and returns the value. A check that itself
 errors is a failed check at the level given. Any other `level` is an error. A
-guard has no level (1.5.5).
+bare `"warn"` or `"fail"` in the position of a check is an error that says to
+write `level = `. A guard has no level (1.5.5).
 
 ### 3.2 Function forms
 
@@ -1255,12 +1282,14 @@ the list formatters, is exported.
 class does (4.4.8).
 
 **3.4.5** `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`, `fmt_ol()` and
-`fmt_dl()` take `none = NULL`, as the key does (1.4.14). `last` on `fmt_and()`,
+`fmt_dl()` take `none = NULL`, as the key does (1.4.14). A `none` that is
+given must be one non-empty string that is not only spaces; anything else is
+an error of class `weft_construct_error`. `last` on `fmt_and()`,
 `fmt_or()` and `fmt_pairs()` defaults to `NULL`, so that the `serial_comma`
 setting applies (1.4.15).
 
-**3.4.6** `fmt_num()` and `fmt_pct()` record a number that prints as zero as
-the classes do (2.6.11).
+**3.4.6** `fmt_num()`, `fmt_pct()` and `fmt_range()` record a number that prints
+as zero as the classes do (2.6.11).
 
 ### 3.5 Phrase functions
 
@@ -1629,11 +1658,12 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 - a wording class, a collapse class that prints a word, `.a` or a phrase
   function that prints words, under a `lang` whose words are not shipped
   (1.6.8)
-- a formatter on an `if` span (1.5.7); a `level` key on an `if` span (1.5.5)
+- a formatter on an `if` span (1.5.7); a `level` key on any span (1.5.5)
 - a `list` span with `#` in its zero arm, or with the value `.` (1.5.19); a
-  `list` span with an `#id` (1.7.5)
+  `list` span with an `#id` (1.7.5); a `list` span with `.ul`, `.ol` or `.dl`
+  (1.5.19)
 - `none` that is empty, or on a value with no collapse class, on a span or on
-  a `cite` span (1.4.14)
+  a `cite` span (1.4.14); `none` with `.range` (1.4.14)
 - a wording class with `.pct` or `.sci` (1.4.2)
 - a weft key on a link (`[a](u){if="x"}`), or an attribute block on inline R
   inside a link target
@@ -1651,7 +1681,8 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 
 **5.3.2** Five errors need the value and are found only at knit time: a
 governor of the wrong type (1.5.1, 1.5.11), `.a` on text that is not a number
-(1.4.5), `.range` on a value that is not of length 2, a wording class on a
+(1.4.5), `.range` on a value that is not of length 2 or with its first end above its
+second, a wording class on a
 number that is not whole and non-negative (1.4.12), and a `sign` governor that
 prints as a bound (1.5.17). They are not construct errors, and none of them
 stops the render. Each is a collected failure with a marker (2.6.8, 2.6.9),
@@ -2561,15 +2592,28 @@ Failing the render would stop an unattended report on an ordinary small
 reading, and a fallback to one significant figure would put numbers of mixed
 precision side by side and leave no change ever "unchanged". `digits` or
 `sigfig` is the author choosing, so it silences the report. Below 1e-9 a
-number is the noise of floating-point arithmetic, and is zero.
+number is the noise of floating-point arithmetic, and is zero. The report
+follows the default digits wherever they print a number, so a small range, a
+pair list or an interval cannot print "0.0" unseen, and it is one check for
+each construct or call so that a vector does not bury the report. A setting
+copied from the project default is not the author choosing, and a class
+applied to text another formatter made reports what it prints itself, so
+`digits` given earlier does not hide a loss that this class causes. `.sci`,
+`about()`, `of_n()` and a project formatter print no fixed decimals the rule
+could judge. A governor is exempt because its zero is an arm; the `#` of a
+`list` span prints the vector as a value does, so it is reported.
 
 **1.4.14** A list that is empty is a fact a sentence may need to state, and
 without the key a vector of length zero fails (1.3.4). The wording belongs
 beside the value. On a span or a value with no collapse class there is nothing
-for the key to apply to, which is why it is an error.
+for the key to apply to, which is why it is an error. A range always has two
+ends, so there is no empty range for `none` to name. A blank `none` would
+print nothing where the author meant a word.
 
 **1.4.15** A serial comma is a house choice with no majority, so it is a
-setting. A `last` on the construct is the author's own wording, and wins.
+setting. A `last` on the construct is the author's own wording, and wins. A
+`sep` is the author's mark between items, so the mark before the last joiner
+follows it ("a; b; and c") and a comma does not appear among semicolons.
 
 **1.4.16** Both trial documents write "1,000", so a default of 10,000 changed
 their text. A year is not a quantity, and is left bare.
@@ -2598,8 +2642,8 @@ apart.
 **1.5.9, 1.5.10** Agreement follows what the reader sees. A depth of 1.2
 printed to zero decimals shows "1" and takes the singular; a value printed as
 "1.0" takes the plural, as English does. A change printed as "0.0%" did not
-rise. A governor that prints "0.0" takes the zero arm by design, so there is
-nothing to warn about.
+rise. An `n` or `sign` governor that prints "0.0" takes the zero arm by design, so
+there is nothing to warn about.
 
 **1.5.17** `#` in a `sign` arm is the magnitude. For a bound there is none,
 and "fell by < 0.1%" beside "rose by < 0.1%" would turn on a sign the printed
@@ -2629,13 +2673,16 @@ computable in the case that did.
 
 **1.5.19** `n="length(x)"` fails when `x` is empty, and `n` never takes a count
 from a length (1.5.11), so the span that chooses by length is a separate key
-with its own rules. A `NULL` is not an empty list, because a misspelt column is
+with its own rules. A matrix has a length and a shape, so it is not taken for
+a list of sites, as a data frame is not. A list class makes a block, and a
+`list` span is inline. A `NULL` is not an empty list, because a misspelt column is
 `NULL`. A number vector needs no guard: site numbers are a natural list, and a
 count passed by mistake prints "3 was flagged", which shows on every render.
 
 **1.5.20** Without it an empty arm leaves two spaces, or a space before a full
 stop, and the author must write the spacing inside the arms, where it is
-easily lost.
+easily lost. The list is the marks that close a clause or a quotation. A
+straight quote may open or close, so a space before it is kept.
 
 **1.6.1 to 1.6.4** "One" is a grammatical form: in Russian 21 takes it, in
 French so do 0 and 1.5. Checking the arm count against `lang` means an arm can
@@ -2783,7 +2830,10 @@ test to branch on. Wording that depends on a value is written with `if`.
 **2.4.6, 2.6.10, 3.1.11** An unattended report needs "tell me, but send it".
 The level belongs to the one check and is visible where it is written, which a
 project setting would lose, and a second function would be a new name for the
-same act. A guard cannot warn: its phrase would print false.
+same act. A guard cannot warn: its phrase would print false, and no span has a
+level. A bare `"warn"` reads as a check that is a string, so the error says
+what to write. Warnings are reported when the knit ends in an error too, so a
+stopped render does not hide what was already found.
 
 **2.6.8** Markdown emphasis in a marker breaks when the construct already sits
 inside bold, and is printed as asterisks where markdown is not rendered, such
