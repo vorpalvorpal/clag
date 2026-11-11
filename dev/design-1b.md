@@ -162,7 +162,9 @@ here; 26 and 27 (cosmetic) are left.
 - **E, K, L.** Left; recorded in `dev/open-findings.md`.
 - **F.** Left as rule 1.7.11 says.
 - **G.** Two ids in one block are a construct error.
-- **H.** The thresholds of `.p` are applied to the number after rounding.
+- **H.** `.p`: a value below 0.001 prints "p < 0.001". Otherwise the value
+  is rounded to three decimals; a result below 0.01 prints with three
+  decimals, and any other with two (0.0095 prints "p = 0.01").
 - **I.** A text class or `trunc` together with `.ul`, `.ol` or `.dl` is a
   construct error.
 - **J.** A renderer key on a `cite` span is a construct error.
