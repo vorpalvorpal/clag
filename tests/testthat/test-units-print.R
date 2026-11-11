@@ -139,7 +139,8 @@ test_that("2b stage ii: an element turned into a word takes the unit's name (2f,
   expect_equal(tx(fmt_word(u(3, m))), paste0("three", NB, "metres"))
   expect_equal(tx(fmt_no(u(0, m))), paste0("no", NB, "metres"))
   expect_equal(tx(fmt_no(u(2, m))), paste0("2", NB, "m"))   # control: .no leaves a non-zero value
-  expect_equal(tx(fmt_ord(u(3, m))), paste0("3rd", NB, "m"))
+  # ruling a on the review of 2f: .ord on a quantity with a unit is a value error
+  expect_error(fmt_ord(u(3, m)), class = "weft_value_error")
   expect_equal(tx(fmt_word(u(120, m))), paste0("120", NB, "m"))   # at or above word_limit: digits
   expect_equal(tx(fmt_a(u(8, m))), paste0("an 8", NB, "m"))
 })

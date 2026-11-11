@@ -299,7 +299,8 @@ test_that("2f unit_form: each listed function takes it, last, and prints the for
   expect_equal(f2_tx(fmt_no(u(0, m), unit_form = "name")), f2("no~metres"))
   expect_equal(f2_tx(fmt_word(u(3, m), unit_form = "name")), f2("three~metres"))
   expect_equal(f2_tx(fmt_count(u(3, m), unit_form = "name")), f2("three~metres"))
-  expect_equal(f2_tx(fmt_ord(u(3, m), unit_form = "name")), f2("3rd~metres"))
+  # ruling a on the review of 2f: a rank has no unit, so .ord on a quantity is a value error
+  f2_has_class(f2_cond(fmt_ord(u(3, m), unit_form = "name")), "weft_value_error")
   expect_equal(f2_tx(fmt_and(u(c(3, 5, 7), m), unit_form = "name")), f2("3, 5 and 7~metres"))
   expect_equal(f2_tx(fmt_or(x, unit_form = "name")), f2("3 or 5~metres"))
   expect_equal(f2_tx(fmt_pairs(u(c(a = 1, b = 3), m), unit_form = "name")), f2("a (1~metre) and b (3~metres)"))
