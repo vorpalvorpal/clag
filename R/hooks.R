@@ -209,6 +209,13 @@ push_knit <- function(s) {
     if (is.na(s$input_path)) NULL else s$input_path
   is_text <- is.null(path) || identical(path, top)
   if (!is_text) {
+    # local entries belong to the document that is knitted (4.3.1)
+    fm <- read_front_matter(path)
+    if (is.list(fm$weft) && !is.null(fm$weft$dict_local)) {
+      weft_abort(sprintf(paste0("weft: %s: a child document cannot have its own `dict_local`; ",
+                                "local entries belong to the document that is knitted (rule 4.3.1)."),
+                         path), "weft_dict_error")
+    }
     F <- s$files[[path]]
     if (!is.null(F)) reset_file_state(F)
   }

@@ -838,3 +838,18 @@ particulars.
   in `dev/open-findings.md`.
 - **i.** A unit with a power that is not a whole number (`m^0.5`) is a
   `weft_unit_error` from `u()` and a problem from `read_dict()`.
+
+## Rulings on the fixer's report for the review of 2a
+
+- An unquoted `null` key is refused with a message that says to quote
+  it; a quoted `"null"` is a key. Accepted.
+- A number written with a leading zero is refused whether or not it is
+  quoted, under the numeric types and bounds only. Accepted.
+- `n + year` is a year as `year + n` is; a result that is not whole is a
+  plain number. Accepted.
+- **Open:** a numeric `[[` on a dictionary is allowed when the caller is
+  a base or utils function (so `str()` and `Map()` work) and refused from
+  user code. It works, and it depends on inspecting the call stack; in
+  `dev/open-findings.md`.
+- **Open:** `fmt_ord()` on a formatter's text of years loses the year
+  mark.

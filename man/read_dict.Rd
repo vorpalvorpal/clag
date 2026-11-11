@@ -24,12 +24,27 @@ itself and puts the result in the document as \code{dict} (rule 4.1.1), so
 \details{
 Units a quantity names that the \code{units} package does not know are
 installed with \code{units::install_unit()} as the file is read, for the whole
-session (rule 4.4.7); a unit already known is not installed again. They
-are kept in the attribute \code{registered} and listed by \code{print()}.
+session (rule 4.4.7); a unit already known is not installed again. A read
+that reports a problem installs no unit. The attribute \code{registered} holds
+the units the dictionary needs that \code{udunits} does not ship, whenever and
+by whomever they were installed, so two reads of one file give the same
+\code{registered}, and \code{print()} lists them.
+
+The units installed stay installed for the rest of the R session, so a
+unit one project's dictionary declared is known to the next document knitted
+in the same session, even one that never declared it (it fails in a fresh
+session). In a knit, \code{dict} and \code{dict_local} are removed at the start of
+every top-level knit and assigned again from that knit's own files: a
+document with neither sees neither, and an object of the session's own
+called \code{dict} is replaced during a knit that has a dictionary and is not
+restored.
 
 \code{dict$key} and \code{dict[["key"]]} match the key exactly: a key not held is a
 \code{weft_dict_key_error}, never \code{NULL} (rule 4.1.2). A dictionary is read-only
-(rule 4.1.4): assigning to it, and \code{dict[...]}, are a \code{weft_dict_error}.
+(rule 4.1.4): assigning to it, \verb{names<-} and \code{dict[...]} are a
+\code{weft_dict_error}. \code{str()}, \code{summary()}, \code{lapply()}, \code{Map()} and \code{mapply()}
+work on it as they do on the plain list; \verb{attr<-} and \verb{class<-} cannot be
+stopped.
 \code{as.list()} gives the plain named list of values.
 
 All the problems in a file are collected and raised together as one

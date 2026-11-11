@@ -2,12 +2,34 @@
 
 unit_abort <- function(message) weft_abort(message, "weft_unit_error")
 
+# Why `txt` is not a unit the units package can read, or NULL. A string it
+# cannot parse is a problem, not the warning and the symbolic unit that
+# units::as_units() gives (4.4.7).
+unit_parse_problem <- function(txt) {
+  warned <- NULL
+  r <- withCallingHandlers(
+    tryCatch({ units::as_units(txt); NULL },
+             error = function(e) sub("\n.*$", "", conditionMessage(e))),
+    warning = function(w) {
+      warned <<- sub("\n.*$", "", conditionMessage(w))
+      invokeRestart("muffleWarning")
+    })
+  r %||% warned
+}
+
 #' A number with a unit
 #'
 #' `u(value, unit)` makes a `units` value. The unit is taken as written and
 #' never evaluated as R: `u(35, m)`, `u(5, mg/L)`, `u(1, m^2)`; or it is a
 #' string, `u(150, "CFU/100 mL")`. `value` is a numeric vector, or a `units`
 #' value, which is converted: `u(dict$core_len, cm)`.
+#'
+#' A unit held in a variable cannot be given to `u()`, which takes it as
+#' written; `do.call(u, list(3, "m"))` does that, and so does
+#' `units::set_units(x, un, mode = "standard")`. `u()` makes a quantity, and
+#' weft cannot stop base R's `%in%`, `match()`, `cut()` and `findInterval()`
+#' from comparing one with a bare number, as they work on the bare numbers
+#' (rule 4.4.5 is kept by `claim()` and the comparison operators only).
 #'
 #' `u()` does not register units. A unit the `units` database does not know is
 #' a `weft_unit_error`; a project's own unit is registered when the
@@ -25,6 +47,7 @@ unit_abort <- function(message) weft_abort(message, "weft_unit_error")
 #' @export
 u <- function(value, unit) {
   if (missing(unit)) unit_abort("u(): the unit is missing; write u(35, m).")
+  if (missing(value)) unit_abort("u(): the value is missing; write u(35, m).")
   ex <- substitute(unit)
   txt <- if (is.character(ex) && length(ex) == 1L && !is.na(ex)) ex else
     paste(deparse(ex, width.cutoff = 500L), collapse = " ")
@@ -33,8 +56,7 @@ u <- function(value, unit) {
     unit_abort(sprintf("u(): the value must be a number or a units value, not a %s.",
                        class(value)[1L]))
   }
-  parsed <- tryCatch({ units::as_units(txt); NULL },
-                     error = function(e) sub("\n.*$", "", conditionMessage(e)))
+  parsed <- unit_parse_problem(txt)
   if (!is.null(parsed)) {
     unit_abort(sprintf(paste0(
       "u(): `%s` is not a unit the units database knows. A project's own unit is ",

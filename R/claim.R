@@ -149,7 +149,7 @@ claim_args_as_written <- function(sr, dp) {
 
 claim_value_text <- function(value) {
   # a date or a factor is shown as format() prints it, not as structure(...)
-  s <- if (inherits(value, c("Date", "POSIXt", "factor", "difftime"))) {
+  s <- if (inherits(value, c("Date", "POSIXt", "factor", "difftime", "units"))) {
     paste(format(value), collapse = ", ")
   } else {
     paste(deparse(value, width.cutoff = 500L), collapse = " ")
@@ -176,7 +176,7 @@ claim_fail <- function(record, level = "fail") {
       sprintf("%s was FALSE (value %s)", record$checks, record$value)))
   s <- active_state()
   inl <- weft_env$inline
-  if (identical(level, "warn")) return(claim_warn(record, detail, s, inl, errs, lens))
+  if (identical(level, "warn")) return(claim_warn(record, detail, s, inl, errs, lens, hints))
   if (!is.null(s) && !is.null(inl)) {
     for (k in seq_along(detail)) {
       add_failure(s, "failed claim", file = inl$file, line = inl$line,
@@ -226,9 +226,9 @@ claim_fail <- function(record, level = "fail") {
 
 # A warned check (entry 31): in a knit it is recorded and nothing else
 # happens; outside a knit it is a warning of class `weft_claim_warning`.
-claim_warn <- function(record, detail, s, inl, errs, lens) {
+claim_warn <- function(record, detail, s, inl, errs, lens, hints = rep(NA_character_, length(detail))) {
   if (!is.null(s)) {
-    for (d in detail) warn_here(s, inl, "failed claim", d)
+    for (k in seq_along(detail)) warn_here(s, inl, "failed claim", detail[k], hints[k])
     return(invisible(NULL))
   }
   lines <- ifelse(
@@ -239,22 +239,23 @@ claim_warn <- function(record, detail, s, inl, errs, lens) {
       sprintf("check `%s` returned %d values, not a single TRUE (value: %s)",
               record$checks, lens, record$value),
       sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
+  lines <- ifelse(is.na(hints), lines, paste0(lines, "\n    ", hints))
   for (l in lines) rlang::warn(paste0("weft: ", l), class = "weft_claim_warning")
   invisible(NULL)
 }
 
 # Record a warned check where the code that raised it is: the inline code
 # being run, else the chunk (entry 31).
-warn_here <- function(s, inl, kind, detail) {
+warn_here <- function(s, inl, kind, detail, hint = NA_character_) {
   if (!is.null(inl)) {
     add_warning(s, kind, file = inl$file, line = inl$line,
-                expr = inl$label, detail = detail, chunk = inl$chunk %||% NA_character_,
+                expr = inl$label, detail = detail, hint = hint, chunk = inl$chunk %||% NA_character_,
                 option = inl$option %||% NA_character_)
   } else {
     label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
     add_warning(s, kind, file = current_file_name(s),
                 chunk = if (is.null(label)) NA_character_ else label, detail = detail,
-                expr = NA_character_)
+                hint = hint, expr = NA_character_)
   }
 }
 

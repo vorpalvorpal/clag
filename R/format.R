@@ -160,7 +160,7 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE)
     construct_error("`sigfig` must be at least 1.")
   }
   # a year prints with no thousands mark (4.2.1)
-  if (identical(attr(value, "weft_type"), "year")) cfg$thousands_from <- Inf
+  if (inherits(value, "weft_year")) cfg$thousands_from <- Inf
   value <- as.numeric(value)
   if (is.null(bound)) bound <- rep(FALSE, length(value))
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
@@ -558,6 +558,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   rec <- NULL
   clamp_rel <- NULL
   zero <- NULL
+  is_year <- inherits(value, "weft_year")
   if (length(ncls)) {
     cls <- ncls[1]
     if (!is.null(ut) && cls %in% c(".pct", ".p", ".date")) {
@@ -663,7 +664,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
           w,
           ".word" = if (nk >= cfg$word_limit) text[k] else spell_or(nk, text[k]),
           ".count" = if (nk >= cfg$count_threshold) text[k] else spell_or(nk, text[k]),
-          ".ord" = paste0(if (nk >= (cfg$thousands_from %||% 1000)) intk else sprintf("%.0f", nk),
+          ".ord" = paste0(if (!is_year && nk >= (cfg$thousands_from %||% 1000)) intk else sprintf("%.0f", nk),
                           ordinal_suffix(nk))
         )
       }

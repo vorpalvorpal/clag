@@ -149,3 +149,10 @@ So a later review does not raise them again without a new argument.
   mark ("2,014 a"; question h).
 - A value with only an id prints its number without its unit (question
   b; rule 4.4.10).
+
+## From the fix round for the review of 2a
+
+- `[[` with a number on a dictionary decides by the calling function's
+  namespace (base and utils may, user code may not): fragile.
+- `fmt_ord()` given a formatter's text of years prints a thousands mark.
+- `Filter()` over a dictionary fails (`[` is refused).

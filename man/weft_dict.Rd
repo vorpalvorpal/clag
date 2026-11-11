@@ -8,6 +8,7 @@
 \alias{$<-.weft_dict}
 \alias{[[<-.weft_dict}
 \alias{[<-.weft_dict}
+\alias{names<-.weft_dict}
 \alias{as.list.weft_dict}
 \alias{print.weft_dict}
 \title{Methods for a dictionary}
@@ -23,6 +24,8 @@
 \method{[[}{weft_dict}(x, i) <- value
 
 \method{[}{weft_dict}(x, i) <- value
+
+\method{names}{weft_dict}(x) <- value
 
 \method{as.list}{weft_dict}(x, ...)
 

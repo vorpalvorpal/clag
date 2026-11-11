@@ -21,6 +21,13 @@ string, \code{u(150, "CFU/100 mL")}. \code{value} is a numeric vector, or a \cod
 value, which is converted: \code{u(dict$core_len, cm)}.
 }
 \details{
+A unit held in a variable cannot be given to \code{u()}, which takes it as
+written; \code{do.call(u, list(3, "m"))} does that, and so does
+\code{units::set_units(x, un, mode = "standard")}. \code{u()} makes a quantity, and
+weft cannot stop base R's \code{\%in\%}, \code{match()}, \code{cut()} and \code{findInterval()}
+from comparing one with a bare number, as they work on the bare numbers
+(rule 4.4.5 is kept by \code{claim()} and the comparison operators only).
+
 \code{u()} does not register units. A unit the \code{units} database does not know is
 a \code{weft_unit_error}; a project's own unit is registered when the
 dictionary that names it is read (rule 4.4.7), or with

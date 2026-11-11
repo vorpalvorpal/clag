@@ -26,11 +26,20 @@ not resolved when the file is read.
 it is required.
 }
 
-A key is a valid R name (\code{make.names(key) == key}) and is not \code{file}.\tabular{lll}{
+A key is a valid R name (\code{make.names(key) == key}) that is not reserved
+(\code{..1} and \code{...} are refused) and is not \code{file}. A whole number written
+with a leading zero, or in hex or octal (\code{010}, \code{0x1F}, \verb{0o17}), is an
+error: write it in decimal. A merge key (\verb{<<}) is an error, and so is a
+file of more than one YAML document; anchors and aliases without a merge
+key are allowed. A whole number too large for an integer is a number (a
+double), but under \code{year} is still an error. In a document's front matter,
+\code{dict_local} keys that YAML reads as booleans (\code{yes}, \code{on}, \code{true}) should
+be quoted if two of one truth value are used in one map, since knitr and
+Quarto read the front matter before weft does.\tabular{lll}{
    \code{type} \tab \code{value} \tab read as \cr
    \code{number} \tab a number, or a string that is a number literal \tab a double \cr
    \code{quantity} \tab as \code{number}, with \code{unit} \tab a \code{units} value \cr
-   \code{year} \tab a whole number from 1000 to 9999 \tab an integer with the attribute \code{weft_type = "year"}, printed with no thousands mark \cr
+   \code{year} \tab a whole number from 1000 to 9999 \tab a \link{weft_year}: an integer, printed with no thousands mark \cr
    \code{date} \tab a string \code{YYYY-MM-DD} \tab a \code{Date} \cr
    \code{string} \tab a string (quote a number) \tab a character string \cr
    \code{labels} \tab a non-empty mapping of label to phrase \tab a \code{\link[=lookup]{lookup()}} function \cr
@@ -41,7 +50,10 @@ A key is a valid R name (\code{make.names(key) == key}) and is not \code{file}.\
 A \code{breaks} item is a mapping with a \code{phrase} and at most one of \code{below}
 (the value is less than the bound) or \code{at_most} (less than or equal to
 it); the bound is a number, \code{.inf} or \code{-.inf}. Only the last item may have
-no bound, and then it takes every value left. Bounds may not decrease.
+no bound, and then it takes every value left. Bounds may not decrease, and
+a bound may not repeat the one before it so that no value is left for its
+band (\code{at_most: 1} then \code{below: 1}, or equal bounds of one kind). A bound
+may be a number written in a string, as \code{number} may.
 
 YAML is read so that \code{yes}, \code{no}, \code{on}, \code{off}, \code{true} and \code{false} stay as
 text. A duplicate key is an error.
@@ -61,5 +73,5 @@ trend_word:
 }\if{html}{\out{</div>}}
 }
 \seealso{
-\code{\link[=read_dict]{read_dict()}}
+\code{\link[=read_dict]{read_dict()}}, \link{weft_year}
 }
