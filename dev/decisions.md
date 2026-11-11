@@ -153,3 +153,9 @@ around.
     `R/format.R`.
 26. **1.6.8, `.date`.** It prints English month names. Chosen: a construct
     error under a `lang` that is not English; the rule lists it now.
+- **Draft output of a report whose checks chunk has `error=TRUE`.** Each
+  failed check prints its own error block into the body (second trial,
+  `dev/field-notes.md` report 3). Decide with the warn-level item whether
+  a draft of an unattended report should carry them.
+- **`last_knit()` is internal.** Export it, or expose `sentence_starts`
+  and the construct records some other way.

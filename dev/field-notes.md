@@ -672,3 +672,34 @@ feature that would cover it, as named in the task, or "nothing planned".
   value-dependent wording took one pass of mechanical edits (a script of 76
   string replacements) plus about 8 render-and-fix cycles. Most of the cycles were
   my own mistakes in conditions and moved definitions, not weft.
+
+## Report 3: the trials again, on the finished stage 1
+
+Both trials were run again after stages 1b to 1e and three review fix
+rounds, with the converted documents unchanged.
+
+- **Chapter.** Stock and converted renders both ran (about 10.8 s and
+  11.2 s). The converted chapter's text is identical, line for line, to
+  the text the first trial produced; no marker and no raw construct.
+- **Daily reports.** The cases that should pass (normal, single, calm)
+  render with text identical to the first trial. The cases whose data
+  break a check (empty, zeros, all missing, no forecast, no station) now
+  stop an ordinary render and leave no output; in draft mode they finish
+  and the sentences are unchanged.
+- **A draft-mode difference to decide.** The reports' checks chunk has
+  `error=TRUE`, so in draft mode each failed check now prints an "Error:
+  weft: 1 failed claim" block into the report body, where the first trial
+  showed one claims report. If a draft is meant to be sendable, those
+  blocks are noise. In `dev/decisions.md` under "for Robin", with the
+  warn-level and failed-render items it belongs to.
+- **`arms()`** lists the three converted documents with no errors: 5 spans
+  and 10 arms, 8 spans and 18 arms (2 nested), and 42 spans and 81 arms
+  for the chapter, matching the counts above.
+- **`rehearse()`** on one daily report with four `params` cases: two pass,
+  two report their failures, the unreached arms and unevaluated spans are
+  listed, and the folder's listing (names, sizes, times) is the same
+  before and after.
+- **`last_knit()` is not exported.** The design notes and the tests use
+  it, and an author who wants `sentence_starts` has to write
+  `weft:::last_knit()`. For Robin: export it, or give the report another
+  way in.
