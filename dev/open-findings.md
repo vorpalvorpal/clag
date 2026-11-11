@@ -5,52 +5,19 @@ that are not yet in the document. Everything else the reviews raised and the
 author agreed to is folded in. Delete an entry when it is folded in or
 dropped.
 
-## Waiting on the gate decision
+## Open
 
-The author is reconsidering how much accounting §6 to §8 should ask for
-(`dev/research-checks.md`). The proposal on the table: one machine-written,
-committed record of every construct, check and tolerated typed number, and of
-what each printed; the hook fails on what is wrong now or on a record that is
-out of date; updating the record is one command, run by a person by default;
-additions are judged against `HEAD`, so there is no hand-kept baseline;
-`removals.yml`, `accepted.yml`, the paragraph matcher and the separate
-integrity report go. A branch-preview function for dynamic reports (every arm
-of every span, and a render against named test cases) is proposed alongside.
-
-These wait on that decision, and some dissolve under it:
-
-- **Stale baseline slot.** A numeral deleted in one commit leaves a baseline
-  entry that a new, uncomputed numeral can fill in the next (6.5.5 does not
-  catch it). Fix if the baseline stays: judge additions against `HEAD`'s
-  count; add `baseline_add()`.
-- **"Literal value" is undefined** (5.6.1): say it means an expression of
-  constants and operators only.
-- **No baseline kind** for the anchor, label and alt-text rules (§5.8, §5.9),
-  so they fail on every existing chapter at adoption.
-- **Loosened checks are only reported.** `. > 10` changed to `. > 0`, or an
-  empty arm added to a guard, passes the commit, the render and `verify()`.
-- **Gate blind spots found by the spike and the reviews:** a move across
-  files, an expression changed under an unchanged `#id`, an unrelated swap
-  inside one paragraph, a file rename, unequal counts netting out across a
-  range, and append-only files conflicting on merge.
-- **6.1.1 and 6.2.1 count bare inline R as a construct.** Rule 1.1.8 now says
-  it is not one. The gate has to say whether it still counts bare values.
-- **CI cannot re-render a clean clone** that lacks the data. `verify()` needs
-  a static mode for CI.
-- **`verify(files = )` always fails in a frozen project**; it should render
-  and judge only the named files. `verify()` is not defined for rmarkdown.
-- **The ledger does not say** what "changed" compares against, how an
-  acceptance is keyed, or what a document rendered several times with
-  different `params` records.
-- **Project formatter names** must be declared in `_weft.yml` if static checks
-  are to know their stage.
-
-## Waiting on the author's reply
-
-- **Units through arithmetic (§4.4).** `dict$a / dict$b` would print a unit.
-  Proposal: the unit survives `+`, `-`, and `*` or `/` by a plain number;
-  drops when two quantities multiply or divide; adding different units is an
-  error.
+- **Netting.** Two limits of the gate are accepted (rules 6.2.6 and 6.3.6):
+  a finding removed and the same text added elsewhere in one commit nets to
+  zero, and a removal and an unrelated addition in one commit net out. How
+  often either hides something in a real history is not known (Q18).
+- **The hook under other git operations.** On `git commit --amend` the hook
+  compares with the commit being amended, so the count is of the new changes
+  only. Merge commits, `git rebase` and `git cherry-pick` (which may not run
+  the hook at all) are untested (Q17).
+- **A guard made optional shows nowhere but the source diff.** A one-arm
+  `if` that gains an empty arm keeps its ledger key, and prints the same
+  while its condition holds, so `changes()` does not list it.
 
 ## Raised and not yet put to the author
 
@@ -73,3 +40,12 @@ So a later review does not raise them again without a new argument.
 - A wrapper that turns messages into warnings inside targets.
 - An `_output.yml` route for the rmarkdown filter.
 - A lint for free scales in facetted figures.
+- An acknowledgement file with an entry per removal: it charges for every
+  purposeful deletion, and no mainstream tool asks for one. The commit
+  message's `Weft-Removed` trailer replaces it.
+- A machine-written record with an accept command: a second step for every
+  purposeful change, and accept steps get clicked through. Committing the
+  ledger is the acceptance.
+- Requiring a person to accept changes to checks: what we want to stop is
+  accidental changes, not make purposeful changes needlessly complicated. A
+  changed check shows in the source diff and in `changes()`.

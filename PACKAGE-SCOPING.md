@@ -16,10 +16,14 @@ carry the old name, `clag`.
 The package is two layers. The **prose core** (the syntax of §1 and the
 runtime of §2) makes a computed value cost what knitr inline code already
 costs, and makes a checked value cost one function call more. The **integrity
-harness** (dictionary, lints, commit gate, ledger, `verify()`) is only
-socially sustainable because of that: a rule like "every numeral is a computed
-value" survives contact with authors only when writing one is nearly free, and
-when the inline R a document already contains counts without being rewritten.
+harness** (dictionary, lints, commit gate, ledger, `changes()`, `verify()`)
+is only socially sustainable because of that: a rule like "every numeral is a
+computed value" survives contact with authors only when writing one is nearly
+free, and when the inline R a document already contains counts without being
+rewritten. The harness stops accidental changes and lets purposeful ones
+through. A commit fails on what it adds that is wrong, and on constructs it
+removes without saying so; saying so is one line in the commit message.
+Everything else is shown, not stopped, in diffs the author already reads.
 
 Every weft construct is markdown that knitr, Pandoc and Quarto already accept.
 Nothing is compiled, there is no second source tree, and the file the author
@@ -97,7 +101,9 @@ attribute block, is not a construct. It keeps stock behaviour everywhere: it
 prints as stock prints it (1.3.1), and no rule about constructs applies to
 it, in prose, in `title:` and the other front-matter fields, in tables and in
 captions. A `claim()` in it is still a check (2.4.1), and it still counts as
-a value for the numeral rule (5.2.1).
+a value for the numeral rule (5.2.1). It is recorded in the ledger (7.1.2),
+and the gate counts it when it is removed (6.3.1), because it prints a value
+in the document.
 
 ### 1.2 The attribute block
 
@@ -248,12 +254,19 @@ must be alone in its paragraph; otherwise it is a construct error.
 construct with no number-stage class implies `.num`.
 
 **1.4.8** A project registers its own formatter (a function, optionally
-bundling options) under a class name, and names the stage it belongs to
-(number by default). It counts toward that stage's at-most-one rule. A project
-name may not shadow a shipped one.
+bundling options) in `_weft.yml` (9.1.2): the class name, the function, and
+the stage it belongs to (number by default). It counts toward that stage's
+at-most-one rule. A project name may not shadow a shipped one.
 
-**1.4.9** A unit is printed only for a dictionary quantity (§4.4). No
-formatter supplies one.
+```yaml
+formatters:
+  .compact:
+    function: myproject::fmt_compact
+    stage: number
+```
+
+**1.4.9** A value that is a `units` object prints with its unit (4.4.8). No
+formatter supplies a unit of its own.
 
 **1.4.10** Formatter output is markdown, as stock knitr's inline output is.
 Text that comes from data is not escaped.
@@ -485,8 +498,7 @@ book chapter cannot refer to another chapter's id.
 **1.7.11** An id defined inside an arm can be referred to only from inside
 the same arm (1.5.16).
 
-**1.7.12** An id is also the construct's identity for the gate and the ledger
-(§6.1, §7.1).
+**1.7.12** An id is also the construct's key in the ledger (7.1.4).
 
 ### 1.8 Marker spans
 
@@ -546,8 +558,9 @@ Samples were filtered through 0.45 µm membranes and stored at 4 °C.
 :::
 ```
 
-**1.8.10** A `.weft-literal` without a `why` is a construct error. Each marked
-span and block is a baseline item (§6.5).
+**1.8.10** A `.weft-literal` without a `why` is a construct error. A marked
+span or block is not a finding: its `why` is its record, in the source, and
+nothing else lists it.
 
 **1.8.11** The `why` is removed from the output. The class is left on the span
 or div as an ordinary Pandoc class.
@@ -900,7 +913,8 @@ was served from freeze: how many checks did not run, and when they last did.
 For a document whose stamp records no failures, this is a report and fails
 nothing.
 
-**2.9.3** `verify()` fails on a document served from freeze (§8; tier 1).
+**2.9.3** `verify()` fails on a document it verifies that was served from
+freeze (8.1.1, 8.2.1; tier 1).
 
 **2.9.4** The stamp records the failures the document's render collected. The
 `post-render` script fails the render while any document served from freeze
@@ -921,8 +935,8 @@ inside math (5.2.6).
 **2.10.2** The scanner is the single source of what the constructs are and
 where: at knit time over each prose block, and statically over the source
 file, its captions in chunk options and the literal strings passed to
-`weft_str()`. The lints, the gate and the end-of-document check all take
-construct identity and position from it.
+`weft_str()`. The lints, the gate, the ledger, `arms()` and the
+end-of-document check all take from it what the constructs are and where.
 
 **2.10.3** The static lints read Pandoc's tree only for the prose between
 constructs. The source is parsed with `commonmark_x+sourcepos` by the Pandoc
@@ -1039,6 +1053,9 @@ function carries the record forward.
 **3.4.3** `glue_vec()`, the collapse engine behind `.and`, `.or`, `.pairs` and
 the list formatters, is exported.
 
+**3.4.4** A formatter function given a `units` value prints its unit as the
+class does (4.4.8).
+
 ### 3.5 Phrase functions
 
 **3.5.1** Wording that is fixed by arithmetic is a function called in a value.
@@ -1079,6 +1096,36 @@ option reaches: `ggplot2::labs()`, a `gt` footnote or column label,
 **3.6.3** A string given to `weft_str()` is prose wherever it is called from.
 During a knit, a failed check in it is collected as one in a paragraph is
 (2.4.1). Outside a knit it stops at once.
+
+### 3.7 `arms()` and `rehearse()`
+
+```r
+arms("daily.qmd")
+rehearse("daily.qmd", cases = list(
+  usual   = list(data = "tests/usual.csv"),
+  empty   = list(data = "tests/no-rows.csv"),
+  missing = list(data = "tests/all-na.csv")
+))
+```
+
+**3.7.1** `arms(file)` lists every governed span in a document: its key, its
+expression, its file and line, and the text of each arm. A span nested in an
+arm is listed under that arm. It takes the spans from the scanner (2.10.2),
+in prose, captions, front-matter fields and literal `weft_str()` strings, and
+runs no R.
+
+**3.7.2** `rehearse(file, cases = )` renders the document once for each named
+case. A case is a list of `params`. Each render goes to a temporary
+directory, and writes nothing to the project: no output, no ledger, no
+condition log, no freeze entry.
+
+**3.7.3** `rehearse()` reports, case by case, the failures the render
+collected (as 2.6.2 lists them) and the arm each governed span chose. It then
+lists the arms that no case reached, and the spans that no case evaluated. A
+case that fails is reported, and the next case runs.
+
+**3.7.4** `rehearse()` changes nothing but `params`. A document that reads
+its data some other way renders the same data in every case (§15).
 
 ---
 
@@ -1130,7 +1177,7 @@ salinity_res:
 | `type` | `value` is | Read as |
 |---|---|---|
 | `number` | a number | a number |
-| `quantity` | a number, with a `unit` | a number that prints with its unit (§4.4) |
+| `quantity` | a number, with a `unit` | a `units` object (§4.4) |
 | `year` | a four-digit year | an integer; never given a thousands mark |
 | `date` | an ISO date | a `Date` |
 | `string` | text | a string |
@@ -1152,15 +1199,45 @@ chosen. Anything computable belongs in the pipeline.
 **4.3.2** `dict_local$x` with no local `x` is an error. `dict$x` where the
 chapter defines a local `x` is an ambiguity error.
 
-**4.3.3** A local entry requires a `why:` field, and each one is a baseline
-item (§6.5).
+**4.3.3** A local entry requires a `why:` field. The `why` is its record, in
+the source, and nothing else lists it.
 
 **4.3.4** A chapter's local entries are written in its front matter, under
 `weft:` / `dict_local:`, in the form of §4.2 plus the `why`.
 
 ### 4.4 Quantities
 
-**4.4.1** A `type: quantity` entry prints with its `unit`.
+```r
+x <- dict$core_len            # 0.5 m
+y <- dict$reach_len           # 2 m
+x * 100                       # 50 m
+x / y                         # 0.25, with no unit
+x * y                         # 1 m²
+x + dict$sample_mass          # error: cannot convert kg into m
+claim(dict$salinity_res, . < u(0.05, PSU))
+```
+
+**4.4.1** A `type: quantity` entry is read as a `units` object, made with
+the `units` package from its `value` and its `unit`. All arithmetic on it is
+that package's: a unit survives addition and scaling, combines under
+multiplication and division, cancels in a ratio, and converts where it can.
+Adding two units that do not convert is an error.
+
+**4.4.5** Comparing or adding a quantity and a bare number is an error. A
+check states its unit: `claim(x, . < u(0.45, ug))`.
+
+**4.4.6** weft exports `u(value, unit)`, a short wrapper for
+`units::set_units()`: `u(35, m)`.
+
+**4.4.7** When it reads the dictionary, weft registers every unit symbol the
+units database does not know, with `units::install_unit()`. `PSU`, `NTU` and
+`sites` are examples.
+
+**4.4.8** Any `units` value, from the dictionary or from the pipeline,
+prints with its unit when it has a weft formatter. The number stage formats
+the number. The unit's symbol follows after a no-break space, with exponents
+as superscripts: "1.2 m²". A value with no unit left, such as a ratio,
+prints the number alone.
 
 **4.4.2** The unit follows the digits. It is printed when the value prints as
 digits, and not when a wording class has turned it into a word ("three", not
@@ -1173,6 +1250,16 @@ the unit's name, which the author writes.
 **4.4.4** `#` in an arm never carries the unit, and the printed record
 (1.4.11) does not hold it. A quantity that governs a span is written with its
 unit's name in the arms: `[# metre | # metres]{n="dict$core_len"}`.
+
+**4.4.9** A quantity that governs a span contributes its number.
+
+**4.4.10** A bare value with no attribute block prints as stock knitr prints
+it (1.3.1): the number, without the unit.
+
+**4.4.11** `units` is a dependency of weft (`Imports`), so `u()` is always
+available. Its system requirement is the udunits-2 library. The CRAN
+binaries for macOS and Windows carry it; on Linux it is one system package,
+which every weft installation there needs.
 
 ### 4.5 Decision pointers
 
@@ -1230,14 +1317,14 @@ spellings.
 ### 5.1 General
 
 **5.1.1** Each lint ships as a function returning a structured result, and as
-an entry in the gate (§6.4) or in `verify()` (§8).
+an entry in the gate (§6) or in `verify()` (§8).
 
 **5.1.2** Every lint and check declares a tier.
 
 | Tier | Mechanism | Behaviour |
 |---|---|---|
 | 1 | hard rule, decidable from the source or from one evaluation | fails: the commit, the render or `verify()`, as stated |
-| 2 | heuristic trigger on newly added material | listed in the integrity report (§6.6); blocks nothing |
+| 2 | heuristic trigger on newly added material | listed by `changes()` and `verify(since = )` (7.3.5, 8.2.2); blocks nothing |
 | 3 | human read | a ranked worklist; never adjudicated |
 
 **5.1.3** The lints read the prose of each source file, the captions written
@@ -1255,7 +1342,9 @@ Pandoc's tree (2.10.3). What a lint skips is decided by node type: code, math,
 link target, raw block. There are two exceptions. A citation bracket is
 recognised by pattern (2.10.4). The numeral rule reads math (5.2.6).
 
-**5.1.5** Tier 2 scopes to newly added material, not to the corpus.
+**5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
+added material is the lines git's diff shows as added since the comparison
+point (7.3.2).
 
 ### 5.2 Numerals — tier 1
 
@@ -1268,8 +1357,11 @@ first letter-or-digit is a digit is a numeral, whatever follows it: "12",
 letter-or-digit is a letter is a name, whatever digits it contains: "CO2",
 "PM2.5".
 
-**5.2.3** The numerals a document holds when the lint is adopted are baseline
-items (§6.5). The rule fails on a numeral the baseline does not list.
+**5.2.3** The rule is judged against `HEAD` (6.2.2): a commit fails when it
+adds a typed numeral. The numerals a document held when weft was adopted are
+tolerated because they are in `HEAD`, and nothing lists them. `verify()`
+reports how many remain (8.1.2), and fails on any once the rule is made
+strict (8.1.3).
 
 **5.2.4** Two exemptions are configurable (§9.1). A numeral that follows a
 label word is exempt. The label words are the author's, set in `_weft.yml` or
@@ -1411,9 +1503,10 @@ a count.
 
 ### 5.6 Value expressions
 
-**5.6.1** A value whose whole expression is a literal (`` `r 10` ``) is
-allowed. Each one is a baseline item (§6.5), so a new one fails the commit
-until the baseline lists it (tier 1).
+**5.6.1** A **literal value** is a value whose expression is made only of
+constants and operators: `` `r 10` ``, `` `r 2 * 5` ``. It renders. A commit
+that adds one fails (6.2.2, tier 1). A number that cannot be computed is
+written as a `.weft-literal` with its `why` (1.8.9).
 
 **5.6.2** A numeric constant inside a computation (`x * 100`) is listed
 (tier 2).
@@ -1469,169 +1562,111 @@ letter. A project can configure the list to fail the render.
 
 ---
 
-## 6. Gate, baseline and report
+## 6. The commit gate
 
-### 6.1 Identities
+### 6.1 The hook
 
-**6.1.1** The gate compares identities, never text.
+**6.1.1** The gate is a `commit-msg` hook, installed by `use_hooks()`.
 
-| Node | Identity |
-|---|---|
-| a cross-reference anchor | the anchor |
-| a section | its explicit `{#sec-…}` anchor |
-| a chunk | its label |
-| a construct with an `#id` | the id |
-| a value without one | its parsed expression and its formatter classes |
-| a governed span without one | its key and the parsed value of that key |
-| a `cite` span without one | its keys and its bracket text |
+**6.1.2** It compares each staged file that weft reads with its version in
+`HEAD`. A new file has an empty `HEAD` version, and a deleted file an empty
+staged one. The files weft reads are the documents and the project files the
+lints read (5.4.4, §5.8).
 
-**6.1.2** Arm text is not part of a governed span's identity. The text of a
-`cite` span is: it is the quoted number, so `[10]` changed to `[12]` is a
-removal and an addition. Neither is the order or the
-quoting of an attribute block.
+**6.1.3** It reads the staged version from the index (`git show :<file>`),
+not the worktree. It reads the commit message's trailers with
+`git interpret-trailers --parse`.
 
-**6.1.3** The ledger uses the same identities (§7.1).
+**6.1.4** It runs static checks only. It does not knit, and it does not use
+the network.
 
-### 6.2 Removals — tier 1
-
-**6.2.1** A removal is one of:
-
-- an anchored section, a labelled chunk or a referenced anchor that no longer
-  exists
-- a construct identity whose count falls in a file and does not rise by as
-  much elsewhere in the range of commits being compared
-
-**6.2.2** An identity removed and another added in the same paragraph is an
-edit, not a removal.
-
-**6.2.4** "The same paragraph" is decided between the two versions of a file
-like this. Within each anchored section the two sequences of paragraphs are
-aligned, with the paragraphs whose words are unchanged fixing the alignment.
-Between two fixed points, an old paragraph and a new one are the same
-paragraph when they share at least half of their distinct words. Paragraphs
-left over are then compared across sections on the same test, with a higher
-threshold, so that a moved or re-anchored paragraph is still recognised.
-Anything still unpaired has no counterpart: an identity that was in it is
-removed, or added.
-
-**6.2.5** Two paragraphs with the same words are still compared construct by
-construct. Re-wrapping the lines of a paragraph changes nothing; a paragraph
-whose words survive and whose constructs do not is a removal.
-
-**6.2.6** A caption, a list item, a table row and a footnote are each a
-paragraph for this purpose.
-
-**6.2.3** Every removal must be acknowledged (§6.3). Nothing else is declared:
-additions, edits, moves and renames are reported (§6.6).
-
-### 6.3 Acknowledgements
-
-**6.3.1** Acknowledgements are entries in an authored, append-only file,
-`weft/removals.yml`. An entry gives the file, the identity and a note.
-
-**6.3.2** A removal passes when the commit, or the range, also adds its entry.
-There is no commit-message trailer.
-
-**6.3.3** A change to an existing entry, or the deletion of one, fails the
-gate (tier 1).
-
-### 6.4 The hook
-
-**6.4.1** The gate is a `pre-commit` hook, installed by `use_hooks()`.
-
-**6.4.2** It runs the tier-1 static checks only: construct errors, numerals
-and literals against the baseline, removals against the acknowledgements,
-marker spans and citations, cross-references, hygiene and figure presence. It
-does not knit, and it does not use the network.
-
-**6.4.3** It reads the index (`git show :<file>`), not the worktree.
-
-**6.4.4** `use_hooks()` records the paths of R and of Pandoc, and the hook
+**6.1.5** `use_hooks()` records the paths of R and of Pandoc, and the hook
 uses those. It calls the Pandoc binary itself, not `quarto pandoc`.
 
-**6.4.7** The hook reads the staged files that changed, and for the removal
-check their versions in `HEAD`. What it needs from the rest of the book (the
-anchors and the reference labels) comes from a cache of each file's scan,
-keyed on the file's git blob hash and kept under `.git/`.
+**6.1.6** Each file's scan is cached under `.git/`, keyed on the file's git
+blob hash. The `HEAD` version of a file, and what the hook needs from the
+files not staged (the anchors and reference labels of 5.7, the citation keys
+of 5.4), come from that cache when they are in it.
 
-**6.4.8** The hook prints how long it took.
+**6.1.7** The hook prints one report, listing every reason the commit failed,
+each with its file and line. It prints how long it took.
 
-**6.4.5** One executable prints one report. Where the gate can tell that
-removing an anchor strands references, it lists them.
+**6.1.8** `--no-verify` skips the hook. Draft mode does not affect it
+(9.4.3).
+
+### 6.2 What stops a commit
+
+**6.2.1** A commit fails on three things (tier 1):
+
+1. a construct error (§5.3) in a staged file, whenever it is present
+2. a finding the commit adds (6.2.2)
+3. constructs removed without saying so (§6.3)
+
+**6.2.2** Every other tier-1 static rule is judged against `HEAD`: typed
+numerals (5.2), literal values (5.6.1), marker spans and citations (5.4),
+cross-references (5.7), hygiene (5.8), and figures and tables (5.9). The
+commit fails when the staged files hold more instances of a finding than
+their `HEAD` versions did.
+
+**6.2.3** Instances are counted by rule and by the finding's text (the
+numeral, the expression, the key, the anchor), summed over all the files in
+the commit. Moving a paragraph from one file to another adds nothing.
+
+**6.2.4** The rules that read across files (5.4.1, 5.4.3, 5.7.1) count over
+the whole project, with the files not staged read from the cache (6.1.6).
+Removing an anchor that another chapter cites adds a finding in that chapter.
+
+**6.2.5** What a document already held when weft was adopted is tolerated,
+because it is in `HEAD`. Nothing lists it. `verify()` reports how many
+remain (8.1.2).
+
+**6.2.6** One limit is accepted. A finding removed and the same text added
+elsewhere in one commit nets to zero.
+
+**6.2.7** The hook judges no tier-2 rule (5.1.2).
+
+### 6.3 Constructs removed
+
+**6.3.1** The hook counts three things in every staged file and in its
+`HEAD` version: inline R values, with or without an attribute block; weft
+spans (1.1.5); and `claim()` calls anywhere in the file, chunk code
+included. A value whose expression holds a `claim()` counts once as a value
+and once as a call.
+
+**6.3.2** When the total over the commit is lower than the total in `HEAD`
+by N, the commit message must carry the trailer `Weft-Removed: N`. Without
+it, or with a different number, the commit fails.
+
+**6.3.3** There is one total. Turning a value into a span, renaming a
+variable in forty expressions, or changing a bound changes no count, and
+costs nothing. A changed expression is not a removal.
+
+**6.3.4** The failure lists what is gone, each with its text and its line in
+`HEAD`, and prints the exact trailer line to add. What is gone is every
+construct whose text occurs fewer times in the commit than in `HEAD`, so the
+list is longer than N when the commit also adds constructs.
 
 ```
-pre-commit: removal not acknowledged
+commit-msg: 3 weft constructs removed, and the message does not say so
 
-  14-percentile-bands.qmd  #sec-prov  removed
+  14-percentile-bands.qmd, as in HEAD
+      412  `r band_cut$lower`
+      413  `r band_cut$upper`
+      431  claim(shift$n_down, . >= 10)
 
-  2 values no longer appear anywhere in this commit
-      `r band_cut$lower`
-      `r band_cut$upper`
+  If the removal is intended, add this line at the end of the commit
+  message, after a blank line:
 
-  removing anchor `tbl-prov-bands` strands 3 references
-      15-revised-rating.qmd:88   @tbl-prov-bands
-      17-management-arms.qmd:204 @tbl-prov-bands
-      17-management-arms.qmd:251 @tbl-prov-bands
+      Weft-Removed: 3
+
+commit-msg: 0.8 s
 ```
 
-**6.4.6** `--no-verify` bypasses the hook.
+**6.3.5** A `Weft-Removed` trailer on a commit that removes nothing is
+ignored.
 
-### 6.5 The baseline
-
-**6.5.1** The baseline is a committed file, `weft/baseline.tsv`, that lists
-every tolerated item: its kind, its file, its source text, and how many times
-it occurs there.
-
-| Kind | Item |
-|---|---|
-| numeral | a bare numeral in prose at adoption (5.2.3) |
-| literal value | a value whose expression is a literal (5.6.1) |
-| marked literal | a `.weft-literal` span or block (1.8.10) |
-| local entry | a `dict_local` entry (4.3.3) |
-| condition | a known condition (7.4.3) |
-
-**6.5.2** An item that is not in the baseline fails until the same commit adds
-it (tier 1). Condition items are checked by `verify()`; the rest by the hook.
-
-**6.5.3** A swap is caught: removing one literal and adding another adds an
-item the baseline does not hold. The exception is a swap between two items
-with the same text in the same file.
-
-**6.5.4** Items are sorted, one per line.
-
-**6.5.5** An item whose text has gone from its file, or whose count has
-fallen, is **stale**. The hook passes with stale items and says how many there
-are; it never writes to the baseline. `baseline_prune()` removes them.
-`verify()` fails while any remain (tier 1), because a stale item would let the
-same text come back unlisted.
-
-### 6.6 The integrity report
-
-**6.6.1** `verify(range = )` compares two commits and writes the integrity
-report. It lists:
-
-- removals, each with its acknowledgement
-- additions to the baseline, by kind
-- edited constructs (6.2.2), each with its expression before and after
-- constructs whose expression changed under an unchanged `#id`
-- checks loosened or removed, each with its before and after
-- guards made optional (a one-arm `if` that gained an empty arm)
-- computed values replaced by literals
-- new conditions (7.4.4)
-- ledger must-reads and their acceptances (7.3.3)
-- tier-2 findings on the added material
-
-**6.6.2** A check is compared across versions by pairing constructs: by `#id`
-where there is one, otherwise as the two sides of an edit (6.2.2). The
-`claim()` calls are parsed out of each expression and the conditions out of
-each guard.
-
-**6.6.3** The same call checks a pull request.
-
-### 6.7 CI
-
-**6.7.1** `use_ci()` writes a workflow that runs `verify(range = )` on each
-pull request. GitHub Actions is the default.
+**6.3.6** Two limits are accepted. A removal and an unrelated addition in one
+commit net out. The trailer is lost when commits are squashed.
 
 ---
 
@@ -1640,28 +1675,48 @@ pull request. GitHub Actions is the default.
 ### 7.1 The ledger
 
 **7.1.1** The `text` hook records every value, governed span and `cite` span
-as it renders: identity, expression, printed text with its relation, raw
-value, file, section, and for a governed span the arm chosen.
+as it renders: its key (7.1.4), its expression, its printed text with its
+relation, its raw value, its file and section, and for a governed span the
+arm chosen.
 
-**7.1.2** There is one JSON-lines file per source file, under
-`generated/ledger/`. The ledger is committed.
+**7.1.2** Every inline R value is recorded, with or without an attribute
+block. A bare value is not a construct (1.1.8), but it prints in the
+document. It has no printed record (1.4.11), so its entry holds the text
+knitr printed.
 
-**7.1.3** A line is keyed on the construct's `#id`, or on its section anchor,
-its identity (§6.1) and its occurrence index within the section. Line numbers
-are not stored.
+**7.1.3** The ledger is one JSON-lines file per source file and output, at
+`generated/ledger/<source file>/<output name>.jsonl`. The output name is the
+output file's name without its extension. A document rendered with different
+`params` to different outputs keeps a ledger for each, and a render that
+overwrites an output overwrites its ledger. The ledger is committed.
 
-**7.1.5** Lines are sorted by key, one construct per line, so a merge conflict
-is local to the constructs both sides changed. The ledger is output: a
-conflict is resolved by rendering the chapter again, never by hand.
+**7.1.4** An entry is keyed on its `#id` where it has one. Otherwise it is
+keyed on four things: the anchor of its section; its kind (a value, an `n`,
+`if` or `sign` span, or a `cite` span); its expression; and its occurrence
+index among the entries in that section with the same kind and expression.
+The expression of a value is its inline R, parsed, so spacing and line
+breaks do not count. That of a governed span is the value of its key,
+parsed. That of a `cite` span is its keys and its bracket text. Formatter
+classes and arm text are not part of the key. Line numbers are not stored.
 
-**7.1.6** Inserting a construct above another with the same identity in the
-same section shifts the occurrence index, and each later one is then compared
-with its predecessor's entry. Where the printed text differs, that shows as a
-change to review. It cannot hide a change. An `#id` removes it.
+**7.1.5** Lines are sorted by key, one entry per line, so a merge conflict is
+local to the entries both sides changed. The ledger is output: a conflict is
+resolved by rendering the chapter again, never by hand.
 
-**7.1.4** A ledger entry has **changed** when its printed text or its chosen
-arm differs. Raw values are stored to a fixed number of significant figures,
-and are used only to rank changes.
+**7.1.6** Inserting a construct above another with the same kind and
+expression in the same section shifts the occurrence index, and each later
+one is then compared with its predecessor's entry. Where the printed text
+differs, that shows as a change. It cannot hide a change. An `#id` removes
+it.
+
+**7.1.7** An entry has **changed** when its printed text or its chosen arm
+differs from the entry with the same key at the comparison point (7.3.2).
+Raw values are stored to a fixed number of significant figures, and are used
+only to rank changes.
+
+**7.1.8** A changed expression is a changed key. The entry under the old key
+is removed, one under the new key is added, and `changes()` lists both
+(7.3.5). A check loosened inside a value's expression shows this way.
 
 ### 7.2 Three states
 
@@ -1676,25 +1731,37 @@ depends on changed.
 34 values not re-rendered since `fit_reband` changed"), and does not pass
 (tier 1).
 
-### 7.3 Review
+### 7.3 `changes()`
 
-**7.3.1** `ledger_review()` shows each change as the sentence before and
-after, ranked.
+**7.3.1** `changes()` compares the ledger and the condition log in the
+working tree with their versions in `HEAD`. `changes(since = "<commit or
+tag>")` compares them with their versions at any commit.
 
-**7.3.2** A change is a **must-read** when it is structural: a sign flip, an
-order-of-magnitude change, crossing zero, crossing 1.0, crossing a dictionary
-threshold, or a governed span choosing a different arm.
+**7.3.2** "Changed" always means: against the committed version at the
+comparison point, which is `HEAD` or the commit given to `since`.
 
-**7.3.3** Acceptances are recorded in an authored file, `weft/accepted.yml`.
-`verify()` fails on a must-read that has not been accepted (tier 1).
+**7.3.3** `changes()` shows each changed entry as its sentence before and
+after.
 
-**7.3.4** Other changes are a ranked worklist (tier 3). A change to a value
-next to a claim word ranks above one that is not.
+**7.3.4** Structural changes come first: a governed span choosing a
+different arm, a sign flip, crossing zero, crossing 1.0, crossing a
+dictionary threshold, and an order-of-magnitude change. The rest follow,
+ranked (tier 3): a change to a value next to a claim word ranks above one
+that is not.
+
+**7.3.5** It also lists the entries added and removed, each with its
+sentence; the new conditions (7.4.4); and the tier-2 findings on material
+added since the comparison point (5.1.5).
+
+**7.3.6** It marks the entries not re-rendered (7.2.1). It renders nothing
+and writes nothing.
+
+**7.3.7** Nothing is accepted. Committing the ledger is the acceptance.
 
 ### 7.4 Conditions
 
-**7.4.1** The condition log is machine-readable and sits beside the ledger. It
-has four sources:
+**7.4.1** The condition log is machine-written and committed. It sits beside
+the ledger, one file for each ledger file. It has four sources:
 
 - chunk conditions, from the `evaluate` hook (2.8.1)
 - conditions raised by values in prose (2.8.2)
@@ -1711,15 +1778,18 @@ not stop a fit: `lme4`'s singular fit, which arrives as a message, and
 configurable. A message is matched only where it is logged: in a chunk or in
 prose, not inside a target (7.4.1).
 
-**7.4.3** Every other condition is either known or new. A known condition is
-a baseline item (§6.5).
+**7.4.3** Every other condition is recorded in the log, one line each, keyed
+on its source, its class and its normalised text (7.4.5). The lines are
+sorted. Nothing is listed by hand as known.
 
-**7.4.4** A new condition fails `verify()` until the baseline lists it
-(tier 1). An ordinary render reports it and carries on.
+**7.4.4** A condition that the log at the comparison point (7.3.2) does not
+hold is **new**. It shows as an added line in the log's diff, and `changes()`
+lists it. An ordinary render reports it and carries on. A new condition
+fails nothing.
 
-**7.4.5** A condition is matched to the baseline by its source (chunk label or
-target name), its class (warning, message or error) and its text after
-normalising. Normalising, in order:
+**7.4.5** A condition in one render is matched to one in another by its
+source (chunk label or target name), its class (warning, message or error)
+and its text after normalising. Normalising, in order:
 
 1. remove ANSI styling
 2. replace hexadecimal addresses and R's temporary paths with a placeholder
@@ -1729,11 +1799,13 @@ normalising. Normalising, in order:
    their ASCII forms
 5. collapse every run of whitespace, including line breaks, to one space
 
-**7.4.6** The baseline keeps the text as first seen beside the normalised
-form, so a reader sees a real message.
+**7.4.6** The log keeps the text as first seen beside the normalised form,
+so a reader sees a real message. A later render carries that text forward
+while the normalised form matches, so a changed number in a message does not
+change its line.
 
 **7.4.7** Two limits are accepted. Messages that differ only in a number
-match, so "Removed 5 rows" and "Removed 5000 rows" are one item. A message
+match, so "Removed 5 rows" and "Removed 5000 rows" are one line. A message
 translated by the session's language, or reworded by a package upgrade, is a
 new condition.
 
@@ -1741,22 +1813,51 @@ new condition.
 
 ## 8. `verify()`
 
-**8.1** `verify()` is the one entry point for everything that needs a render.
-It runs, in order:
+### 8.1 What it runs
 
-1. every static lint, at every tier (§5), and the gate's comparison (§6)
+**8.1.1** `verify()` is the one entry point for everything that needs a
+render. It runs, in order:
+
+1. every static lint, at every tier (§5), and the comparison of §6 (8.2.2)
 2. the `decision:` pointers (4.5.2)
-3. the render, re-executing every document it verifies (8.3)
+3. the render, re-executing every document it verifies (§8.3)
 4. the knit-time results: failed checks, unevaluated constructs, documents
-   served from freeze, conditions (§2.6, 2.5.2, 2.9.3, §7.4)
-5. the ledger: entries not re-rendered, and must-reads not accepted (§7)
-6. the integrity report, when a range is given (§6.6)
+   served from freeze, and conditions on the severity list (§2.6, 2.5.2,
+   2.9.3, 7.4.2)
+5. the ledger: entries not re-rendered (7.2.3)
 
-**8.2** `verify()` takes `files =` to verify some documents, and `range =` to
-compare two commits. With no range it compares the working tree with `HEAD`,
-as the hook would if everything were staged, and writes no integrity report.
+**8.1.2** It reports the total of every tolerated finding (6.2.5), rule by
+rule, without failing on them: "412 typed numerals remain".
 
-**8.3** The render step re-executes each document once:
+**8.1.3** A per-rule setting in `_weft.yml` makes a rule strict (9.1.2).
+Then any instance of that rule's finding fails `verify()`, whether or not
+`HEAD` held it. An author turns it on when adoption of that rule is finished.
+
+**8.1.4** Each part can be switched off in the configuration. `verify()`
+reports which parts were skipped, and why.
+
+**8.1.5** `verify()` refuses to run in draft mode (§9.4).
+
+**8.1.6** Rendering needs no wrapper: `quarto render`, an editor's Render
+button and `rmarkdown::render()` all run the hooks.
+
+### 8.2 Arguments
+
+**8.2.1** `verify(files = )` renders and judges only the named files.
+Documents it was not given, served from freeze or not, are not its concern.
+The rules that read across files (6.2.4) still read the whole project.
+
+**8.2.2** `verify(since = "<commit>")` runs the hook's comparison (§6)
+between that commit and the working tree. It fails on findings added
+(6.2.2). It reports constructs removed (§6.3), and does not fail on them,
+because trailers may not survive. With no `since`, it compares with `HEAD`.
+
+**8.2.3** `verify(static = TRUE)` runs only what needs no render: steps 1 and
+2 of 8.1.1.
+
+### 8.3 The render
+
+**8.3.1** Under Quarto, the render step re-executes each document once:
 
 1. if a backup from an earlier run exists, restore it first
 2. copy the documents' entries in `_freeze` to a backup, and remove the
@@ -1764,16 +1865,17 @@ as the hook would if everything were staged, and writes no integrity report.
 3. run one ordinary project render
 4. on success, delete the backup; on failure, restore it
 
-**8.4** The freezer is left holding the verified results, so the next ordinary
-render serves what was checked.
+**8.3.2** The freezer is left holding the verified results, so the next
+ordinary render serves what was checked.
 
-**8.5** `verify()` refuses to run in draft mode (§9.4).
+**8.3.3** Under rmarkdown, `verify()` renders each `.Rmd` with
+`rmarkdown::render()`. There is no freeze step.
 
-**8.6** Each part can be switched off in the configuration. `verify()` reports
-which parts were skipped, and why.
+### 8.4 CI
 
-**8.7** Rendering needs no wrapper: `quarto render`, an editor's Render button
-and `rmarkdown::render()` all run the hooks.
+**8.4.1** `use_ci()` writes a workflow that runs
+`verify(static = TRUE, since = <the merge base>)` on a pull request. GitHub
+Actions is the default.
 
 ---
 
@@ -1800,12 +1902,14 @@ rule 8), and its message names `_weft.yml`.
 | `bibliography`, for files the front matter and the project do not name | 5.4.4 |
 | the date format | `.date` |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
+| project formatters: class name, function, stage | 1.4.8 |
 | the severity list | 7.4.2 |
+| the rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
 | the claim-word lexicon | 5.5.4 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
 | the `decision:` resolver | 4.5.1 |
-| parts switched off (project only where `_weft.yml` exists) | 8.6, 9.1.4 |
+| parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
 | the package version | 9.5.4 |
 
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
@@ -1872,8 +1976,8 @@ was called. Each says what it will write.
 | `use_weft()` | everything below, with a summary first |
 | `use_setup()` | the `.Rprofile` line (Quarto project) or the front-matter line (single document); `engine: knitr` in the front matter of the document, or of each `.qmd` a Quarto project renders (9.2.8); `_weft.yml`; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
-| `use_hooks()` | the `pre-commit` shim, with the paths of R and Pandoc; `weft/baseline.tsv`; `weft/removals.yml`; `weft/accepted.yml` |
-| `use_ci()` | the CI workflow (6.7.1) |
+| `use_hooks()` | the `commit-msg` shim, with the paths of R and Pandoc (6.1.5) |
+| `use_ci()` | the CI workflow (8.4.1) |
 | `use_dictionary()` | a dictionary skeleton and its schema |
 | `use_agent_docs()` | agent-facing conventions and the Claude skill |
 
@@ -1882,9 +1986,14 @@ the failure files are written only in a project that has been set up with
 `use_weft()`.
 
 **9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
-the dictionary schema, the default claim-word lexicon and severity list, and
-the Claude skill (never loosen a check to clear a failure; acknowledge
-removals in the file; the `dict_local` rules).
+the CI workflow template, the dictionary schema, the default claim-word
+lexicon and severity list, and the Claude skill. The skill says:
+
+- a failed claim is a finding to report to the author, not an error to clear
+- do not change or remove a check to make a render pass unless asked
+- when a commit removes constructs on purpose, add the `Weft-Removed` trailer
+  with the count the hook gives
+- the `dict_local` rules (§4.3)
 
 ### 9.4 Draft mode
 
@@ -1898,8 +2007,8 @@ been set up they are written to a JSON file beside the document.
 **9.4.3** Draft mode covers the render only. Knit-time failures, and
 construct errors met during a render, are reported and marked (2.6.8), not
 fatal. The `weft-check` filter reads the same setting, and reports instead of
-exiting. The `pre-commit` hook is not affected by draft mode, and `verify()`
-refuses to run in it (8.5).
+exiting. The commit hook is not affected by draft mode, and `verify()`
+refuses to run in it (8.1.5).
 
 ### 9.5 Adoption helpers
 
@@ -1930,6 +2039,26 @@ which go in the list.
 
 ## 10. The problem
 
+### Two uses
+
+The package is built for two kinds of document.
+
+**A dynamic report.** A document rendered on data that is not known in
+advance, such as an email rendered daily from new data. The author wants what
+it says to fit their mental model of the data, as a programmer declares types
+and writes a branch for each case. Each case the author expects gets its own
+wording (§1.5), each assumption is a check (§3.1), and a case nobody expected
+fails the render instead of printing a plausible sentence. `arms()` and
+`rehearse()` (§3.7) show what the document can say before the data arrives.
+This use needs nothing from git.
+
+**A long report or a book, through many iterations.** A change in one place,
+such as a method changed early on, must flow through to the rest, or the
+author is warned where it does not. Computed values carry the change. The
+ledger and `changes()` (§7) list the sentences that now say something
+different. The commit gate (§6) stops the accidents that break the link
+between a value and its prose.
+
 Ten failure modes in computational manuscripts, grouped by where the break
 happens. The grouping matters: the first group corrupts the value before prose
 is involved, and no amount of prose discipline detects it.
@@ -1945,7 +2074,7 @@ is involved, and no amount of prose discipline detects it.
 
 | # | Mode | Met by |
 |---|---|---|
-| B1 | **Silent deletion.** A `sed` or heredoc removes a paragraph, a section, or a value. What remains is valid markdown, renders clean, looks fine. | §6.2 |
+| B1 | **Silent deletion.** A `sed` or heredoc removes a paragraph, a section, or a value. What remains is valid markdown, renders clean, looks fine. | §6.3 |
 | B2 | **Reversion to literal.** `` `r pcf(x)` `` becomes the literal `12`. Renders perfectly, forever, silently decoupled from the pipeline. | §5.2, §5.6 |
 | B3 | **Staleness.** What was rendered predates what it was rendered from, and everything downstream reports PASS. | §2.9, §7.2 |
 
@@ -1970,9 +2099,16 @@ incidents were **signal-existed-but-unread**: knitr wrote the warning into the
 document, the boundary-fit message was emitted, and both sat in plain sight
 for weeks.
 
-**Surfacing beats coverage.** Every check must fail loudly at a checkpoint
-someone passes through, or not exist. A printed count is not a checkpoint; a
-baseline that a commit must change in order to add to it is.
+**Surfacing beats coverage.** A signal nobody reads is no check. A check that
+must stop something fails at a checkpoint someone passes through, and the
+checkpoint is the commit itself and its message: the hook judges what the
+commit adds and what it removes, and the message says what was removed on
+purpose (§6). What need not stop anything is put where the author already
+looks: the diff of the ledger and of the condition log, and the list
+`changes()` prints (§7). A separate report on its own schedule is not that
+place. FindBugs's dashboard went unused, and the same Infer analysis was
+acted on almost never when run nightly and over 70% of the time when shown at
+code review (`dev/research-checks.md` §3).
 
 ## 11. Layer labels
 
@@ -1981,15 +2117,15 @@ This document does not use the labels anywhere else.
 
 | Label | What it is | Rules |
 |---|---|---|
-| L1 | structural diff: removals are acknowledged | §6.1 to §6.3 |
+| L1 | structural diff: the commit says how many constructs it removes | §6.3 |
 | L2 | claim tokens: numerals and claim words in prose | §5.2, §5.5, §5.6 |
 | L3 | checks: `claim()` and the one-arm `if` | §3.1, 1.5.3 to 1.5.5 |
 | L4 | cross-references and citations | §5.4, §5.7 |
-| L5 | the value ledger | §7.1 to §7.3 |
+| L5 | the value ledger, and `changes()` | §7.1 to §7.3 |
 | L6 | surfacing: conditions, unevaluated constructs, frozen chapters | §2.5, §2.8, §2.9, §7.4 |
 | L7 | prose style | not a package layer: Vale (§16); `dict_vale()` (4.7.2) |
 | L8 | hygiene | §5.8 |
-| L9 | trailer and register validation | not a package layer: no trailer (6.3.2), no register (§16) |
+| L9 | trailer and register validation | one trailer, `Weft-Removed` (6.3.2); no register (§16) |
 | L10 | the dictionary | §4, 5.8 rule 6 |
 | L11 | figures and tables | §1.10, §5.9 |
 | L12 | data contracts in the pipeline | not a package layer: §15 |
@@ -1999,10 +2135,10 @@ This document does not use the labels anywhere else.
 **P1 — Every check must have a machine-checkable ground truth.** A mechanism
 that enforces *form* rather than *content* is satisfiable without thought.
 
-**P2 — The machine observes and reports; the author acknowledges what is
-destroyed.** The gate computes what a commit changed and says so. It asks for
-a declaration only where something was removed, because that is the change
-that is invisible afterwards.
+**P2 — The machine observes and reports; the author says what was
+removed.** The gate computes what a commit changed and says so. It asks for a
+word only where constructs were removed, because that is the change that is
+invisible afterwards, and the word is one line in the commit message.
 
 **P3 — Prevention where anticipated, detection everywhere.** A check protects
 a value someone thought to guard; the ledger catches drift in the ones nobody
@@ -2042,6 +2178,13 @@ them, or it flags nearly everything. That sends the lint back to design before
 it is built. The result does not rank layers and does not remove one. One
 corpus is not evidence enough for either, and the package is for more than one
 project.
+
+**P13 — Stop accidents; let purposeful changes through.** In the author's
+words: "What we want to stop is accidental changes, not make purposeful
+changes needlessly complicated." Authors increasingly work through coding
+agents, where every extra step is an extra paid tool call. A purposeful change
+costs at most one line in the commit message. What the harness wants seen, it
+shows in a diff the author already reads.
 
 ## 13. Why the rules are as they are
 
@@ -2097,8 +2240,7 @@ use any name. A name close to a weft name may be one of theirs, so it cannot
 be an error. The lint lists it, and the project's list of expected names
 keeps the report short.
 
-**1.2.8** An id is a name for weft's own use: agreement, the gate and the
-ledger. Emitting it would put every one into the document's anchor namespace,
+**1.2.8** An id is a name for weft's own use: agreement and the ledger. Emitting it would put every one into the document's anchor namespace,
 where the cross-reference rules and Quarto's reserved prefixes apply.
 
 **1.2.10** Editors and phones capitalise the first letter after a brace or at
@@ -2127,8 +2269,14 @@ so their order cannot drift apart.
 abbreviation of `sign`. Without a number class, `digits="2"` can
 only mean one thing, so it is not made an error.
 
-**1.4.9** A unit belongs to the quantity, not to the way a number is printed.
-Held in one place, it cannot differ between two sentences.
+**1.4.8** The static checks must know a project class, and its stage, without
+running R: a class that is not registered is listed as unknown (5.3.3), and
+the at-most-one rule is a construct error found from the source (1.4.2).
+`_weft.yml` is read without R.
+
+**1.4.9** A unit belongs to the value, not to the way a number is printed.
+Carried by the value, it cannot differ between two sentences, and a
+computation that changes it changes what prints.
 
 **1.4.10** This is what stock knitr does, and a formatter's own output is
 markdown. Escaping would break both.
@@ -2212,8 +2360,8 @@ agreement follows what the reader saw (1.04 printed as "1" takes the
 singular). `#` begins a comment in R, so `"#d"` can never be mistaken for an
 expression.
 
-**1.7.5** (`cite` spans) The text of a `cite` span is part of its identity,
-because it is the quoted number (6.1.2). An id would keep the identity when
+**1.7.5** (`cite` spans) The text of a `cite` span is part of its key in the
+ledger, because it is the quoted number (7.1.4). An id would keep the key when
 the number changed.
 
 **1.8.1, 1.8.5** A marker that cannot fail is decoration (P1). `cite` can
@@ -2231,22 +2379,25 @@ the author typed none, and merging would hide which number came from which
 source. The bare form exists for the in-text case ("Smith (2020) found …"),
 where a second citation after the number would be wrong.
 
-**1.8.9, 1.8.10, 5.6.1** A bare `` `r 10` `` is the deliberate escape hatch:
-nobody types it by accident, and a rule demanding a check would be met with
-`claim(10, TRUE)`. What a literal cannot do is hide. Each one is a baseline
-item, a new one fails the commit until the baseline lists it, and a computed
-value replaced by a literal is reported. Before writing a literal, ask why the
-number cannot be computed: a project constant goes in the dictionary, a count
-of things in the document gets counted, an ordinal gets computed. Methods
-text, legislation and quotations are dense with numbers that are not data
-claims, which is what the block form is for.
+**1.8.9, 1.8.10, 5.6.1** A `` `r 10` `` reads in the source as a computed
+value and is not one. It is also what a computed value turns into when it is
+reverted to its number by hand (B2). So a new one fails the commit, and the
+ones a document held at adoption are counted. The escape that is open is the
+`.weft-literal` mark, which says in the source that the number is typed, and
+why. Its `why` is the record, so nothing else lists it. Before writing a
+literal, ask why the number cannot be computed: a project constant goes in
+the dictionary, a count of things in the document gets counted, an ordinal
+gets computed. Methods text, legislation and quotations are dense with
+numbers that are not data claims, which is what the block form is for.
+"Literal" is defined by constants and operators so that the rule is decided
+from the parsed expression alone.
 
 **1.8.5** `@{key with spaces}` resolves in a bibliography and is still left
 as literal text by Pandoc, so resolving alone does not show that a citation
 will print.
 
 **1.8.11** Pandoc writes an unknown attribute into HTML (`data-why="…"`). The
-reason belongs to the source and the baseline, not to the published page.
+reason belongs to the source, not to the published page.
 
 **1.9.2** Stock knitr evaluates inline R inside a fenced block that is not
 executed, and inside an HTML comment. A document with no attribute blocks must
@@ -2421,6 +2572,23 @@ option.
 **3.2.3** A function for each governor would be a second syntax to keep in
 step with the first. The markup already works in a string.
 
+**3.7** A dynamic report is rendered on data nobody has read first (§10). The
+author writes a branch for each case they expect, and needs to read every
+sentence the document could print, not only the ones today's data chose.
+`arms()` shows them without running anything. `rehearse()` runs the document
+against the cases the author fears, such as no rows, a missing value or a
+negative change, before the data brings them, and the arms no case reached
+are the sentences never yet seen in place. No R or Quarto tool, and no study,
+was found that previews every branch of conditional prose or tests a
+template against such inputs; the nearest practice is UI work, with a story
+for each empty or error state (`dev/research-checks.md` §4). A case is a
+list of `params` because `params` is the one input a render takes from
+outside the document. Rehearsal writes nothing to the project, so a rehearsed
+case never reaches the ledger.
+
+**3.4.4** A unit that printed through the class and not through the function
+would make the two forms of 3.2.1 print different text.
+
 ### Dictionary
 
 **4.1.2** The key is a plain token in the parsed expression, so a static lint
@@ -2431,9 +2599,39 @@ verifies every read without running R (5.8 rule 6).
 **4.3.1, 4.3.2** A paragraph moved to a chapter with no local `sites` errors,
 instead of quietly changing meaning.
 
+**4.4.1** A unit has to survive arithmetic, or it is wrong as soon as a
+quantity is used: `dict$a / dict$b` is a ratio, `dict$depth * 100` is still
+metres, and adding kilograms to metres is a mistake. The `units` package does
+exactly this, and is widely used: 111 CRAN packages depend on it, `sf` among
+them. Writing weft's own unit arithmetic would repeat it, worse.
+
+**4.4.5** A check states its unit, so that if the quantity is later held in
+another unit the check converts, or fails, instead of comparing the wrong
+numbers. `claim(x, . < 0.45)` written for micrograms would pass a value
+later held in milligrams that is a thousand times too large. The error on a
+bare number is therefore intended, not a cost.
+
+**4.4.6** `units::set_units(35, m)` in every check is long enough to be
+skipped. `u()` is the same call, short.
+
+**4.4.7** Domain units such as practical salinity and turbidity units are not
+in the udunits database, and a count noun such as "sites" never is. Without
+registering them, a dictionary that names one could not be read.
+
+**4.4.8** SI style puts a space between a number and its unit symbol. A
+no-break space keeps them on one line. A ratio has no unit to print.
+
 **4.4.2 to 4.4.4** SI style puts a unit symbol with a numeral and a unit name
 with a spelled number. A unit inside `#` would print twice in every arm that
 names it.
+
+**4.4.10** A bare value prints as stock prints it (1.1.8), and stock knitr
+prints a `units` value as its number (§18).
+
+**4.4.11** One code path: `u()` is always there, and any `units` value
+prints with its unit without a check for whether the package is installed. A
+suggested package would make a quantity print differently on a machine that
+lacked it. The cost falls on Linux, where udunits-2 is one system package.
 
 **4.5.1, 4.5.2** The package keeps no register of its own (§16), so the
 pointer goes through a resolver and is tied to no one tracker. The default
@@ -2458,8 +2656,10 @@ the unit, and terminology rules.
 exempt it as a mix of letters and digits. It is a number.
 
 **5.2.3** A rule that fails on every numeral already in a manuscript cannot be
-switched on. Baselined, it stops new ones at once and leaves the old ones as a
-visible, shrinking list.
+switched on. Judged against `HEAD`, it stops new ones at once and leaves the
+old ones in place, counted by `verify()` until the count reaches zero and the
+rule can be made strict. A file listing what `HEAD` already holds would be a
+second copy of `HEAD` for someone to keep (6.2.5).
 
 **5.2.4** A typed "Table 3" goes stale when floats are reordered; a
 cross-reference does not. The words that genuinely need the exemption ("Site
@@ -2489,6 +2689,15 @@ zero and no rule for a value that prints as zero.
 **5.5** Claim words carry a data claim often but not reliably, so they are
 tier 2.
 
+**5.1.5** git's diff already knows what was added, and a check that judges
+only changed material is the one that gets read (Tricorder reports on changed
+lines by default: `dev/research-checks.md` §3). A re-wrapped paragraph shows
+as added, and is listed again; that errs towards more to read.
+
+**5.6.4** The stages are where the printed record is made (1.4.11). A value
+rounded in its own expression still prints, but agreement and the ledger see
+only a raw number.
+
 **5.7** The check is that a reference *resolves*, not that the target still
 says what the citing sentence claims. That is tier 3.
 
@@ -2509,80 +2718,135 @@ own.
 word ("12 sites failed"; "no sites failed"). The fix is `.cap`, with `.count`
 or `.word` for a number.
 
-### Gate, baseline and report
+### Commit gate
 
-**6.1.2** Rewording a sentence leaves its constructs present; a `sed` that
-eats them removes them. Leaving arm text out of the identity is what lets the
-gate tell the two apart.
+**§6** An earlier design charged for every purposeful deletion: an
+entry with a note in an append-only `weft/removals.yml`, a second authored
+file, `weft/accepted.yml`, for the ledger's must-reads, a hand-kept
+`weft/baseline.tsv` with rules for stale entries, and a paragraph matcher to
+decide what was an edit. Each was a step for every purposeful change, and
+through a coding agent each step is a paid tool call (P13). The checks that
+are kept are the ones the research supports: a check that blocks needs almost
+no false alarms and should judge changed material only, a separate report
+goes unread, and one-step acceptance with a diff is the common pattern. No
+mainstream tool asks for a written entry per removal
+(`dev/research-checks.md` §2, §3 and the table of candidate mechanisms).
 
-**5.6.4** The stages are where the printed record is made (1.4.11). A value
-rounded in its own expression still prints, but agreement and the ledger see
-only a raw number.
+**6.1.1** The gate reads the commit message, and the message does not exist
+until after `pre-commit` has run. A `commit-msg` hook reads the staged files
+and the message's trailers both (§18).
 
-**6.2.1** Counting across the range means a paragraph moved to another file is
-not a removal.
+**6.1.3** The worktree is not what is being committed.
 
-**6.2.4** Pairing by position alone called a deleted paragraph with a new one
-written in its place an edit, and called two neighbouring edits removals.
-Asking for shared words fixed both on the test edits (§18). The case left is
-a sentence replaced by another from the same template about a different
-thing; the report shows it as an edit, with both expressions, so it is
-visible but not acknowledged.
+**6.1.4** P6. Tier 2 is left out of the hook because output that prints on
+every commit and blocks nothing is not read: "warnings shown when building
+are often ignored" (Tricorder, `dev/research-checks.md` §3).
 
-**6.2.5** A re-wrap can break a line directly after `` `r `` (5.3.4), or leave
-`# ` at the start of a line inside an arm. Either way the words survive and
-the constructs do not.
+**6.1.5** A git hook started from an editor or a GUI client does not have the
+shell's `PATH`. `quarto pandoc` costs about 0.15 s more per call than the
+binary it wraps.
 
-**6.3.1, 6.3.2** An entry in a file is in the diff, where a reviewer sees it,
-and survives a squash or a rebase. A trailer needs the commit message, which
-does not exist until after `pre-commit`.
+**6.1.6** A book of twenty chapters took about nine seconds to scan in full
+(§18), which is too long to do on every commit. The `HEAD` version of a file
+was usually the staged version at the previous commit, so its scan is
+usually in the cache already.
 
-**6.4.2** P6. Tier 2 is left out of the hook because output that prints on
-every commit and blocks nothing is not read.
+**6.1.8** Correct. See §14.
 
-**6.4.3** The worktree is not what is being committed.
+**6.2.1, 6.2.2** A construct error is never right, so it fails wherever it
+is. Any other finding fails only when the commit adds it. Adopting weft then
+fails no commit on what the document already held, and a new finding is
+stopped in the commit that made it. A check that blocks must almost never be
+wrong (Tricorder asks for "essentially zero" false positives), and judging
+only what the commit changed is how the default analysers keep to that
+(`dev/research-checks.md` §3).
 
-**6.4.4** A git hook started from an editor or a GUI client does not have the
-shell's `PATH`.
+**6.2.3** Counting by text across the commit lets a paragraph move between
+files at no cost, with nothing to pair. An earlier design paired paragraphs
+across versions, and needed a matcher and two thresholds to do it.
 
-**6.4.6** Correct. See §14.
+**6.2.4** An anchor is removed in one file and its references dangle in
+others, which the commit may not touch.
 
-**6.4.4, 6.4.7** `quarto pandoc` costs about 0.15 s more per call than the
-binary it wraps. A book of twenty chapters took about nine seconds to scan in
-full (§18), which is too long to do on every commit.
+**6.2.5** A file that lists what `HEAD` already holds is a second copy of
+`HEAD` for someone to keep. Such files grow, and go stale unless pruning is
+enforced: ESLint and RuboCop each need a separate step to prune theirs, and
+in one study 50.8% of suppressions suppressed nothing
+(`dev/research-checks.md` §2, §3). `HEAD` is never stale.
 
-**6.5** Some costs are legal one at a time and corrosive in bulk. Requiring
-the commit to add the item puts the addition in the diff. Sorted, one per
-line, the file merges cleanly, and moving a paragraph to another file shows as
-one item removed and one added.
+**6.2.6** A typed number moved within a commit is not a new typed number. The
+case the limit lets through, the same text removed in one place and typed
+again in another, is rare, and the second one is still counted by
+`verify()`.
 
-**6.6.1** (edits and ids) An edit is not acknowledged, and an `#id` keeps its
-identity whatever its expression becomes. The report is the only place either
-change shows.
+**6.3.1, 6.3.2** A deletion is the change that leaves nothing to look at
+afterwards (B1). Every removal is allowed; the commit says how many. The
+hook prints the line, so the author or the agent copies one line into a
+message it was writing anyway, and anyone who reviews the commit sees the
+count. Values, spans and checks are what an accident removes and what the
+rest of the harness depends on. Bare inline R is counted because it prints a
+number in the document (7.1.2), and `claim()` in chunk code because a check
+deleted there is as silent as one deleted in prose.
 
-**6.6.1** The pressure runs toward widening a bound rather than rewriting a
-sentence, so every changed check is shown with its before and after.
+**6.3.3** The changes that move constructs between kinds, or rewrite their
+expressions, are never accidents. An accident removes: a `sed` that eats a
+paragraph, a re-wrap that breaks a line directly after `` `r `` (5.3.4), a
+heredoc that overwrites a chapter. Counts per kind or per expression would
+charge for renames and conversions, and a charge paid on every commit is
+paid without reading (Chrome's one-click warning was clicked through 70% of
+the time: `dev/research-checks.md` §3).
 
-**6.5.5** A commit hook cannot change the commit it is checking, so it cannot
-prune. Leaving stale items until `verify()` keeps ordinary commits quiet and
-still closes the gap before anything is merged.
+**6.3.5** A stale trailer, left in a message after the removal was undone,
+harms nothing.
 
-**6.6.3, 6.7.1** A clone does not install the hook, so the checks run again
-where every collaborator's work passes through (§14).
+**6.3.6** The trailer is for the moment of the commit, and for whoever
+reviews an agent's work, who sees it then. After a squash the history no
+longer holds the removal as a separate step either. Over a range,
+`verify(since = )` reports removals instead of judging them (8.2.2).
 
 ### Ledger and conditions
 
-**7.1.4** Raw floating-point values differ between machines. A ledger that
+**7.1.2** The ledger is the record of what the document said, and a bare
+value prints a number in the document as surely as a formatted one.
+
+**7.1.3** A dynamic report is rendered again and again, sometimes to several
+outputs with different `params`. A ledger per output keeps one render from
+overwriting the record of another. One output in two formats shares one
+ledger, because the knit is the same.
+
+**7.1.4** Line numbers change with every edit above a construct, so the key
+uses what such an edit does not touch. An `#id` is the author's own name for
+an occurrence, and survives a change of expression. Formatter classes and arm
+text are left out of the key so that changing them shows as a change to the
+same entry, with its sentence before and after.
+
+**7.1.7** Raw floating-point values differ between machines. A ledger that
 changed whenever they did would be all noise.
 
 **7.1.5, 7.1.6** How often a committed ledger conflicts, and how often the
 occurrence index shifts, can only be learned in use. Both fail towards more
 to read, never less.
 
+**7.1.8** A widened bound is the change most often made to clear a failure.
+No rule can tell it from a corrected one, so it is shown, not stopped (§14).
+
 **7.2.1** With two states, a partial render passes as clean.
 
-**7.3** Both families of ranking are heuristics that narrow a human read.
+**7.3** This is the "re-read these sentences" list of the second use (§10):
+a change in one place flows through, and `changes()` says where the prose
+may no longer fit. It takes over what an earlier design's separate integrity
+report listed. Nothing found in the research builds such a list from value
+dependencies (`dev/research-checks.md` §5).
+
+**7.3.4** Both families of ranking are heuristics that narrow a human read.
 Nothing here verifies English against a number.
+
+**7.3.7** Committing is already a step the author takes, and the ledger's
+diff is reviewed where every other diff is. A second acceptance step, kept in
+a second file, was the cost an earlier design charged for every structural
+change. Accept steps get clicked through: testthat dropped a predecessor
+that "always overwrites", and blind updating is reported for every snapshot
+tool (`dev/research-checks.md` §2).
 
 **7.4.1** A chunk loaded from knitr's cache raises nothing, and a target built
 last week raised its warning last week. Without the replay and the
@@ -2590,22 +2854,53 @@ last week raised its warning last week. Without the replay and the
 `tar_meta()` keeps warnings and errors and drops messages, which is why a fit
 made in a target is checked there (§15).
 
+**7.4.3, 7.4.4** An unread log is the failure of §10. Committed, the log turns
+"a warning appeared" into an added line in a diff the author commits, and an
+entry in `changes()`. A list of known conditions kept by hand held nothing the
+log written by the render does not. A new condition fails nothing because
+most are harmless; the ones that are not belong on the severity list
+(7.4.2), which fails the render.
+
 **7.4.5** Most numbers in a message change from run to run ("Removed 12
 rows"), and the same message wraps differently at another console width.
-Without normalising, a known condition would read as new on every render.
+Without normalising, every condition would read as new on every render.
 
-**7.4.3, 7.4.4** An unread log is the failure of §10. A baseline of known
-conditions turns "a warning appeared" into a diff someone must commit.
+**7.4.6** Carrying the first text forward keeps the log's diff to real
+changes.
 
 ### `verify()` and activation
 
-**8.3** Overriding `freeze` from the command line (`-M freeze:false`, or a
+**8.1.2, 8.1.3** A count nobody sees can only grow. A printed total shows how
+far adoption has gone, and a rule made strict once its count is zero cannot
+slip back. Clang's developers made warnings into errors only after fixing
+every existing instance (Google CACM 2018, `dev/research-checks.md` §3).
+
+**8.1.5** A draft render fails nothing, so it can verify nothing.
+
+**8.2.1** In a frozen project the documents not named are served from
+freeze, so a `verify(files = )` that judged them failed every time.
+
+**8.2.2** A squash, a rebase or a hosting service's merge may drop the
+trailer, so over a range the removals are reported, not judged.
+
+**8.2.3, 8.4.1** A clean clone usually lacks the data to render, and the
+static checks and the comparison with the merge base need only the sources. A
+clone does not install the hook, so the checks run again where every
+collaborator's work passes through (§14).
+
+**8.3.1** Overriding `freeze` from the command line (`-M freeze:false`, or a
 profile) also re-executes everything, but removes `_freeze`, and the next
 ordinary render then executes everything again. A single render keeps the
 single end-of-book report, which separate renders of each file would not. The
 backup is restored first because an interrupted run leaves the freezer empty.
 
-**8.5** A draft render fails nothing, so it can verify nothing.
+**8.3.3** rmarkdown has no freezer, and each `.Rmd` renders on its own.
+
+**9.3.3** (the skill) Agents edit checks to get past them. In ImpossibleBench,
+Claude models cheated mostly by editing tests, and letting an agent flag a
+task for a human cut GPT-5's cheating from 54% to 9%
+(`dev/research-checks.md` §1). The skill makes reporting a failed claim the
+finished job, and tells the agent the one line a purposeful removal needs.
 
 **9.1.1** (`weft:` in Quarto's files) A key there looks like configuration and
 does nothing. A setting that is silently ignored is worse than one that is
@@ -2654,25 +2949,28 @@ is trying to get past it, and it is not built to stop anyone. "Author"
 includes an AI agent editing the manuscript on the author's behalf.
 
 What it catches is the slip made in good faith and in a hurry: a `sed` across
-a chapter, a check loosened late at night to clear a failure, a paragraph lost
-in a restructure.
+a chapter, a paragraph lost in a restructure, a typed number put back where a
+computed one was. A check loosened late at night to clear a failure is not
+stopped. It shows in the source's diff and in `changes()` (7.1.8).
 
 What follows from that:
 
-- **Every way out is open, and leaves a record.** A bare literal, a
-  `.weft-literal` block, a widened bound, an acknowledged removal and a
-  baselined condition are all allowed. Each one appears in a committed file or
-  in the integrity report. The package's job is to make each of them a choice
-  the author made, and can read back later, instead of something that
-  happened unnoticed.
+- **Every way out is open, and shows.** A `.weft-literal` block, a widened
+  bound, a removal and a new condition are all allowed. Each shows in the
+  source, in the commit message, or in the ledger's diff. The package's job
+  is to make each of them a choice the author made, and can read back later,
+  instead of something that happened unnoticed.
+- **A purposeful change costs at most one line.** Nothing is accepted by a
+  command and nothing is listed by hand (P13).
 - **The hook can be skipped** with `--no-verify`. It gives an early answer; it
   is not a lock.
-- **The range check on CI is the same checks run again from a clean clone**
-  (§6.7). It is there because a local setup can be incomplete: a clone does
-  not install the hook, and a freeze can be stale.
+- **The check on CI is the same static checks run again from a clean clone**
+  (8.4.1). It is there because a local setup can be incomplete: a clone does
+  not install the hook.
 - **How strict a check is, is the author's call.** A check that cannot fail is
   flagged (3.1.6), because it is almost always a mistake. A check that is
-  merely generous is a judgement, and the package has no view on it.
+  merely generous is a judgement, and the package has no view on it. Making a
+  rule strict once its count reaches zero (8.1.3) is also the author's call.
 
 ## 15. Pipeline patterns
 
@@ -2694,6 +2992,26 @@ one function they share.
 - **Inputs are file targets**, so `targets` records what bytes a value came
   from.
 - **Stipulations come from the dictionary** (§4.6).
+- **A dynamic report takes its data through `params`.** `rehearse()` (§3.7)
+  renders a document once per case by changing its `params` and nothing
+  else, so a document that reads its data any other way renders the same
+  data in every case.
+
+  ```yaml
+  params:
+    data: "data/latest.csv"
+  ```
+
+  ```r
+  d <- readr::read_csv(params$data)
+  ```
+
+- **An unattended render fails closed.** A failed render exits non-zero and
+  writes the failure file (9.3.2), so a scheduler that sends only on success
+  sends nothing, and tells the author. Posit Connect does this by default: a
+  failed scheduled render keeps the last good output, does not email
+  recipients, and notifies the owner with a link to the log
+  (`dev/research-checks.md` §4).
 
 ## 16. What the package does not do
 
@@ -2710,6 +3028,10 @@ one function they share.
   render.
 - **Keep registers.** Decision logs, task registers and status conventions are
   a project's own. The dictionary's `decision:` field points at them (§4.5).
+- **Keep authored accounting files.** There is no baseline, no file of
+  removals and no file of acceptances. `HEAD` holds what was tolerated, the
+  commit message says what was removed, and committing the ledger is the
+  acceptance (§6, 7.3.7).
 - **Lint prose style.** Vale does that and needs no runner. The one thing the
   package knows that Vale does not is the dictionary, so `dict_vale()` writes
   Vale terminology rules from it.
@@ -2726,8 +3048,9 @@ The package is built as one, with a hard internal boundary.
 - **The prose core** (scanner, hooks, formatters, `claim()`, `plural()`)
   imports nothing from the harness, and emits a record of every construct it
   evaluates.
-- **The harness** (lints, gate, ledger, dictionary, `verify()`) subscribes to
-  that record.
+- **The harness** (lints, gate, ledger, `changes()`, `rehearse()`,
+  dictionary, `verify()`) subscribes to that record. `arms()` reads only the
+  scanner, and sits with the core.
 
 They split into two packages when the core has a user who does not want the
 harness. Integration with Vale, data validation and an issue tracker belongs
@@ -2762,13 +3085,14 @@ to the output (rule 1.2.8 does not), and a failed check in a caption stops the
 render (rule 2.3.3 collects it). A row below is evidence for the mechanism it
 names, not for those four rules.
 
-Marker spans, front matter, the failure paths and the gate's matching were
-each run in a copy of the stand-in extended for that purpose. Under rmarkdown
-the Pandoc was 3.8.3, not the 3.10 that Quarto ships.
+Marker spans, front matter, the failure paths and the gate's construct counts
+were each run in a copy of the stand-in extended for that purpose. Under
+rmarkdown the Pandoc was 3.8.3, not the 3.10 that Quarto ships.
 
 A row whose source is "review" was found by a reviewer of this design, not run
 with the stand-in. A row whose source is "check, 2026-11-11" was run on that
-date directly against Quarto 1.11.9 or Pandoc 3.10, with no stand-in.
+date directly against Quarto 1.11.9, Pandoc 3.10, git or the `units` package,
+with no stand-in.
 
 ### Syntax and the prose hooks
 
@@ -2898,17 +3222,18 @@ The forms the writer produced (check, 2026-11-11):
 ### The gate
 
 Run on an Apple M2 under moderate load, with the stand-in scanner,
-which is unoptimised R.
+which is unoptimised R. The spike was built for an earlier design that paired
+paragraphs across versions. Rows that supported only that matcher are
+dropped. The spike counted each construct identity separately; the single
+total of 6.3.1 was not run. The timings "with matching" include the matcher,
+which the hook no longer runs, so they are an upper bound for the comparison
+with `HEAD`.
 
 | Fact | Run under |
 |---|---|
-| A test manuscript of 10 anchored sections and 156 constructs, and 72 scripted edits with known answers. With no paragraph matching, every real removal is reported, and 35 edits also report a removal that was an edit or a move (139 acknowledgements asked for, against 98 that were due) | R |
-| Pairing by position alone: 61 of 72 right; 8 edits report a false removal; 3 call a real removal an edit | R |
-| Pairing on shared words (at least half within a section, 0.6 across sections), and comparing constructs even when the words are the same: 71 of 72 right, no false removal. The one miss is a templated sentence replaced by the same template about another thing | R |
-| A plain re-wrap at 55 columns removed 32 constructs from a paragraph without changing a word: 31 where the line broke directly after `` `r ``, one where `# ` landed at the start of a line. Matching on words alone saw one of them; comparing construct by construct saw all 32 | R, knitr, Pandoc |
-| Three changes the rules themselves do not call a removal: an identity removed from one paragraph and added in another (counted as a move); an expression changed under an unchanged `#id`; an unrelated construct put in place of another within one paragraph (counted as an edit) | R |
-| A section headed in the underlined (setext) style was not seen as a section by the spike's line-based splitter | R |
-| Blocks split on blank lines agree with Pandoc's paragraphs, headings and list items on every block start Pandoc reports (93 against 90; the extra ones are inside a table and a code block) | Pandoc |
+| A test manuscript of 10 anchored sections and 156 constructs, and 72 scripted edits with known answers. Counting constructs with no paragraph matching, every real removal is reported, and 35 edits also report a removal that was an edit or a move (139 removals reported, against 98 real ones) | R |
+| A plain re-wrap at 55 columns removed 32 constructs from a paragraph without changing a word: 31 where the line broke directly after `` `r ``, one where `# ` landed at the start of a line. Matching on words alone saw one of them; comparing constructs saw all 32 | R, knitr, Pandoc |
+| A `commit-msg` hook reads the staged files with `git show :<file>`, and the message's trailers with `git interpret-trailers --parse`. It stopped a commit with no trailer and one with a wrong count, and passed one with the right count. `--no-verify` skips it | check, 2026-11-11 |
 | R starts in 0.13 s; loading `jsonlite` and `yaml` adds nothing measurable, `knitr` 0.06 s | R |
 | The Pandoc binary starts in 0.03 s, `quarto pandoc` in 0.18 s | Pandoc |
 | `commonmark_x+sourcepos` to JSON, 2,000 paragraphs: 0.9 s and 11 MB, against 0.5 s and 1.8 MB without positions; reading the 11 MB into R takes 0.3 s | Pandoc, R |
@@ -2953,6 +3278,19 @@ which is unoptimised R.
 | A `tar_quarto()` report notices a dictionary change only when its `.qmd` is scanned for `dict$key`; then exactly | targets, Quarto |
 | `targets::tar_meta()` stores warnings and errors, not messages: `lme4`'s singular fit, a message, is not recorded; `glmmTMB`'s non-positive-definite Hessian, a warning, is | review |
 
+### Units
+
+All with `units` 1.0.0, and `x` 0.5 m, `y` 2 m, `k` 3 kg.
+
+| Fact | Run under |
+|---|---|
+| `x * 100` is 50 m; `x / y` is 0.25 with no unit; `x * y` is 1 m²; `x + y` is 2.5 m; `x + k` is an error ("cannot convert kg into m"); `x` converted to cm is 50 cm; `round()`, `mean()` and `sqrt()` keep the right unit | check, 2026-11-11 |
+| `x > 0.3`, `x == 0.5` and `x + 1` each stop with "both operands of the expression should be "units" objects" | check, 2026-11-11 |
+| `PSU`, `NTU`, `sites` and `people` are errors until registered with `units::install_unit()`; after registering, 35 PSU × 2 is 70 PSU, and 5 sites / 2 ha is 2.5 sites/ha | check, 2026-11-11 |
+| Known to the units database without registering: `mg/L`, `uS/cm`, `%`, `ha`, `ML/d`, `degC`, `m3/s`, `t/yr` | check, 2026-11-11 |
+| Stock knitr prints an inline value of 0.5 m as `0.5` | check, 2026-11-11 |
+| On macOS the CRAN binary links the udunits library statically and ships its database, so nothing else is installed. The package's system requirement is udunits-2. 111 CRAN packages depend on `units`, `sf` among them | check, 2026-11-11 |
+
 ### Quarto 2
 
 Quarto 2 (experimental, 0.43.0): its parser accepts a governed span whose key
@@ -2974,7 +3312,9 @@ form:
 - the four formatter stages and their at-most-one errors (1.4.1, 1.4.2);
   `digits` and `sigfig` (1.4.7); the limits on the wording classes (1.4.12)
 - `sign` on a bound (1.5.17); `n="."` inside a `sign` span (1.7.2)
-- units through the stages (§4.4)
+- units through the formatter stages and the collapses (4.4.2, 4.4.3,
+  4.4.8); how weft writes a unit's symbol as text, with its superscripts
+  (4.4.8); a compound unit with a number in it, such as "CFU/100 mL" (4.4.7)
 - for `cite` spans: the bare-form check made on Pandoc's tree (5.4.2; the
   spike used line patterns in the hook), the keys-only and key-grammar errors
   (1.8.4, 1.8.5), classes and pass-through on the span (1.8.7), and the static
@@ -3008,16 +3348,31 @@ form:
 - matching `lang` on its primary subtag, and the English-only errors (1.6.7,
   1.6.8)
 - the condition sources beyond the `evaluate` wrapper (7.4.1), and the
-  condition baseline (7.4.4)
-- the backup-and-restore sequence of `verify()` as a whole (8.3); only the
+  committed condition log with its carried-forward text (7.4.3, 7.4.6)
+- the backup-and-restore sequence of `verify()` as a whole (8.3.1); only the
   freeze behaviour it relies on was run
 
-**Parts of the design with no stand-in at all:** every lint; the baseline and
-`baseline_prune()`; the acknowledgements file and the integrity report; the
-hook's cache (6.4.7); the ledger; `use_ci()`; the `decision:` resolver; `dict`
-and `dict_local` as objects (the `targets` side was run); the adoption
-helpers of §9.5, `label_seed()` among them. Of the gate, only the paragraph
-matching and the timings were run.
+**Parts of the design with no stand-in at all:** every lint; judging
+findings against `HEAD` (§6.2); the single total of constructs and the
+failure report that lists what is gone (6.3.1, 6.3.4); the hook's cache
+(6.1.6); the ledger, its key and its file per output (7.1.3, 7.1.4);
+`changes()`; `verify()`'s `files`, `since` and `static` arguments, its
+totals and strict rules (§8.1, §8.2); `verify()` under rmarkdown (8.3.3);
+`use_ci()`; `arms()` and `rehearse()` (§3.7); `u()` and the registering of
+units when the dictionary is read (4.4.6, 4.4.7); the `decision:` resolver;
+`dict` and `dict_local` as objects (the `targets` side was run); the adoption
+helpers of §9.5, `label_seed()` among them. Of the gate, the timings, a count
+of constructs per identity (§18), and a `commit-msg` hook that reads a
+trailer were run.
+
+**git operations the hook was not run under.** `git commit --amend`: the hook
+compares with the commit being amended, so its count is of the new changes
+only. Merge commits. `git rebase` and `git cherry-pick`, which may not run
+the hook at all (Q17).
+
+**Installation not checked.** That the CRAN binary of `units` for Windows,
+like the one for macOS, needs nothing else installed; the udunits-2 system
+package on Linux (4.4.11).
 
 **Rules that follow from how a tool works, not from a run.** Hygiene rule 7
 (§5.8): that knitr's cache serves an old target to a chunk that reads one.
@@ -3054,7 +3409,7 @@ the inline preview behave with the hooks loaded. Also `.Rprofile` activation
 beside `renv`, which owns that file.
 
 **Q3 — A render that fails part-way through `verify()`.** What `_freeze` holds
-after a chunk errors mid-render is untested, and the restore step of 8.3
+after a chunk errors mid-render is untested, and the restore step of 8.3.1
 depends on it.
 
 **Q4 — Quarto 2 execution.** It hands knitr text re-serialised from its parsed
@@ -3082,8 +3437,8 @@ single number, which prints the bare number.
 
 **Q9 — When the scanner and Pandoc disagree.** A re-wrap can leave `# ` at
 the start of a line inside an arm. At knit time the scanner still resolves the
-span. Pandoc's static tree reads a heading there. Rule 6.2.5 catches the edit
-that causes it, and the block-type check of 2.10.5 now fails a file already in
+span. Pandoc's static tree reads a heading there. The span is still counted,
+so the gate sees no removal; the block-type check of 2.10.5 fails a file in
 that state, naming the line. That check needs the unmasked tree as well as
 the masked one; its cost to the gate (Q11) is not measured.
 
@@ -3091,17 +3446,13 @@ the masked one; its cost to the gate (Q11) is not measured.
 `abstract:` becomes the abstract of the whole book (1.10.9).
 
 **Q11 — The gate's time.** With the stand-in scanner, a commit of five
-chapters took about nine seconds, most of it in R code scanning and matching.
-The cost follows the size of the files touched, not the size of the change.
-About one second for a commit that touches one chapter looks reachable; more
-than that needs the scan limited to the paragraphs that differ from `HEAD`,
-which was not tried. Whether the cache of 6.4.7 keeps a book-wide check off
-every commit is not known. No budget is set, and the timings were taken on a
-machine under load.
-
-**Q12 — The matching thresholds.** The shared-word thresholds of 6.2.4 were
-chosen on the same 72 edits they were scored on, in one synthetic manuscript.
-They have not met a real history.
+chapters took about nine seconds, most of it in R code scanning and in a
+paragraph matcher the hook no longer runs. The cost follows the size of the
+files touched, not the size of the change. About one second for a commit that
+touches one chapter looks reachable. Whether the cache of 6.1.6 holds the
+`HEAD` version of most files, and keeps the book-wide rules of 6.2.4 off
+every commit, is not known. No budget is set, and the timings were taken on
+a machine under load.
 
 **Q13 — Conditions whose number is the point.** Rule 7.4.7 accepts that
 "Removed 5 rows" and "Removed 5000 rows" match. Nine of 58 real messages were
@@ -3118,6 +3469,17 @@ before a plain `knitr::knit()` call, the output lost knitr's markdown output
 formatting (§18). Rule 2.1.7 requires that it does not. The cause, and how
 weft avoids it, are not settled.
 
+
+**Q17 — The hook under other git operations.** On `git commit --amend` the
+hook compares with the commit being amended, so a removal made in the
+original commit is no longer counted, and the original trailer may no longer
+match. How it behaves on a merge commit, and whether `git rebase` and
+`git cherry-pick` run it at all, is untested.
+
+**Q18 — Netting.** Two limits are accepted: a finding removed and the same
+text added elsewhere in one commit nets to zero (6.2.6), and a removal and an
+unrelated addition in one commit net out (6.3.6). How often either hides
+something in a real history is not known.
 ---
 
 # Part 4 — Plan
@@ -3193,15 +3555,49 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   missing value renders in draft mode with a marker for each, and the filter
   reports instead of failing.
 - **`verify()`.** The backup-and-restore sequence against a render that
-  succeeds, one that fails, and one that is killed (Q3).
+  succeeds, one that fails, and one that is killed (Q3). In a frozen project,
+  `verify(files = )` passes when the named files pass (8.2.1). A tolerated
+  finding is counted and fails nothing until its rule is made strict (8.1.2,
+  8.1.3). `verify(static = TRUE)` renders nothing. `verify(since = )` fails on
+  a finding added and reports, without failing, a removal with no trailer
+  (8.2.2). Under rmarkdown each `.Rmd` is rendered once (8.3.3).
 - **Names.** Every weft name changed by one edit, where the result is not
   another weft name, is listed by the lint of 5.3.3 with a weft name as the
   nearest. A key changed only in letter case is the key itself (1.2.10), and
   is not listed. Pandoc's names and the project's expected names are not
   listed.
-- **Paragraph matching.** The spike's 72 scripted edits (§18) are kept as a
-  fixture, and edits taken from a real manuscript's history are added to them
-  (Q12).
+- **The gate.** Scripted commits against a fixture repository, each with a
+  known answer. A construct error fails whether or not `HEAD` held it. A
+  finding already in `HEAD` passes; the same finding added fails; one moved
+  to another file passes. Removing an anchor that an unstaged chapter cites
+  fails (6.2.4). A removal fails with no trailer and with a wrong count,
+  and passes with the right one; the report lists what is gone with its
+  `HEAD` line and prints the trailer line. A value turned into a span, a
+  variable renamed in forty expressions, a bound changed, a paragraph moved
+  between files, and a file renamed each pass with no trailer. A trailer on a
+  commit that removes nothing is ignored. A new file and a deleted file are
+  compared with an empty version. The spike's 72 scripted edits (§18) are
+  kept as a fixture, and edits taken from a real manuscript's history are
+  added to them (Q18).
+- **Ledger and `changes()`.** A bare value is recorded with the text knitr
+  printed. Renders of one document to two outputs with different `params`
+  keep two ledgers (7.1.3). A changed expression lists one entry removed and
+  one added (7.1.8). `changes()` lists structural changes before the rest,
+  and `changes(since = )` compares with the named commit. A new condition is
+  an added line and fails nothing (7.4.4); a message whose number changed
+  keeps its line (7.4.6).
+- **`arms()` and `rehearse()`.** `arms()` lists every arm of every governed
+  span in a fixture, nested ones under their arm, with no R run.
+  `rehearse()` over three cases reports the arm each span chose in each, the
+  arms no case reached, and the failures of a case that fails, and writes
+  nothing to the project.
+- **Units.** The arithmetic of §18 through `dict`: a ratio prints no unit, a
+  product prints "m²", adding kilograms to metres errors, and a check against
+  a bare number errors. A quantity prints its unit after a no-break space
+  under each number class, once after a collapse, with every number under
+  `.pairs`, and not after a spelled number. `#` carries no unit. A bare value
+  prints the number alone. A dictionary that names `PSU` or `sites` reads,
+  and so does one with a compound unit such as "CFU/100 mL".
 - **Condition matching.** The spike's recorded messages, each under two
   console widths, with and without `cli` Unicode.
 
@@ -3217,7 +3613,7 @@ design before it is built. Stage 0 does not rank layers and does not remove
 one: one corpus is not evidence enough for either, and the package is for
 more than one project (P12).
 
-**Stage 1 — the prose core.** Usable alone. It is built in four steps. Each
+**Stage 1 — the prose core.** Usable alone. It is built in five steps. Each
 step ends when its fixtures pass under Quarto and rmarkdown and a real chapter
 renders with it.
 
@@ -3268,33 +3664,41 @@ renders with it.
 - `of_n()`, `about()`, `ci()`, `pm()`
 - `.pairs`, `trunc`, `.date`; `.ul`, `.ol`, `.dl`
 
+*1e — rehearsal.*
+
+- `arms()` and `rehearse()` (§3.7)
+
 **Stage 2 — dictionary and ledger.**
 
 - `dict`, `read_dict()`, `dict_local`, the schema, the generated glossary,
   the pointer resolver, `dict_vale()`
+- quantities as `units` objects, `u()`, registering unknown units, and the
+  printing of any `units` value (§4.4)
 - `tar_dict()` and `tar_dict_deps()`
-- the ledger: records, three states, `ledger_review()`, acceptances
+- the ledger: records, its key, a file per output, three states; the
+  committed condition log; `changes()`, which lists tier-2 findings once
+  stage 3 has built them
 - conditions read from `tar_meta()`, which needs the ledger's record of the
   targets each chapter reads
 
-**Stage 3 — static lints, with the baseline.**
+**Stage 3 — static lints.**
 
 - the scanner over source files, chunk-option captions and `weft_str()`
   strings; the masked Pandoc read; the citation pattern
-- the baseline file, built in this stage because the numerals rule cannot be
-  switched on without it
 - numerals, with the exemptions, `label_seed()` and `.weft-literal`; literal
   values; construct errors; marker spans and citations; cross-references;
   hygiene; figure presence
 - the tier-2 lints (claim words, constants in computations, probable
-  constructs), available as functions until stage 4 gives them a report
+  constructs), which `changes()` lists
 
 **Stage 4 — the gate.**
 
-- identities, removals and the acknowledgements file
-- the `pre-commit` hook and `use_hooks()`
-- `verify()`, with the freeze sequence and the condition baseline
-- the integrity report (`verify(range = )`) and `use_ci()`
+- findings judged against `HEAD`, and the construct count with its trailer
+  (§6.2, §6.3)
+- the `commit-msg` hook, its cache, and `use_hooks()`
+- `verify()`, with the freeze sequence, the totals and strict rules, and its
+  `files`, `since` and `static` arguments
+- `use_ci()`
 
 Stage 2 comes before stage 3 because the numerals rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
