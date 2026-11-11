@@ -7,49 +7,20 @@ Each entry: the rule, what was found, what was chosen, how to reverse it.
 Choices that are large, hard to undo, or a matter of taste. Not made; built
 around.
 
-- **Defaults of the number formatters (9.1.2).** The spec names the settings
-  and gives no default values or key names. The build uses the values in
-  `dev/design-1a.md` ("Defaults the spec does not give"): one decimal place,
-  `.` and `,` marks with the thousands mark from 10,000 up, U+2212 for minus,
-  count threshold ten, word limit one hundred. They are all in one list in
-  `R/config.R`; change them there and in §9.1.
-
 - **From the trials: an empty list (1.3.4).** A value of length zero is a
   missing value, so `` `r flagged`{.and} `` fails the render on the ordinary
   day when nothing is flagged, and every such list needs an `if` around it.
-  A key for the empty case (`none="none"`) would be new syntax. Not made.
-- **From the trials: a check that warns.** Every failed check fails the
-  render (2.6.1). An unattended report wants some checks to be reported and
-  the report still sent. Severity exists for conditions (7.4.2) and not for
-  claims. Not made: it changes what a claim is.
-- **From the trials: a failed render leaves its output.** Outside draft mode
-  knitr has written the document, markers included, before the `document`
-  hook fails the render. A sender that looks only for the file would send
-  the markers. Deleting the output is not weft's to do under rmarkdown
-  (2.6.6 keeps a book's chapters on purpose). Not made; the daily report
-  should test the exit status.
-- **From the trials: `.num` printing a small number as "0.0" (1.4.13).** A
-  standard error or a small difference loses its whole value silently
-  unless the author writes `sigfig`. Options: fail when a non-zero number
-  prints as zero, or fall back to significant figures. Not made.
-- **From the trials: house-style defaults.** The chapter writes a thousands
-  mark from 1,000, words up to and including ten, and a serial comma. The
-  build's defaults (10,000; digits from ten; none) changed its text.
-  `count_threshold` is a setting already; a threshold for the thousands
-  mark and a serial-comma setting are not. Not made.
+  A key for the empty case (`none="none"`) would be new syntax. Not made;
+  options put to Robin on 2026-11-12.
 - **From the trials: trimmed arms (1.5.12).** A span whose arm is a whole
-  sentence cannot carry the space that follows it. Not made.
+  sentence cannot carry the space that follows it. Not made; options put to
+  Robin on 2026-11-12.
+- **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
+  hooks run under the Render buttons of RStudio or Positron first (§22).
 
-- **From the review of 1b: `.p` near a threshold.** 0.046 prints "p =
-  0.05", so a sentence can read "significant (p = 0.05)". The two-decimal
-  form was the build's choice (decision 21). Options: three decimals below
-  0.1, or two significant figures. Not changed.
-- **Draft output of a report whose checks chunk has `error=TRUE`.** Each
-  failed check prints its own error block into the body (second trial,
-  `dev/field-notes.md` report 3). Decide with the warn-level item whether
-  a draft of an unattended report should carry them.
-- **`last_knit()` is internal.** Export it, or expose `sentence_starts`
-  and the construct records some other way.
+The other items that stood here were delegated by Robin on 2026-11-12
+("happy to delegate decisions to you; document alternatives and reasons")
+and are entries 30 to 37 under "Made".
 
 ## Made
 
@@ -169,3 +140,55 @@ around.
     runs. Reverse: `R/rehearse.R`.
 29. **3.7.3, a span that chose no arm.** It has a row in `chosen` with
     `arm` `NA` and is not in `unevaluated`. Reverse: `R/rehearse.R`.
+30. **9.1.2, defaults of the number formatters.** Alternatives: R's own
+    printing (seven significant figures); two decimals; one decimal.
+    Chosen: keep the build's values (one decimal, `.` and `,` marks, U+2212
+    minus, word limit one hundred), with the thousands mark as entry 34.
+    Why: one decimal is what both trial documents mostly print, every value
+    is a setting, and a longer default hides false precision. Reverse:
+    `R/config.R`.
+31. **2.6.1, a check that warns.** Alternatives: (a) every failed check
+    fails the render, as built; (b) a level on the call, `claim(x, ...,
+    level = "warn")`; (c) a project setting that downgrades all checks;
+    (d) a second function. Chosen: (b). A warned check that fails is
+    recorded and reported at the end of the render under its own heading,
+    the value prints, no marker is left and the render does not fail. Why:
+    the trials' unattended reports need "tell me, but send it"; the level
+    belongs to the one check and is visible where it is written, which (c)
+    loses; (d) adds a name for the same act. A guard cannot warn: its
+    phrase would print false. Reverse: remove the argument in `R/claim.R`.
+32. **2.6.6, a failed render leaves its output.** Alternatives: delete the
+    output; rename it; leave it. Chosen: leave it, and say in the help for
+    draft mode and `weft_setup()` that a sender must test the exit status.
+    Why: the file is knitr's, a book keeps its chapters on purpose, and a
+    deleted file hides what failed. No code.
+33. **1.4.13, `.num` or `.pct` printing a number that is not zero as zero.**
+    Alternatives: leave ("0.0"); fall back to significant figures; fail.
+    Chosen: a value error when the digits are the default, with a message
+    naming `sigfig` and `digits`; an author who writes `digits` or `sigfig`
+    on the construct has chosen and gets what they asked for. Why: "0.0"
+    for a real difference is a silently false sentence; a silent fallback
+    prints numbers of mixed precision side by side. Reverse: `R/format.R`.
+34. **9.1.2, house style.** Alternatives for the thousands mark: from
+    10,000 (as built), from 1,000. For the serial comma: none, always, a
+    setting. Chosen: new settings `thousands_from` (default 1000) and
+    `serial_comma` (default `false`); `count_threshold` stays ten. Why:
+    both trial documents write "1,000", so the old default changed their
+    text; a serial comma is a house choice with no majority. Cost: a year
+    given `.num` prints "2,024" (leave a year bare). Reverse: the default
+    in `R/config.R`.
+35. **`.p` near a threshold.** Alternatives: two decimals from 0.01 (as
+    built: 0.046 prints "p = 0.05"); two significant figures; three
+    decimals below 0.1. Chosen: three decimals below 0.1, two from 0.1 up
+    ("p = 0.046", "p = 0.20"); below 0.001 and above 0.99 as before. Why:
+    the values near 0.05 are the ones a reader acts on; two significant
+    figures prints "0.0046". Reverse: `R/format.R`.
+36. **Draft output of a report whose checks chunk has `error=TRUE`.**
+    Alternatives: silence a failed check in chunk code in draft mode;
+    leave it. Chosen: leave it. Why: `error=TRUE` is the author asking to
+    see errors, a draft is not for sending, and the sendable case is
+    entry 31. No code.
+37. **`last_knit()`.** Alternatives: keep it internal; one accessor per
+    record; export it. Chosen: export it with a help page. Why: one name,
+    already the name the notes use, and `rehearse()` returns the same
+    records. Reverse: drop the export.
