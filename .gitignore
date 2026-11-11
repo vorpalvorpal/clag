@@ -8,3 +8,5 @@
 .quarto
 CLAUDE.md
 dev/trials/
+tests/testthat/_problems/
+tests/testthat/testthat-problems.rds

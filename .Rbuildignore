@@ -4,3 +4,6 @@
 ^CLAUDE\.md$
 ^dev$
 ^PACKAGE-SCOPING\.md$
+^tests/testthat/_problems$
+^tests/testthat/testthat-problems\.rds$
+^tests/testthat/_1e$

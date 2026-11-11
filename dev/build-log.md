@@ -17,23 +17,24 @@ Newest state first. Read this before anything else after a context reset.
 |---|---|
 | Stage 1a, the kernel | Done, reviewed twice, check clean |
 | Trials on two real documents | Done: `dev/field-notes.md` |
-| Stage 1c (captions, `weft_str()`, front matter, ten trial bugs) | Built and committed; 422 tests pass. Independent review running from a snapshot (covers the Quarto side of 1a too); report will be `dev/review-1c.md`. `R CMD check` on that commit running. One known fault to fix in the review round: bare inline R in a caption is evaluated, and stock leaves it literal (ruling at the end of `dev/design-1c.md`) |
-| Stages 1b and 1d (contract `dev/design-1b.md`) | 185 failing tests committed in `tests/testthat/`; implementer running. Older tests that assert "not built yet" for these names are superseded: delete them when the implementer lists them |
+| Stage 1c (captions, `weft_str()`, front matter, ten trial bugs) | Done. Reviewed once (`dev/review-1c.md`, 18 findings), rulings in `dev/design-1c.md`, 31 regression tests, all fixed and committed |
+| Stages 1b and 1d (contract `dev/design-1b.md`) | Built, 612 tests passed. Reviewed once (`dev/review-1b.md`, 27 findings), rulings in `dev/design-1b.md`, 39 regression tests committed in `test-review-d.R`; fixer running |
+| Stage 1e (`arms()`, `rehearse()`, contract `dev/design-1e.md`) | 27 tests written, parked in `tests/testthat/_1e/` until the 1b fixer is out of `R/`; implementer not yet dispatched |
 | `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
-| 1e, stages 2 to 4 | not started |
-| Usage | weekly window 78% at 04:50. Plan: stop dispatching near 90% |
+| Stages 0, 2, 3, 4 | not started |
+| Usage | weekly window 80% at 07:15. Plan: stop dispatching near 90% |
 
 ## How to run things
 
-- Suite: `Rscript -e 'r <- as.data.frame(devtools::test(reporter="silent")); print(r[r$failed>0|r$error, c("file","test")])'` (about 5 minutes).
+- Suite: `Rscript -e 'r <- as.data.frame(devtools::test(reporter="silent")); print(r[r$failed>0|r$error, c("file","test")])'` (about 9 minutes).
 - Check: `devtools::check(document = FALSE, args = "--no-manual", error_on = "never")` (about 8 minutes; run in the background).
 - Usage left: newest file in `~/.claude/usage-live/` (`five_hour`, `seven_day`). The weekly window was 76% used at 03:00.
 
 ## Next
 
-1. 1b implementer reports: rule on disputes, delete superseded tests, run
-   the suite, commit.
-2. 1c review reports: rule, regression test-writer, fixer (the fixer runs
-   after the 1b implementer, both touch `R/`).
-3. Review of 1b+1d (opus), then its fix round. Run `devtools::check()`.
-4. 1e (`arms()`, `rehearse()`), then stage 2 if usage allows.
+1. 1b fixer reports: rule on disputes, run the suite, commit.
+2. Move `tests/testthat/_1e/*.R` up, confirm they fail for the missing
+   functions, dispatch the 1e implementer, commit.
+3. `devtools::check()` from a clean `git archive` export: 0 errors, 0
+   warnings.
+4. Stage 2 (design note first) only if the weekly window allows.
