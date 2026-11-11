@@ -395,21 +395,39 @@ the same arm (1.5.16).
 
 ### 1.8 Marker spans
 
-**1.8.1** A number quoted from a source is a span with the key `cite`.
-Several keys are separated by `;`.
+**1.8.1** A number quoted from a source is a span with the key `cite`. The
+value of `cite` takes one of two forms.
+
+| Form | Example | The span prints |
+|---|---|---|
+| a Pandoc citation (it contains `@`) | `cite="@smith2020"` | its prose, then that citation in brackets |
+| bare keys | `cite="smith2020"` | its prose only |
 
 ```
-Smith found [10]{cite="smith2020"} sites above the weir [@smith2020].
+[10 m in the upper catchment]{cite="@smith2020"}.
+    →  10 m in the upper catchment [@smith2020].
+
+@smith2020 found [10 m]{cite="smith2020"} in the upper catchment.
+    →  @smith2020 found 10 m in the upper catchment.
 ```
 
 **1.8.2** A `cite` span has no arms: `|` and `#` in it are ordinary
-characters. It prints its prose unchanged and emits no citation.
+characters. The bracket is prose and can hold values and governed spans.
 
-**1.8.3** Two checks apply to a `cite` span. Each key must resolve in the
-bibliography (checked at knit time and by a lint), and the same paragraph must
-cite each key (a lint, §5.4).
+**1.8.3** In the citation form the value is written into the output exactly
+as given, in square brackets, directly after the span's prose. Everything
+Pandoc's citation syntax allows therefore works: a locator
+(`cite="@smith2020, p. 4"`), a prefix, several sources separated by `;`, and
+`-@smith2020` for the year alone. The author places the citation by choosing
+where the bracket closes. Nothing is moved, and adjacent spans are not merged.
 
-**1.8.4** A literal with no source is marked with `.weft-literal` and a `why`,
+**1.8.4** In the bare form, several keys are separated by `;`, and the
+citation is written elsewhere by the author (rule 5.4.2).
+
+**1.8.5** Each key must resolve in the bibliography, in either form. This is
+checked at knit time and by a lint (§5.4).
+
+**1.8.6** A literal with no source is marked with `.weft-literal` and a `why`,
 inline or as a block.
 
 ```
@@ -420,7 +438,7 @@ Samples were filtered through 0.45 µm membranes and stored at 4 °C.
 :::
 ```
 
-**1.8.5** A `.weft-literal` without a `why` is a construct error. Each marked
+**1.8.7** A `.weft-literal` without a `why` is a construct error. Each marked
 span and block is a baseline item (§6.5).
 
 ### 1.9 What weft leaves alone
@@ -985,7 +1003,7 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 - `n="."` outside an `n` span (1.7.2)
 - a duplicate id; a back-reference to an id that is unknown or defined later
   (1.7.5, 1.7.10)
-- a `.weft-literal` with no `why` (1.8.5)
+- a `.weft-literal` with no `why` (1.8.7)
 - a caption that contains a construct and is an unquoted YAML scalar (1.10.3)
 
 **5.3.2** Three construct errors need the value and are found only at knit
@@ -1004,7 +1022,8 @@ number (1.4.5), and `.range` on a value that is not of length 2.
 **5.4.1** Every key of a `cite` span resolves in the bibliography. This is
 checked statically, and again at knit time.
 
-**5.4.2** The paragraph that holds a `cite` span cites each of its keys.
+**5.4.2** The paragraph that holds a `cite` span in the bare form cites each
+of its keys. A span in the citation form meets this by what it emits.
 
 **5.4.3** Every citation key in the document resolves in the bibliography.
 
@@ -1089,9 +1108,12 @@ configure the list to fail the render.
 | a chunk | its label |
 | a construct with an `#id` | the id |
 | a value without one | its parsed expression and its formatter classes |
-| a span without one | its key and the parsed value of that key |
+| a governed span without one | its key and the parsed value of that key |
+| a `cite` span without one | its keys and its bracket text |
 
-**6.1.2** Arm text is not part of an identity. Neither is the order or the
+**6.1.2** Arm text is not part of a governed span's identity. The text of a
+`cite` span is: it is the quoted number, so `[10]` changed to `[12]` is a
+removal and an addition. Neither is the order or the
 quoting of an attribute block.
 
 **6.1.3** The ledger uses the same identities (§7.1).
@@ -1165,7 +1187,7 @@ its kind, its file, its source text, and how many times it occurs there.
 |---|---|
 | numeral | a bare numeral in prose at adoption (5.2.3) |
 | literal value | a value whose expression is a literal (5.6.1) |
-| marked literal | a `.weft-literal` span or block (1.8.5) |
+| marked literal | a `.weft-literal` span or block (1.8.7) |
 | local entry | a `dict_local` entry (4.3.3) |
 | condition | a known condition (7.4.3) |
 
@@ -1647,15 +1669,22 @@ agreement follows what the reader saw (1.04 printed as "1" takes the
 singular). `#` begins a comment in R, so `"#d"` can never be mistaken for an
 expression.
 
-**1.8.1 to 1.8.3** A marker that cannot fail is decoration (P1). `cite` can
+**1.8.1, 1.8.5** A marker that cannot fail is decoration (P1). `cite` can
 fail twice, each time against an external referent (P4): the key must exist
 in the bibliography, and the paragraph must cite it. It is a span, not a
 function, for two reasons. The quoted number is prose, and belongs in a
 bracket (1.1.2). And `utils` exports a function called `cite`, so a `cite()`
-check would depend on the search path. The span emits no citation, so the
-author keeps control of how the source is cited.
+check would depend on the search path.
 
-**1.8.4, 1.8.5, 5.6.1** A bare `` `r 10` `` is the deliberate escape hatch:
+**1.8.3, 1.8.4** The citation form writes the citation where the bracket
+closes, and nowhere else. Moving it to the end of the sentence would need
+sentence detection, which is a heuristic ("e.g.", "et al.", "Fig. 2"), and a
+wrong guess would rewrite published text; it would also put a citation where
+the author typed none, and merging would hide which number came from which
+source. The bare form exists for the in-text case ("Smith (2020) found …"),
+where a second citation after the number would be wrong.
+
+**1.8.6, 1.8.7, 5.6.1** A bare `` `r 10` `` is the deliberate escape hatch:
 nobody types it by accident, and a rule demanding a check would be met with
 `claim(10, TRUE)`. What a literal cannot do is hide. Each one is a baseline
 item, a new one fails the commit until the baseline lists it, and a computed
@@ -2160,8 +2189,7 @@ the output as a Pandoc span or div, or are stripped. And whether a
 
 **Q9 — `cite` spans.** How the knit-time check finds the bibliography. What
 "the same paragraph" means for a `cite` span in a caption or a footnote.
-Whether the quoted prose is part of the span's identity: under 6.1.1 it is
-not, so changing `[10]` to `[12]` is seen by the ledger and not by the gate.
+Neither form has been run.
 
 **Q10 — Inheritance and `sign`.** Whether `n="."` is legal inside a `sign`
 span (agreeing with the magnitude), and whether `sign="."` exists.
