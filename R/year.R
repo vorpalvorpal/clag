@@ -30,10 +30,10 @@ plain_year <- function(x) if (inherits(x, "weft_year")) unclass(x) else x
 #' When the vctrs package is loaded, a year combined with an integer or a
 #' double gives a plain integer or double, and a year with a year gives a year.
 #'
-#' @param x,e1,e2,from,to,by,object A `weft_year`, or a value to combine with
+#' @param x,e1,e2,from A `weft_year`, or a value to combine with
 #'   one.
 #' @param ... Further arguments, passed on.
-#' #' @param na.rm Whether to drop missing values.
+#' @param na.rm Whether to drop missing values.
 #' @param incomparables Not used.
 #' @param decreasing Whether to sort downwards.
 #' @return A `weft_year`, or a plain number where the text says so.

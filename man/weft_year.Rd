@@ -41,15 +41,16 @@
 \method{print}{weft_year}(x, ...)
 }
 \arguments{
-\item{...}{Further arguments, passed on.
-#' @param na.rm Whether to drop missing values.}
+\item{...}{Further arguments, passed on.}
 
-\item{x, e1, e2, from, to, by, object}{A \code{weft_year}, or a value to combine with
+\item{x, e1, e2, from}{A \code{weft_year}, or a value to combine with
 one.}
 
 \item{decreasing}{Whether to sort downwards.}
 
 \item{incomparables}{Not used.}
+
+\item{na.rm}{Whether to drop missing values.}
 }
 \value{
 A \code{weft_year}, or a plain number where the text says so.
