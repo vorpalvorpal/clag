@@ -441,3 +441,20 @@ Built as recommended until answered.
   "7.2 pH", no field. Recommended: as built.
 - **Q5 — no redefining a database unit** with `is:` (G5), so salinity uses
   `ppth` or `g/kg`. Alternative: allow any. Recommended: as built.
+
+## Rulings on the test-writer's report
+
+- **"pH 7.2 was".** The row of the expected-output table is wrong: 7.2
+  takes the plural arm, so `[# was | # were]` prints "pH 7.2 were", and
+  "pH 1 was". The tests are right.
+- **`pH` under `si`.** A redefining row whose definition is `base` is
+  removed under `si`, as the other redefinitions are. "Never undone"
+  covers the units of weft's own that redefine nothing (`NTU`, `PSU`,
+  `CFU`, `MPN`).
+- Two `is:` rows are "the same unit" when their definitions are the same
+  text. Accepted.
+- The test-writer's other readings are accepted. Not tested, and left to
+  the review: `dict_local`, a `list` span, and mixed `unit_before`.
+- One more older assertion is superseded than the contract lists: the
+  control of review 2f #13 (`CFU/L` now has a name) needs a factor with
+  no name.
