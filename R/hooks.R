@@ -108,7 +108,21 @@ install_boundary_hooks <- function() {
   invisible()
 }
 
+# Under LaTeX output weft tells pdflatex how to set the minus sign U+2212,
+# which it prints for negative numbers and for a unit's negative power; xelatex
+# and lualatex set it already. The dependency is added once per knit.
+add_latex_minus <- function() {
+  if (!isTRUE(tryCatch(knitr::is_latex_output(), error = function(e) FALSE))) return(invisible())
+  line <- "\\ifPDFTeX\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\\fi"
+  have <- knitr::knit_meta("latex_dependency", clean = FALSE)
+  if (any(vapply(have, function(d) identical(d$extra_lines, line), NA))) return(invisible())
+  knitr::knit_meta_add(list(structure(
+    list(name = "iftex", options = NULL, extra_lines = line), class = "latex_dependency")))
+  invisible()
+}
+
 install_hooks <- function() {
+  add_latex_minus()
   wrap_hook("evaluate.inline", function(prev) {
     weft_env$stock_eval <- if (is.function(prev)) prev else
       knitr::knit_hooks$get("evaluate.inline", default = TRUE)

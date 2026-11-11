@@ -872,3 +872,27 @@ particulars.
   `dev/open-findings.md`.
 - **Open:** `fmt_ord()` on a formatter's text of years loses the year
   mark.
+
+## Rulings on the fixer's report for the review of 2b
+
+- **The minus sign U+2212 under pdflatex.** The ruling on 1/f said the
+  unit's text survives pdflatex; a negative power does not, and neither
+  does any negative number (the default `minus` is U+2212). rmarkdown's
+  `pdf_document` uses pdflatex by default; xelatex and Quarto's default
+  engine build it. Ruling: weft keeps U+2212 and, in a knit to LaTeX,
+  adds a LaTeX dependency that defines the character under pdflatex and
+  does nothing under the other engines. Alternatives: an ASCII hyphen
+  for LaTeX output (two texts for one value); `$-$` (breaks inside
+  emphasis and in a `weft_str()` used for a plot label); telling the
+  author to set `latex_engine: xelatex` (a failed build is the report).
+- **`about(x, to)`** given two quantities converts `x` to the unit of
+  `to` (`to` must stay one of the five fractions). `of_n()` converts
+  the second to the first.
+- A quantity with a bare number in `of_n()` and `about()` uses the
+  number, as before. Left.
+- A collapse over a text class's output puts the unit after the closing
+  markup (`**3**, **5** and **7** m`). Accepted.
+- **A back-reference** prints, and selects by, what its value printed,
+  so in the display unit when the value had a `unit` key.
+- **Open:** subsetting a formatter's text keeps the class only when it
+  carries a unit; in `dev/open-findings.md`.

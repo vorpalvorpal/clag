@@ -24,11 +24,11 @@
 \alias{fmt_em}
 \title{Formatter functions}
 \usage{
-fmt_num(x, digits = NULL, sigfig = NULL)
+fmt_num(x, digits = NULL, sigfig = NULL, unit = NULL)
 
-fmt_pct(x, digits = NULL, sigfig = NULL)
+fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL)
 
-fmt_sci(x, digits = NULL, sigfig = NULL)
+fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL)
 
 fmt_no(x)
 
@@ -46,7 +46,7 @@ fmt_p(x)
 
 fmt_date(x)
 
-fmt_range(x, digits = NULL, sigfig = NULL)
+fmt_range(x, digits = NULL, sigfig = NULL, unit = NULL)
 
 fmt_pairs(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
 
@@ -71,6 +71,12 @@ accepted.}
 \item{digits}{Decimal places. Not together with \code{sigfig}.}
 
 \item{sigfig}{Significant figures. Not together with \code{digits}.}
+
+\item{unit}{The unit to print a quantity in, as a string: \code{fmt_num(u(150, "cm"), unit = "m")} is "1.5 m". The quantity is converted first, so the
+number, the unit and the arm an \code{n} span chooses are all in that unit. A
+unit the quantity cannot be converted to, and \code{unit} on a value that is
+not a quantity, are a \code{weft_value_error}. Like \code{digits}, it implies
+\code{.num}.}
 
 \item{sep}{The text between items of a collapse.}
 
@@ -118,8 +124,10 @@ message gives the first value, what printed and the count, and says to add
 \code{\link[=clamp]{clamp()}} is never printed as zero: it prints as it was written.
 
 A \code{units} value (see \code{\link[=u]{u()}}) prints with its unit: the number is formatted as
-a plain number is, and the unit's text follows after a no-break space, with
-superscript exponents. A wording class that prints a word
+a plain number is, and the unit's text follows after a no-break space. The
+text is Pandoc markdown: an exponent is a superscript (\verb{m^2^}, and \code{m} to the minus three as \verb{m^-3^} with a true minus sign),
+a product is a middle dot, a unit with no numerator is written with negative
+powers, and characters markdown reads are escaped. A wording class that prints a word
 (\code{fmt_word()}, \code{fmt_count()}, \code{fmt_no()}) drops the unit; an element still
 in digits keeps it. \code{fmt_and()}, \code{fmt_or()}, \code{fmt_range()} and \code{\link[=glue_vec]{glue_vec()}}
 print the unit once, after the last number printed (none if that is a
@@ -128,8 +136,9 @@ collapse class joins print it with every element. \code{fmt_pct()}, \code{fmt_p(
 \code{fmt_date()} on a quantity that still has a unit are a \code{weft_value_error};
 a ratio with no unit left is a plain number. The result carries the unit
 as attribute \code{unit}, so \code{fmt_and(fmt_num(u(c(3, 5), m)))} prints it once.
-The record's \code{number} and \code{raw} never hold the unit, and \verb{#} in a span or
-\code{\link[=plural]{plural()}} never carries it.
+The record's \code{number} and \code{raw} never hold the unit. \verb{#} in a span or
+\code{\link[=plural]{plural()}} prints what the governor prints as a value, so it carries the
+unit when it prints as digits.
 }
 \examples{
 fmt_num(3.14159)

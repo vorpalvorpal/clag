@@ -278,3 +278,19 @@ and are entries 30 to 37 under "Made".
     unit: `units::set_units()` in the expression (long); a `display:`
     field per dictionary entry (not built; for Robin). Reverse:
     `R/resolve.R`, `R/format.R`.
+47. **The minus sign in a PDF built with pdflatex.** U+2212, the default
+    `minus` since stage 1, stops rmarkdown's default PDF build; no test
+    rendered a negative number to PDF until the review of 2b. Chosen:
+    in a knit to LaTeX weft declares the character for pdflatex.
+    Alternatives and reasons are in `dev/design-2.md` (rulings on the
+    fixer's report for the review of 2b). Reverse: one function in the
+    knit setup.
+48. **Package 2f, unit names and unit settings (Robin approved the plan,
+    12 November 2026).** A spelled number takes the unit's name ("five
+    metres", changing 4.4.2); names and plurals are printed by weft;
+    `unit_form` and a `units:` table in `_weft.yml`; `display:` on a
+    dictionary entry; no second pronoun; a year stays a class, not a
+    unit (a calendar year is a point, and `year` in `units` is the
+    duration). The details the plan left open are decided in
+    `dev/design-2f.md` (U1 to U21) with alternatives and reasons; its
+    questions Q1 to Q5 are built as recommended and are for Robin.

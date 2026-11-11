@@ -76,7 +76,10 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #' its number and print no unit: they print words. `ci()`, `pm()` and
 #' `clamp()` do not take a quantity that has a unit (rule 4.4.8) and stop
 #' with a `weft_value_error`; pass the numbers, or format the parts with
-#' [fmt_num()]. A ratio, which has no unit left, is a number.
+#' [fmt_num()]; so does a formatter's text that carries a unit. Given two
+#' quantities, `of_n()` converts `n` to the unit of `k`, and `about()` converts
+#' `x` to the unit of `to`; units that do not convert are a `weft_value_error`.
+#' A ratio, which has no unit left, is a number.
 #'
 #' @param k,n Whole numbers, `0 <= k <= n`, `n > 0`.
 #' @param singular,plural The noun, in each form.
@@ -116,6 +119,7 @@ of_n <- function(k, n, singular, plural) {
   if (missing(singular) || missing(plural)) {
     value_error("of_n() needs both the singular and the plural noun.")
   }
+  n <- match_units(k, n, "of_n")   # two quantities compare in the first's unit (3.5.7)
   k <- one_number(k, "of_n", "k")
   n <- one_number(n, "of_n", "n")
   if (k < 0 || n < 0 || !is_whole(k) || !is_whole(n)) {
@@ -148,6 +152,7 @@ ABOUT_TARGETS <- list(
 #' @export
 about <- function(x, to = 1 / 2, tolerance = NULL) {
   check_english("about")
+  x <- match_units(to, x, "about")   # `to` is the target, so `x` is converted to its unit
   x <- one_number(x, "about", "x")
   tolerance <- tolerance %||% current_config()$about_tolerance %||% 0.05
   to <- one_number(to, "about", "to")

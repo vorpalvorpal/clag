@@ -74,7 +74,10 @@ Given a quantity (a \code{units} value, see \code{\link[=u]{u()}}), \code{of_n()
 its number and print no unit: they print words. \code{ci()}, \code{pm()} and
 \code{clamp()} do not take a quantity that has a unit (rule 4.4.8) and stop
 with a \code{weft_value_error}; pass the numbers, or format the parts with
-\code{\link[=fmt_num]{fmt_num()}}. A ratio, which has no unit left, is a number.
+\code{\link[=fmt_num]{fmt_num()}}; so does a formatter's text that carries a unit. Given two
+quantities, \code{of_n()} converts \code{n} to the unit of \code{k}, and \code{about()} converts
+\code{x} to the unit of \code{to}; units that do not convert are a \code{weft_value_error}.
+A ratio, which has no unit left, is a number.
 }
 \examples{
 of_n(3, 7, "site", "sites")

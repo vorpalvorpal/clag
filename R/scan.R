@@ -7,7 +7,7 @@
 
 SCAN_SPECIAL <- c("`", "[", "]", "$", "\\", "<")
 GOVERNOR_KEYS <- c("n", "if", "sign", "cite", "list")
-WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "sep", "last", "trunc", "none")
+WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "unit", "sep", "last", "trunc", "none")
 # The placeholder `#` of an arm template (1.5.8).
 ARM_PLACEHOLDER <- "\ue001"
 

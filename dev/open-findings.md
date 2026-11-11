@@ -156,3 +156,10 @@ So a later review does not raise them again without a new argument.
   namespace (base and utils may, user code may not): fragile.
 - `fmt_ord()` given a formatter's text of years prints a thousands mark.
 - `Filter()` over a dictionary fails (`[` is refused).
+
+## From the fix round for the review of 2b
+
+- `[` on a formatter's text keeps the class and record only when the
+  text carries a unit; a plain one becomes a bare character vector.
+- `of_n()` and `about()` given one quantity and one bare number use the
+  bare numbers (the review wanted an error).

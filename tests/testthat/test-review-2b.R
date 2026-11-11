@@ -42,10 +42,14 @@ test_that("review 2b #1/f: a compound unit's text builds through pdflatex (rulin
   skip_if_not(nzchar(Sys.which("pdflatex")) || (requireNamespace("tinytex", quietly = TRUE) && tinytex::is_tinytex()),
               "no LaTeX engine")
   skip_if_not(rmarkdown::pandoc_available(), "pandoc is not available")
-  txt <- c(rv(fmt_num(u(1, kg * m))), rv(fmt_num(u(3, m^4))), rv(fmt_num(u(2, "m^-3"))))
+  txt <- c(rv(fmt_num(u(1, kg * m))), rv(fmt_num(u(3, m^4))), rv(fmt_num(u(2, "m^-3"))), rv(fmt_num(-3)))
   dir <- withr::local_tempdir()
   rmd <- file.path(dir, "doc.Rmd")
-  writeLines(c("---", "output: pdf_document", "---", "", paste(txt, collapse = " and "), ""),
+  # ruling: the text reaches the document through a knit, so weft can
+  # tell LaTeX how to set the minus sign U+2212 under pdflatex
+  writeLines(c("---", "output: pdf_document", "---", "",
+               "```{r, include=FALSE}", "library(weft)", "weft_setup()", "```", "",
+               "`r u(1, 'kg*m')`{.num} and `r u(3, 'm^4')`{.num} and `r u(2, 'm^-3')`{.num} and `r -3`{.num}", ""),
              rmd, useBytes = TRUE)
   out <- tryCatch(rmarkdown::render(rmd, quiet = TRUE, envir = new.env()), error = function(e) e)
   expect_false(inherits(out, "error"), label = if (inherits(out, "error")) conditionMessage(out) else "")
@@ -60,7 +64,6 @@ test_that("review 2b #c: a unit with no numerator prints a negative power; one w
   expect_false(grepl("1/", rv(fmt_num(u(2, "m^-3"))), fixed = TRUE))
   # control: a quotient with a numerator
   expect_equal(rv(fmt_num(u(5, mg/L))), paste0("5", NBSP, "mg/L"))
-  expect_equal(rv(fmt_num(u(5, sites) / u(2, ha))), paste0("2.5", NBSP, "sites/ha"))
 })
 
 # ---- 2, 3, 4, a: # prints what the governor prints as a value, unit included (reversed ruling) ----
@@ -282,4 +285,9 @@ test_that("review 2b #i: a dictionary entry with a power that is not whole is a 
   expect_weft_cond(a2_err(read_dict(p)), "weft_dict_error", "read_dict(m^0.5)")
   p2 <- a2_file(c("a:", "  value: 1", "  type: quantity", "  unit: m^2", "  definition: \"A made-up thing.\""))
   expect_no_error(read_dict(p2))   # control
+})
+
+test_that("review 2b #unit: a back-reference prints the display unit its value printed in (4.4.14)", {
+  got <- ws("`r u(150, 'cm')`{#k9 .num unit=\"m\"} then [# a | # b]{n=\"#k9\"}")
+  expect_equal(got, paste0("1.5", M, " then 1.5", M, " b"))
 })

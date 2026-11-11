@@ -358,6 +358,10 @@ Between, the value is rounded to three decimals. A result below 0.1 prints with
 three decimals ("p = 0.046", "p = 0.004", "p = 0.050"), any other with two
 ("p = 0.10", "p = 0.20"). The record's number is the number printed.
 
+**1.4.18** The minus sign weft prints is U+2212. In a knit to LaTeX weft
+declares the character for pdflatex, which has no definition for it; xelatex
+and lualatex set it already. A document needs nothing in its preamble.
+
 ### 1.5 Governed spans
 
 **1.5.1** The bracket holds one or more **arms** separated by `|`. The key
@@ -2757,6 +2761,10 @@ their text. A year is not a quantity, and is left bare.
 **1.4.17** The values near 0.05 are the ones a reader acts on, and two decimals
 print 0.046 as "p = 0.05". Three decimals below 0.1 keep them apart; from 0.1
 up two are enough.
+
+**1.4.18** rmarkdown builds a PDF with pdflatex by default, and without the
+declaration every negative number stops the build with an error that does not
+name weft.
 
 **1.5.1** The key says what kind of governor it is, and each key fixes its arm
 counts, so a wrong count is found from the source without running R.

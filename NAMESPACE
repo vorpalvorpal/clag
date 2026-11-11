@@ -3,6 +3,7 @@
 S3method("$",weft_dict)
 S3method("$<-",weft_dict)
 S3method("[",weft_dict)
+S3method("[",weft_text)
 S3method("[",weft_year)
 S3method("[<-",weft_dict)
 S3method("[[",weft_dict)

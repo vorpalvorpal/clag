@@ -590,7 +590,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     # `.a` applies to numbers and number words only (1.4.5): a number it
     # meets is printed as `.num` prints it
     has_fmt <- any(!is.na(class_group(cc$own, reg))) || ".no" %in% cc$own ||
-      ".a" %in% cc$own || any(c("digits", "sigfig", "trunc") %in% names(cc$keys)) ||
+      ".a" %in% cc$own || any(c("digits", "sigfig", "unit", "trunc") %in% names(cc$keys)) ||
       (length(cc$own) > 0L && inherits(v, "units"))   # a text class acts on a quantity with its unit (4.4.2)
     own <- cc$own
     res <- tryCatch({
@@ -673,7 +673,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   has_own_format <- function(cc) {
     any(!is.na(class_group(cc$own, cfg$formatters))) || ".no" %in% cc$own ||
-      any(c("digits", "sigfig") %in% names(cc$keys))
+      any(c("digits", "sigfig", "unit") %in% names(cc$keys))
   }
 
   # The governor of an `n` or `sign` span: a value to read the number from.
@@ -817,7 +817,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
           reg, function(r) identical(r[["stage"]], "collapse"), NA)])))) fcl <- c(fcl, ".and")
       # a number vector with no number or wording class prints each element as
       # a bare value prints
-      if (is.numeric(v) && !has_own_format(cc)) {
+      if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc)) {
         v <- stats::setNames(vapply(v, stock_print, ""), names(v))
       }
       out <- tryCatch(
