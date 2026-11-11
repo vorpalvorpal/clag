@@ -47,37 +47,10 @@ These wait on that decision, and some dissolve under it:
 
 ## Waiting on the author's reply
 
-- **Escapes (1.5.12).** Keep doubling; state that backslashes before `|` and
-  `#` are removed first, then a doubled character is the literal. Checked:
-  Pandoc's writer turns `[a||b | c]` into `[a\|\|b \| c]`, which reads
-  correctly in that order. A backslash cannot be the escape, because the
-  writer puts one before every `|` and `#` in a span, separators included.
-- **Quoting (1.2.3).** Keep the ban on single-quoted values; the reason that
-  stands is that Pandoc's writer rewrites `{if='tier == "sev"'}` to
-  `{if="tier == \"sev\""}`. The other stated reason (the lints' reader) no
-  longer applies once attribute blocks are masked.
-- **Capitalised keys.** `{If=…}` and `{N=…}` (autocapitalised) are ordinary
-  spans today, with no check. Proposal: keys match in any case.
-- **A weft class on a plain bracket.** `[results]{.strong}` does nothing
-  today. Proposal: text classes work there; a number class on typed text gets
-  the unrecognised-name warning (5.3.3).
 - **Units through arithmetic (§4.4).** `dict$a / dict$b` would print a unit.
   Proposal: the unit survives `+`, `-`, and `*` or `/` by a plain number;
   drops when two quantities multiply or divide; adding different units is an
   error.
-- **Label words (5.2.4).** Proposal: the list starts empty and is the
-  author's; an adoption helper proposes candidates by counting "Word +
-  number" pairs; "Table 3" gets a message pointing to a cross-reference.
-- **Governor with no formatter.** How it prints is undefined, though arm
-  choice depends on it. Proposal: a `_weft.yml` setting, default `.num`, and
-  `.num` shows no decimals for a whole number.
-- **A `.qmd` with no chunk is never knit**, so its values print as code.
-  Checked on Quarto 1.11.9: `engine: knitr`, any `knitr:` key, or an empty R
-  chunk in the file itself selects knitr; nothing in `_quarto.yml` or
-  `_metadata.yml` does. weft cannot force it from R. Proposal: the
-  `pre-render` script fails naming the file, the filter fails on a code span
-  that carries a weft class or starts with `r `, `R ` or `{r}`, and an
-  installer can add the line.
 
 ## Raised and not yet put to the author
 

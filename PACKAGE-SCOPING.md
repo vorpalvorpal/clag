@@ -23,7 +23,8 @@ when the inline R a document already contains counts without being rewritten.
 
 Every weft construct is markdown that knitr, Pandoc and Quarto already accept.
 Nothing is compiled, there is no second source tree, and the file the author
-edits is the file that renders.
+edits is the file that renders. A `.qmd` becomes a weft document with
+`engine: knitr` in its front matter and one call that activates weft (§9.2).
 
 **How this document is arranged.**
 
@@ -66,12 +67,22 @@ attribute block is plain knitr inline code. With an attribute block, Quarto's
 its own form prints in stock (1.3.1).
 
 **1.1.5** A span is a weft construct when its attribute block carries exactly
-one of the four keys:
+one of the four keys, or carries none of them and a weft text class (`.a`,
+`.cap`, `.strong`, `.em`):
 
 | Key | Kind | The span |
 |---|---|---|
 | `n`, `if`, `sign` | governor | prints prose chosen by an R value (§1.5) |
 | `cite` | marker | prints its prose and names its source (§1.8) |
+| none, with a text class | text | prints its prose with the class applied (1.1.9) |
+
+**1.1.9** In a text span the class acts on the bracket's text, as it does on a
+governed span's chosen arm (1.5.7): `[results]{.strong}` prints bold. A text
+span has no arms: `|` and `#` in it are ordinary characters. Its bracket is
+prose (1.5.15). An `#id` on a text span is a construct error. A formatter
+class or a renderer key on a bracket with no governor or marker key is not
+weft's there: `[1234]{.num}` is not a construct, the class passes through,
+and the lint of 5.3.3 lists it.
 
 **1.1.6** A span or a div with the class `.weft-literal` is a marker for the
 lints (§1.8). The runtime does one thing with it: it removes the `why` from
@@ -80,13 +91,13 @@ the output (1.8.11).
 **1.1.7** The attribute block touches the closing backtick or bracket, with
 nothing between.
 
-**1.1.8** A construct is a span that carries a weft key (1.1.5), or a value
-that has an attribute block. Bare inline R, with no attribute block, is not a
-construct. It keeps stock behaviour everywhere: it prints as stock prints it
-(1.3.1), and no rule about constructs applies to it, in prose, in `title:`
-and the other front-matter fields, in tables and in captions. A `claim()` in
-it is still a check (2.4.1), and it still counts as a value for the numeral
-rule (5.2.1).
+**1.1.8** A construct is a span that carries a weft key or a weft text class
+(1.1.5), or a value that has an attribute block. Bare inline R, with no
+attribute block, is not a construct. It keeps stock behaviour everywhere: it
+prints as stock prints it (1.3.1), and no rule about constructs applies to
+it, in prose, in `title:` and the other front-matter fields, in tables and in
+captions. A `claim()` in it is still a check (2.4.1), and it still counts as
+a value for the numeral rule (5.2.1).
 
 ### 1.2 The attribute block
 
@@ -102,8 +113,8 @@ the expression to a name in a chunk.
 
 **1.2.9** A `"` inside a double-quoted value ends the value early, and what is
 left is no longer an attribute block. So braces that directly follow a bracket
-or inline code, do not parse as an attribute block, and contain a weft key
-followed by `=`, are the same construct error.
+or inline code, do not parse as an attribute block, and contain a weft key in
+any letter case (1.2.10) followed by `=`, are the same construct error.
 
 **1.2.4** Meaning never depends on the order in which things are written
 inside the block.
@@ -133,6 +144,13 @@ pass-through.
 is to a weft name (`.nmu`, `trunk=`). A tier-2 lint lists it (5.3.3).
 
 **1.2.8** An `#id` is never emitted to the output.
+
+**1.2.10** A key that matches a weft key in any letter case is that key:
+`{If="x > 0"}` is `if`, and `{N="k"}` is `n`. The lower-case form is the
+written standard, and the adoption helpers and any fixer write it. A key
+written twice in one block, in any letter case, is a construct error. Class
+names are matched exactly: `.Num` is not `.num`, and on a construct it gets
+the warning of 5.3.3, which names the nearest weft name.
 
 ### 1.3 Values
 
@@ -191,7 +209,7 @@ written in.
 
 | Class | Prints |
 |---|---|
-| `.num` | a number, to the document's defaults (§9.1) |
+| `.num` | a number, to the document's defaults (§9.1); a whole number with no decimals (1.4.13) |
 | `.pct` | a proportion as a percentage: 0.12 prints "12%" |
 | `.sci` | scientific notation |
 | `.p` | a p-value: "p = 0.03", "p < 0.001", never "p = 0.000" |
@@ -244,13 +262,18 @@ Text that comes from data is not escaped.
 number as printed, a flag for whether decimals are shown, and a relation
 (`=`, `<` or `>`). "< 0.001" is a bound, not a value. Stage i sets the
 number; stages ii to iv reword and pass it through. A collapsed vector and a
-date have no number.
+date have no number. An `n` or `sign` governor is always formatted, by its own
+classes or by the default class (1.5.18), so it always has a record.
 
 **1.4.12** `.word`, `.count` and `.ord` take a whole number that is not
 negative, judged on the number as printed. Anything else (a decimal, a
 negative, a bound) is a collected failure at knit time (5.3.2). `.word`
 prints digits from a limit up, as `.count` does from its threshold; the limit
 defaults to one hundred and is configurable (§9.1).
+
+**1.4.13** `.num` prints a whole number with no decimals unless `digits` or
+`sigfig` is given on the construct. A number that is not whole prints to the
+project's default digits (§9.1).
 
 ### 1.5 Governed spans
 
@@ -304,8 +327,9 @@ nothing.
 is.
 
 **1.5.7** Formatter classes and the keys `digits` and `sigfig` on an `n` or
-`sign` span format the governor. A formatter on an `if` span is a construct
-error. Text classes on any span act on the chosen arm's final text.
+`sign` span format the governor. With none of them, the default class formats
+it (1.5.18). A formatter on an `if` span is a construct error. Text classes on
+any span act on the chosen arm's final text.
 
 **1.5.8** `#` in an arm stands for the governor's printed text. Inside a
 `sign` span it is the magnitude as printed, without its sign.
@@ -314,10 +338,16 @@ error. Text classes on any span act on the chosen arm's final text.
 chosen only when the printed number is 1 with no decimals shown; the "zero"
 arm only when it is 0, and the "two" arm only when it is 2. A value printed as
 "1.0" takes the "other" arm. A number printed as a bound ("< 1") takes the
-"other" arm.
+"other" arm. Under the default class (1.5.18) a whole number prints with no
+decimals: 3 prints "3", and 0, 1 and 2 take the "zero", "one" and "two" arms
+by their value. A value prints "1.0" or "0.0" only when the author asked for
+decimals: with `digits` or `sigfig` on the span, or through the default
+digits for a value that is not whole (1.4.13).
 
 **1.5.10** `sign` judges zero on the number as printed: a change that prints
-as "0.0%" takes the zero arm, whatever its raw value.
+as "0.0%" takes the zero arm, whatever its raw value. Under the default class
+a raw zero prints "0", and a value that is not whole prints to the default
+digits, so a small change can print "0.0" and take the zero arm.
 
 **1.5.11** `n` must be a single number. A vector or a string is a collected
 failure (5.3.2) whose message says to write `length(x)`. An `NA` is a "no
@@ -325,8 +355,19 @@ value" failure (1.3.4). A count is never inferred from a length.
 The one exception is a length-2 value with `.range`: `#` is then the range,
 and the span takes the plural unless the range collapses to a printed 1.
 
-**1.5.12** Arms are trimmed. `\|` and `\#` mean the same as `|` and `#`. A
-doubled `||` or `##` is the literal character.
+**1.5.12** Arms are trimmed. A `|` or a `#` in an arm is read in two steps.
+First, a backslash directly before a `|` or a `#` is removed. Then a doubled
+`||` or `##` is the literal character, and a single `|` or `#` is the
+separator or the placeholder. Three in a row are read left to right: a
+literal, then a single one. An empty arm between two separators is written
+with a space between them (`| |`), because `||` is a literal.
+
+```
+[a||b | c]{if="x > 0"}           arms "a|b" and "c"
+[a\|\|b \| c]{if="x > 0"}        the same, as Pandoc's writer saves it
+[a||| c]{if="x > 0"}             arms "a|" and "c"
+site[s | | s]{n="k"}             an empty "one" arm: "sites", "site", "sites"
+```
 
 **1.5.13** Inside a pipe-table cell the arm separator must be written `\|`.
 An unescaped one is a construct error.
@@ -344,6 +385,11 @@ not exist.
 **1.5.17** A `sign` governor that prints as a bound ("< 0.1%") is a collected
 failure at knit time (5.3.2). A bound has a direction and no magnitude to
 print; the author writes that case with `if`.
+
+**1.5.18** An `n` or `sign` span with no formatter class, and no `digits` or
+`sigfig`, formats its governor with the class named by the default governor
+class setting (9.1.2). The setting defaults to `.num`, which prints a whole
+number with no decimals (1.4.13).
 
 ### 1.6 Plural forms
 
@@ -510,8 +556,9 @@ or div as an ordinary Pandoc class.
 
 **1.9.1** These are never weft constructs:
 
-- a bracket whose attribute block has none of `n`, `if`, `sign`, `cite` (an
-  ordinary Pandoc span, a link, a citation, a footnote)
+- a bracket whose attribute block has none of `n`, `if`, `sign`, `cite`, in
+  any letter case, and no weft text class (an ordinary Pandoc span, a link, a
+  citation, a footnote), including one that carries a formatter class (1.1.9)
 - inline R with no attribute block (1.1.8)
 - a code span that is not inline R
 - math, link targets and raw blocks (inline R in math is read by the numeral
@@ -718,19 +765,34 @@ with its line (tier 1).
 
 **2.5.3** *The `weft-check` Lua filter*, installed in a Quarto project by
 `use_quarto()`, and in an rmarkdown document or project by `use_setup()`.
-After knitting, the render fails on any span that still carries `n`, `if`,
-`sign` or `cite`, any text that still shows an attribute block, any leftover
-placeholder character, and any marker `<<weft:` (2.9.5). It works when the
-package was never loaded, and it covers captions. The filter exits through
-`os.exit(1)` (tier 1). In draft mode it reports instead (9.4.3). Under
-rmarkdown, `use_setup()` places the filter file and names it under the output
-format in the document's front matter:
+After knitting, the render fails on:
+
+- any span that still carries `n`, `if`, `sign` or `cite`, in any letter case
+  (1.2.10), or a weft text class (1.1.5)
+- any text that still shows an attribute block
+- any code span that carries a weft class or key (1.2.5)
+- any code span that has an attribute block and whose text begins `r `, `R `
+  or `{r}`, and any code span whose text begins `r ` (5.3.4)
+- any leftover placeholder character
+- any marker `<<weft:` (2.9.5)
+
+It works when the package was never loaded, and when the file was never knit
+(9.2.8). It covers captions. The filter exits through `os.exit(1)` (tier 1).
+In draft mode it reports instead (9.4.3). Under rmarkdown, `use_setup()`
+places the filter file and names it under the output format in the
+document's front matter:
 
 ```yaml
 output:
   html_document:
     pandoc_args: ["--lua-filter", "weft-check.lua"]
 ```
+
+**2.5.4** *The `pre-render` check.* In a Quarto project, the `pre-render`
+script that `use_quarto()` writes reads every `.qmd` the render will process.
+It fails, naming the file, on one that holds a construct and has no
+`engine: knitr` in its own front matter (9.2.8). Nothing has rendered by then
+(tier 1).
 
 ### 2.6 Failures
 
@@ -1210,10 +1272,14 @@ letter-or-digit is a letter is a name, whatever digits it contains: "CO2",
 items (§6.5). The rule fails on a numeral the baseline does not list.
 
 **5.2.4** Two exemptions are configurable (§9.1). A numeral that follows a
-label word is exempt by default; the shipped words are Figure, Fig., Table,
-Chapter, Section, Equation, Appendix, Box and Part. A four-digit year is not
-exempt by default: a year in prose is often a stipulation that belongs in the
-dictionary.
+label word is exempt. The label words are the author's, set in `_weft.yml` or
+a document's front matter, and the list starts empty. `label_seed()` proposes
+candidates (9.5.5). A numeral after a word Quarto can cross-reference
+(Figure, Fig., Table, Section, Chapter, Equation, Appendix) fails like any
+other typed numeral, and its message says to use a cross-reference. The
+author may still add such a word to the list, for a document that cites
+another document's tables. A four-digit year is not exempt by default: a year
+in prose is often a stipulation that belongs in the dictionary.
 
 **5.2.5** A `.weft-literal` mark exempts numerals only. Every other prose lint
 still reads the marked text.
@@ -1241,6 +1307,8 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
   value (1.1.5, 1.3.3)
 - a code span that opens with `r` and a line break (5.3.4)
 - a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9)
+- a key written twice in one block, in any letter case (1.2.10)
+- an `#id` on a text span (1.1.9)
 - an inline expression, or the value of `n`, `if` or `sign`, that does not
   parse as R (5.3.5)
 - `claim()` with no check (3.1.10)
@@ -1278,14 +1346,17 @@ failed checks. A missing value is collected the same way (1.3.4).
 
 **5.3.3** Three tier-2 warnings sit beside them.
 
-- A bracketed span with an unescaped `|` between its words and no governor key
-  is listed as a probable construct.
+- A bracketed span with a single `|` (1.5.12) between its words and no
+  governor key is listed as a probable construct.
 - An `if` whose condition compares a value with zero is listed as probably
   wanting `sign`.
 - A class or key on a weft construct that is not weft's (1.2.5), not one of
   Pandoc's (`.smallcaps`, `.underline`, `.mark`, `custom-style`), and not
   listed in the configuration as a name the project expects (9.1.2) is
-  listed. The report gives the nearest weft name when one is close.
+  listed. So is a formatter class or a renderer key on a bracket with no
+  governor or marker key (1.1.9). The report gives the nearest weft name when
+  one is close, including a class that differs from one only in letter case
+  (`.Num`, 1.2.10).
 
 **5.3.4** knitr reads inline R only when `r` is followed by a space on the
 same line. A code span that opens with `r` and then a line break is left by
@@ -1377,6 +1448,7 @@ referenced.
 | 6 | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
 | 7 | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
 | 8 | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
+| 9 | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8) | 1 |
 
 ### 5.9 Figures and tables
 
@@ -1720,6 +1792,7 @@ rule 8), and its message names `_weft.yml`.
 | Setting | Governs |
 |---|---|
 | default digits; decimal and thousands marks; the minus sign | the number formatters |
+| the default governor class: the class that formats an `n` or `sign` governor with no formatter of its own; `.num` unless set | 1.5.18 |
 | whether `.pct` reads its value as a proportion (the default) | `.pct` |
 | the `.count` threshold; the `.word` limit | `.count`, `.word` (1.4.12) |
 | the level of `ci()`; the tolerance of `about()` | 3.5.3 |
@@ -1728,7 +1801,7 @@ rule 8), and its message names `_weft.yml`.
 | the date format | `.date` |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
 | the severity list | 7.4.2 |
-| numeral exemptions: label words, four-digit years | 5.2.4 |
+| numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
 | the claim-word lexicon | 5.5.4 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
 | the `decision:` resolver | 4.5.1 |
@@ -1746,12 +1819,29 @@ is unchanged (9.4.1).
 
 ### 9.2 Activation
 
+**9.2.8** A `.qmd` is a weft document when it has two things: `engine: knitr`
+in its own front matter, and the activating call, `weft::weft_setup()`, by one
+of the routes of 9.2.1. `use_setup()` writes both. `engine: knitr` in
+`_quarto.yml` or `_metadata.yml` does not count. Under rmarkdown an `.Rmd` is
+always knit, so the activating call is enough there. The smallest weft
+document activates from its front matter:
+
+```yaml
+---
+title: "Survey results"
+engine: knitr
+knitr:
+  opts_knit:
+    weft: !expr weft::weft_setup()
+---
+```
+
 **9.2.1** There are three places to activate a document.
 
 | Where | What is written | Covers |
 |---|---|---|
 | the document's front matter | `knitr:` / `opts_knit:` / `weft: !expr weft::weft_setup()` | one document, under Quarto and rmarkdown |
-| `.Rprofile` at the project root | `if (requireNamespace("weft", quietly = TRUE)) weft::weft_setup()` | every document in a Quarto project, wherever it sits |
+| `.Rprofile` at the project root | `if (requireNamespace("weft", quietly = TRUE)) weft::weft_setup()` | every document in a Quarto project that is knit (9.2.8), wherever it sits |
 | a setup chunk | `weft::weft_setup()` | the prose below that chunk |
 
 **9.2.2** The `weft:` key under `knitr: opts_knit:` only carries the
@@ -1780,7 +1870,7 @@ was called. Each says what it will write.
 | Function | Writes |
 |---|---|
 | `use_weft()` | everything below, with a summary first |
-| `use_setup()` | the `.Rprofile` line (Quarto project) or the front-matter line (single document); `_weft.yml`; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
+| `use_setup()` | the `.Rprofile` line (Quarto project) or the front-matter line (single document); `engine: knitr` in the front matter of the document, or of each `.qmd` a Quarto project renders (9.2.8); `_weft.yml`; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
 | `use_hooks()` | the `pre-commit` shim, with the paths of R and Pandoc; `weft/baseline.tsv`; `weft/removals.yml`; `weft/accepted.yml` |
 | `use_ci()` | the CI workflow (6.7.1) |
@@ -1828,6 +1918,11 @@ off, and what the next step is.
 
 **9.5.4** The configuration records the package version. `verify()` warns on
 a mismatch.
+
+**9.5.5** `label_seed()` counts each capitalised word followed by a numeral
+("Site 3", "Zone 2", "Stage 1") in the existing prose, and proposes the words
+as candidate label words (5.2.4), each with its count. The author chooses
+which go in the list.
 
 ---
 
@@ -1962,23 +2057,29 @@ prints ("and", "of the") are fixed by the package; the phrases of a `lookup()`
 or `brk()` are stipulations held in the dictionary, where they are read and
 reviewed in one place.
 
-**1.1.4** A document that already uses inline R is already a weft document.
-Adoption rewrites nothing. Stock Quarto escapes markdown characters in the
-output of `` `{r} x` `` and not in the output of `` `r x` ``, so the two bare
-forms are not the same, and each keeps what its author chose.
+**1.1.4** The inline R a document already holds counts as it stands.
+Adoption adds front matter (9.2.8) and rewrites no prose. Stock Quarto
+escapes markdown characters in the output of `` `{r} x` `` and not in the
+output of `` `r x` ``, so the two bare forms are not the same, and each keeps
+what its author chose.
 
 **1.1.8** The rules about constructs exist for what weft adds to markdown.
 Bare inline R adds nothing, so a document with no attribute blocks renders as
 it did before weft (1.9.2), wherever its inline R sits.
 
-**1.2.2, 1.2.3** The file is read by four parsers: Pandoc's markdown reader
-(the render), Pandoc's position-tracking reader (the lints), the visual
-editor's writer, and weft's scanner. They agree on double-quoted and unquoted
-values. They do not agree on the rest: the position-tracking reader has a
-stricter attribute grammar and does not parse `{n='k'}`, `{if='tier == "sev"'}`
-or `{if="tier == \"sev\""}` as attributes at all, and the readers double
-backslashes differently. One written form that every parser reads the same way
-is worth more than three that mostly work. An expression that needs a double
+**1.1.5, 1.1.9** Without this, `[results]{.strong}` does nothing: a weft
+class the author wrote on a bracket is passed over without a word. A text
+class means the same on any bracket. A formatter class on typed text has no computed number
+to format (5.2.1), so it is left to the warning. On a plain bracket an `#id`
+is an anchor; on a text span it would be dropped from the output (1.2.8), and
+the anchor lost without a word.
+
+**1.2.2, 1.2.3** Pandoc's markdown writer, and so the visual editor, rewrites
+every value to double quotes. `{if='tier == "sev"'}` comes back from a save
+as `{if="tier == \"sev\""}` (§18): a backslash and an inner double quote,
+which weft's scanner would then have to unescape exactly as Pandoc does. One
+written form that survives a save unchanged is the rule: double quotes, or
+none, with nothing inside to unescape. An expression that needs a double
 quote or a backslash is bound to a name in a chunk, which also keeps it short.
 
 **1.2.4** Pandoc's markdown writer, and therefore the visual editor, rewrites
@@ -1999,6 +2100,12 @@ keeps the report short.
 **1.2.8** An id is a name for weft's own use: agreement, the gate and the
 ledger. Emitting it would put every one into the document's anchor namespace,
 where the cross-reference rules and Quarto's reserved prefixes apply.
+
+**1.2.10** Editors and phones capitalise the first letter after a brace or at
+the start of a line. A capitalised key otherwise leaves an ordinary span that
+prints every arm, with no check. Class names stay case-sensitive, because a
+capitalised class may belong to a stylesheet; the lint lists it instead
+(5.3.3).
 
 **1.3.2** A check that ran after formatting would test a rounded number.
 
@@ -2032,6 +2139,12 @@ markdown. Escaping would break both.
 **1.4.12** "One point five sites" and "minus third" are not things an author
 means. Past a limit a spelled number is harder to read than digits.
 
+**1.4.13, 1.5.18** Arm choice follows the printed number (1.5.9), so a
+governor has to print in a known way, and without a default class how a
+governor with no formatter printed was undefined. A count is whole. Printed
+to the default digits it would read "3.0 sites", and a governor of 1 would
+print "1.0" and take the plural.
+
 **1.5.1** The key says what kind of governor it is, and each key fixes its arm
 counts, so a wrong count is found from the source without running R.
 
@@ -2061,7 +2174,12 @@ text no longer shows.
 depths into "2". For ranges, CLDR's plural-range data gives every English
 range the plural.
 
-**1.5.12** The visual editor writes `\|` and `\#` inside a span.
+**1.5.12** A backslash cannot be the escape. Pandoc's markdown writer, and so
+the visual editor, puts a backslash before every `|` and `#` inside a span,
+separators included, and Pandoc's reader removes it again, so `\|` and `|`
+have to mean the same thing. Removing backslashes first and then reading
+doubles gives every form the writer produces the meaning it had before the
+save (§18). An empty arm needs its space because `||` is taken.
 
 **1.5.13** The render is not the problem: the hooks resolve the span before
 Pandoc sees the table. But the source is also read by Pandoc's
@@ -2221,6 +2339,13 @@ run, and nothing else fails.
 (1.5.16), so a plain count of constructs would fail every document that has a
 nested one.
 
+**2.5.3, 2.5.4** In a file that is not knit (9.2.8), the hooks and the
+end-of-document check never run, and a value with an attribute block reaches
+Pandoc as a code span that keeps its attributes, so no attribute block shows
+as text. The `pre-render` check names the file before anything renders; the
+filter catches it afterwards, and catches a capital `R` (`` `R x`{.num} ``),
+which knitr does not read as inline code even in a file that is knit.
+
 **2.6.1, 2.6.2** One report with every failure lets the author read all the
 affected sentences in one pass. Stopping at the first hides the rest.
 
@@ -2246,7 +2371,7 @@ failure would last one render.
 
 **2.10.2, 2.10.3** Two readers of one syntax can disagree, and Pandoc's
 position-tracking reader does disagree with its markdown reader on attribute
-blocks (1.2.3). So one reader, the scanner, owns the constructs. Pandoc is
+blocks (§18). So one reader, the scanner, owns the constructs. Pandoc is
 kept for what it does well: telling prose from code, math, links and raw
 content in everything that is not a construct.
 
@@ -2336,6 +2461,11 @@ exempt it as a mix of letters and digits. It is a number.
 switched on. Baselined, it stops new ones at once and leaves the old ones as a
 visible, shrinking list.
 
+**5.2.4** A typed "Table 3" goes stale when floats are reordered; a
+cross-reference does not. The words that genuinely need the exemption ("Site
+3", "Zone 2", "Stage 1") differ by document, so a shipped list would exempt
+the wrong words in every one.
+
 **5.2.6** `$p = 0.02$` is a number typed by hand, as it would be outside the
 dollars. An exponent or a subscript is notation, not a value. Math reaches
 Pandoc as TeX, so a formatter's markdown, or a span weft emits, has no place
@@ -2370,6 +2500,10 @@ from the target's value, so a cached chunk serves the old target after the
 pipeline has changed it.
 
 **5.8 rule 8** See 9.1.1 and 9.1.4.
+
+**5.8 rule 9** See 9.2.8. An included file or a child document is knit as
+part of the file that takes it in (2.7.4, 2.1.5), so it needs no engine of its
+own.
 
 **5.10.1** A recomputed value can open a sentence with a digit or a lowercase
 word ("12 sites failed"; "no sites failed"). The fix is `.cap`, with `.count`
@@ -2484,6 +2618,19 @@ whole project reads it.
 **9.4.3** Draft mode is for writing: an author wants the whole document, with
 every problem marked in place. The hook checks the source, which draft mode
 does not change.
+
+**9.2.8** A `.qmd` with no code chunk is not knit, so R never starts: every
+value prints as code and nothing fails. In the file's own front matter,
+`engine: knitr` selects knitr, and so does any `knitr:` key; so does an empty
+R chunk in the body. Nothing at project level does: `engine: knitr` at the
+top level of `_quarto.yml` or in `_metadata.yml`, `execute: engine: knitr`
+in `_quarto.yml`, and a `knitr:` key there all left such a file unknit, and
+so did inline R with no chunk (§18). weft cannot set the engine from R,
+because R never starts. The front-matter route's `knitr:` key already selects
+knitr; `engine: knitr` is written on every route so that one line, the same
+everywhere, says the file is knit. Three backstops catch a file without it:
+the hygiene rule at commit (5.8 rule 9), the `pre-render` check before
+anything renders (2.5.4), and the filter after (2.5.3).
 
 **9.2.1** The front-matter form works because R evaluates `!expr` when it
 reads the document's own YAML. The first two routes run before any prose is
@@ -2620,7 +2767,8 @@ each run in a copy of the stand-in extended for that purpose. Under rmarkdown
 the Pandoc was 3.8.3, not the 3.10 that Quarto ships.
 
 A row whose source is "review" was found by a reviewer of this design, not run
-with the stand-in.
+with the stand-in. A row whose source is "check, 2026-11-11" was run on that
+date directly against Quarto 1.11.9 or Pandoc 3.10, with no stand-in.
 
 ### Syntax and the prose hooks
 
@@ -2656,6 +2804,8 @@ with the stand-in.
 |---|---|
 | Pandoc's markdown reader accepts attribute blocks written key-first, unquoted and single-quoted; its writer rewrites them to id, classes, keys with double quotes | Pandoc |
 | Pandoc's markdown writer keeps values and governed spans as constructs, writing `\|` and `\#` inside them | Pandoc |
+| Pandoc's markdown writer, markdown to markdown, puts a backslash before every bar and `#` inside a span, separators included, and Pandoc's reader removes it. The three forms tried are listed below the table; read in the order of 1.5.12, each comes back with the meaning it had | check, 2026-11-11 |
+| Pandoc's markdown writer rewrites `{if='tier == "sev"'}` as `{if="tier == \"sev\""}` | check, 2026-11-11 |
 | Pandoc's position-tracking reader (`commonmark_x+sourcepos`) parses values and spans into nodes with line and column | Pandoc |
 | That reader does not parse `{n='k'}`, `{if='tier == "sev"'}` or `{if="tier == \"sev\""}` as attributes, and doubles backslashes differently from the markdown reader | Pandoc |
 | That reader makes "11-year" one token | Pandoc |
@@ -2664,6 +2814,14 @@ with the stand-in.
 | Of span classes, Pandoc turns only `.smallcaps`, `.underline` and `.mark` into formatting, in html, docx, LaTeX and Typst; `custom-style` reaches docx | Pandoc |
 | `utils` exports a function named `cite` | R |
 | CLDR's plural-range data gives every English range the form "other" | CLDR |
+
+The forms the writer produced (check, 2026-11-11):
+
+```
+[rose | fell]{if="x > 0"}     →   [rose \| fell]{if="x > 0"}
+[a||b | c]{n="k"}             →   [a\|\|b \| c]{n="k"}
+##                            →   \##
+```
 
 ### Captions
 
@@ -2768,6 +2926,10 @@ which is unoptimised R.
 | Activation from the document's front matter (`!expr` under `knitr:` or `params:`): a construct in the first paragraph resolves | both |
 | Activation from `.Rprofile` at the project root, for documents in the root and in a subdirectory, project and single-file render | Quarto |
 | `!expr` in `_quarto.yml` or `_metadata.yml` is not evaluated | Quarto |
+| A `.qmd` with no code chunk is not knit: every value prints as code, and nothing fails | check, 2026-11-11 |
+| In the file's own front matter, `engine: knitr` selects knitr, and so does any `knitr:` key; so does an empty R chunk in the body | check, 2026-11-11 |
+| None of these selects knitr for a file with no chunk: `engine: knitr` at the top level of `_quarto.yml`; `execute: engine: knitr` there; a `knitr:` key there; `engine: knitr` in `_metadata.yml` | check, 2026-11-11 |
+| A file whose only R is inline (`` `{r} 1+1` ``) is not knit | check, 2026-11-11 |
 | Inline R in a YAML field installs the hooks too late for values in the first block | Quarto |
 | Activation from `_output.yml` through an output format that carries the hooks works (the route is not offered: 9.2.3) | rmarkdown |
 | `library(weft)` in a setup chunk activates only the first knit of an R session, because attaching happens once: in a loop of `rmarkdown::render()` calls, every document from the second on printed raw spans, and nothing failed | review |
@@ -2803,7 +2965,12 @@ has a quoted value, and rejects a key written before a class and an unquoted
 form:
 
 - the single-quote and escape errors (1.2.3); ids kept out of the output
-  (1.2.8)
+  (1.2.8); keys matched in any letter case (1.2.10)
+- text spans (1.1.9)
+- the order of reading `|` and `#` in an arm, and three in a row (1.5.12),
+  beyond the three writer outputs of §18
+- the default governor class, and `.num` printing a whole number with no
+  decimals (1.5.18, 1.4.13)
 - the four formatter stages and their at-most-one errors (1.4.1, 1.4.2);
   `digits` and `sigfig` (1.4.7); the limits on the wording classes (1.4.12)
 - `sign` on a bound (1.5.17); `n="."` inside a `sign` span (1.7.2)
@@ -2821,7 +2988,10 @@ form:
   the `chunk` wrapper (2.1.4); per-knit initialisation, with a child sharing
   its parent's records (2.1.5)
 - the end-of-document check counting chosen arms only (2.5.2); the filter's
-  test for a leftover placeholder and for a marker (2.5.3, 2.9.5)
+  test for a leftover placeholder and for a marker (2.5.3, 2.9.5); the
+  filter's tests on code spans, on keys in any letter case and on text
+  classes (2.5.3)
+- the `pre-render` check for `engine: knitr` (2.5.4)
 - masking construct ranges with a letter before Pandoc reads the prose, the
   check on block types, and masking metadata blocks (2.10.3, 2.10.5, 2.10.6)
 - the "no value" failure for a missing value, in the formatters, governors,
@@ -2845,12 +3015,20 @@ form:
 **Parts of the design with no stand-in at all:** every lint; the baseline and
 `baseline_prune()`; the acknowledgements file and the integrity report; the
 hook's cache (6.4.7); the ledger; `use_ci()`; the `decision:` resolver; `dict`
-and `dict_local` as objects (the `targets` side was run). Of the gate, only
-the paragraph matching and the timings were run.
+and `dict_local` as objects (the `targets` side was run); the adoption
+helpers of §9.5, `label_seed()` among them. Of the gate, only the paragraph
+matching and the timings were run.
 
 **Rules that follow from how a tool works, not from a run.** Hygiene rule 7
 (§5.8): that knitr's cache serves an old target to a chunk that reads one.
-It follows from how the cache key is built.
+It follows from how the cache key is built. Hygiene rule 9: that an included
+file or a child document needs no `engine:` of its own. It follows from
+Quarto expanding includes before knitr reads the file (2.7.4), and from knitr
+knitting a child from inside its parent.
+
+**A toolchain fact not checked.** Whether Pandoc's markdown writer keeps the
+letter case of a key on a round trip (1.2.10). Rule 1.2.10 reads `If` as `if`
+either way.
 
 **Formatters and functions not in the syntax matrix:** `.date`, `.sci`,
 `.ord`, `.ol`, `.dl`; `of_n()`, `about()`, `ci()`, `pm()`.
@@ -2962,10 +3140,20 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   construct, and a late metadata block whose `abstract` holds a numeral that
   the lints must report with its line in the YAML.
 - **Round trip.** Every fixture, passed through Pandoc's markdown writer, must
-  render to the same text.
+  render to the same text. The fixtures include the three writer outputs of
+  §18 for 1.5.12: a separator saved as `\|`, a doubled `||` saved as `\|\|`,
+  and `##` saved as `\##`.
 - **Attribute forms.** Each fixture is also run with its attribute blocks
-  reordered and unquoted, and must render the same text. With its values
-  single-quoted it must give the construct error of 1.2.3.
+  reordered, unquoted, and with the first letter of each key capitalised, and
+  must render the same text (1.2.10). With its values single-quoted it must
+  give the construct error of 1.2.3.
+- **Text spans.** `[results]{.strong}`, and the same with each text class,
+  prints the class's effect; `[1234]{.num}` passes through and is listed by
+  5.3.3; `.Num` on a construct is listed with `.num` as the nearest name.
+- **Governors.** A governor with no formatter class prints 0, 1, 2 and 3 as
+  "0", "1", "2" and "3" and takes the arm for each; a value that is not whole
+  prints to the default digits; the setting of 9.1.2 changes the class
+  (1.5.18).
 - **Stages.** Each fixture with more than one formatter class is run with the
   classes in every order, and must render the same text.
 - **Positions.** The content search against a stress document: repeated
@@ -2989,7 +3177,10 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   the filter.
 - **Backstops.** With the hooks missing, a document holding each kind of
   construct fails its render under Quarto and under rmarkdown, through the
-  filter.
+  filter. A `.qmd` that holds constructs and no R chunk, and has no
+  `engine: knitr`, fails in the `pre-render` script, naming the file
+  (2.5.4); with that script absent, the filter fails it (2.5.3). So does a
+  value written with a capital `R`.
 - **Child documents.** A failure in the parent above a child, one in the
   child, and one below it are all reported, each with its own file and line.
 - **Collected failures.** A document with two value-dependent errors (5.3.2),
@@ -3005,7 +3196,9 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   succeeds, one that fails, and one that is killed (Q3).
 - **Names.** Every weft name changed by one edit, where the result is not
   another weft name, is listed by the lint of 5.3.3 with a weft name as the
-  nearest. Pandoc's names and the project's expected names are not listed.
+  nearest. A key changed only in letter case is the key itself (1.2.10), and
+  is not listed. Pandoc's names and the project's expected names are not
+  listed.
 - **Paragraph matching.** The spike's 72 scripted edits (§18) are kept as a
   fixture, and edits taken from a real manuscript's history are added to them
   (Q12).
@@ -3037,16 +3230,17 @@ renders with it.
   `.count`, `.ord`, `.no`, `.and`, `.or`; `digits`, `sigfig`, `sep`, `last`;
   project-registered formatters
 - governed spans with `n` (English) and `if`: two arms, guards, condition
-  lists; `n="."`
+  lists; `n="."`; the default governor class; keys in any letter case
 - `claim()`, `plural()`, the `fmt_*()` functions
-- pass-through of classes and keys; `.strong`, `.em`
+- pass-through of classes and keys; `.strong`, `.em`; text spans
 - collected failures, including the record made by a failed check in chunk
   code (2.4.4), missing values and value-dependent errors; the marker; exact
   positions; draft mode; `_weft.yml`
 - the condition log from the `evaluate` wrapper and from values in prose, the
   cache replay, and the severity list
-- the end-of-document check and the `weft-check` filter; `use_quarto()`
-- activation from front matter and from a setup chunk
+- the end-of-document check, the `weft-check` filter and the `pre-render`
+  check; `use_quarto()`
+- activation from front matter and from a setup chunk, with `engine: knitr`
 - the syntax fixtures, the scanner and masking tests, and the pinned-internals
   tests
 
@@ -3089,9 +3283,9 @@ renders with it.
   strings; the masked Pandoc read; the citation pattern
 - the baseline file, built in this stage because the numerals rule cannot be
   switched on without it
-- numerals, with the exemptions and `.weft-literal`; literal values; construct
-  errors; marker spans and citations; cross-references; hygiene; figure
-  presence
+- numerals, with the exemptions, `label_seed()` and `.weft-literal`; literal
+  values; construct errors; marker spans and citations; cross-references;
+  hygiene; figure presence
 - the tier-2 lints (claim words, constants in computations, probable
   constructs), available as functions until stage 4 gives them a report
 
