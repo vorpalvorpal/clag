@@ -919,7 +919,6 @@ Tier-1 errors, found without running R:
 
 - a wrong arm count for its key, or for the document's language
 - a back-reference to an id that is unknown or defined later
-- the key `claim`, which is reserved: the error says to call `claim()`
 - a class within one edit of a formatter or text-class name (`.nmu`)
 - a key within one edit of a weft key (`sing=`, `trunk=`). Other unknown keys
   and classes are passed through (§0), so only a near miss can be told from an
