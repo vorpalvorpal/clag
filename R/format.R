@@ -558,10 +558,17 @@ choose_arm_n <- function(record, n_arms) {
 # An arm with its escapes resolved (1.5.12), `#` replaced by `hash`.
 resolve_arm <- function(arm, hash) {
   s <- trimws(arm)
-  s <- gsub("\\\\([|#])", "\\1", s)
-  s <- gsub("##", "\001", s, fixed = TRUE)
-  s <- gsub("#", hash, s, fixed = TRUE)
-  s <- gsub("\001", "#", s, fixed = TRUE)
+  s <- gsub("\\\\([|#])", "\\1", s)            # the backslash goes first
+  # then a run of `#`: pairs are literal, an odd one is the placeholder
+  m <- gregexpr("#+", s)[[1]]
+  if (m[1] != -1L) {
+    runs <- regmatches(s, list(m))[[1]]
+    rep <- vapply(nchar(runs), function(len) {
+      paste0(strrep("#", len %/% 2L), if (len %% 2L == 1L) "\001" else "")
+    }, "")
+    regmatches(s, list(m)) <- list(rep)
+  }
+  s <- gsub("\001", hash, s, fixed = TRUE)
   gsub("||", "|", s, fixed = TRUE)
 }
 

@@ -52,3 +52,20 @@ around.
 9. **9.1, unknown and bad settings.** Chosen: an unknown key warns and names
    itself; a value of the wrong type or range is an error when the
    configuration is read. Reverse: `R/config.R`.
+10. **2.1.7 / Q16, plain `knit()`.** Found the cause: knitr applies its
+    markdown output hooks only if its default hooks are untouched when the
+    knit starts. Chosen: install only `before.knit`/`after.knit` outside a
+    knit and the rest from `before.knit`. Reverse: `R/hooks.R`.
+11. **2.1.8 (new), functions on the search path.** The smallest weft
+    document (9.2.8) calls only `weft::weft_setup()`, yet its inline R calls
+    `claim()`. Chosen: `weft_setup()` attaches the exported prose functions
+    at the end of the search path. Reverse: delete the attach in
+    `R/hooks.R`; documents then need `library(weft)`.
+12. **9.4.3, draft mode and code that does not parse.** knitr parses inline
+    code before any hook runs, so weft cannot turn that error into a marker
+    without a preprocessor (2.1.1 excludes one). Chosen: it stays fatal in
+    draft mode; the rule says so.
+13. **Design note, the collection file.** A Quarto pre-render script cannot
+    set an environment variable for the render. Chosen: the collection file
+    is found by its existence under the project root. Reverse: the lookup in
+    the filter and in `R/state.R`.

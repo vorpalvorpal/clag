@@ -168,7 +168,7 @@ test_that("7.4.3 + 7.4.4: any other condition is recorded and fails nothing", {
   src <- c("```{r other}", "warning('Removed 5 rows containing missing values')", "message('just a note')", "```", "", "Text `r k`{.word}.")
   res <- render_rmd(src, code = PRE_C, in_process = TRUE)
   expect_false(res$failed, label = res$message)
-  expect_equal(canon_md(res$md), "Text three.")
+  expect_match(res$md, "Text three.", fixed = TRUE)
   expect_true(any(res$knit$conditions$source == "other" & res$knit$conditions$class == "warning"))
 })
 

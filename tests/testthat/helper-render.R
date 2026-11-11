@@ -112,14 +112,15 @@ run_rmd_file <- function(input, output, format, in_process, env, pre = "",
     return(res)
   }
   resfile <- tempfile(fileext = ".rds")
-  root <- if (weft_is_dev()) weft_pkg_root() else ""
+  # the development copy installed into a temp library, so that the child
+  # sees an installed, unattached package and library(weft) works in it
+  root <- if (weft_is_dev()) weft_test_lib() else ""
   code <- paste0(
     .weft_core_src, "\n",
     "options(warn = 1)\n",
     "a <- commandArgs(TRUE)\n",
     "if (nzchar(a[1])) {\n",
-    "  pkgload::load_all(a[1], quiet = TRUE)\n",
-    "  try(detach('package:weft'), silent = TRUE)  # as an installed, unattached package\n",
+    "  .libPaths(c(a[1], .libPaths()))\n",
     "}\n",
     "setwd(dirname(a[2]))\n",
     "a[6] <- trimws(a[6])\n",

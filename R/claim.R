@@ -56,7 +56,7 @@ claim <- function(x, ...) {
   }
   if (length(bad)) {
     claim_fail(list(
-      checks = written_checks(frames, checks)[bad],
+      checks = written_checks(frames, checks, weft_env$inline$expr)[bad],
       value = claim_value_text(value),
       errors = errs
     ))
@@ -67,12 +67,14 @@ claim <- function(x, ...) {
 # The text of each check. The check as written when the source is kept
 # (3.1.4: the srcref of the statement that holds the call, on this frame or
 # an enclosing one), else its deparse.
-written_checks <- function(frames, checks) {
+written_checks <- function(frames, checks, inline_src = NULL) {
   dp <- function(e) paste(deparse(e, width.cutoff = 500L), collapse = " ")
   out <- vapply(checks, dp, "")
   done <- rep(FALSE, length(out))
-  for (fr in rev(frames)) {
-    sr <- attr(fr, "srcref")
+  # in inline R the document's text is the source (3.1.4)
+  srcs <- c(if (!is.null(inline_src)) list(inline_src),
+            lapply(rev(frames), function(fr) attr(fr, "srcref")))
+  for (sr in srcs) {
     if (is.null(sr)) next
     found <- tryCatch(claim_args_as_written(sr, dp), error = function(e) list())
     for (k in which(!done)) {
@@ -115,20 +117,45 @@ claim_value_text <- function(value) {
   s
 }
 
-# The one place a failed claim goes. Outside a knit it stops; a later stage
-# switches it to collect the record during a knit (rule 2.4).
+# The one place a failed claim goes (rule 2.4). In inline R during a knit it
+# is collected and `claim()` returns its value (2.4.1). In chunk code during a
+# knit it is recorded and then stops, with every failure collected so far in
+# its message (2.4.4, 2.4.5). Everywhere else it stops at once (2.4.2).
 claim_fail <- function(record) {
   errs <- record$errors %||% rep(NA_character_, length(record$checks))
+  detail <- ifelse(
+    is.na(errs),
+    sprintf("%s was FALSE (value %s)", record$checks, record$value),
+    sprintf("%s raised an error: %s (value %s)", record$checks, errs, record$value)
+  )
+  s <- active_state()
+  inl <- weft_env$inline
+  if (!is.null(s) && !is.null(inl)) {
+    for (d in detail) {
+      add_failure(s, "failed claim", file = inl$file, line = inl$line,
+                  expr = inl$label, detail = d)
+    }
+    inl$failed <- TRUE
+    weft_env$inline <- inl
+    return(invisible(NULL))
+  }
   lines <- ifelse(
     is.na(errs),
     sprintf("  check `%s` failed (value: %s)", record$checks, record$value),
     sprintf("  check `%s` raised an error: %s (value: %s)", record$checks,
             errs, record$value)
   )
-  weft_abort(
-    paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
-                    if (length(record$checks) == 1L) "" else "s"), lines),
-          collapse = "\n"),
-    "weft_claim_failed"
-  )
+  msg <- paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
+                         if (length(record$checks) == 1L) "" else "s"), lines),
+               collapse = "\n")
+  if (!is.null(s)) {
+    label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+    for (d in detail) {
+      add_failure(s, "failed claim", file = s$input_name,
+                  chunk = if (is.null(label)) NA_character_ else label, detail = d,
+                  expr = NA_character_)
+    }
+    msg <- paste0(msg, "\n", format_report(failures_frame(s)))
+  }
+  weft_abort(msg, "weft_claim_failed")
 }

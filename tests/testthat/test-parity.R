@@ -85,7 +85,7 @@ test_that("21 Stock parity + 1.3.1: under Quarto, bare `{r} x` and `r x` print a
   expect_false(without$failed, label = without$message)
   expect_false(with$failed, label = with$message)
   expect_identical(with$text, without$text)
-  expect_true(any(grepl("a\\*b_c", without$md)), label = "stock Quarto escapes the output of {r}")
+  expect_true(any(grepl("a\\*b_c", without$md, fixed = TRUE)), label = "stock Quarto escapes the output of {r}")
 })
 
 test_that("1.3.1 + 1.3.4: a bare NA prints as stock knitr prints it, beside a formatted missing value in draft mode", {

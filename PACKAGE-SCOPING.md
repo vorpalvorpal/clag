@@ -277,7 +277,9 @@ formatters:
 formatter supplies a unit of its own.
 
 **1.4.10** Formatter output is markdown, as stock knitr's inline output is.
-Text that comes from data is not escaped.
+Text that comes from data is not escaped. A vector that no collapse class
+joins prints its elements run together, as stock knitr prints an inline
+vector.
 
 **1.4.11** Every formatted value has a **printed record**: its text, the
 number as printed, a flag for whether decimals are shown, and a relation
@@ -708,8 +710,17 @@ by the environment variable `QUARTO_EXECUTE_INFO`. Where that variable is not
 set it calls `quarto::quarto_inspect()` on the source file, once per document.
 
 **2.1.7** Installing the hooks leaves a plain `knitr::knit()` call producing
-the output it produces without them. How weft meets this is not settled
-(Q16).
+the output it produces without them. knitr sets its markdown output hooks
+only when its default hooks are untouched as the knit starts. So outside a
+knit `weft_setup()` installs only `before.knit` and `after.knit` hooks, which
+knitr does not count, and the `before.knit` hook installs the rest once knitr
+has chosen its output hooks. Called during a knit, `weft_setup()` installs
+them at once.
+
+**2.1.8** `weft_setup()` also puts `claim()`, `plural()`, `glue_vec()` and
+the `fmt_*()` functions on the search path, below everything else, so inline
+R can call them without `library(weft)` and an author's own function of the
+same name wins.
 
 ### 2.2 Prose
 
@@ -2051,7 +2062,9 @@ been set up they are written to a JSON file beside the document.
 
 **9.4.3** Draft mode covers the render only. Knit-time failures, and
 construct errors met during a render, are reported and marked (2.6.8), not
-fatal. The `weft-check` filter reads the same setting, and reports instead of
+fatal. One construct error stays fatal in draft mode: inline code that does
+not parse (5.3.5), because knitr stops on it before any hook runs. The
+`weft-check` filter reads the same setting, and reports instead of
 exiting. The commit hook is not affected by draft mode, and `verify()`
 refuses to run in it (8.1.5).
 
@@ -3509,10 +3522,8 @@ prefix. PDF through LaTeX was not run.
 **Q15 — The ledger in use.** How often a committed ledger conflicts on merge,
 and how often the occurrence index shifts (7.1.5, 7.1.6).
 
-**Q16 — Plain `knit()` with the hooks installed.** With the hooks installed
-before a plain `knitr::knit()` call, the output lost knitr's markdown output
-formatting (§18). Rule 2.1.7 requires that it does not. The cause, and how
-weft avoids it, are not settled.
+**Q16 — Plain `knit()` with the hooks installed.** Settled in the build:
+rule 2.1.7 now gives the cause and the remedy.
 
 
 **Q17 — The hook under other git operations.** On `git commit --amend` the

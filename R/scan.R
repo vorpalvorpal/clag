@@ -434,9 +434,9 @@ split_arms <- function(S, b1, b2) {
     if (c == "\\") {
       nx <- if (i < b2) ch[i + 1L] else ""
       if (nx == "|") {
-        push("s", "|", i + 1L, TRUE)
+        push("s", "|", i, TRUE)   # at the backslash
       } else if (nx == "#") {
-        push("t", "#", i)   # an escaped `#` is a literal one
+        push("h", "#", i + 1L)   # the backslash goes first, then `#` is read (1.5.12)
       } else {
         push("t", paste0(c, nx), i)
       }
@@ -454,6 +454,13 @@ split_arms <- function(S, b1, b2) {
     if (c == "|") push("s", "|", i) else if (c == "#") push("h", "#", i) else push("t", c, i)
     i <- i + 1L
   }
+  assemble_arms(tp, tv, tpos, tesc)
+}
+
+# Join the tokens of an arm body into arms: a run of `|` tokens gives pairs
+# of literal bars and, when odd, one separator; a run of `#` tokens gives
+# pairs of literal hashes and, when odd, one placeholder (1.5.12).
+assemble_arms <- function(tp, tv, tpos, tesc) {
   arms <- ""
   tmpl <- ""     # the same arms with `#` as the placeholder, `##` as a literal `#`
   seps <- integer()
@@ -490,6 +497,78 @@ split_arms <- function(S, b1, b2) {
   }
   list(arms = trim_ws(arms), templates = trim_ws(tmpl), seps = seps,
        unescaped = unesc)
+}
+
+
+# The template of one arm given as a range `a:b` of the scanned text, with
+# the `items` (data frame of `start`, `end`: constructs and inline code whose
+# output is filled in later) replaced by sentinels `SENT_OPEN k SENT_CLOSE`.
+# Escapes, `||` and `##` are read as in split_arms (1.5.12); atoms (code,
+# math, link targets) stay verbatim (1.5.14); an atom that holds an item is
+# walked through verbatim up to the item.
+SENT_OPEN <- "\ue002"
+SENT_CLOSE <- "\ue003"
+arm_template_range <- function(S, a, b, items) {
+  ch <- S$chars
+  istart <- items$start
+  iend <- items$end
+  tp <- character()
+  tv <- character()
+  tpos <- integer()
+  tesc <- logical()
+  push <- function(type, val, pos, esc = FALSE) {
+    tp <<- c(tp, type)
+    tv <<- c(tv, val)
+    tpos <<- c(tpos, pos)
+    tesc <<- c(tesc, esc)
+  }
+  is_item <- function(i) if (length(istart)) match(i, istart) else NA_integer_
+  i <- a
+  verbatim_to <- 0L
+  while (i <= b) {
+    k <- is_item(i)
+    if (!is.na(k)) {
+      push("t", paste0(SENT_OPEN, k, SENT_CLOSE), i)
+      i <- iend[k] + 1L
+      next
+    }
+    c <- ch[i]
+    if (i <= verbatim_to) {
+      push("t", c, i)
+      i <- i + 1L
+      next
+    }
+    if (c == "\\") {
+      nx <- if (i < b && is.na(is_item(i + 1L))) ch[i + 1L] else ""
+      if (nx == "|") {
+        push("s", "|", i, TRUE)   # at the backslash
+      } else if (nx == "#") {
+        push("h", "#", i + 1L)
+      } else {
+        push("t", paste0(c, nx), i)
+      }
+      i <- i + 1L + nzchar(nx)
+      next
+    }
+    if (c %in% c("`", "$", "[", "<")) {
+      e <- if (c == "<") angle_end(S, i) else atom_end(S, i)
+      if (!is.na(e) && e <= b) {
+        if (length(istart) && any(istart >= i & istart <= e)) {
+          verbatim_to <- e
+          push("t", c, i)
+        } else {
+          push("t", paste(ch[i:e], collapse = ""), i)
+          i <- e
+        }
+        i <- i + 1L
+        next
+      }
+    }
+    if (c == "|") push("s", "|", i) else if (c == "#") push("h", "#", i) else push("t", c, i)
+    i <- i + 1L
+  }
+  asm <- assemble_arms(tp, tv, tpos, tesc)
+  paste(asm$templates, collapse = "|")
 }
 
 # ---- expressions (5.3.5, 3.1.10) ----------------------------------------
@@ -893,6 +972,7 @@ finish_scan <- function(S) {
     id = col(function(r) as.character(r$id), ""),
     arms = lapply(rows, function(r) r$arms),
     arm_templates = lapply(rows, function(r) r$templates),
+    sep_pos = lapply(rows, function(r) r$seps),
     parent = parent,
     arm = arm,
     error = col(function(r) as.character(r$error), ""),
@@ -903,6 +983,7 @@ finish_scan <- function(S) {
     out$keys <- list()
     out$arms <- list()
     out$arm_templates <- list()
+    out$sep_pos <- list()
   }
   structure(out, class = "data.frame", row.names = seq_len(nr))
 }
@@ -912,9 +993,15 @@ finish_scan <- function(S) {
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
 scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
+  scan_block(text, file, first_line, config)$rows
+}
+
+# The same, keeping the scan state `S`, which the knitr resolver uses to read
+# an arm over the same text (arm_template_range()).
+scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
   S <- new_scan(text, file, first_line, config)
   if (S$n > 0L) scan_seq(S, 1L, S$n, NA_integer_)
-  finish_scan(S)
+  list(S = S, rows = finish_scan(S))
 }
 
 # Read a `.qmd` or `.Rmd` and scan its prose: BOM, CRLF and a missing final

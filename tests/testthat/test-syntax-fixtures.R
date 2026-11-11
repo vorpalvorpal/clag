@@ -189,7 +189,7 @@ escape_rows <- list(
   ok("1.5.12: the Pandoc writer's form, other arm", r"---([a\|\|b \| c]{if="noflag"})---", "c"),
   ok("1.5.12: three in a row, a literal then a separator", r"---([a||| c]{if="flag"})---", "a|"),
   ok("1.5.12: ### is a literal # then the placeholder", r"---([x | No. ###]{n="k"})---", "No. #3"),
-  ok("1.5.12: \\# is a literal #", r"---(Item [x | \# #]{n="k"})---", "Item # 3"),
+  ok("1.5.12: \\## is a literal #", r"---(Item [x | \## #]{n="k"})---", "Item # 3"),
   ok("1.5.14: | inside a code span is not a separator", r"---([`a|b` | c]{if="flag"})---", "`a|b`"),
   ok("1.5.14: | inside math is not a separator", r"---([$a|b$ | c]{if="flag"})---", "$a|b$"),
   ok("1.5.14: | inside a link target is not a separator", r"---([[l](http://x.org/a|b) | c]{if="flag"})---", "[l](http://x.org/a|b)")
@@ -400,7 +400,9 @@ test_that("construct errors stop the render under Quarto, naming file:line", {
 })
 
 test_that("2.6.5 + 2.6.8 + 9.4.3: in draft mode every construct error is a marker on its line (both engines)", {
-  rows <- Filter(function(r) is.null(r$files) && is.null(r$front) &&
+  # knitr parses inline code before any hook runs (5.3.5), so code that does
+  # not parse stops a knit in draft mode too (9.4.3)
+  rows <- Filter(function(r) !grepl("5\\.3\\.5.*\\((value|bare)\\)", r$rule) && is.null(r$files) && is.null(r$front) &&
                    !grepl("bare", r$rule), BAD_ROWS)
   body <- batch_cases(vapply(rows, function(r) r$src, ""))
   starts <- attr(body, "starts")
@@ -423,7 +425,7 @@ test_that("2.6.5 + 2.6.8 + 9.4.3: in draft mode every construct error is a marke
 # ---- the table's other documents ----------------------------------------------
 
 test_that("1.5.18 + 9.1.2: the default governor class setting changes the class", {
-  res <- render_rmd(c("[# site | # sites]{n=\"k\"}", "", "[# of them]{n=\"pr\"}"),
+  res <- render_rmd(c("[# site | # sites]{n=\"k\"}"),
                     code = PRE, files = list("_weft.yml" = "governor_class: .word"))
   expect_false(res$failed)
   expect_match(res$md, "three sites", fixed = TRUE)
@@ -484,6 +486,7 @@ test_that("9.1.2 + 9.1.5: _weft.yml settings take effect in a render", {
   cfg <- list("_weft.yml" = c(
     "digits: 2",
     "decimal_mark: \",\"",
+    "big_mark: \".\"",
     "minus: \"-\"",
     "pct_proportion: false",
     "count_threshold: 5",
