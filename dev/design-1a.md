@@ -187,8 +187,16 @@ Rule 7.4.5, steps 1 to 5. Placeholders: `<addr>`, `<path>`, `<n>`.
 
 The collection file is `.weft/failures.jsonl` under the project root; the
 freeze stamps are `.weft/stamps/<source path with / as __>.json`. The
-pre-render script passes the collection file's path to the knits and the
-filter through the environment variable `WEFT_COLLECT`. The filter reads
+pre-render script cannot set an environment variable for the render, so
+the collection file is found by its existence: the knits and the filter use
+`WEFT_COLLECT` when it is set, and otherwise an existing
+`.weft/failures.jsonl` in the project root (found by walking up from the
+input file). The pre-render script creates it empty; the post-render script
+reads it, reports and deletes it. Each line is a JSON object with `source`
+(`"knit"` or `"filter"`), `kind`, `file` (relative to the project root),
+`line`, `chunk`, `expr`, `detail`. The filter repeats every `<<weft:` marker
+the knit already recorded, so the report drops a filter line that matches a
+knit line on file, line and kind. The filter reads
 draft mode from `WEFT_DRAFT` and from `draft: true` in `_weft.yml`.
 
 ## Tests
