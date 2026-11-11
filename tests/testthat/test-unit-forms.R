@@ -1,6 +1,6 @@
 # Package 2f: unit forms (symbol, name, none), plurals, the unit classes, unit_form =.
 # Contract: dev/design-2f.md "Forms", "Plurals", "Functions", "The weft_text",
-# "Expected output" and "Errors"; U2-U6, U19. Rules 1.4.2, 1.4.7, 1.4.18, 3.4.4, 3.4.8, 4.4.2-4.4.4, 4.4.13, 4.4.15.
+# "Expected output" and "Errors"; U2-U6, U19. Rules 1.4.2, 1.4.7, 1.4.19, 3.4.4, 3.4.8, 4.4.2-4.4.4, 4.4.13, 4.4.15.
 # `~` in an expected string is U+00A0; weft_str() gives the Pandoc `\ `, undone by f2_ws().
 if (!exists("f2_ws")) source(testthat::test_path("helper-2f.R"))
 
@@ -94,7 +94,7 @@ test_that("2f table: .count prints each element in its own form (4.4.3)", {
   f2_rows("`r u(c(3, 12), m)`{.count}", "three~metres, 12~m")
 })
 
-test_that("2f table: a ratio has no unit, so .word prints the number and .uname is a value error (1.4.18)", {
+test_that("2f table: a ratio has no unit, so .word prints the number and .uname is a value error (1.4.19)", {
   expect_equal(f2_ws("`r u(6, m) / u(3, m)`{.word}"), "two")
   e <- f2_err("`r u(6, m) / u(3, m)`{.uname}")
   f2_has_class(e, "weft_value_error")
@@ -352,7 +352,7 @@ test_that("2f unit_form: 'symbol' on fmt_no(), fmt_word() and fmt_count() is a c
   expect_no_error(fmt_num(u(3, m), unit_form = "symbol"))
 })
 
-test_that("2f unit_form: a form other than auto on a value with no unit is a value error; auto is not (1.4.18)", {
+test_that("2f unit_form: a form other than auto on a value with no unit is a value error; auto is not (1.4.19)", {
   for (f in list(fmt_num, fmt_word)) {
     e <- f2_cond(f(5, unit_form = "name"))
     f2_has_class(e, "weft_value_error")
@@ -364,14 +364,14 @@ test_that("2f unit_form: a form other than auto on a value with no unit is a val
   expect_equal(f2_tx(fmt_num(5, unit_form = NULL)), "5")
 })
 
-# ---- the unit classes (1.4.2, 1.4.7, 1.4.18, 4.4.3) ---------------------------------------------------------------
+# ---- the unit classes (1.4.2, 1.4.7, 1.4.19, 4.4.3) ---------------------------------------------------------------
 
 test_that("2f classes: a unit class implies .num when no number class is given (1.4.7)", {
   f2_rows(c("`r u(1200, m)`{.uname}", "`r u(1200, m)`{.usym}", "`r u(1200, m)`{.nounit}"),
           c("1,200~metres", "1,200~m", "1,200"))
 })
 
-test_that("2f classes: a unit class on a number or a ratio is a value error naming the class (1.4.18)", {
+test_that("2f classes: a unit class on a number or a ratio is a value error naming the class (1.4.19)", {
   for (cl in c(".uname", ".usym", ".nounit")) {
     e <- f2_err(sprintf("`r 5`{%s}", cl))
     f2_has_class(e, "weft_value_error")
@@ -428,7 +428,7 @@ test_that("2f errors: judged on the classes, a spelled number under form symbol 
   f2_has_class(f2_err("`r u(12, m)`{.count}", yml), "weft_value_error")
 })
 
-# ---- construct errors from the source (Errors, 1.4.2, 1.4.18, 5.3.1) -------------------------------------------------
+# ---- construct errors from the source (Errors, 1.4.2, 1.4.19, 5.3.1) -------------------------------------------------
 
 test_that("2f construct: two unit classes (1.4.2)", {
   for (cl in c(".uname .usym", ".usym .nounit", ".uname .nounit")) {
@@ -438,7 +438,7 @@ test_that("2f construct: two unit classes (1.4.2)", {
   }
 })
 
-test_that("2f construct: .usym with .no, .word or .count (1.4.18)", {
+test_that("2f construct: .usym with .no, .word or .count (1.4.19)", {
   for (cl in c(".no", ".word", ".count")) {
     e <- f2_err(sprintf("`r u(3, m)`{.usym %s}", cl))
     f2_has_class(e, "weft_construct_error")
@@ -446,7 +446,7 @@ test_that("2f construct: .usym with .no, .word or .count (1.4.18)", {
   }
 })
 
-test_that("2f construct: a unit class on an if or cite span (1.4.18)", {
+test_that("2f construct: a unit class on an if or cite span (1.4.19)", {
   for (src in c("[a | b]{if=\"TRUE\" .uname}", "[a | b]{if=\"TRUE\" .usym}", "[a | b]{if=\"TRUE\" .nounit}",
                 "[10 m]{cite=\"@smith2020\" .uname}")) {
     e <- f2_err(src)

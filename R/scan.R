@@ -717,17 +717,17 @@ block_errors <- function(S, blk, kind) {
     }
   }
   # a spelled number takes the unit's name, so `.usym` cannot go with the
-  # classes that spell one (1.4.18)
+  # classes that spell one (1.4.19)
   spelling <- c(intersect(cls, c(".no", ".word", ".count")),
                 intersect(cls, names(S$reg))[vapply(intersect(cls, names(S$reg)), function(k) {
                   identical(S$reg[[k]][["stage"]], "wording")
                 }, NA)])
   if (".usym" %in% cls && length(spelling)) {
-    e <- c(e, sprintf("The unit class `.usym` with `%s` is an error: a spelled number takes the unit's name (rule 1.4.18).",
+    e <- c(e, sprintf("The unit class `.usym` with `%s` is an error: a spelled number takes the unit's name (rule 1.4.19).",
                       spelling[1L]))
   }
   if (any(cls %in% UNIT_CLASSES) && kind %in% c("if", "cite")) {
-    e <- c(e, sprintf("A unit class on %s is an error (rule 1.4.18): %s.",
+    e <- c(e, sprintf("A unit class on %s is an error (rule 1.4.19): %s.",
                       if (kind == "if") "an `if` span" else "a `cite` span",
                       paste(intersect(cls, UNIT_CLASSES), collapse = " ")))
   }

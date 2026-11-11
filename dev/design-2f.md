@@ -15,7 +15,7 @@ U+00A0, the no-break space; every other space is U+0020.
 | 4.4.7, 4.4.8 | `units:` keys register; a unit typed as a name prints its symbol; no space before `%`, `°`, `′`, `″` (R3); project symbols (R6) |
 | 1.2.5, 1.4.2, 1.4.3, 1.4.7, 1.6.8, 5.3.1, 5.3.2 | three unit classes |
 | 3.4.4, 4.2.1, 9.1.2, 9.1.5, 9.1.6 | `weft_text` attributes; `display:`; `unit_form`, `units:` |
-| new | 1.4.18, 3.4.8, 3.4.9, 4.2.7, 4.4.15–4.4.19, 9.1.7 |
+| new | 1.4.19, 3.4.8, 3.4.9, 4.2.7, 4.4.15–4.4.19, 9.1.7 |
 
 Out of scope: years (`weft_year` is untouched); the adjective ("a 5-metre
 core" is written by hand; `.a .word` on `u(5, m)` prints "a five␣metres");
@@ -299,10 +299,10 @@ marker (5.3.2); outside, it is raised.
 |---|---|---|
 | `weft_value_error` | a name may print and the unit has none | the unit as `units` writes it and why (a factor with no name, a number, a power); to add it to `_weft.yml` under `units:`, with a YAML example keyed by it; or `.usym`, or `.nounit` (4.4.19) |
 | `weft_value_error` | form `symbol` from a setting, a wording class on a quantity | the class; the form and where set; a spelled number takes the name; `.uname`, `.nounit`, or drop the class (4.4.15) |
-| `weft_value_error` | a unit class or `unit_form` (not `"auto"`) on a value with no unit | the class or argument, the value's class or "no unit left" (1.4.18) |
+| `weft_value_error` | a unit class or `unit_form` (not `"auto"`) on a value with no unit | the class or argument, the value's class or "no unit left" (1.4.19) |
 | `weft_value_error` | a unit with no symbol under another `lang` | the unit, the `lang`, `symbol:` in `units:` (1.6.8) |
 | `weft_value_error` / `weft_unit_error` | `fmt_unit()` given neither a quantity nor a string / a string `u()` refuses | as `u()` does (3.4.9) |
-| `weft_construct_error`, source | two unit classes; `.usym` with `.no .word .count`; a unit class on `if` or `cite`; `.uname` under another `lang` | the classes, the rule (1.4.2, 1.4.18, 1.6.8) |
+| `weft_construct_error`, source | two unit classes; `.usym` with `.no .word .count`; a unit class on `if` or `cite`; `.uname` under another `lang` | the classes, the rule (1.4.2, 1.4.19, 1.6.8) |
 | `weft_construct_error`, call | a bad `unit_form`; `"symbol"` on `fmt_no/word/count()`; `"name"` under another `lang`; `fmt_unit(unit_form = "none")` | the argument and the allowed values |
 | `weft_config_error` | a bad `unit_form`; `units:` problems; `unit_form: name` under another `lang` | as above (9.1.6, 9.1.7, 1.6.8) |
 | `weft_dict_error` | a `display:` problem | a line among the dictionary's problems (4.2.6) |
@@ -336,7 +336,7 @@ marker (5.3.2); outside, it is raised.
 ## Spec amendments
 
 - **1.2.5** a row for the unit classes; **1.4.2** two of them are an error;
-  **1.4.3** three rows; **1.4.7** a unit class implies `.num`; **1.4.18
+  **1.4.3** three rows; **1.4.7** a unit class implies `.num`; **1.4.19
   (new)** the unit classes ("Forms").
 - **1.6.8** add `.uname`, the name form from a setting or function, and a
   unit with no symbol; "a symbol is not words".

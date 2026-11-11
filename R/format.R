@@ -478,7 +478,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   if (!is.null(explicit) && !identical(explicit, "auto") && is.null(un)) {
     what <- if (is.null(unit_form)) intersect(classes, UNIT_CLASSES)[1L] else "`unit_form`"
-    value_error(sprintf("%s needs a quantity with a unit, and %s (rule 1.4.18).", what,
+    value_error(sprintf("%s needs a quantity with a unit, and %s (rule 1.4.19).", what,
                         if (ratio) "this value has no unit left (a ratio)"
                         else sprintf("this value is not a quantity (class %s)", class(value)[1L])))
   }
@@ -537,7 +537,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   spell_cls <- c(intersect(classes, c(".word", ".count", ".no")), proj("wording"))
   if (identical(unit_class_form(classes), "symbol") && length(spell_cls)) {
     construct_error(sprintf(paste0("`.usym` with `%s` is an error: a spelled number takes the unit's name, ",
-                                   "and \"five m\" is not written (rule 1.4.18)."), spell_cls[1L]))
+                                   "and \"five m\" is not written (rule 1.4.19)."), spell_cls[1L]))
   }
   if (length(unit_cls) && length(wording_cls)) {
     construct_error(sprintf(
