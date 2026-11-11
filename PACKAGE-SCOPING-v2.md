@@ -160,8 +160,8 @@ keys. The bracket holds one or more **arms** separated by `|`.
 | | | 2 | one / other |
 | | | 3 | zero / one / other |
 | | | 4 | zero / one / two / other |
-| `if` | a single `TRUE` or `FALSE` | 2 | true / false; either may be empty |
-| | | 1 | always (a guard): `FALSE` is a failed claim |
+| `if` | one or more conditions, each a single `TRUE` or `FALSE` | 2 | true / false; either may be empty |
+| | | 1 | always (a guard): a `FALSE` is a failed claim |
 | `sign` | a single number | 2 | positive / negative |
 | | | 3 | positive / negative / zero |
 
@@ -185,8 +185,13 @@ Abundance [rose | fell | did not change]{sign="d"} by `r abs(d)`{.pct}.
 - **A case with no arm fails the render.** A one-arm `if` whose value is
   `FALSE` and a two-arm `sign` at zero are failed claims, collected and
   reported like any other (§1).
+- **`if` takes a comma-separated list of conditions**, read as R reads an
+  argument list: `if="n_gap > 10, n_sites >= 3"`. All must be `TRUE` for the
+  true arm, as in `dplyr::filter()`. In a guard each failing condition is
+  reported separately, as the checks of a `claim()` are. `&&`, `||` and
+  brackets remain for anything a list cannot say.
 - **A one-arm `if` is a phrase guard.** It always prints its phrase, and fails
-  when the value is `FALSE`. It is the idiom for a phrase whose truth depends
+  when a condition is `FALSE`. It is the idiom for a phrase whose truth depends
   on a value the sentence never displays. The same phrase with an empty second
   arm (`[add more sampling sites | ]`) is optional text, and fails nothing.
 - **A governor is checked with `claim()` in its expression**, exactly as a
@@ -215,6 +220,29 @@ Abundance [rose | fell | did not change]{sign="d"} by `r abs(d)`{.pct}.
 - **Only the chosen arm is evaluated.** A value or span in an arm that is not
   chosen neither renders nor runs its checks.
 
+**Plural forms follow the document's language.** The arm counts in the table
+are English's. The general rule: one arm for each plural form the language
+has, in CLDR's order (zero, one, two, few, many, other); then, optionally, a
+leading arm for exactly zero; then one, after the singular, for exactly two.
+
+| `lang` | Plural forms | Arms allowed | The longest reads |
+|---|---|---|---|
+| English | one, other | 2, 3, 4 | zero / one / two / other |
+| Polish | one, few, many, other | 4, 5, 6 | zero / one / two / few / many / other |
+| Arabic | zero, one, two, few, many, other | 6 | its own six forms |
+
+- **"One" is the language's singular form, not the number 1.** In English it
+  is exactly 1 with no decimals shown. In Russian 21 takes it; in French so
+  do 0 and 1.5. Forms are judged on the number as printed.
+- **The arm count is checked against `lang` from the source.** A count the
+  language does not allow is a construct error, so an arm can never be one
+  that the language never selects.
+- **English is shipped.** Under a `lang` whose rules are not shipped, an `n`
+  span with more than one arm is an error; English rules are never applied to
+  another language. The rules are a small table generated from CLDR.
+- **Other exact numbers are R.** "All three", "a dozen": `of_n()` (§4), a
+  `lookup()` or a nested `if`.
+
 **Agreement.** Whole arms are the plain idiom:
 
 ```
@@ -227,8 +255,34 @@ An inner span may instead inherit the enclosing governor with `n="."`:
 [# sample[ | s]{n="."} [was | were]{n="."} taken]{n="n"}
 ```
 
-`n="."` is legal only inside an `n` span. Agreement at a distance names the
-governor again: `[was | were]{n="n"}`.
+`n="."` is legal only inside an `n` span.
+
+**Agreement at a distance uses an `#id`.** An id names one printed occurrence
+of a value. A later span refers to it with `#` and the id as the whole value
+of `n` or `sign`:
+
+```
+Depth was `r claim(depth, . > 0.5)`{#d .num} m. … The [core | cores]{n="#d"} …
+```
+
+- **The value is evaluated once and its checks run once.** The referring span
+  re-evaluates nothing.
+- **The formatter travels.** With no classes of its own, the referring span
+  uses the number as it was printed there, so agreement follows what the
+  reader saw (1.04 printed as "1" takes the singular). With classes, it
+  formats the raw value afresh.
+- **`[#]{n="#d"}` prints the value again.**
+- **The id must be defined earlier in the same document.** An unknown id, or
+  one defined further down, is a construct error found from the source. A
+  book chapter cannot refer to another chapter's id.
+- **A back-reference is the whole value of the key.** `#` begins a comment in
+  R, so `"#d"` can never be mistaken for an expression.
+- **An R variable names a value; an id names a printed occurrence.** Compute
+  with the variable, agree with the id. Naming the governor again
+  (`[was | were]{n="n"}`) still works, and agrees with the raw value.
+
+The id also serves as the construct's identity for the ledger and the gate
+(§6, §7), and is passed through to the output as an anchor.
 
 **A list and its verb** are written as a value and an agreement:
 
@@ -352,8 +406,9 @@ when nothing else of weft does.
   failure report are written only in a project that has been set up with
   `use_weft()` (P10).
 
-There are three places to activate a document. The first two run before any
-prose is read, so a construct in the first paragraph resolves.
+There are three places to activate a document. **The first two are the
+recommended routes**: they run before any prose is read, so a construct in the
+first paragraph resolves. A setup chunk also works.
 
 | Where | What is written | Covers |
 |---|---|---|
@@ -862,7 +917,9 @@ arguments of a `claim()` call are exempt.
 
 Tier-1 errors, found without running R:
 
-- a wrong arm count for its key
+- a wrong arm count for its key, or for the document's language
+- a back-reference to an id that is unknown or defined later
+- the key `claim`, which is reserved: the error says to call `claim()`
 - a class within one edit of a formatter or text-class name (`.nmu`)
 - a key within one edit of a weft key (`sing=`, `trunk=`). Other unknown keys
   and classes are passed through (§0), so only a near miss can be told from an
@@ -991,8 +1048,8 @@ to another file shows as one item removed and one added.
 
 The pressure runs toward widening a bound rather than rewriting a sentence.
 **Every commit that changes a check lists the before and after**, computed
-from the two trees: the `claim()` calls are parsed out of each expression and
-compared. The same report lists a check **removed** from a construct that
+from the two trees: the `claim()` calls are parsed out of each expression, the
+conditions out of each guard, and compared. The same report lists a check **removed** from a construct that
 still exists, a **guard turned into optional text** (a one-arm `if` that
 gained an empty arm), and a **computed value replaced by a literal**. A construct
 is matched across versions by its `#id` where it has one, and otherwise by its
@@ -1300,16 +1357,14 @@ has a quoted value, and rejects a key written before a class and an unquoted
    workers, functions in a package namespace, Windows.
 7. **Matching a construct across versions** when it has no `#id` is a
    heuristic. How often the check-loosening report mismatches is unmeasured.
-8. **Plural forms for other languages**, and whether an `n` span ever needs
-   more than four arms, are undecided. The rules in §0 are English's.
+8. **Plural rules for languages other than English are not shipped.** The
+   table would be generated from CLDR's `plurals.xml`; no R package was found
+   that exposes those rules.
 9. **A `gt::tab_caption()` caption went missing in Word output** in one test,
    while the same chunk was correct in Typst. Unexplained.
 10. **`weft_str()`** is exported provisionally. Whether a string renderer in R
     code earns its place beside the function forms is open.
-11. **An `#id` as a back-reference.** Whether a later span may agree with a
-    value as it was printed (`[was | were]{n="#d"}`), and how that is spelt,
-    is undecided. An id is identity only until it is.
-12. **`.Rprofile` activation beside `renv`**, which owns that file, and under
+11. **`.Rprofile` activation beside `renv`**, which owns that file, and under
     the editors' Render buttons, is untested.
 
 ---
