@@ -7,11 +7,6 @@ Each entry: the rule, what was found, what was chosen, how to reverse it.
 Choices that are large, hard to undo, or a matter of taste. Not made; built
 around.
 
-- **From the trials: an empty list (1.3.4).** A value of length zero is a
-  missing value, so `` `r flagged`{.and} `` fails the render on the ordinary
-  day when nothing is flagged, and every such list needs an `if` around it.
-  A key for the empty case (`none="none"`) would be new syntax. Not made;
-  options put to Robin on 2026-11-12.
 - **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
   hooks run under the Render buttons of RStudio or Positron first (§22).
 
@@ -203,3 +198,11 @@ and are entries 30 to 37 under "Made".
     space; the span owns the space beside it) Robin chose the last. When a
     span prints nothing, one adjacent space is removed. Contract:
     `dev/design-1g.md`. Reverse: `R/resolve.R`.
+40. **1.3.4, a list that can be empty (Robin's choice, 2026-11-12).** Of
+    five options (leave it and document `n="length(x)"`; a `list` key on a
+    span; `n` taking a character vector; a `none` key on a value; a
+    project-wide word) Robin chose the `list` key and the `none` key, with
+    vectors of any type accepted. Guard kept: `NULL` is still a missing
+    value, so a misspelt column cannot print the empty arm. Guard dropped
+    at Robin's word: a number vector needs no class. Contract:
+    `dev/design-1h.md`. Reverse: `R/scan.R`, `R/resolve.R`.
