@@ -1,4 +1,4 @@
-# `weft` — package scoping, v2
+# `weft` — package scoping
 
 **Date:** 2026-11-11
 **Status:** scoping. Nothing in this design is built. The syntax and the
@@ -90,6 +90,11 @@ uses single quotes: `{if="tier == 'sev'"}`.
 a `\` inside any value, is a construct error (§5.3). The message says to bind
 the expression to a name in a chunk.
 
+**1.2.9** A `"` inside a double-quoted value ends the value early, and what is
+left is no longer an attribute block. So braces that directly follow a bracket
+or inline code, do not parse as an attribute block, and contain a weft key
+followed by `=`, are the same construct error.
+
 **1.2.4** Meaning never depends on the order in which things are written
 inside the block.
 
@@ -99,7 +104,7 @@ inside the block.
 | Kind | Names |
 |---|---|
 | governor and marker keys | `n`, `if`, `sign`, `cite` |
-| renderer keys | `digits`, `sig`, `sep`, `last`, `trunc` |
+| renderer keys | `digits`, `sigfig`, `sep`, `last`, `trunc` |
 | formatter classes | `.num .pct .sci .p .date`, `.no .word .count .ord`, `.and .or .pairs .range .ul .ol .dl`, and project-registered ones (§1.4) |
 | text classes | `.a`, `.cap`, `.strong`, `.em` |
 | identity | `#id` (§1.7) |
@@ -195,13 +200,13 @@ must be alone in its paragraph; otherwise it is a construct error.
 | Key | Stage | Sets |
 |---|---|---|
 | `digits` | number | decimal places |
-| `sig` | number | significant figures |
+| `sigfig` | number | significant figures |
 | `sep` | collapse | the text between items |
 | `last` | collapse | the text before the final item |
 | `trunc` | collapse | the number of items shown before "and N others" |
 
-`digits` and `sig` together are a construct error. (Whether `digits` or `sig`
-without a number-stage class implies `.num` is Q14.)
+`digits` and `sigfig` together are a construct error. Either one on a
+construct with no number-stage class implies `.num`.
 
 **1.4.8** A project registers its own formatter (a function, optionally
 bundling options) under a class name, and names the stage it belongs to
@@ -219,6 +224,12 @@ number as printed, a flag for whether decimals are shown, and a relation
 (`=`, `<` or `>`). "< 0.001" is a bound, not a value. Stage i sets the
 number; stages ii to iv reword and pass it through. A collapsed vector and a
 date have no number.
+
+**1.4.12** `.word`, `.count` and `.ord` take a whole number that is not
+negative, judged on the number as printed. Anything else (a decimal, a
+negative, a bound) is an error at knit time. `.word` prints digits from a
+limit up, as `.count` does from its threshold; the limit defaults to one
+hundred and is configurable (§9.1).
 
 ### 1.5 Governed spans
 
@@ -271,7 +282,7 @@ nothing.
 **1.5.6** A governor is checked with `claim()` in its expression, as a value
 is.
 
-**1.5.7** Formatter classes and the keys `digits` and `sig` on an `n` or
+**1.5.7** Formatter classes and the keys `digits` and `sigfig` on an `n` or
 `sign` span format the governor. A formatter on an `if` span is a construct
 error. Text classes on any span act on the chosen arm's final text.
 
@@ -307,6 +318,10 @@ spans, and every lint that applies to prose applies inside it.
 **1.5.16** Only the chosen arm is evaluated. A value or span in an arm that is
 not chosen neither renders nor runs its checks, and an id defined there does
 not exist.
+
+**1.5.17** A `sign` governor that prints as a bound ("< 0.1%") is an error at
+knit time. A bound has a direction and no magnitude to print; the author
+writes that case with `if`.
 
 ### 1.6 Plural forms
 
@@ -348,10 +363,12 @@ nested `if`.
 ```
 
 **1.7.2** An inner span may inherit the enclosing governor with `n="."`. It is
-legal only inside an `n` span.
+legal inside an `n` span, and inside a `sign` span, where it agrees with the
+magnitude as printed. There is no `sign="."`.
 
 ```
 [# sample[ | s]{n="."} [was | were]{n="."} taken]{n="n"}
+[rose by # point[ | s]{n="."} | fell by # point[ | s]{n="."}]{sign="d"}
 ```
 
 **1.7.3** A list and its verb are a value and an agreement.
@@ -376,7 +393,7 @@ Depth was `r claim(depth, . > 0.5)`{#d .num} m. … The [core | cores]{n="#d"} �
 **1.7.7** The referring span re-evaluates nothing: the value was evaluated
 once and its checks ran once.
 
-**1.7.8** With no formatter classes and no `digits` or `sig` of its own, the
+**1.7.8** With no formatter classes and no `digits` or `sigfig` of its own, the
 referring span uses the printed record of the occurrence. With any of them, it
 formats the raw value afresh. Text classes and pass-through attributes do not
 count as formatters here.
@@ -421,13 +438,26 @@ Pandoc's citation syntax allows therefore works: a locator
 `-@smith2020` for the year alone. The author places the citation by choosing
 where the bracket closes. Nothing is moved, and adjacent spans are not merged.
 
-**1.8.4** In the bare form, several keys are separated by `;`, and the
-citation is written elsewhere by the author (rule 5.4.2).
+**1.8.4** In the bare form the value is keys only, separated by `;`, and the
+citation is written elsewhere by the author (rule 5.4.2). Any other text in a
+value with no `@` is a construct error.
 
-**1.8.5** Each key must resolve in the bibliography, in either form. This is
-checked at knit time and by a lint (§5.4).
+**1.8.5** Each key must follow Pandoc's grammar for a citation key and must
+resolve in the bibliography, in either form. This is checked at knit time and
+by a lint (§5.4).
 
-**1.8.6** A literal with no source is marked with `.weft-literal` and a `why`,
+**1.8.6** A value with an `@` anywhere in it is the citation form, and words
+before the `@` are a prefix: `cite="smith2020 and @jones2019"` prints
+`[smith2020 and @jones2019]`, in which only `jones2019` is a key.
+
+**1.8.7** Text classes and pass-through attributes on a `cite` span act on
+its prose. A formatter class on one is a construct error.
+
+**1.8.8** A citation that the quoting rule (1.2.3) cannot hold (a prefix or
+locator that needs a backslash, a key that contains `"`) is written as an
+ordinary Pandoc citation after a bare-form span.
+
+**1.8.9** A literal with no source is marked with `.weft-literal` and a `why`,
 inline or as a block.
 
 ```
@@ -438,8 +468,11 @@ Samples were filtered through 0.45 µm membranes and stored at 4 °C.
 :::
 ```
 
-**1.8.7** A `.weft-literal` without a `why` is a construct error. Each marked
+**1.8.10** A `.weft-literal` without a `why` is a construct error. Each marked
 span and block is a baseline item (§6.5).
+
+**1.8.11** The `why` is removed from the output. The class is left on the span
+or div as an ordinary Pandoc class.
 
 ### 1.9 What weft leaves alone
 
@@ -486,10 +519,31 @@ constructs work as in any paragraph.
 **1.10.6** A numbered table takes its caption from `tbl-cap` or a table div,
 not from `gt::tab_caption()`.
 
-**1.10.7** A construct in a front-matter field such as `abstract:` is intended
-to work when the field is a block scalar (Q20).
+**1.10.7** A construct works in the front-matter fields `title`, `subtitle`,
+`abstract` and `description`, when the field is a YAML block scalar (`|` or
+`>`). A construct in any other form of scalar there is a construct error.
 
-**1.10.8** `weft_str()` renders a markup string in R code (§3.6). Text that a
+**1.10.8** Front matter is evaluated before any chunk runs. A construct there
+sees only what exists at that point: `params`, an object made in `.Rprofile`,
+or a call such as `tar_read()`.
+
+**1.10.9** A field that needs values from the document's chunks is written in
+a second metadata block at the end of the document. Pandoc merges the two, and
+the later block wins.
+
+````
+```{r}
+n_sites <- nrow(d)
+```
+
+---
+abstract: |
+  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of
+  `r depth`{.num} m.
+---
+````
+
+**1.10.10** `weft_str()` renders a markup string in R code (§3.6). Text that a
 chunk prints with `results: asis` is not prose the hooks see; it goes through
 `weft_str()`.
 
@@ -517,7 +571,8 @@ calls it.
 **2.1.3** The hooks are installed by `weft_setup()`, or by attaching the
 package (`library(weft)`). Loading the namespace alone (`weft::claim()`,
 `requireNamespace()`) installs nothing. Installing is idempotent, and works
-whether or not a knit is in progress.
+whether or not a knit is in progress. A call made while a knit is running
+changes none of that knit's state.
 
 **2.1.4** The `chunk` wrapper is installed late, from the first call of an
 option hook.
@@ -526,6 +581,13 @@ option hook.
 reads the configuration (§9.1), creates `dict` when the project has a
 dictionary (§4.1), scans the input file (2.10.2), and empties its records.
 Nothing is read when the hooks are installed.
+
+**2.1.6** The document's own front matter is read from `rmarkdown::metadata`,
+under Quarto and under rmarkdown. Under Quarto that object does not hold what
+`_quarto.yml` or `_metadata.yml` set. When weft needs a project-level `lang`
+or `bibliography`, it reads Quarto's merged metadata from the JSON file named
+by the environment variable `QUARTO_EXECUTE_INFO`. Where that variable is not
+set it calls `quarto::quarto_inspect()` on the source file, once per document.
 
 ### 2.2 Prose
 
@@ -566,14 +628,23 @@ environment.
 ### 2.4 `claim()` by context
 
 **2.4.1** A failed check is collected, and the value returned, only when the
-`claim()` call is evaluated by the `text` hook: in a construct in prose or in
-a caption.
+`claim()` call is evaluated as part of a construct during a knit: in prose, in
+a caption, or in a string given to `weft_str()`.
 
 **2.4.2** Everywhere else a failed check stops at once: in chunk code, in a
 pipeline target, in plain R, and in a document in which the hooks never
 installed.
 
 **2.4.3** `claim()` does not depend on knitr.
+
+**2.4.4** During a knit, a failed check in chunk code is recorded before it
+stops the chunk. A chunk with `error: true` then prints the error and the knit
+carries on, and the render still fails at the end with the check in its report
+(2.6.2). The same holds for a failed check caught by `try()` or `tryCatch()`:
+it is recorded, and the render fails.
+
+**2.4.5** A failed check that stops the knit prints, with its own error, every
+failure collected before it.
 
 ### 2.5 Backstops against silence
 
@@ -592,7 +663,8 @@ with its line (tier 1).
 carries `n`, `if`, `sign` or `cite`, any text that still shows an attribute
 block, and any leftover placeholder character. It works when the package was
 never loaded, and it covers captions. The filter exits through `os.exit(1)`
-(tier 1).
+(tier 1). No installer places the filter in an rmarkdown project, which
+therefore has the first two backstops only.
 
 ### 2.6 Failures
 
@@ -631,8 +703,17 @@ output has been written by then, and carries the visible markers.
 **2.6.7** Failed checks, unevaluated constructs and fatal conditions (§7.4)
 are reported distinctly from ordinary knit errors.
 
-**2.6.8** The marker is visibly a marker, not a value. No fallback text is
-printed for a construct that failed. (The marker's exact text is Q17.)
+**2.6.8** The marker is visibly a marker, not a value, and no fallback text is
+printed for a construct that failed. It is plain ASCII with no markdown in it:
+
+| Case | Marker | Placed |
+|---|---|---|
+| a failed check | `<<weft: failed claim, line 412>>` | directly after the text the construct printed |
+| an expression that could not be evaluated | `<<weft: no value, line 412>>` | in place of the construct |
+
+A string rendered by `weft_str()` has no line, and its marker names the chunk:
+`<<weft: failed claim, chunk fig-depth>>`. The marker is the same in draft
+mode. Every marker can be found by searching for `<<weft:`.
 
 ### 2.7 Positions
 
@@ -752,11 +833,15 @@ what is computed.
 | Prose | R |
 |---|---|
 | `[…]{n="…"}` | `plural(n, "a person", "# people")` |
-| a formatter class `.x` | `fmt_x()` (§3.4) |
+| a formatter or text class `.x` | `fmt_x()` (§3.4) |
 | `claim(x, …)` in the expression | `claim(x, …)` |
 
-(The forms of `plural()` with three or four arms, and R forms of the text
-classes, are Q16.)
+**3.2.2** `plural()` takes its arms as separate arguments, in the order a span
+writes them, and allows the same counts (§1.6):
+`plural(k, "never", "once", "twice", "# times")`.
+
+**3.2.3** `if` and `sign` spans have no function. In R code an `if` is R's
+own, and a `sign` span is written as markup in a `weft_str()` string.
 
 ### 3.3 `lookup()` and `brk()`
 
@@ -800,8 +885,10 @@ the list formatters, is exported.
 **3.5.2** `of_n()` returns `k` as its number as printed, so a following `n`
 span agrees with it.
 
-**3.5.3** `about()` takes its tolerance, and `ci()` its level, from the
-dictionary (which keys is Q21). `ci()` writes "to" between the bounds.
+**3.5.3** `about()` takes a `tolerance` argument and `ci()` a `level`
+argument. Their defaults are configuration settings (§9.1), as the default
+digits are. A project that stipulates them in its dictionary passes
+`level = dict$ci_level`. `ci()` writes "to" between the bounds.
 
 **3.5.4** `clamp()` sets the relation in the printed record, as `.p` does.
 
@@ -816,10 +903,13 @@ for durations ("2 years and 3 months").
 
 **3.6.1** `weft_str()` renders a markup string, for the text slots no chunk
 option reaches: `ggplot2::labs()`, a `gt` footnote or column label,
-`knitr::kable(caption = )`, text printed with `results: asis`. It is exported
-provisionally (Q7).
+`knitr::kable(caption = )`, text printed with `results: asis`.
 
 **3.6.2** The lints read a literal string passed to `weft_str()` as prose.
+
+**3.6.3** A string given to `weft_str()` is prose wherever it is called from.
+During a knit, a failed check in it is collected as one in a paragraph is
+(2.4.1). Outside a knit it stops at once.
 
 ---
 
@@ -866,7 +956,19 @@ salinity_res:
 ```
 
 **4.2.1** An entry has a `value`, a `type` and a `definition`. `unit` and
-`decision` are optional. (The full set of `type` values is Q21.)
+`decision` are optional.
+
+| `type` | `value` is | Read as |
+|---|---|---|
+| `number` | a number | a number |
+| `quantity` | a number, with a `unit` | a number that prints with its unit (§4.4) |
+| `year` | a four-digit year | an integer; never given a thousands mark |
+| `date` | an ISO date | a `Date` |
+| `string` | text | a string |
+| `labels` | a map from key to phrase | a `lookup()` (3.3.2) |
+| `breaks` | a list of bound and phrase | a `brk()` (3.3.3) |
+
+Any other `type` is an error when the dictionary is read.
 
 **4.2.2** A dictionary holds stipulations, never derivations: things that were
 chosen. Anything computable belongs in the pipeline.
@@ -882,14 +984,26 @@ chosen. Anything computable belongs in the pipeline.
 chapter defines a local `x` is an ambiguity error.
 
 **4.3.3** A local entry requires a `why:` field, and each one is a baseline
-item (§6.5). (Where local entries are written is Q21.)
+item (§6.5).
+
+**4.3.4** A chapter's local entries are written in its front matter, under
+`weft:` / `dict_local:`, in the form of §4.2 plus the `why`.
 
 ### 4.4 Quantities
 
 **4.4.1** A `type: quantity` entry prints with its `unit`.
 
-**4.4.2** `.range` gives the unit once ("3–5 m"). (How a unit passes through
-the other formatter stages is Q13.)
+**4.4.2** The unit follows the digits. It is printed when the value prints as
+digits, and not when a wording class has turned it into a word ("three", not
+"three m"): a unit symbol belongs with a numeral, and a spelled number takes
+the unit's name, which the author writes.
+
+**4.4.3** A collapse prints the unit once, after the last number: "3–5 m",
+"3, 5 and 7 m". `.pairs` and the list formatters print it with every number.
+
+**4.4.4** `#` in an arm never carries the unit, and the printed record
+(1.4.11) does not hold it. A quantity that governs a span is written with its
+unit's name in the arms: `[# metre | # metres]{n="dict$core_len"}`.
 
 ### 4.5 Decision pointers
 
@@ -958,8 +1072,13 @@ an entry in the gate (§6.4) or in `verify()` (§8).
 | 3 | human read | a ranked worklist; never adjudicated |
 
 **5.1.3** The lints read the prose of each source file, the captions written
-in chunk options, and the literal strings passed to `weft_str()`. (Whether
-they read the phrases of a `lookup()` or `brk()` is Q19.)
+in chunk options, and the literal strings passed to `weft_str()`.
+
+**5.1.6** The phrases of a `lookup()` or `brk()` written in a document's chunk
+are read for numerals (§5.2): a numeral in a phrase usually repeats a bound
+that the same call computes with. Their claim words are not listed, because
+the call that chooses the phrase is the guard (5.5.2). Phrases held in the
+dictionary or in a package's R code are not read.
 
 **5.1.4** Constructs come from the scanner (2.10.2), prose tokens from
 Pandoc's tree (2.10.3). What a lint skips is decided by node type: code, math,
@@ -982,8 +1101,14 @@ letter-or-digit is a letter is a name, whatever digits it contains: "CO2",
 **5.2.3** The numerals a document holds when the lint is adopted are baseline
 items (§6.5). The rule fails on a numeral the baseline does not list.
 
-**5.2.4** Two exemptions are configurable (§9.1): a numeral that follows a
-label word ("Figure 3", "Chapter 2"), and a four-digit year.
+**5.2.4** Two exemptions are configurable (§9.1). A numeral that follows a
+label word is exempt by default; the shipped words are Figure, Fig., Table,
+Chapter, Section, Equation, Appendix, Box and Part. A four-digit year is not
+exempt by default: a year in prose is often a stipulation that belongs in the
+dictionary.
+
+**5.2.5** A `.weft-literal` mark exempts numerals only. Every other prose lint
+still reads the marked text.
 
 ### 5.3 Construct errors — tier 1
 
@@ -992,23 +1117,28 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 
 - more than one of `n`, `if`, `sign`, `cite` in one block; any of them on a
   value (1.1.5, 1.3.3)
-- a single-quoted value, or a `"` or `\` inside a value (1.2.3)
+- a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9)
+- a bare-form `cite` value that is not keys only; a key outside Pandoc's key
+  grammar; a formatter class on a `cite` span (1.8.4, 1.8.5, 1.8.7)
 - a class or key within one edit of a weft name (1.2.7)
-- two classes from one at-most-one group; `digits` with `sig` (1.4.2, 1.4.7)
+- two classes from one at-most-one group; `digits` with `sigfig` (1.4.2, 1.4.7)
 - `.ul`, `.ol` or `.dl` on a value that is not alone in its paragraph (1.4.6)
 - a wrong arm count for the key, or for the document's language (1.5.2, 1.6.4)
 - an `n` span with more than one arm under a `lang` that is not shipped (1.6.5)
 - a formatter on an `if` span (1.5.7)
 - an unescaped arm separator in a pipe-table cell (1.5.13)
-- `n="."` outside an `n` span (1.7.2)
+- `n="."` outside an `n` or `sign` span (1.7.2)
 - a duplicate id; a back-reference to an id that is unknown or defined later
   (1.7.5, 1.7.10)
-- a `.weft-literal` with no `why` (1.8.7)
-- a caption that contains a construct and is an unquoted YAML scalar (1.10.3)
+- a `.weft-literal` with no `why` (1.8.10)
+- a caption or a front-matter field that contains a construct and is not a
+  YAML block scalar (1.10.3, 1.10.7)
 
-**5.3.2** Three construct errors need the value and are found only at knit
+**5.3.2** Five construct errors need the value and are found only at knit
 time: a governor of the wrong type (1.5.1, 1.5.11), `.a` on text that is not a
-number (1.4.5), and `.range` on a value that is not of length 2.
+number (1.4.5), `.range` on a value that is not of length 2, a wording class
+on a number that is not whole and non-negative (1.4.12), and a `sign` governor
+that prints as a bound (1.5.17).
 
 **5.3.3** Two tier-2 warnings sit beside them.
 
@@ -1019,13 +1149,28 @@ number (1.4.5), and `.range` on a value that is not of length 2.
 
 ### 5.4 Marker spans and citations — tier 1
 
-**5.4.1** Every key of a `cite` span resolves in the bibliography. This is
-checked statically, and again at knit time.
+**5.4.1** Every key of a `cite` span follows Pandoc's key grammar and resolves
+in the bibliography. This is checked statically, and again at knit time.
 
-**5.4.2** The paragraph that holds a `cite` span in the bare form cites each
-of its keys. A span in the citation form meets this by what it emits.
+**5.4.2** The block that holds a `cite` span in the bare form cites each of
+its keys, as `@key`, `-@key` or `@{key}`. The block is the innermost one in
+Pandoc's tree: a paragraph, a list item, a table cell, a footnote or a
+caption. A span in the citation form meets this by what it emits. This check
+is static only.
 
 **5.4.3** Every citation key in the document resolves in the bibliography.
+
+**5.4.4** The bibliography is every file named by `bibliography:`, and every
+entry under `references:`, in the document's front matter and in the project
+(`_quarto.yml`, `_metadata.yml`), plus any file named by `bibliography:` in
+the configuration (§9.1). At knit time the project's part comes from Quarto's
+merged metadata (2.1.6); the static check reads the files.
+
+**5.4.5** Keys are read in R from BibTeX, BibLaTeX, CSL JSON and CSL YAML
+files. Pandoc is not called for this.
+
+**5.4.6** Under rmarkdown, a bibliography given only through `pandoc_args` is
+not seen. It is named in the configuration.
 
 ### 5.5 Claim words — tier 2
 
@@ -1052,6 +1197,11 @@ until the baseline lists it (tier 1).
 
 **5.6.3** Constants inside the check arguments of a `claim()` call are exempt.
 
+**5.6.4** A value whose outermost call is `round()`, `signif()`, `format()`,
+`formatC()`, `prettyNum()` or `sprintf()` is listed (tier 2). It formats
+outside the stages, so it has no printed record, and `round()` drops trailing
+zeros ("1.50" prints "1.5").
+
 ### 5.7 Cross-references
 
 **5.7.1** Book-wide, because ids share one namespace. Tier 1:
@@ -1073,8 +1223,6 @@ referenced.
 | 4 | internal file links resolve | 1 |
 | 5 | in a document activated from a setup chunk, no construct sits above that chunk | 1 |
 | 6 | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
-
-(Three further hygiene lints are named but not defined: Q26.)
 
 ### 5.9 Figures and tables
 
@@ -1130,13 +1278,30 @@ quoting of an attribute block.
 **6.2.2** An identity removed and another added in the same paragraph is an
 edit, not a removal.
 
+**6.2.4** "The same paragraph" is decided between the two versions of a file
+like this. Within each anchored section the two sequences of paragraphs are
+aligned, with the paragraphs whose words are unchanged fixing the alignment.
+Between two fixed points, an old paragraph and a new one are the same
+paragraph when they share at least half of their distinct words. Paragraphs
+left over are then compared across sections on the same test, with a higher
+threshold, so that a moved or re-anchored paragraph is still recognised.
+Anything still unpaired has no counterpart: an identity that was in it is
+removed, or added.
+
+**6.2.5** Two paragraphs with the same words are still compared construct by
+construct. Re-wrapping the lines of a paragraph changes nothing; a paragraph
+whose words survive and whose constructs do not is a removal.
+
+**6.2.6** A caption, a list item, a table row and a footnote are each a
+paragraph for this purpose.
+
 **6.2.3** Every removal must be acknowledged (§6.3). Nothing else is declared:
 additions, edits, moves and renames are reported (§6.6).
 
 ### 6.3 Acknowledgements
 
-**6.3.1** Acknowledgements are entries in an authored, append-only file. An
-entry gives the file, the identity and a note.
+**6.3.1** Acknowledgements are entries in an authored, append-only file,
+`weft/removals.yml`. An entry gives the file, the identity and a note.
 
 **6.3.2** A removal passes when the commit, or the range, also adds its entry.
 There is no commit-message trailer.
@@ -1156,7 +1321,15 @@ does not knit, and it does not use the network.
 **6.4.3** It reads the index (`git show :<file>`), not the worktree.
 
 **6.4.4** `use_hooks()` records the paths of R and of Pandoc, and the hook
-uses those.
+uses those. It calls the Pandoc binary itself, not `quarto pandoc`, and starts
+it once for all the files of a commit.
+
+**6.4.7** The hook reads the staged files that changed, and for the removal
+check their versions in `HEAD`. What it needs from the rest of the book (the
+anchors and the reference labels) comes from a cache of each file's scan,
+keyed on the file's git blob hash and kept under `.git/`.
+
+**6.4.8** The hook prints how long it took.
 
 **6.4.5** One executable prints one report. Where the gate can tell that
 removing an anchor strands references, it lists them.
@@ -1180,14 +1353,15 @@ pre-commit: removal not acknowledged
 
 ### 6.5 The baseline
 
-**6.5.1** The baseline is a committed file that lists every tolerated item:
-its kind, its file, its source text, and how many times it occurs there.
+**6.5.1** The baseline is a committed file, `weft/baseline.tsv`, that lists
+every tolerated item: its kind, its file, its source text, and how many times
+it occurs there.
 
 | Kind | Item |
 |---|---|
 | numeral | a bare numeral in prose at adoption (5.2.3) |
 | literal value | a value whose expression is a literal (5.6.1) |
-| marked literal | a `.weft-literal` span or block (1.8.7) |
+| marked literal | a `.weft-literal` span or block (1.8.10) |
 | local entry | a `dict_local` entry (4.3.3) |
 | condition | a known condition (7.4.3) |
 
@@ -1200,7 +1374,11 @@ with the same text in the same file.
 
 **6.5.4** Items are sorted, one per line.
 
-**6.5.5** An item that has gone is pruned. (By whom is Q22.)
+**6.5.5** An item whose text has gone from its file, or whose count has
+fallen, is **stale**. The hook passes with stale items and says how many there
+are; it never writes to the baseline. `baseline_prune()` removes them.
+`verify()` fails while any remain (tier 1), because a stale item would let the
+same text come back unlisted.
 
 ### 6.6 The integrity report
 
@@ -1245,6 +1423,15 @@ value, file, section, and for a governed span the arm chosen.
 its identity (§6.1) and its occurrence index within the section. Line numbers
 are not stored.
 
+**7.1.5** Lines are sorted by key, one construct per line, so a merge conflict
+is local to the constructs both sides changed. The ledger is output: a
+conflict is resolved by rendering the chapter again, never by hand.
+
+**7.1.6** Inserting a construct above another with the same identity in the
+same section shifts the occurrence index, and each later one is then compared
+with its predecessor's entry. Where the printed text differs, that shows as a
+change to review. It cannot hide a change. An `#id` removes it.
+
 **7.1.4** A ledger entry has **changed** when its printed text or its chosen
 arm differs. Raw values are stored to a fixed number of significant figures,
 and are used only to rank changes.
@@ -1271,8 +1458,8 @@ after, ranked.
 order-of-magnitude change, crossing zero, crossing 1.0, crossing a dictionary
 threshold, or a governed span choosing a different arm.
 
-**7.3.3** Acceptances are recorded in an authored file. `verify()` fails on a
-must-read that has not been accepted (tier 1).
+**7.3.3** Acceptances are recorded in an authored file, `weft/accepted.yml`.
+`verify()` fails on a must-read that has not been accepted (tier 1).
 
 **7.3.4** Other changes are a ranked worklist (tier 3). A change to a value
 next to a claim word ranks above one that is not.
@@ -1300,6 +1487,26 @@ a baseline item (§6.5).
 **7.4.4** A new condition fails `verify()` until the baseline lists it
 (tier 1). An ordinary render reports it and carries on.
 
+**7.4.5** A condition is matched to the baseline by its source (chunk label or
+target name), its class (warning, message or error) and its text after
+normalising. Normalising, in order:
+
+1. remove ANSI styling
+2. replace hexadecimal addresses and R's temporary paths with a placeholder
+3. replace every number (digits with any sign, decimal part or exponent) with
+   a placeholder
+4. turn curly quotes into straight ones, and `cli`'s bullets and rules into
+   their ASCII forms
+5. collapse every run of whitespace, including line breaks, to one space
+
+**7.4.6** The baseline keeps the text as first seen beside the normalised
+form, so a reader sees a real message.
+
+**7.4.7** Two limits are accepted. Messages that differ only in a number
+match, so "Removed 5 rows" and "Removed 5000 rows" are one item. A message
+translated by the session's language, or reworded by a package upgrade, is a
+new condition.
+
 ---
 
 ## 8. `verify()`
@@ -1316,7 +1523,8 @@ It runs, in order:
 6. the integrity report, when a range is given (§6.6)
 
 **8.2** `verify()` takes `files =` to verify some documents, and `range =` to
-compare two commits. (What it compares with no range is Q23.)
+compare two commits. With no range it compares the working tree with `HEAD`,
+as the hook would if everything were staged, and writes no integrity report.
 
 **8.3** The render step re-executes each document once:
 
@@ -1345,6 +1553,8 @@ and `rmarkdown::render()` all run the hooks.
 
 **9.1.1** Project configuration is `_weft.yml` at the project root. A
 document overrides it with a top-level `weft:` key in its front matter.
+weft merges the two setting by setting. A `weft:` key in `_quarto.yml` or
+`_metadata.yml` is not read.
 
 **9.1.2** It sets:
 
@@ -1352,7 +1562,10 @@ document overrides it with a top-level `weft:` key in its front matter.
 |---|---|
 | default digits; decimal and thousands marks; the minus sign | the number formatters |
 | whether `.pct` reads its value as a proportion (the default) | `.pct` |
-| the `.count` threshold | `.count` |
+| the `.count` threshold; the `.word` limit | `.count`, `.word` (1.4.12) |
+| the level of `ci()`; the tolerance of `about()` | 3.5.3 |
+| `dict_local` (front matter only) | 4.3.4 |
+| `bibliography`, for files the front matter and the project do not name | 5.4.4 |
 | the date format | `.date` |
 | `draft` | §9.4 |
 | the severity list | 7.4.2 |
@@ -1396,7 +1609,7 @@ was called. Each says what it will write.
 | `use_weft()` | everything below, with a summary first |
 | `use_setup()` | the `.Rprofile` line (Quarto project) or the front-matter line (single document); `_weft.yml` |
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
-| `use_hooks()` | the `pre-commit` shim, with the paths of R and Pandoc; the baseline file; the acknowledgements file |
+| `use_hooks()` | the `pre-commit` shim, with the paths of R and Pandoc; `weft/baseline.tsv`; `weft/removals.yml`; `weft/accepted.yml` |
 | `use_ci()` | the CI workflow (6.7.1) |
 | `use_dictionary()` | a dictionary skeleton and its schema |
 | `use_agent_docs()` | agent-facing conventions and the Claude skill |
@@ -1611,6 +1824,11 @@ one meaning.
 those class names no meaning. `.pairs` takes names and values from one object,
 so their order cannot drift apart.
 
+**1.4.7** The key is `sigfig`, not `sig`, because `sig` is one edit from
+`sign` and both would be weft keys: the near-miss rule (1.2.7) could not tell
+a typing slip from the other key. Without a number class, `digits="2"` can
+only mean one thing, so it is not made an error.
+
 **1.4.9** A unit belongs to the quantity, not to the way a number is printed.
 Held in one place, it cannot differ between two sentences.
 
@@ -1619,6 +1837,9 @@ markdown. Escaping would break both.
 
 **1.4.11** Arm selection, the ledger and the reports all need to know that
 "< 0.001" is a bound.
+
+**1.4.12** "One point five sites" and "minus third" are not things an author
+means. Past a limit a spelled number is harder to read than digits.
 
 **1.5.1** The key says what kind of governor it is, and each key fixes its arm
 counts, so a wrong count is found from the source without running R.
@@ -1640,6 +1861,10 @@ apart.
 printed to zero decimals shows "1" and takes the singular; a value printed as
 "1.0" takes the plural, as English does. A change printed as "0.0%" did not
 rise.
+
+**1.5.17** `#` in a `sign` arm is the magnitude. For a bound there is none,
+and "fell by < 0.1%" beside "rose by < 0.1%" would turn on a sign the printed
+text no longer shows.
 
 **1.5.11** A count inferred from a length silently turns a vector of two
 depths into "2". For ranges, CLDR's plural-range data gives every English
@@ -1684,7 +1909,7 @@ the author typed none, and merging would hide which number came from which
 source. The bare form exists for the in-text case ("Smith (2020) found …"),
 where a second citation after the number would be wrong.
 
-**1.8.6, 1.8.7, 5.6.1** A bare `` `r 10` `` is the deliberate escape hatch:
+**1.8.9, 1.8.10, 5.6.1** A bare `` `r 10` `` is the deliberate escape hatch:
 nobody types it by accident, and a rule demanding a check would be met with
 `claim(10, TRUE)`. What a literal cannot do is hide. Each one is a baseline
 item, a new one fails the commit until the baseline lists it, and a computed
@@ -1693,6 +1918,13 @@ number cannot be computed: a project constant goes in the dictionary, a count
 of things in the document gets counted, an ordinal gets computed. Methods
 text, legislation and quotations are dense with numbers that are not data
 claims, which is what the block form is for.
+
+**1.8.5** `@{key with spaces}` resolves in a bibliography and is still left
+as literal text by Pandoc, so resolving alone does not show that a citation
+will print.
+
+**1.8.11** Pandoc writes an unknown attribute into HTML (`data-why="…"`). The
+reason belongs to the source and the baseline, not to the published page.
 
 **1.9.2** Stock knitr evaluates inline R inside a fenced block that is not
 executed, and inside an HTML comment. A document with no attribute blocks must
@@ -1704,6 +1936,15 @@ arm uses for its number.
 **1.10.4, 1.10.6** Neither form works (§18). `gt` drops a caption set with
 `tab_caption()` from Word output, with or without weft.
 
+**1.10.7** knitr evaluates inline R in the front matter as raw text, before
+YAML has decoded its escapes. In a double-quoted scalar `\"` reaches R as two
+characters and fails; in a single-quoted one a doubled `''` leaves the span
+unresolved with no error. A block scalar has no escapes.
+
+**1.10.9** The abstract holds more claims than any other paragraph, and it is
+read before a single chunk has run. Neither Quarto nor Pandoc moves a body
+div into the abstract position.
+
 ### Runtime
 
 **2.1.3** A conditional install fails silently when the package was loaded
@@ -1712,12 +1953,18 @@ earlier), so installing does not test for a knit. It does not happen on
 namespace load, because a pipeline that calls `weft::claim()` must not change
 how that session knits (P10).
 
+**2.1.3** (repeat calls) R evaluates the front matter's `!expr` three times in
+one render, once of them while the knit is running.
+
 **2.1.4** The output format sets its own `chunk` hook after the project's
 start-up code has run. A wrapper installed at that time would be replaced.
 The late install has not been run (§19).
 
 **2.1.5** `weft_setup()` can run from `.Rprofile`, before any document is
 being knitted.
+
+**2.1.6** `knitr::current_input()` under Quarto names an intermediate file,
+and asking Quarto about that file loses a book's metadata.
 
 **2.2.1, 2.2.2** Because inline code is parked, weft decides what runs and in
 what order. Parking also gives every expression an index within its block.
@@ -1726,6 +1973,17 @@ what order. Parking also gives every expression an index within its block.
 the hooks has one. Anywhere else a collected failure would be a failure nobody
 is told about. A check on a value therefore runs even when nothing else of
 weft does.
+
+**2.4.4** `error: true` is a common document-wide setting. Without the record
+it would turn every failed check in chunk code into printed text and a passing
+render.
+
+**2.4.4** (caught checks) A check is a statement about the manuscript, not a
+test to branch on. Wording that depends on a value is written with `if`.
+
+**2.6.8** Markdown emphasis in a marker breaks when the construct already sits
+inside bold, and is printed as asterisks where markdown is not rendered, such
+as a plot title. Square brackets become a link when "(" follows.
 
 **2.5** A construct that is valid markdown renders as plausible text when
 nothing evaluates it, so silence has to be made impossible by other means.
@@ -1783,11 +2041,17 @@ up.
 
 **3.5** This wording goes stale silently when it is typed by hand. `of_n()`
 prevents "all 2 sites" and "both of the 3". How near is "nearly" is a
-stipulation, so `about()` reads it from the dictionary. `ci()` writes "to" so
-that a dash never sits beside a minus sign.
+setting of the function, like the default digits, and a project that treats
+it as a stipulation passes it from its dictionary. `ci()` writes "to" so that
+a dash never sits beside a minus sign.
 
-**3.6.1** Whether a string renderer in R code earns its place beside the
-function forms is open (Q7).
+**3.6.1, 3.6.3** A plot title, a table footnote and a `kable()` caption are
+prose that no chunk option reaches. A string is prose whoever calls the
+function, so a caption built in R fails the same way as one written in a chunk
+option.
+
+**3.2.3** A function for each governor would be a second syntax to keep in
+step with the first. The markup already works in a string.
 
 ### Dictionary
 
@@ -1798,6 +2062,10 @@ verifies every read without running R (5.8 rule 6).
 
 **4.3.1, 4.3.2** A paragraph moved to a chapter with no local `sites` errors,
 instead of quietly changing meaning.
+
+**4.4.2 to 4.4.4** SI style puts a unit symbol with a numeral and a unit name
+with a spelled number. A unit inside `#` would print twice in every arm that
+names it.
 
 **4.5.1, 4.5.2** The package keeps no register of its own (§16), so the
 pointer goes through a resolver and is tied to no one tracker. The default
@@ -1849,8 +2117,22 @@ or `.word` for a number.
 eats them removes them. Leaving arm text out of the identity is what lets the
 gate tell the two apart.
 
+**5.6.4** The stages are where the printed record is made (1.4.11). A value
+rounded in its own expression still prints, but agreement and the ledger see
+only a raw number.
+
 **6.2.1** Counting across the range means a paragraph moved to another file is
 not a removal.
+
+**6.2.4** Pairing by position alone called a deleted paragraph with a new one
+written in its place an edit, and called two neighbouring edits removals.
+Asking for shared words fixed both on the test edits (§18). The case left is
+a sentence replaced by another from the same template about a different
+thing; the report shows it as an edit, with both expressions, so it is
+visible but not acknowledged.
+
+**6.2.5** A re-wrap can leave `# ` at the start of a line inside an arm, and
+the paragraph then parses as something else with its constructs gone.
 
 **6.3.1, 6.3.2** An entry in a file is in the diff, where a reviewer sees it,
 and survives a squash or a rebase. A trailer needs the commit message, which
@@ -1866,6 +2148,11 @@ shell's `PATH`.
 
 **6.4.6** Correct. See §14.
 
+**6.4.4, 6.4.7** `quarto pandoc` costs about 0.15 s more per call than the
+binary it wraps, and one process per file costs more than one for all. A book
+of twenty chapters took about nine seconds to scan in full (§18), which is too
+long to do on every commit.
+
 **6.5** Some costs are legal one at a time and corrosive in bulk. Requiring
 the commit to add the item puts the addition in the diff. Sorted, one per
 line, the file merges cleanly, and moving a paragraph to another file shows as
@@ -1874,13 +2161,21 @@ one item removed and one added.
 **6.6.1** The pressure runs toward widening a bound rather than rewriting a
 sentence, so every changed check is shown with its before and after.
 
-**6.6.3, 6.7.1** A local hook is neither installed by a clone nor proof of
-anything.
+**6.5.5** A commit hook cannot change the commit it is checking, so it cannot
+prune. Leaving stale items until `verify()` keeps ordinary commits quiet and
+still closes the gap before anything is merged.
+
+**6.6.3, 6.7.1** A clone does not install the hook, so the checks run again
+where every collaborator's work passes through (§14).
 
 ### Ledger and conditions
 
 **7.1.4** Raw floating-point values differ between machines. A ledger that
 changed whenever they did would be all noise.
+
+**7.1.5, 7.1.6** How often a committed ledger conflicts, and how often the
+occurrence index shifts, can only be learned in use. Both fail towards more
+to read, never less.
 
 **7.2.1** With two states, a partial render passes as clean.
 
@@ -1890,6 +2185,10 @@ Nothing here verifies English against a number.
 **7.4.1** A chunk loaded from knitr's cache raises nothing, and a target built
 last week raised its warning last week. Without the replay and the
 `tar_meta()` reading, the log would show only what happened to be recomputed.
+
+**7.4.5** Most numbers in a message change from run to run ("Removed 12
+rows"), and the same message wraps differently at another console width.
+Without normalising, a known condition would read as new on every render.
 
 **7.4.3, 7.4.4** An unread log is the failure of §10. A baseline of known
 conditions turns "a warning appeared" into a diff someone must commit.
@@ -1917,27 +2216,34 @@ activates nothing, silently.
 **9.2.4** knitr fetches its inline evaluator once for the first block, so
 hooks installed from inside that block miss the values in it.
 
-## 14. Threat model
+## 14. Who the checks are for
 
-The harness is built to catch **unintended mistakes by someone working in good
-faith and in a hurry**. That includes an AI agent editing a manuscript with
-`sed`, and an author clearing a failed check late at night. It is not built to
-stop someone who is trying to deceive.
+The harness is a tool an author uses on their own work. It holds a discipline
+the author has chosen: every number in the prose is computed, every claim
+about a number is checked, and nothing leaves the manuscript unnoticed. Nobody
+is trying to get past it, and it is not built to stop anyone. "Author"
+includes an AI agent editing the manuscript on the author's behalf.
+
+What it catches is the slip made in good faith and in a hurry: a `sed` across
+a chapter, a check loosened late at night to clear a failure, a paragraph lost
+in a restructure.
 
 What follows from that:
 
-- **Every escape hatch is open, and visible.** A bare literal, a
+- **Every way out is open, and leaves a record.** A bare literal, a
   `.weft-literal` block, a widened bound, an acknowledged removal and a
   baselined condition are all allowed. Each one appears in a committed file or
-  in the integrity report.
-- **The hook can be bypassed** with `--no-verify`, and that is correct. The
-  hook is a convenience that gives an early answer.
-- **The proof is the range check**, run somewhere the author does not
-  control (§6.7). A local hook is neither installed by a clone nor proof of
-  anything.
-- **No check is hardened against a determined author.** A check that cannot
-  fail is flagged (3.1.6), but a check that is merely loose is not, and cannot
-  be.
+  in the integrity report. The package's job is to make each of them a choice
+  the author made, and can read back later, instead of something that
+  happened unnoticed.
+- **The hook can be skipped** with `--no-verify`. It gives an early answer; it
+  is not a lock.
+- **The range check on CI is the same checks run again from a clean clone**
+  (§6.7). It is there because a local setup can be incomplete: a clone does
+  not install the hook, and a freeze can be stale.
+- **How strict a check is, is the author's call.** A check that cannot fail is
+  flagged (3.1.6), because it is almost always a mistake. A check that is
+  merely generous is a judgement, and the package has no view on it.
 
 ## 15. Pipeline patterns
 
@@ -2022,6 +2328,10 @@ to the output (rule 1.2.8 does not), and a failed check in a caption stops the
 render (rule 2.3.3 collects it). A row below is evidence for the mechanism it
 names, not for those four rules.
 
+Marker spans, front matter, the failure paths and the gate's matching were
+each run in a copy of the stand-in extended for that purpose. Under rmarkdown
+the Pandoc was 3.8.3, not the 3.10 that Quarto ships.
+
 ### Syntax and the prose hooks
 
 | Fact | Run under |
@@ -2071,6 +2381,44 @@ names, not for those four rules.
 | `tab.cap` and `!expr` in `fig-subcap` do not work; an unquoted YAML caption is cut at ` #` | Quarto |
 | `gt` 1.3.0 drops a `tab_caption()` or `gt(caption = )` caption from docx output, with no hooks installed; `tbl-cap` with a `tbl-` label is correct in docx, html and Typst | Quarto |
 
+### Marker spans
+
+| Fact | Run under |
+|---|---|
+| The citation form (`@k`, `@k, p. 4`, `see @k`, `@a; @b`, `-@k`, `@{k}`) prints a citation that citeproc formats, with its reference-list entry: at a sentence end, before punctuation, in a heading, a list item, a table cell, a block quote, both kinds of footnote and a `fig-cap` | Quarto (html, docx), rmarkdown (html, Word) |
+| Under Typst the citation is a native Typst one, and a prefix ("see") is dropped | Quarto (Typst) |
+| A citation in a heading puts the key into the heading's automatic anchor | both |
+| A `cite` span prints `\|` and `#` literally, and resolves a value and an `n` span nested in it, in both forms | both |
+| A bare-form check that the same block cites each key, written with line heuristics in the `text` hook: correct on 78 of 80 renders, the other two being one case the test itself expected wrongly. It fails across paragraphs, list items, table rows, a chunk, and a footnote boundary | both |
+| The heuristic splits a paragraph wrongly at a wrapped line that begins "1986. " or "- " | both |
+| Keys read in R (a pattern for `.bib`, `jsonlite`, `yaml`) match Pandoc's own list exactly for BibTeX, BibLaTeX, CSL JSON and CSL YAML files of 500 entries, in under 0.02 s | R |
+| Pandoc has no one call that reads all four formats: plain CSL YAML returns an empty list with no error, and its markdown reader turns `o'brien2017` into a key with a curly quote | Pandoc |
+| An unknown key: Pandoc warns ("citation … not found"), exits 0 and prints "(key?)"; with no bibliography there is no warning at all; Typst fails the render | both |
+| `@{key with spaces}` resolves in a bibliography and is left as literal text by Pandoc | both |
+| A `"` inside a double-quoted value ends the value, and the block becomes prose with no error | both |
+| Not writable under the quoting rule: a prefix or locator needing a backslash; a key containing `"`. `&quot;` works in a prefix or locator, not in a key | both |
+| With no hooks, `why` on a span or div reaches HTML as an attribute (`data-why`) and is invisible in docx, Typst and LaTeX | Pandoc |
+| The hook removes `why` and leaves the class, for a span and for a div: nested in a div, a list or a block quote; with its two fences in different text blocks; with a comma, apostrophe, `#`, `\|` or brackets in the `why` | both (html, docx, Typst) |
+
+### Front matter and metadata
+
+| Fact | Run under |
+|---|---|
+| A value and a governed span in `title`, `subtitle`, `abstract` and `description`, written as block scalars, resolve and print in the right place | Quarto (html, docx, Typst), rmarkdown (html, Word) |
+| In a double-quoted scalar `\"` reaches R undecoded and fails; in a single-quoted scalar a doubled quote leaves the span unresolved with no error; a plain scalar that begins with `[` or a backtick fails before knitr runs | both |
+| A block-scalar title is wrapped in a paragraph inside its heading in HTML | both |
+| A construct in the front matter cannot see an object made in a later chunk. It sees `params`, an object from `.Rprofile`, and a function call | both |
+| Activation from the front matter and from `.Rprofile` is early enough for a construct in the same front matter; a setup chunk is not | both |
+| The front matter's `!expr` is evaluated three times in one render, one of them during the knit; an install that reset state broke every such document | both |
+| A second metadata block at the end of the document, holding `abstract:` or `title:`, resolves with the chunks' values and prints in the abstract or title position; where both blocks set a field the later wins | Quarto (html, docx, Typst, book html), rmarkdown (html, Word) |
+| In a book's docx, a chapter's late abstract becomes the abstract of the whole book | Quarto |
+| Quarto reads the late block as YAML before knitr runs, so a plain scalar there that begins with `[` or a backtick fails | Quarto |
+| No div in the body reaches the abstract position | Quarto, Pandoc |
+| `rmarkdown::metadata$weft` returns a nested front-matter key, in a chunk and in the `text` hook | both |
+| `rmarkdown::metadata` does not hold what `_quarto.yml`, `_metadata.yml` or a book set. The file named by `QUARTO_EXECUTE_INFO` and `quarto::quarto_inspect()` on the `.qmd` both do, for `bibliography`, `lang` and a custom key | Quarto |
+| Quarto rewrites a project-level bibliography path relative to the document, and joins the project's list to the document's | Quarto |
+| `knitr::current_input()` names the intermediate `.rmarkdown` file; `quarto_inspect()` on that file loses a book's metadata | Quarto |
+
 ### Failures, backstops and conditions
 
 | Fact | Run under |
@@ -2080,6 +2428,37 @@ names, not for those four rules.
 | Hidden warnings and messages logged by the `evaluate` wrapper, output byte-identical to stock | both |
 | End-of-document check catches a construct above the setup chunk (run with an earlier form of the syntax) | both |
 | `weft-check` filter fails the render when the hooks are absent, passes when present | both |
+| A failed `claim()` in a chunk with `error: true`, or inside `try()` or `tryCatch()`: stock, the render passes. With the failure recorded first (2.4.4), the chunk prints its error, later chunks run, and the render fails at the end with no output written | both (html) |
+| With `error: false` a failed `claim()` in chunk code still stops at once and is reported once | both (html) |
+| That stop loses any failure collected earlier in the render (rule 2.4.5 is the answer, and has not been run) | both (html) |
+| A failed check in a `weft_str()` string is collected during a knit, from `labs(title = )` and `kable(caption = )`; outside a knit it stops at once | both (html) |
+| Whether a knit is running is known from `knitr::current_input()`, which is exported | knitr |
+| A bold marker in square brackets survives as literal text in a title, heading, paragraph, table cell, list, footnote, link text and caption, but breaks when the construct is already inside bold, and prints its asterisks in a plot title | Pandoc (html, docx, Typst, LaTeX source) |
+| `<<weft: … >>` survives all of those, including inside bold | Quarto (html, docx, Typst), rmarkdown (html, Word), Pandoc (LaTeX source) |
+| Pandoc turns straight quotes in a marker into curly ones | both |
+| 83 real conditions from 11 packages, 58 distinct texts among the warnings and messages: 28 hold a number that normalising rightly removes, 9 hold a number that is the substance (two different problems then match), 21 hold none | R |
+| Across a narrower console, `cli` without Unicode and plain quotes, 45 of 72 conditions keep the same text unnormalised, 46 with numbers replaced, and 72 with the five steps of 7.4.5 | R |
+
+
+### The gate
+
+Run on an Apple M2 under moderate load, with the stand-in scanner,
+which is unoptimised R.
+
+| Fact | Run under |
+|---|---|
+| A test manuscript of 10 anchored sections and 156 constructs, and 72 scripted edits with known answers. With no paragraph matching, every real removal is reported, and 35 edits also report a removal that was an edit or a move (139 acknowledgements asked for, against 98 that were due) | R |
+| Pairing by position alone: 61 of 72 right; 8 edits report a false removal; 3 call a real removal an edit | R |
+| Pairing on shared words (at least half within a section, 0.6 across sections), and comparing constructs even when the words are the same: 71 of 72 right, no false removal. The one miss is a templated sentence replaced by the same template about another thing | R |
+| A re-wrap that left `# ` or `> ` at the start of a line changed Pandoc's parse and dropped 31 constructs from it; only the construct-by-construct comparison saw it | R, Pandoc |
+| Blocks split on blank lines agree with Pandoc's paragraphs, headings and list items on every block start Pandoc reports (93 against 90; the extra ones are inside a table and a code block) | Pandoc |
+| R starts in 0.13 s; loading `jsonlite` and `yaml` adds nothing measurable, `knitr` 0.06 s | R |
+| The Pandoc binary starts in 0.03 s, `quarto pandoc` in 0.18 s | Pandoc |
+| `commonmark_x+sourcepos` to JSON, 2,000 paragraphs: 0.9 s and 11 MB, against 0.5 s and 1.8 MB without positions; reading the 11 MB into R takes 0.3 s | Pandoc, R |
+| The hook end to end, one changed file of 300 paragraphs: 0.7 to 1.0 s for the staged version alone, 1.7 s with the `HEAD` version and the matching | R, Pandoc, git |
+| Five changed files: 2.9 s staged alone, 8.9 s with matching, of which 5.2 s is the scanner and matcher | R, Pandoc, git |
+| A book of 20 chapters of 300 paragraphs over a commit range: 8.8 s for one version, 28.5 s for both with matching | R, Pandoc, git |
+| Twenty files through one Pandoc process take 1.8 s, against 2.8 s for twenty processes | Pandoc |
 
 ### Activation
 
@@ -2123,9 +2502,18 @@ form:
 - the single-quote and escape errors (1.2.3); ids kept out of the output
   (1.2.8)
 - the four formatter stages and their at-most-one errors (1.4.1, 1.4.2);
-  `digits` and `sig` (1.4.7)
-- `cite` spans and the inline `.weft-literal` (§1.8)
+  `digits` and `sigfig` (1.4.7); the limits on the wording classes (1.4.12)
+- `sign` on a bound (1.5.17); `n="."` inside a `sign` span (1.7.2)
+- units through the stages (§4.4)
+- for `cite` spans: the bare-form check made on Pandoc's tree (5.4.2; the
+  spike used line patterns in the hook), the keys-only and key-grammar errors
+  (1.8.4, 1.8.5), classes and pass-through on the span (1.8.7), and the static
+  reading of the bibliography (5.4.4)
+- the unparsed-block error (1.2.9), beyond a pattern tuned on the spike's own
+  cases
 - a failed check in a caption being collected (2.3.3)
+- a stopping failure printing the ones collected before it (2.4.5)
+- the marker `<<weft: … >>` in a rendered plot title
 - installing the hooks on attach and not on namespace load (2.1.3); the late
   install of the `chunk` wrapper (2.1.4); per-knit initialisation (2.1.5)
 - the end-of-document check counting chosen arms only (2.5.2); the filter's
@@ -2136,24 +2524,27 @@ form:
 - the backup-and-restore sequence of `verify()` as a whole (8.3); only the
   freeze behaviour it relies on was run
 
-**Parts of the design with no stand-in at all:** every lint; the baseline; the
-gate, the acknowledgements file and the integrity report; the ledger;
-`use_ci()`; the `decision:` resolver; `dict` and `dict_local` as objects (the
-`targets` side was run).
+**Parts of the design with no stand-in at all:** every lint; the baseline and
+`baseline_prune()`; the acknowledgements file and the integrity report; the
+hook's cache (6.4.7); the ledger; `use_ci()`; the `decision:` resolver; `dict`
+and `dict_local` as objects (the `targets` side was run). Of the gate, only
+the paragraph matching and the timings were run.
 
 **Formatters and functions not in the syntax matrix:** `.date`, `.sci`,
 `.ord`, `.ol`, `.dl`; `of_n()`, `about()`, `ci()`, `pm()`.
 
 **Environments:** Windows; the Render button in RStudio or Positron; running
-chunks interactively with the hooks loaded; LaTeX PDF; bookdown; nested
-includes. Child documents were covered for positions only: the syntax matrix
+chunks interactively with the hooks loaded; LaTeX PDF (for `cite` spans and
+the marker, only Pandoc's LaTeX source was read); bookdown; nested includes.
+The failure paths of 2.4.4 and 3.6.3 were run to HTML only. A late metadata
+block was run with front-matter activation only. Child documents were covered for positions only: the syntax matrix
 was not run on them. For captions in chunk options: LaTeX, books and
 `cache: true`. For `tar_dict()`: branching, parallel workers and functions in
 a package namespace.
 
 ## 20. Open questions
 
-### Environment and toolchain
+### Environment and toolchain, carried over
 
 **Q1 — Windows.** The fixture runner is portable and has not been run there.
 The placeholder characters are private-use Unicode and exist only in memory.
@@ -2176,88 +2567,46 @@ workers, functions in a package namespace, Windows.
 generated from CLDR's `plurals.xml`; no R package was found that exposes those
 rules.
 
-**Q7 — `weft_str()`.** Whether it earns its place. And what a failed check
-inside it does when it is called from chunk code: rule 2.4.2 says stop at
-once, which makes a caption built in R behave differently from one written in
-a chunk option.
+### Raised by the spikes
 
-### Syntax
+**Q7 — `QUARTO_EXECUTE_INFO`.** Rule 2.1.6 reads Quarto's merged metadata
+from the file this variable names. It worked in every case run. Whether Quarto
+documents it and intends to keep it was not checked. The fallback,
+`quarto_inspect()`, is documented and costs about 0.4 s per document.
 
-**Q8 — `.weft-literal` in the output.** Whether the class and the `why` reach
-the output as a Pandoc span or div, or are stripped. And whether a
-`.weft-literal` block also exempts its text from the tier-2 claim-word list.
+**Q8 — Two-letter names.** The near-miss rule (1.2.7) starts at three letters.
+`.or`, `.ol`, `.ul` and `.dl` are one edit from each other, and `.or` is one
+edit from `.ord`. Each slip prints something visibly different, except `.or`
+written for `.ord` on a single number, which prints the bare number.
 
-**Q9 — `cite` spans.** How the knit-time check finds the bibliography. What
-"the same paragraph" means for a `cite` span in a caption or a footnote.
-Neither form has been run.
+**Q9 — When the scanner and Pandoc disagree.** A re-wrap can leave `# ` at
+the start of a line inside an arm. At knit time the scanner still resolves the
+span. Pandoc's static tree reads a heading there. Rule 6.2.5 catches the edit
+that causes it; what the static lints should do with a file already in that
+state is not decided.
 
-**Q10 — Inheritance and `sign`.** Whether `n="."` is legal inside a `sign`
-span (agreeing with the magnitude), and whether `sign="."` exists.
+**Q10 — A late abstract in a book.** In a book's docx, a chapter's late
+`abstract:` becomes the abstract of the whole book (1.10.9).
 
-**Q11 — `sign` on a bound.** What a `sign` span does when the value prints as
-a bound ("< 0.1%").
+**Q11 — The gate's time.** With the stand-in scanner, a commit of five
+chapters took about nine seconds, most of it in R code scanning and matching.
+Whether the real scanner is fast enough in R, and whether the cache of 6.4.7
+is enough to keep a book-wide check off every commit, is not known. No budget
+is set.
 
-**Q12 — Wording formatters off the integers.** What `.word`, `.count` and
-`.ord` print for a decimal, a negative and a large number, or whether those
-are errors.
+**Q12 — The matching thresholds.** The shared-word thresholds of 6.2.4 were
+chosen on the same 72 edits they were scored on, in one synthetic manuscript.
+They have not met a real history.
 
-**Q13 — Units through the stages.** How the unit of a dictionary quantity
-survives `.num`, `.word`, a collapse and an arm with `#`.
+**Q13 — Conditions whose number is the point.** Rule 7.4.7 accepts that
+"Removed 5 rows" and "Removed 5000 rows" match. Nine of 58 real messages were
+of this kind.
 
-**Q14 — `digits` or `sig` with no number-stage class.** Whether it implies
-`.num` or is a construct error.
+**Q14 — `cite` spans under Typst and LaTeX.** Typst drops a citation's
+prefix. PDF through LaTeX was not run.
 
-**Q15 — `sig` and `sign` are one edit apart**, and both are weft keys, so the
-near-miss rule (1.2.7) cannot catch one written for the other.
-
-**Q16 — Function forms.** The form of `plural()` for three and four arms, and
-whether the text classes (`.a`, `.cap`) have R forms.
-
-**Q17 — The failure marker.** Its exact text, in the output and in a draft.
-
-**Q18 — `claim()` in a chunk with `error: true`.** Rule 2.4.2 stops the chunk;
-knitr then prints the error and continues, so the render passes.
-
-**Q19 — Phrases in R.** Whether the lints read the phrases of a `lookup()` or
-`brk()` as prose.
-
-**Q20 — Front-matter fields.** A construct in `abstract:` or `title:` passes
-through knitr as part of the first block. Not run with attribute blocks, and
-YAML's own reading of `{`, `#` and `|` applies.
-
-### Dictionary
-
-**Q21 — Dictionary details.** Where a chapter's local entries are written.
-The full set of `type:` values. Which keys hold the tolerance of `about()` and
-the level of `ci()`.
-
-### Gate, ledger and conditions
-
-**Q22 — The committed files.** Names and locations for the baseline, the
-acknowledgements file and the ledger acceptances. And who prunes the baseline:
-a hook cannot change the commit it is checking.
-
-**Q23 — Matching across versions.** How "the same paragraph" (6.2.2) is
-decided between two versions of a file. How often pairing constructs without
-an `#id` goes wrong is unmeasured. What `verify()` compares when no range is
-given.
-
-**Q24 — The gate's time budget.** The hook starts R and Pandoc on every
-commit. No limit is set and nothing was timed.
-
-**Q25 — The filter under rmarkdown.** `use_quarto()` installs the `weft-check`
-filter; there is no installer route for an rmarkdown project.
-
-**Q26 — Lints that are named but not defined.** "No raw `round()` output in
-prose", "orphaned build artefacts" and "free scales are flagged". Also the
-defaults of the two numeral exemptions (5.2.4).
-
-**Q27 — Ledger churn.** How often a committed ledger conflicts on merge, and
-what happens to the occurrence index (7.1.3) when a construct is inserted
-above another with the same identity.
-
-**Q28 — Matching conditions to the baseline** when a message contains a
-number that varies from run to run.
+**Q15 — The ledger in use.** How often a committed ledger conflicts on merge,
+and how often the occurrence index shifts (7.1.5, 7.1.6).
 
 ---
 
@@ -2298,6 +2647,13 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   not executed and inside an HTML comment.
 - **`verify()`.** The backup-and-restore sequence against a render that
   succeeds, one that fails, and one that is killed (Q3).
+- **Names.** No two weft names of three or more letters are within one edit of
+  each other.
+- **Paragraph matching.** The spike's 72 scripted edits (§18) are kept as a
+  fixture, and edits taken from a real manuscript's history are added to them
+  (Q12).
+- **Condition matching.** The spike's recorded messages, each under two
+  console widths, with and without `cli` Unicode.
 
 ## 22. Build order
 
@@ -2320,13 +2676,14 @@ renders with it.
 - the scanner; the `evaluate.inline`, `text`, `document` and `evaluate` hooks;
   installing on attach; per-knit initialisation
 - values; the four formatter stages, with `.num`, `.pct`, `.sci`, `.word`,
-  `.count`, `.ord`, `.no`, `.and`, `.or`; `digits`, `sig`, `sep`, `last`;
+  `.count`, `.ord`, `.no`, `.and`, `.or`; `digits`, `sigfig`, `sep`, `last`;
   project-registered formatters
 - governed spans with `n` (English) and `if`: two arms, guards, condition
   lists; `n="."`
 - `claim()`, `plural()`, the `fmt_*()` functions
 - pass-through of classes and keys; `.strong`, `.em`
-- collected failures, exact positions, draft mode; `_weft.yml`
+- collected failures, including the record made by a failed check in chunk
+  code (2.4.4); the marker; exact positions; draft mode; `_weft.yml`
 - the condition log from the `evaluate` wrapper and from values in prose, the
   cache replay, and the severity list
 - the end-of-document check and the `weft-check` filter; `use_quarto()`
@@ -2341,12 +2698,14 @@ renders with it.
   an `n` governor
 - `.cap`, `.a`; the sentence-start report
 - `lookup()`, `brk()`
-- `cite` spans, with the knit-time bibliography check
+- `cite` spans, with the knit-time bibliography check; `.weft-literal`, with
+  its `why` removed from the output
 
 *1c — captions and project activation.*
 
 - captions in chunk options, with the option hooks and the late `chunk`
   wrapper; `weft_str()`
+- constructs in front-matter fields and in a late metadata block
 - `.Rprofile` activation and `use_setup()`. These wait until the hooks have
   been run under the Render buttons of RStudio and Positron, and with chunks
   run interactively (Q2)
