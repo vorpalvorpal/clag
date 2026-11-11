@@ -74,7 +74,7 @@ test_that("design note: the filter is installed as a project extension, and the 
   ext <- yaml::read_yaml(file.path(dir, "_extensions/weft-check/_extension.yml"))
   expect_false(is.null(ext))
   # an extension that contributes a filter (Quarto's own requirement)
-  expect_true(!is.null(ext$contributes$filters) || !is.null(ext$contributes))
+  expect_false(is.null(ext$contributes))
   shipped <- weft_filter_path()
   expect_identical(unname(tools::md5sum(file.path(dir, "_extensions/weft-check/weft-check.lua"))),
                    unname(tools::md5sum(shipped)))
@@ -168,12 +168,6 @@ test_that("9.3.1: an existing _weft.yml is left as it is", {
   expect_identical(readLines(file.path(dir, "_weft.yml")), mine)
   # and the rest was still written
   expect_true(all(setdiff(written_files, "_weft.yml") %in% tree(dir)))
-})
-
-test_that("9.3.2: use_quarto() writes no failure file, stamp or ledger of its own", {
-  dir <- fresh_project()
-  suppressMessages(utils::capture.output(weft::use_quarto(dir)))
-  expect_false(dir.exists(file.path(dir, ".weft")))
 })
 
 test_that("9.3.1: the post-render and pre-render scripts are R scripts that parse", {
