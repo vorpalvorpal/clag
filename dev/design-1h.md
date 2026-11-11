@@ -58,3 +58,17 @@ Flagged sites: `r flagged`{.and none="none"}.
 ## Tests
 
 One new file `tests/testthat/test-1h.R`.
+
+## Rulings on the test-writer's report
+
+- Inside an inner `n="."` span, `#` is the count (the length); in the
+  `list` span's own arm text `#` is the collapsed vector. So
+  `[none | # was | [# site | # sites]{n="."}: #]{list="v"}` prints "3
+  sites: a, b and c".
+- A date prints as `format()` prints it and a logical as `TRUE`/`FALSE`
+  unless a class says otherwise.
+- `none` on a value whose classes include no collapse class (`.num`,
+  `.strong`, or none) is a construct error.
+- Exact texts the test-writer guessed (`.cap`, `.word` on a vector,
+  `sep`/`last`) follow what the same classes print on a value today; the
+  implementer reports any that differ rather than bending the code.
