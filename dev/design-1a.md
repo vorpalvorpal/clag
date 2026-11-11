@@ -59,6 +59,23 @@ silently).
   (as in the report of 2.6.2). `claim(x)` with no check stops with class
   `weft_claim_no_check`.
 
+## Rulings on gaps the test-writer raised
+
+- The record's `number` is the number as printed: `fmt_pct(0.12)` has 12.
+- `classes` keeps the leading dot, as written.
+- `.no` acts when the printed number is 0 with no decimals shown, as the
+  "zero" arm does (1.5.9). "0.0" stays "0.0".
+- `plural()` accepts a `weft_text` and then selects on its record without
+  formatting again; a bound takes the "other" arm.
+- A wrong arm count in `plural()`, and `digits` with `sigfig` in a
+  `fmt_*()` call, are errors of class `weft_construct_error`.
+- `.strong` prints `**x**` and `.em` prints `*x*`. Both together are allowed.
+- The `.sci` mantissa prints as `.num` prints it (a whole one with no
+  decimals); a negative exponent uses the configured minus.
+- Stage names for a project formatter: `number`, `wording`, `collapse`, `text`.
+- `mask_text()` masks bare inline R too.
+- `read_config(dir, front = list())`: `dir` is the project root.
+
 ## Defaults the spec does not give (see dev/decisions.md)
 
 `_weft.yml` keys, all optional, the same names under a document's `weft:`
