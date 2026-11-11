@@ -246,7 +246,9 @@ writes "−5 to −3" when either end is negative.
 **1.4.5** `.a` applies to numbers and number words only.
 
 **1.4.6** `.ul`, `.ol` and `.dl` produce a block. A value that carries one
-must be alone in its paragraph; otherwise it is a construct error.
+must be alone in its paragraph, and that paragraph must not be inside a list
+item, a block quote or a table cell; otherwise it is a construct error. A
+text class or `trunc` with one of them is a construct error too.
 
 **1.4.7** Renderer keys:
 
@@ -453,7 +455,7 @@ nested `if`.
 English.
 
 **1.6.8** The wording classes (`.no .word .count .ord`), the collapse classes
-that print a word (`.and .or .pairs .range`, and `trunc`), `.a`, and the
+that print a word (`.and .or .pairs .range`, and `trunc`), `.a`, `.date`, and the
 phrase functions that print words (`of_n()`, `about()`, `ci()`) print English.
 Under a `lang` whose words weft does not ship, using one is a construct error,
 found from the source.

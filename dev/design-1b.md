@@ -122,3 +122,53 @@ sentence starts), `test-lookup.R`, `test-cite.R`, `test-literal.R`,
 `test-phrases.R`, `test-collapse.R` (`.pairs`, `trunc`, lists). Function
 forms are tested directly; markup through the fixture table style of
 `test-syntax-fixtures.R` under both engines, batched.
+
+## Rulings on the review of stages 1b and 1d (`dev/review-1b.md`)
+
+Findings 1 to 25 are accepted as the reviewer states them, except as said
+here; 26 and 27 (cosmetic) are left.
+
+- **`clamp()`.** A bound prints as the author wrote it (`clamp(x, floor =
+  0.01)` prints "< 0.01"), not to the default digits. A number class after
+  `clamp()` formats the bound and keeps the relation: `clamp(0.005, floor =
+  0.01)` with `.pct` prints "< 1%".
+- **A formatter on a phrase.** The result of `of_n()`, `about()`, `ci()` or
+  `pm()` is finished wording. A number-stage or wording-stage class on it is
+  a value error; collapse and text classes act on it as on any text. As an
+  `n` governor it is used by its record (3.5.2), as now.
+- **A list value inside a list item, a block quote or a table cell** is a
+  construct error that says so (item N): the block cannot be indented into
+  its container reliably. Rule 1.4.6 is amended.
+- **Ids are checked over the document as knitted.** A parent and its child
+  documents are one document for 1.7.5 and 1.7.10, as a Quarto include is;
+  captions count in the order knitr resolves them. Where the static scan
+  cannot see a child, the knit-time registry decides and the static check
+  stays silent.
+- **A back-reference to an id whose value failed** is a collected "no
+  value" failure at the reference, naming the id.
+- **`.p` and 0.046 (finding 21).** Left as designed; put to Robin in
+  `dev/decisions.md`.
+- **`brk()` given a character value** compares as R compares; left.
+- **A.** A value with only an id or pass-through attributes reaches no
+  formatter, so `NA` prints as stock (1.3.4 as written). Left.
+- **B.** `.date` under a `lang` that is not English is a construct error,
+  as the other word-printing names are (1.6.8 amended).
+- **C.** A `.range` whose first end is greater than its second, a `ci()`
+  with `lo > hi` or `est` outside the interval, and a `pm()` with a negative
+  `se` are value errors.
+- **D.** `.cap` capitalises the first letter, skipping any leading
+  punctuation, quotation marks, brackets and markdown marks (`*`, `_`, `~~`,
+  a link's `[`).
+- **E, K, L.** Left; recorded in `dev/open-findings.md`.
+- **F.** Left as rule 1.7.11 says.
+- **G.** Two ids in one block are a construct error.
+- **H.** The thresholds of `.p` are applied to the number after rounding.
+- **I.** A text class or `trunc` together with `.ul`, `.ol` or `.dl` is a
+  construct error.
+- **J.** A renderer key on a `cite` span is a construct error.
+- **M.** A back-reference to the id of an `if` span or a text-only value,
+  and a back-reference that is not the whole value (`n="#d + 1"`), are
+  construct errors found from the source.
+- **`.range`** prints both ends to the same number of decimals, then
+  collapses if they print the same.
+- **`.a`** accepts a negative number ("a −5").

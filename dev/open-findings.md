@@ -45,6 +45,12 @@ dropped.
   (a `kable(caption = )`, a `labs()` title) prints raw and nothing but the
   `weft-check` filter sees it. A stage-3 lint could read such literals.
 
+- The sentence-start list treats "e.g. " and an ellipsis as sentence ends,
+  and does not look at the start of a table cell (5.10.1).
+- `cite="email x@y.com"` is read as the citation form with the key `y.com`
+  (1.8.6); Pandoc does not read it as a citation.
+- `of_n(0, 1, ...)` prints "none of the 1 site".
+
 ## Considered and not adopted
 
 So a later review does not raise them again without a new argument.

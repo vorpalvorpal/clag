@@ -40,6 +40,11 @@ around.
 - **From the trials: trimmed arms (1.5.12).** A span whose arm is a whole
   sentence cannot carry the space that follows it. Not made.
 
+- **From the review of 1b: `.p` near a threshold.** 0.046 prints "p =
+  0.05", so a sentence can read "significant (p = 0.05)". The two-decimal
+  form was the build's choice (decision 21). Options: three decimals below
+  0.1, or two significant figures. Not changed.
+
 ## Made
 
 1. **How the build was run (build prompt, "How to build").** Robin said,
@@ -137,3 +142,14 @@ around.
     `rehearse()` runs the knit only, in a fresh R process with output in a
     temporary directory. Cost: `{{< include >}}` is not expanded and
     project metadata is not read during a rehearsal. Reverse: `R/rehearse.R`.
+24. **1.4.6, a list value inside a container.** A `.ul`, `.ol` or `.dl`
+    value alone in a paragraph of a list item, block quote or table cell
+    was emitted unindented and joined the outer list. Chosen: a construct
+    error; the rule says so. Reverse: indent the block by its container's
+    prefix in `R/resolve.R`.
+25. **3.5, a formatter on a phrase.** `of_n(...)` with `.word` printed
+    "three" and dropped the phrase. Chosen: a number or wording class on
+    the result of a phrase function is a value error. Reverse:
+    `R/format.R`.
+26. **1.6.8, `.date`.** It prints English month names. Chosen: a construct
+    error under a `lang` that is not English; the rule lists it now.
