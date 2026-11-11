@@ -69,3 +69,14 @@ around.
     set an environment variable for the render. Chosen: the collection file
     is found by its existence under the project root. Reverse: the lookup in
     the filter and in `R/state.R`.
+14. **1.4.10, a vector with no collapse class.** The rule was silent and
+    the first build ran the elements together ("1.52"). Chosen: joined with
+    ", " as stock knitr prints an inline vector. Reverse: `R/format.R`.
+15. **2.6.3, what a failed guard is quoted by.** The example in 2.6.2 shows
+    the printed sentence. Chosen: the phrase as printed.
+16. **2.5.2 and `knit_exit()`.** Chosen: the end-of-document check stops
+    where the knit stopped. Reverse: `R/hooks.R`.
+17. **2.6.4 against 1.1.8, an error in a bare value.** Chosen: it stops the
+    knit as stock does; only constructs are collected. The rule says so now.
+18. **9.4.2, the draft-mode JSON file.** Named
+    `<document>.weft-failures.json`, beside the document.

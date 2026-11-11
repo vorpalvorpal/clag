@@ -31,6 +31,16 @@ dropped.
   their result depends on order (1.4.1 fixes the order of shipped classes
   only).
 
+- An author's own `evaluate.inline` hook is called for bare values only. A
+  construct's code is parked (2.2.1) and never reaches it, so 2.1.2 does not
+  hold for that one hook.
+- A project formatter in the text stage does not make a bracket a text span
+  (1.1.5 names only the shipped text classes).
+- In a grid table a construct whose printed text is wider or narrower than
+  its source moves the column border, as bare inline R does in stock.
+- Time per construct grows with the size of the block: 4,000 inline items in
+  one paragraph took 6.6 s against 1.0 s stock.
+
 ## Considered and not adopted
 
 So a later review does not raise them again without a new argument.

@@ -257,3 +257,30 @@ Findings 1 to 28 are accepted as the reviewer states them unless listed here.
   and with no formatter class, `digits` or `sigfig` it uses
   `config$governor_class`. Text classes are applied by the resolver to the
   chosen arm's final text.
+
+## Rulings on the review of package B (`dev/review-1a-B.md`)
+
+Findings 1 to 17 are accepted as the reviewer states them. Finding 18
+(cosmetic) and 19 (performance) are left. On the lettered items:
+
+- **A.** A vector that no collapse class joins prints its elements joined
+  with ", ", as stock knitr prints an inline vector. Rule 1.4.10 is corrected.
+- **B.** A failed guard is reported by its phrase as printed (the chosen
+  arm's final text, markdown and all), not by the source of the arm.
+- **C.** `knitr::knit_exit()` ends the document: constructs below the point
+  where the knit stopped are not part of the end-of-document check (2.5.2).
+- **D, F, H.** Left as they are; recorded in `dev/open-findings.md`.
+- **E.** In draft mode, in a project that has been set up, the failures are
+  also written to `<document name without extension>.weft-failures.json`
+  beside the document, an array of objects in the collection-line schema
+  (9.4.2). Without draft mode, or outside a set-up project, no such file is
+  written, and a stale one from an earlier draft render is removed by a
+  render that has no failures.
+- **G.** An error in a bare value stops the knit as stock does (1.1.8 wins
+  over 2.6.4), and the error names the right line.
+- **Finding 12.** A construct in a front-matter field is a "not built yet"
+  construct error in 1a, found when the knit is initialised, whichever way
+  the document is activated.
+- **Finding 11.** Project-level `lang` is read as rule 2.1.6 says:
+  `QUARTO_EXECUTE_INFO` first, then `quarto::quarto_inspect()` when the
+  `quarto` package is installed, else the document's own front matter only.

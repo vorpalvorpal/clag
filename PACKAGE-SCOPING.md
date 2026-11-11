@@ -278,7 +278,7 @@ formatter supplies a unit of its own.
 
 **1.4.10** Formatter output is markdown, as stock knitr's inline output is.
 Text that comes from data is not escaped. A vector that no collapse class
-joins prints its elements run together, as stock knitr prints an inline
+joins prints its elements joined with ", ", as stock knitr prints an inline
 vector.
 
 **1.4.11** Every formatted value has a **printed record**: its text, the
@@ -798,7 +798,8 @@ stops the knit when the check fails or when `claim` is not found.
 constructs the scanner found in the input file with those that were
 evaluated. Every construct outside an arm, and every construct in an arm that
 was chosen, must have been evaluated. One that was not fails the render, named
-with its line (tier 1).
+with its line (tier 1). A document that `knitr::knit_exit()` ended is checked
+down to the point where it ended.
 
 **2.5.3** *The `weft-check` Lua filter*, installed in a Quarto project by
 `use_quarto()`, and in an rmarkdown document or project by `use_setup()`.
@@ -854,13 +855,14 @@ Read each sentence. If FALSE is right, rewrite the sentence.
 Do not loosen a claim to clear this.
 ```
 
-**2.6.3** A failed guard is reported by its phrase, with each failing
-condition. The message says that optional text is written with an empty
+**2.6.3** A failed guard is reported by its phrase as printed, with each
+failing condition. The message says that optional text is written with an empty
 second arm: `[phrase | ]{if="…"}` (1.5.5).
 
-**2.6.4** An expression that cannot be evaluated (an unknown object, a call
-that raises an error) is collected and reported the same way, naming the
-expression and its line. An expression that does not parse is a construct
+**2.6.4** An expression in a construct that cannot be evaluated (an unknown
+object, a call that raises an error) is collected and reported the same way,
+naming the expression and its line. An error in a bare value stops the knit
+as stock does (1.1.8), and names its line. An expression that does not parse is a construct
 error instead (5.3.5).
 
 **2.6.5** A construct error (§5.3) stops the render at once, except in draft
@@ -2058,7 +2060,8 @@ variable `WEFT_DRAFT=1`.
 
 **9.4.2** In draft mode nothing fails the render. The markers appear in the
 output, the failures are listed in the knit log, and in a project that has
-been set up they are written to a JSON file beside the document.
+been set up they are written to a JSON file beside the document,
+`<document>.weft-failures.json`.
 
 **9.4.3** Draft mode covers the render only. Knit-time failures, and
 construct errors met during a render, are reported and marked (2.6.8), not
