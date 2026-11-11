@@ -1929,6 +1929,24 @@ rule 8), and its message names `_weft.yml`.
 | parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
 | the package version | 9.5.4 |
 
+**9.1.5** The settings built so far have these keys and defaults, in
+`_weft.yml` and under a document's `weft:` key alike. A project is "set up"
+(9.3.2) when its root holds `_weft.yml`.
+
+```yaml
+digits: 1              # decimal places for a number that is not whole
+decimal_mark: "."
+big_mark: ","          # thousands mark, applied from 10,000 up
+minus: "−"
+governor_class: .num   # 1.5.18
+pct_proportion: true
+count_threshold: 10
+word_limit: 100
+draft: false
+formatters: {}         # 1.4.8
+severity: []           # 7.4.2, added to the shipped patterns
+```
+
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
 when the hooks are installed.
 
