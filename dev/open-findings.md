@@ -113,3 +113,13 @@ So a later review does not raise them again without a new argument.
 - `clamp(x, ...)` with no number class on the construct prints a small
   in-range value as "0.0" and records no warned check.
 - No test asserts the record's number of a value that printed "0.0".
+
+## From the review of stages 1f to 1i
+
+- `#` in an `if` arm nested inside an `n` or `list` span prints a literal
+  "#" (review question A).
+- A document served from freeze, like a chunk served from cache, does not
+  replay its warned checks (question C).
+- `.no` on a governor that prints "0.0" (question E); `thousands_from`
+  judged on the number as printed, so 999.96 prints "1,000.0" (G);
+  `serial_comma: null` accepted as the default (H).

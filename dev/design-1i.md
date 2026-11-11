@@ -73,3 +73,53 @@ them quiet).
 - `.sci` and project formatters record nothing. Accepted.
 - Left open (in `dev/open-findings.md`): `clamp()` with no number class
   prints a small in-range value as "0.0" with no warned check.
+
+## Rulings on the review of stages 1f to 1i (`dev/review-1f.md`)
+
+Findings 1 to 15 are accepted as the reviewer states them, with these
+particulars; 16 (message wording) is settled by amending the spec's
+example to the code's wording.
+
+- **1, 5, K. Where the zero rule reaches.** Every place weft prints a
+  number under the default digits with no `digits` or `sigfig` given:
+  `.num`, `.pct`, `.range` and `fmt_range()`, `.pairs`, and the phrase
+  functions `ci()` and `pm()` (one warned check per call, however many of
+  its numbers print as zero). A setting copied from the project default is
+  not "given". Not `about()` or `of_n()` (they print no decimals), not
+  `.sci`, not a project formatter.
+- **2.** A number class applied to text a formatter already made warns by
+  what it prints itself: if this class prints zero for a number that is
+  not zero and has no `digits` or `sigfig` of its own, it records the
+  check, whatever the earlier formatter was given.
+- **3.** A list class (`.ul`, `.ol`, `.dl`) on a `list` span is a
+  construct error: `#` is inline.
+- **4.** The ends of a range are compared as numbers, not as printed, so a
+  `clamp()` bound beside a small number is not a value error.
+- **6.** The warned checks collected so far are reported whenever the knit
+  ends, also when it stops on an error of any kind.
+- **7.** `none` in a function form must be one non-empty string that is
+  not only spaces; anything else is an error of class
+  `weft_construct_error`.
+- **9.** `.no` replaces a printed zero and the warned check is still
+  recorded (as ruled above). The spec's 2.6.11 is amended to say so.
+- **10, J.** The exemption is for an `n` or `sign` governor and its `#`.
+  The `#` of a `list` span prints the vector's elements, as a value does,
+  and records the warned check. 1i and 2.6.11 are amended.
+- **11.** `none` with `.range` is a construct error: a range has two ends.
+- **13.** A record made inside a governed span is labelled by the span's
+  governor expression, not by an arm's text.
+- **15.** A check that is the bare string `"warn"` or `"fail"` is an error
+  that says to write `level = `.
+- **A.** `#` in an `if` arm nested in an `n` or `list` span is literal
+  text, as 1.5.8 has it. Left; in `dev/open-findings.md`.
+- **B.** The characters before which an empty arm takes its space are
+  `. , ; : ! ? ) ]` and the closing quotation marks U+201D and U+2019,
+  and the em dash. A straight quote is not in the list (it may open).
+- **C.** A frozen document does not replay its warned checks. Left; in
+  `dev/open-findings.md` with the cached-chunk case.
+- **D.** A `level` key on any span is a construct error.
+- **E, G, H.** Left.
+- **F.** With `serial_comma` on and a `sep` key, the separator before the
+  last joiner is the `sep` ("a; b; and c").
+- **I.** A matrix or array is not a vector for a `list` span: a "no
+  value" failure, as a data frame is.
