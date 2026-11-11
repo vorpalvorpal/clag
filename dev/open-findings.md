@@ -41,6 +41,10 @@ dropped.
 - Time per construct grows with the size of the block: 4,000 inline items in
   one paragraph took 6.6 s against 1.0 s stock.
 
+- A construct in a string in R code that does not go through `weft_str()`
+  (a `kable(caption = )`, a `labs()` title) prints raw and nothing but the
+  `weft-check` filter sees it. A stage-3 lint could read such literals.
+
 ## Considered and not adopted
 
 So a later review does not raise them again without a new argument.

@@ -123,3 +123,45 @@ start in the file. `scan_text()` is unchanged.
   (the `label` option), not only from a caption hook, because Quarto
   forwards a `NULL` `tbl-cap` whether or not the document has captions.
   Rule 2.1.4 already says "from the first call of an option hook".
+
+## Rulings on the review of stage 1c and the Quarto side (`dev/review-1c.md`)
+
+Findings 1 to 18 are accepted as the reviewer states them; 19 (cosmetic) is
+left. On the lettered items:
+
+- **A.** A construct in `kable(caption = )` or any other string in R code is
+  not weft's unless it goes through `weft_str()` (1.10.10). Left; recorded
+  in `dev/open-findings.md` for a stage-3 lint.
+- **B.** The freeze notice counts constructs, and says so: "N constructs
+  were not checked".
+- **C.** The filter looks for `<<weft:` in a code block that is chunk output
+  (a block with no language class, or with a `cell-output` class), and not
+  in a fenced block that carries a language class (```` ```markdown ````).
+- **D.** A filter finding has no line. The report keys filter findings by
+  file, kind and text, never merges two different texts, and drops a filter
+  finding only when it is a `<<weft:` marker that a knit record already
+  explains (same file, kind and line).
+- **E.** Bare inline R in a `weft_str()` string is evaluated: the string is
+  markup, and there is no stock behaviour for it to keep.
+- **F.** A caption with a construct on a chunk whose cache is on at run
+  time (however it was set) is a construct error raised by the option hook,
+  with the remedy of 2.3.5 (write the caption in a figure or table div).
+- **G.** `use_quarto(path)` walks up from `path` to the directory that holds
+  `_quarto.yml` and says which directory it took.
+- **Computed captions (finding on `fig.cap = paste0(...)`).** Only a caption
+  written as a literal in the source is resolved. A caption computed by R
+  code is data and is printed as it is (2.2.4); it goes through
+  `weft_str()` if it holds markup.
+- **`use_quarto()` and `_quarto.yml` (finding 1).** The file is edited as
+  text, line by line, and never rewritten from parsed YAML. When the edit
+  cannot be made safely the function stops and prints the lines to add by
+  hand.
+- **A stale collection file (finding 5).** The pre-render script writes the
+  run id into the collection file's first line; a knit or filter that finds
+  a collection file whose run is not the one in `.weft/run`, or that is
+  older than an hour with no `.weft/run`, ignores it. A plain
+  `rmarkdown::render()` or single-file render outside a project render
+  never uses a collection file left by another run.
+- **A frozen document with no stamp (finding 6).** Reported in the freeze
+  notice as "never checked on this machine", and it fails `verify()` later
+  (2.9.3); an ordinary render does not fail on it.
