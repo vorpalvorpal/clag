@@ -15,15 +15,17 @@ Newest state first. Read this before anything else after a context reset.
 
 | Step | State |
 |---|---|
-| 1a design note | written |
-| 1a work package A (scanner, formatters, `claim()`, config; no knitr) | 148 failing tests committed (e4eb1e7+1); implementer running |
-| 1a work package B (hooks, resolving, failures, positions, conditions) | test-writer running, writing into `tests/testthat/_b/` (move up when A is done) |
-| 1a work package C (Lua filter, render scripts, `use_quarto()`, pinned internals) | not started |
+| 1a design note | written; rulings on the first review appended |
+| 1a package A (scanner, formatters, `claim()`, config) | built, reviewed (28 findings, `dev/review-1a-A.md`), fixed, committed. 185 of 186 tests pass; the one failing (`\#` in an arm, rule 1.5.12) is in B's implementer's brief |
+| 1a package B (hooks, resolving, failures, positions, conditions) | failing tests committed in `tests/testthat/`; implementer running |
+| 1a package C (Lua filter, render scripts, `use_quarto()`, freeze, pinned internals) | test-writer running, writing into `tests/testthat/_c/` (partly committed by accident; move up when B is done) |
 | Trials on two real documents | not started |
 | 1b to 1e, stages 2 to 4 | not started |
 
 ## Next
 
-When A's implementer reports: run tests and check, send a reviewer, commit.
-When B's tests arrive: move them to `tests/testthat/`, confirm they fail for
-the right reason, commit, dispatch B's implementer.
+1. B's implementer reports: run the suite and check, rule on disputed tests,
+   commit, send a reviewer (opus) that runs its own documents.
+2. C: move tests up, confirm they fail for the right reason, implementer,
+   reviewer.
+3. Trials (build prompt step 2), writing `dev/field-notes.md`.
