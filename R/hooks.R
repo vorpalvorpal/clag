@@ -108,16 +108,44 @@ install_boundary_hooks <- function() {
   invisible()
 }
 
-# Under LaTeX output weft tells pdflatex how to set the minus sign U+2212,
-# which it prints for negative numbers and for a unit's negative power; xelatex
-# and lualatex set it already. The dependency is added once per knit.
+# Under LaTeX output weft tells pdflatex how to set the characters it prints
+# that LaTeX does not set: the minus sign U+2212 (negative numbers and a unit's
+# negative power), the ohm sign, the prime and double prime (arc minute and
+# second), the micro sign and the degree sign. xelatex and lualatex set the
+# minus already; where their default font lacks the primes they are taken from
+# Latin Modern Math. Each dependency is added once per knit.
 add_latex_minus <- function() {
   if (!isTRUE(tryCatch(knitr::is_latex_output(), error = function(e) FALSE))) return(invisible())
-  line <- "\\ifPDFTeX\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\\fi"
-  have <- knitr::knit_meta("latex_dependency", clean = FALSE)
-  if (any(vapply(have, function(d) identical(d$extra_lines, line), NA))) return(invisible())
-  knitr::knit_meta_add(list(structure(
-    list(name = "iftex", options = NULL, extra_lines = line), class = "latex_dependency")))
+  decl <- function(code, text) sprintf("\\DeclareUnicodeCharacter{%s}{%s}", code, text)
+  pdftex <- paste0(
+    "\\ifPDFTeX",
+    decl("2212", "\\ensuremath{-}"),
+    decl("03A9", "\\ensuremath{\\Omega}"),
+    decl("2126", "\\ensuremath{\\Omega}"),
+    decl("2032", "\\ensuremath{{}^{\\prime}}"),
+    decl("2033", "\\ensuremath{{}^{\\prime\\prime}}"),
+    decl("00B5", "\\textmu"),
+    decl("00B0", "\\textdegree"),
+    "\\fi")
+  # the primes by their glyph in Latin Modern Math, for an engine whose text font has none
+  prime <- function(ch, code) {
+    sprintf("\\newunicodechar{%s}{%s}", ch, sprintf("{\\weftprimefont\\char\"%s}", code))
+  }
+  xetex <- paste0(
+    "\\ifPDFTeX\\else",
+    "\\IfFontExistsTF{latinmodern-math.otf}{",
+    "\\newfontfamily\\weftprimefont{latinmodern-math.otf}",
+    # unicode-math claims these characters at the start of the document
+    "\\AtBeginDocument{", prime("\u2032", "2032"), prime("\u2033", "2033"), "}",
+    "}{}\\fi")
+  add_dep <- function(name, line) {
+    have <- knitr::knit_meta("latex_dependency", clean = FALSE)
+    if (any(vapply(have, function(d) identical(d$extra_lines, line), NA))) return(invisible())
+    knitr::knit_meta_add(list(structure(
+      list(name = name, options = NULL, extra_lines = line), class = "latex_dependency")))
+  }
+  add_dep("iftex", pdftex)
+  add_dep("newunicodechar", xetex)
   invisible()
 }
 

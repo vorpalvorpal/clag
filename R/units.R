@@ -20,6 +20,48 @@ unit_parse_problem <- function(txt) {
   r %||% warned
 }
 
+# Tokens the units package reads as another unit, or as a prefix and a unit that
+# is not the one meant; weft cannot print them truthfully (rule 4.4.17).
+UNIT_MISREADS <- list(
+  Sv = "as Gy (gray), a different quantity from the sievert",
+  Bq = "as Hz (hertz), a different quantity from the becquerel",
+  Bd = "as Hz (hertz), a different quantity from the baud",
+  VA = "as W (watt), a different quantity from the volt-ampere",
+  Mg = "as t (tonne); write `t`, or `kg`",
+  mt = "as kg (kilogram); write `t` for a tonne",
+  ut = "as g (gram)",
+  mph = "as milli-phot, a unit of illuminance; for miles per hour write `mi/h`",
+  pH = "as pico-henry; pH is not a unit, so write the number alone",
+  nmi = "as nano-mile; for a nautical mile write `nautical_mile`",
+  Ma = "as mega-are, a unit of area; for millions of years write `Myr`",
+  ka = "as kilo-are, a unit of area; for thousands of years write `kyr`",
+  gal = "as the galileo, a unit of acceleration; for a gallon write `gallon`"
+)
+
+# The message for a unit text that holds a token units misreads, or NULL.
+unit_misread <- function(txt) {
+  toks <- unique(unlist(regmatches(txt, gregexpr("[[:alpha:]_]+", txt))))
+  for (tok in toks[toks %in% names(UNIT_MISREADS)]) {
+    return(sprintf("`%s` is read by the units package %s, so weft cannot print it truthfully (rule 4.4.17)",
+                   tok, UNIT_MISREADS[[tok]]))
+  }
+  NULL
+}
+
+# Whether converting `from` to `to` (both `units` quantities or symbolic units)
+# only inverts the value: udunits counts a reciprocal as convertible (metres to
+# 1/m). A conversion between two quotients is allowed (L/(100*km) to km/L).
+converts_by_inversion <- function(from, to) {
+  fu <- if (inherits(from, "units")) attr(from, "units") else from
+  tu <- if (inherits(to, "units")) attr(to, "units") else to
+  quotient <- function(un) any(un$numerator != "1") && length(un$denominator) > 0L
+  if (quotient(fu) && quotient(tu)) return(FALSE)
+  one <- units::set_units(1, fu, mode = "standard")
+  a <- tryCatch(as.numeric(units::set_units(one, tu, mode = "standard")), error = function(e) NA_real_)
+  b <- tryCatch(as.numeric(units::set_units(one * 2, tu, mode = "standard")), error = function(e) NA_real_)
+  isTRUE(b < a)
+}
+
 #' A number with a unit
 #'
 #' `u(value, unit)` makes a `units` value. The unit is taken as written and
@@ -38,7 +80,9 @@ unit_parse_problem <- function(txt) {
 #' a `weft_unit_error`; a project's own unit is registered when the
 #' dictionary that names it is read (rule 4.4.7), or with
 #' [units::install_unit()]. A unit that does not convert, a `value` that is
-#' not numeric and a missing `unit` are a `weft_unit_error` too.
+#' not numeric and a missing `unit` are a `weft_unit_error` too, and so is a unit
+#' the units package reads as another (`Sv` as grays, `mph` as milli-phots): the
+#' message says what it was read as and what to write.
 #'
 #' @param value A numeric vector or a `units` value.
 #' @param unit A unit expression, written as it is, or a string.
@@ -64,6 +108,8 @@ u <- function(value, unit) {
 
 # The `units` value for `value` in the unit written `txt` (what u() makes).
 u_make <- function(value, txt) {
+  bad <- unit_misread(txt)
+  if (!is.null(bad)) unit_abort(sprintf("u(): %s", bad))
   parsed <- unit_parse_problem(txt)
   if (!is.null(parsed)) {
     unit_abort(sprintf(paste0(
@@ -125,10 +171,17 @@ convert_unit <- function(x, unit) {
   if (!is.character(unit) || length(unit) != 1L || is.na(unit) || !nzchar(trimws(unit))) {
     value_error("`unit` must be one string that names a unit, such as \"m\" (rule 4.4.14).")
   }
-  tryCatch(units::set_units(x, unit, mode = "standard"),
-           error = function(e) value_error(sprintf(
-             "`unit = %s`: the quantity (%s) cannot be converted to it. %s", unit,
-             as.character(attr(x, "units")), sub("\n.*$", "", conditionMessage(e)))))
+  out <- tryCatch(units::set_units(x, unit, mode = "standard"),
+                  error = function(e) value_error(sprintf(
+                    "`unit = %s`: the quantity (%s) cannot be converted to it. %s", unit,
+                    as.character(attr(x, "units")), sub("\n.*$", "", conditionMessage(e)))))
+  if (converts_by_inversion(x, out)) {
+    value_error(sprintf(paste0(
+      "`unit = %s`: the quantity (%s) is of another dimension, which units reaches by inverting the ",
+      "value. Write the reciprocal in the expression if that is meant (rule 4.4.14)."),
+      unit, as.character(attr(x, "units"))))
+  }
+  out
 }
 
 # `b` as bare numbers in the unit of `a`, when both are quantities; an error

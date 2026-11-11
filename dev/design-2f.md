@@ -486,3 +486,29 @@ wins.
 - **g.** A project name written with markdown needs its own `plural:`;
   said in the help. Left.
 - **h, i.** Left.
+
+## Rulings on the fixer's report for the review of 2f
+
+- **d.** A conversion is refused when `units` reaches it only by
+  inverting the value (`m` to `1/m`, `s` to `Hz`); a conversion between
+  two quotients is allowed (`L/(100*km)` to `km/L`). Accepted.
+- **8.** A name the author typed keeps its words, an underscore printed
+  as a space (`light_year` is "light years"). The shipped table gained
+  knot, calorie, degree Fahrenheit, degree Celsius, horsepower, ton,
+  gallon, Btu and millimetre of mercury; byte, cycle, revolution, cup and
+  quart print as typed. Accepted.
+- **9/e, b.** Refused by `u()` and `read_dict()`, alone or inside a
+  compound: `Sv`, `Bq`, `Bd`, `VA`, `Mg`, `mt`, `ut` (read as another
+  unit) and `mph`, `pH`, `nmi`, `Ma`, `ka`, `gal` (misread). The message
+  says what was read and what to write (`Mg` is a tonne: write `t`).
+  Accepted; the list is for Robin to prune.
+- **3.** Under xelatex and lualatex the prime and double prime are set
+  from Latin Modern Math through the LaTeX package `newunicodechar`,
+  which a TeX installation without automatic installs must have. In
+  `dev/open-findings.md`.
+- **16.** A `units:` key that is a number, cancels to nothing, or holds
+  no unit is a problem. Accepted.
+- **f.** The table kept for use outside a knit is cleared at the start
+  of every read. Accepted.
+- **Open:** an id whose own span used `.nounit` records no unit, so a
+  later back-reference with `.uname` fails; in `dev/open-findings.md`.

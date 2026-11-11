@@ -29,7 +29,12 @@ reads a unit, with no number: for a heading or a table column. It is a
 prints its name); \code{"name"} prints the name ("milligrams per litre"). The name
 is plural unless \code{x} has length one and its number prints "1" (a string takes
 the plural). A unit with no name is a \code{weft_value_error}; add one under
-\verb{units:} in \verb{_weft.yml}.
+\verb{units:} in \verb{_weft.yml}. A name there that is written with markdown needs its
+own \verb{plural:}, as the English plural is added to the end of the markup
+(\verb{*site*} would print \verb{*site*s}). \code{.cap} leaves a symbol as it is, since its
+case is its meaning, and capitalises a name. \code{unit} converts \code{x} first, a
+string as well as a quantity; the unit of a formatter's text is not read, so
+pass the quantity.
 }
 \examples{
 fmt_unit(u(5, mg/L))

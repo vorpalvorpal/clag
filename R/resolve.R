@@ -414,8 +414,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
          pass_keys = ky[!(names(ky) %in% owned_keys())])
   }
 
-  apply_text_classes <- function(text, own) {
+  apply_text_classes <- function(text, own, symbol = FALSE) {
     reg <- cfg$formatters
+    # a unit's symbol keeps its case (4.4.16)
+    if (symbol) own <- setdiff(own, ".cap")
     tcl <- own[own %in% c(".a", ".cap", ".em", ".strong") |
                  vapply(own, function(c) identical((reg[[c]] %||% list())[["stage"]], "text"), NA)]
     if (!length(tcl) || !nzchar(text)) return(text)
@@ -598,7 +600,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         paste(as.character(apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
                                             on_zero = zero_note(k, label))), collapse = "")
       } else {
-        apply_text_classes(stock_print(v), cc$own)
+        apply_text_classes(stock_print(v), cc$own, symbol = isTRUE(attr(v, "is_symbol")))
       }
     }, error = function(e) e)
     if (inherits(res, "error")) return(fail_from_error(k, res, label))
@@ -627,11 +629,21 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is.numeric(v) && length(v) == 1L) as.numeric(v) else NA_real_
   }
 
+  # The unit of a governor value, or NULL: a quantity's, or a formatter's text's.
+  unit_of <- function(v) {
+    if (inherits(v, c("units", "weft_text"))) attr(v, "units") else NULL
+  }
+
+  # `num` as a quantity in the unit `un`; a bare number when there is none (4.4.4).
+  with_unit <- function(num, un) {
+    if (is.null(un)) num else units::set_units(num, un, mode = "standard")
+  }
+
   register_id <- function(k, v, cc, rec = NULL) {
     id <- R$id[k]
     if (is.na(id) || !nzchar(id)) return(invisible())
     if (is.null(rec)) rec <- governor_record(v, cc)
-    s$ids[[id]] <- list(rec = rec, raw = raw_of(v), loc = id_loc(k))
+    s$ids[[id]] <- list(rec = rec, raw = raw_of(v), un = unit_of(v), loc = id_loc(k))
     invisible()
   }
 
@@ -662,7 +674,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         return(list(stop = record_fail(k, "value error", label, sprintf(
           "The id `#%s` has no number to format afresh (rule 1.7.8).", id))))
       }
-      return(list(v = ent$raw, claim_failed = FALSE))
+      return(list(v = with_unit(ent$raw, ent$un), claim_failed = FALSE))
     }
     if (is.null(ent$rec)) {
       return(list(stop = record_fail(k, "value error", label, sprintf(
@@ -768,7 +780,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       if (num < 0 && startsWith(txt, cfg$minus)) txt <- substring(txt, nchar(cfg$minus) + 1L)
       new_weft_text(txt, abs(num), attr(rec, "decimals")[1L], "=", abs(raw_of(v)))
     } else {
-      tryCatch(apply_formatters(abs(if (inherits(v, "weft_text")) raw_of(v) else v),
+      tryCatch(apply_formatters(abs(if (inherits(v, "weft_text")) with_unit(raw_of(v), unit_of(v)) else v),
                                 cc$own, as.list(cc$keys), cfg, governor = TRUE),
                error = function(e) e)
     }

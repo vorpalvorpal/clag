@@ -301,7 +301,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       reg <- dict_register_unit(unit)
       installed <- c(installed, reg$installed)
       if (!is.null(reg$error)) {
-        p(sprintf("`unit` `%s` is not a unit the units package can read: %s", unit, reg$error), "4.4.7")
+        p(sprintf("`unit` `%s` is not a unit the units package can read: %s", unit, strip_rule(reg$error)), "4.4.7")
       } else {
         registered <- c(registered, reg$needed)
         values[i] <- list(units::set_units(values[[i]], unit, mode = "standard"))
@@ -310,13 +310,16 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
           dreg <- dict_register_unit(disp)
           installed <- c(installed, dreg$installed)
           if (!is.null(dreg$error)) {
-            p(sprintf("`display` `%s` is not a unit the units package can read: %s", disp, dreg$error), "4.2.7")
+            p(sprintf("`display` `%s` is not a unit the units package can read: %s", disp, strip_rule(dreg$error)), "4.2.7")
           } else {
             registered <- c(registered, dreg$needed)
             conv <- tryCatch(units::set_units(values[[i]], disp, mode = "standard"),
                              error = function(e) NULL)
             if (is.null(conv)) {
               p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", disp, unit), "4.2.7")
+            } else if (converts_by_inversion(values[[i]], conv)) {
+              p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
+                               "by inverting the value; write the reciprocal in the expression"), disp, unit), "4.2.7")
             } else values[i] <- list(conv)
           }
         }
@@ -443,6 +446,9 @@ dict_breaks <- function(v) {
   list(value = f)
 }
 
+# A message without its closing "(rule N)", for one that adds its own.
+strip_rule <- function(x) sub(" \\(rule [0-9.]+\\)$", "", x)
+
 # The names the units database ships with: symbols, names and their
 # aliases, and the prefixes.
 ud_cache <- new.env(parent = emptyenv())
@@ -472,6 +478,8 @@ ud_shipped <- function(tok) {
 # installed): `installed` are the tokens this call installed, `needed` those
 # `udunits` does not ship, whoever installed them (ruling 6, 7, e).
 dict_register_unit <- function(unit) {
+  bad <- unit_misread(unit)
+  if (!is.null(bad)) return(list(error = bad, installed = character()))
   toks <- unique(unlist(regmatches(unit, gregexpr("[^[:space:][:digit:]*/^().+-]+", unit))))
   needed <- toks[!vapply(toks, ud_shipped, NA)]
   installed <- character()

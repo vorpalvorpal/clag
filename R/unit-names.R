@@ -55,10 +55,20 @@ SHIPPED_UNITS <- list(
   `%` = list(name = "per cent", us = "percent", plural = "same", space = FALSE),
   Hz = list(plural = "same"),
   lx = list(plural = "same"),
-  S = list(plural = "same")
+  S = list(plural = "same"),
+  international_knot = list(name = "knot"),
+  cal = list(name = "calorie"),
+  hp = list(name = "horsepower", plural = "same"),
+  short_ton = list(name = "ton"),
+  US_liquid_gallon = list(name = "gallon"),
+  IT_Btu = list(name = "Btu"),
+  mm_Hg = list(symbol = "mmHg", name = "millimetre of mercury", us = "millimeter of mercury",
+               plural = "millimetres of mercury", plural_us = "millimeters of mercury")
 )
 
 SHIPPED_UNITS[["\u00b0"]] <- list(name = "degree", space = FALSE)
+SHIPPED_UNITS[["\u00b0F"]] <- list(name = "degree Fahrenheit", plural = "degrees Fahrenheit")
+SHIPPED_UNITS[["\u00b0C"]] <- list(name = "degree Celsius", plural = "degrees Celsius")
 
 # Tokens the database would read another way (`ha` is hecto-are), read as symbols
 # of the row with that id.
@@ -136,22 +146,26 @@ tok_resolve <- function(tok) {
   out <- NULL
   core <- ud_core(tok, db)
   if (!is.null(core)) {
-    out <- list(known = TRUE, id = db$id[core$row], row = core$row, pre = NA_integer_, kind = core$kind)
+    out <- list(known = TRUE, id = db$id[core$row], row = core$row, pre = NA_integer_, kind = core$kind,
+                core = tok)
   } else {
     for (j in seq_along(db$pre_tok)) {
       p <- db$pre_tok[j]
       if (nchar(tok) <= nchar(p) || !startsWith(tok, p)) next
-      c2 <- ud_core(substring(tok, nchar(p) + 1L), db)
-      if (!is.null(c2) && c2$kind == db$pre_kind[j]) {
+      rest <- substring(tok, nchar(p) + 1L)
+      c2 <- ud_core(rest, db)
+      # a prefix symbol before a unit the shipped table gives that symbol (`mbar`)
+      shipped_sym <- !is.null(c2) && c2$kind == "name" && identical(SHIPPED_UNITS[[db$id[c2$row]]]$symbol, rest)
+      if (!is.null(c2) && (c2$kind == db$pre_kind[j] || (db$pre_kind[j] == "symbol" && shipped_sym))) {
         pj <- db$pre_idx[j]
         out <- list(known = TRUE, id = paste0(db$pf$symbol[pj], "|", db$id[c2$row]), row = c2$row,
-                    pre = pj, kind = c2$kind)
+                    pre = pj, kind = c2$kind, core = rest)
         break
       }
     }
   }
   if (is.null(out)) {
-    out <- list(known = FALSE, id = paste0("?", tok), row = NA_integer_, pre = NA_integer_,
+    out <- list(known = FALSE, id = paste0("?", tok), row = NA_integer_, pre = NA_integer_, core = tok,
                 kind = if (grepl("^[0-9.]+$", tok)) "number" else "unknown")
   }
   un_cache$res[[tok]] <- out
@@ -171,6 +185,14 @@ unit_factors <- function(un) {
 unit_present <- function(un) {
   f <- unit_factors(un)
   length(f$num) > 0L || length(f$den) > 0L
+}
+
+# Whether every factor of a unit cancels (`m/m`): it holds no unit.
+unit_cancels <- function(un) {
+  f <- unit_factors(un)
+  pow <- function(l, t) sum(vapply(l, function(g) if (g$tok == t) g$pow else 0L, 1L))
+  all(vapply(unique(c(vapply(f$num, function(g) g$tok, ""), vapply(f$den, function(g) g$tok, ""))),
+             function(t) pow(f$num, t) == pow(f$den, t), NA))
 }
 
 # One id for a whole unit: two units are the same when this is.
@@ -194,35 +216,78 @@ unit_key_text <- function(un) {
   num <- paste(vapply(f$num, one, ""), collapse = "*")
   den <- vapply(f$den, one, "")
   if (!length(den)) return(num)
-  paste0(if (nzchar(num)) num else "1", "/", if (length(den) > 1L) paste0("(", paste(den, collapse = "*"), ")") else den)
+  # a number goes before its unit with a space, as it is written: `CFU/100 mL`
+  den_txt <- if (any(grepl("^[0-9.]+$", vapply(f$den, function(g) g$tok, "")))) paste(den, collapse = " ")
+             else if (length(den) > 1L) paste0("(", paste(den, collapse = "*"), ")") else den
+  paste0(if (nzchar(num)) num else "1", "/", den_txt)
 }
 
 yaml_key <- function(k) if (grepl("[^A-Za-z0-9_]", k)) paste0("\"", k, "\"") else k
 
 # ---- names -------------------------------------------------------------------------
 
-# The name of one token, singular and plural, or NULL when it has none (4.4.16).
+# One plain word: letters only. A database name with an underscore or a space is
+# technical ("international_knot") and is never printed (4.4.17).
+plain_word <- function(x) length(x) == 1L && !is.na(x) && grepl("^[[:alpha:]]+$", x)
+
+# The name the author typed for a row of the database, singular and plural, or
+# NULL when what they typed is not a plain name of the unit (4.4.17 step 3).
+typed_name <- function(core, row, db) {
+  # what the author wrote, an underscore for a space ("light_year"): words only
+  words <- function(x) gsub("_", " ", x, fixed = TRUE)
+  ok <- function(x) length(x) == 1L && grepl("^[[:alpha:]]+(_[[:alpha:]]+)*$", x)
+  if (!ok(core)) return(NULL)
+  v <- db$v
+  sing <- split_cells(c(v$name_singular[row], v$name_singular_aliases[row]))
+  plur <- split_cells(c(v$name_plural[row], v$name_plural_aliases[row]))
+  if (core %in% sing) {
+    pl <- plur[vapply(plur, function(p) ok(p) && startsWith(p, core), NA)]
+    return(list(sg = words(core), pl = if (length(pl)) words(pl[1L]) else english_plural(words(core))))
+  }
+  sg <- sing[vapply(sing, function(x) ok(x) && english_plural(x) == core, NA)]
+  if (!length(sg)) sg <- sing[vapply(sing, ok, NA)]
+  if (!length(sg)) return(NULL)
+  list(sg = words(sg[1L]), pl = words(core))
+}
+
+# The name of one token, singular and plural, or NULL when it has none (4.4.16,
+# 4.4.17): the project's entry, the shipped table, what the author typed when it
+# is a name of the unit, the database's name when it is one plain word.
 tok_name <- function(tok, cfg, us) {
   r <- tok_resolve(tok)
   E <- unit_proj(cfg, paste0(r$id, "/"))
   nm <- E$name
   pl <- E$plural
+  given <- !is.null(pl)
   if (is.null(nm) && r$known && !is.na(r$row)) {
     db <- ud_db()
     S <- SHIPPED_UNITS[[db$id[r$row]]] %||% list()
-    from_db <- is.null(S$name)
-    sg <- if (us && !is.null(S$us)) S$us else S$name %||% gsub("_", " ", db$v$name_singular[r$row], fixed = TRUE)
+    sg <- NULL
+    dpl <- NULL
+    if (!is.null(S$name)) {
+      sg <- if (us && !is.null(S$us)) S$us else S$name
+    } else {
+      tn <- if (identical(r$kind, "name")) typed_name(r$core, r$row, db)
+      if (!is.null(tn)) {
+        sg <- tn$sg
+        dpl <- tn$pl
+      } else if (plain_word(db$v$name_singular[r$row])) {
+        sg <- db$v$name_singular[r$row]
+        if (plain_word(db$v$name_plural[r$row])) dpl <- db$v$name_plural[r$row]
+      }
+    }
+    if (is.null(sg)) return(NULL)
     if (is.null(pl)) {
       pl <- if (identical(S$plural, "same")) sg
+            else if (us && !is.null(S$plural_us)) S$plural_us
             else if (!is.null(S$plural)) S$plural
-            else if (from_db && nzchar(db$v$name_plural[r$row])) gsub("_", " ", db$v$name_plural[r$row], fixed = TRUE)
-            else english_plural(sg)
+            else dpl %||% english_plural(sg)
     }
     if (!is.na(r$pre)) {
       p <- db$pf$name[r$pre]
       if (!us && p == "deka") p <- "deca"
       sg <- paste0(p, sg)
-      pl <- paste0(p, pl)
+      if (!given) pl <- paste0(p, pl)
     }
     nm <- sg
   }
@@ -230,12 +295,12 @@ tok_name <- function(tok, cfg, us) {
   list(sg = nm, pl = pl %||% plural_of_name(nm))
 }
 
-no_name_error <- function(un, why, key) {
+no_name_error <- function(un, why, key, shown = as.character(un)) {
   value_error(sprintf(paste0(
     "The unit `%s` has no name to print: %s. Add its name to _weft.yml under `units:`, for example\n\n",
     "  units:\n    %s:\n      name: <the unit's name, in the singular>\n\n",
     "or print the symbol with `.usym`, or the number alone with `.nounit` (rules 4.4.15, 4.4.19)."),
-    as.character(un), why, yaml_key(key)))
+    shown, why, yaml_key(key)))
 }
 
 is_length_unit <- function(tok) {
@@ -267,8 +332,15 @@ unit_name_text <- function(un, plural, cfg, lang) {
     else paste(base, c("squared", "cubed")[g$pow - 1L])
   }
   if (!length(un$numerator) && length(f$den)) {
-    no_name_error(un, "it is written with a negative power, which has no name (write it as a quotient, `1/...`)", whole)
+    neg <- paste(vapply(f$den, function(g) paste0(g$tok, "^-", g$pow), ""), collapse = "*")
+    no_name_error(un, sprintf(paste0("it is written with a negative power, which has no name (write it as a ",
+                                     "quotient, `%s`, for example `u(3, \"%s\")`)"), whole, whole),
+                  whole, shown = neg)
   }
+  # a number among the factors: the whole unit needs an entry, keyed as written
+  nums <- c(f$num, f$den)
+  nums <- nums[vapply(nums, function(g) identical(tok_resolve(g$tok)$kind, "number"), NA)]
+  if (length(nums)) no_name_error(un, sprintf("it holds a number (`%s`)", nums[[1L]]$tok), whole, shown = whole)
   nn <- length(f$num)
   num <- vapply(seq_len(nn), function(i) part(f$num[[i]], plural && i == nn), "")
   den <- vapply(f$den, part, "", pl = FALSE)
@@ -348,8 +420,20 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
   s
 }
 
-# Whether a no-break space goes before the unit's symbol (4.4.8, U13).
+# Whether a unit prints its name in the symbol form because it has no symbol (9.1.7).
+unit_prints_name <- function(un, cfg) {
+  W <- unit_proj(cfg, unit_whole_id(un))
+  if (identical(W$symbol, FALSE)) return(TRUE)
+  if (is.character(W$symbol)) return(FALSE)
+  toks <- unique(c(un$numerator, un$denominator))
+  toks <- toks[toks != "1" & !grepl("^[0-9]", toks)]
+  length(toks) > 0L && all(vapply(toks, function(t) isTRUE(tok_symbol(t, cfg)$name), NA))
+}
+
+# Whether a no-break space goes before the unit's symbol (4.4.8, U13). `space:`
+# governs a symbol only: a name always has its space (ruling 11).
 unit_space <- function(un, cfg) {
+  if (unit_prints_name(un, cfg)) return(TRUE)
   W <- unit_proj(cfg, unit_whole_id(un))
   if (!is.null(W$space)) return(W$space)
   f <- unit_factors(un)
@@ -400,7 +484,12 @@ check_unit_form <- function(unit_form, fn = NULL, no_symbol = FALSE, none = TRUE
 #' prints its name); `"name"` prints the name ("milligrams per litre"). The name
 #' is plural unless `x` has length one and its number prints "1" (a string takes
 #' the plural). A unit with no name is a `weft_value_error`; add one under
-#' `units:` in `_weft.yml`.
+#' `units:` in `_weft.yml`. A name there that is written with markdown needs its
+#' own `plural:`, as the English plural is added to the end of the markup
+#' (`*site*` would print `*site*s`). `.cap` leaves a symbol as it is, since its
+#' case is its meaning, and capitalises a name. `unit` converts `x` first, a
+#' string as well as a quantity; the unit of a formatter's text is not read, so
+#' pass the quantity.
 #'
 #' @param x A quantity of any length (a missing value is allowed: no number
 #'   prints), or one string naming a unit.
@@ -417,11 +506,17 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
   cfg <- current_config()
   lang <- current_lang()
   plural <- TRUE
+  if (inherits(x, "weft_text") && !is.null(attr(x, "units"))) {
+    value_error(paste0("fmt_unit() needs the quantity, not the text a formatter made of it: pass the ",
+                       "quantity itself (see u()), or a string that names a unit (rule 3.4.9)."))
+  }
   if (is.character(x)) {
     if (length(x) != 1L || is.na(x)) {
       value_error("fmt_unit() takes one string that names a unit, or a quantity.")
     }
+    if (!nzchar(trimws(x))) unit_abort("fmt_unit(): the unit is blank; write fmt_unit(\"m\").")
     x <- u_make(1, x)
+    if (!is.null(unit)) x <- convert_unit(x, unit)
   } else if (!inherits(x, "units")) {
     value_error(sprintf("fmt_unit() needs a quantity (see u()) or a string that names a unit; the value is of class %s.",
                         class(x)[1L]))
@@ -432,7 +527,6 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
       plural <- !(p$number == 1 && !p$decimals)
     }
   }
-  if (is.character(x)) plural <- TRUE
   un <- attr(x, "units")
   if (!unit_present(un)) value_error("fmt_unit() needs a quantity with a unit; this one has no unit left (rule 3.4.9).")
   form <- unit_form %||% cfg$unit_form %||% "auto"
@@ -444,5 +538,8 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
   } else {
     txt <- unit_symbol_text(un, plural, cfg, lang)
   }
-  structure(txt, class = c("weft_text", "character"))
+  out <- structure(txt, class = c("weft_text", "character"))
+  # a symbol's case is its meaning: `.cap` leaves it alone (4.4.16)
+  if (form != "name" && !unit_prints_name(un, cfg)) attr(out, "is_symbol") <- TRUE
+  out
 }

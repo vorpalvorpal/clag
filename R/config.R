@@ -60,6 +60,8 @@ formatter_stages <- function() c("number", "wording", "collapse", "text")
 # key, already parsed to a list. `doc` names the document, for a problem in its
 # `units:` table.
 read_config <- function(dir, front = list(), doc = NULL) {
+  # a read that fails leaves no `units:` table from an earlier one in use
+  weft_env$units <- NULL
   front <- front %||% list()
   if (!is.list(front) || (length(front) && (is.null(names(front)) ||
                                             any(!nzchar(names(front)))))) {
@@ -324,10 +326,16 @@ check_units_table <- function(tbl, where) {
     reg <- dict_register_unit(key)
     out$installed <- c(out$installed, reg$installed)
     if (!is.null(reg$error)) {
-      prob(key, sprintf("is not a unit the units package can read: %s", reg$error))
+      prob(key, sprintf("is not a unit the units package can read: %s", strip_rule(reg$error)))
+    } else if (grepl("^[0-9.]+$", trimws(key))) {
+      prob(key, "is a number, not a unit")
     } else {
       un <- tryCatch(unit_key_parse(key), error = function(e) NULL)
       if (is.null(un)) prob(key, "is not a unit the units package can read")
+      else if (!unit_present(un) || unit_cancels(un)) {
+        prob(key, "holds no unit")
+        un <- NULL
+      }
     }
     if (is.null(e) || (is.list(e) && !length(e))) {
       prob(key, "is empty; give it a `name`, `plural`, `symbol` or `space`")

@@ -168,3 +168,12 @@ So a later review does not raise them again without a new argument.
 
 - `#` of a `sign` span over a formatter's text keeps the unit text as
   printed; a name is not judged again for the singular.
+
+## From the fix round for the review of 2f
+
+- A knit to PDF under xelatex or lualatex needs the LaTeX package
+  `newunicodechar` (TinyTeX installs it on first use).
+- A back-reference to an id whose span used `.nounit` has no unit to
+  print.
+- The refusal message for a misread unit ends "so weft cannot print it
+  truthfully" after the advice; reword.

@@ -164,7 +164,8 @@ the unit, judged on the class and never on the data: a unit with none is a
 class joins print it with every element. \code{fmt_pct()}, \code{fmt_p()} and
 \code{fmt_date()} on a quantity that still has a unit are a \code{weft_value_error};
 a ratio with no unit left is a plain number, and \code{unit_form} other than
-\code{"auto"} on it is a \code{weft_value_error}. The result carries the attributes
+\code{"auto"} on it is a \code{weft_value_error}, as is \code{fmt_ord()} on a quantity with a
+unit (a rank has no unit). The result carries the attributes
 \code{unit} (the symbol text, for a plural number), \code{unit_form} (\code{"symbol"},
 \code{"name"} or \code{NA} for each element) and \code{units} (the unit as the \code{units}
 package gives it), so \code{fmt_and(fmt_num(u(c(3, 5), m)))} prints the unit once,

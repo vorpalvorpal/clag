@@ -32,7 +32,9 @@ from comparing one with a bare number, as they work on the bare numbers
 a \code{weft_unit_error}; a project's own unit is registered when the
 dictionary that names it is read (rule 4.4.7), or with
 \code{\link[units:install_unit]{units::install_unit()}}. A unit that does not convert, a \code{value} that is
-not numeric and a missing \code{unit} are a \code{weft_unit_error} too.
+not numeric and a missing \code{unit} are a \code{weft_unit_error} too, and so is a unit
+the units package reads as another (\code{Sv} as grays, \code{mph} as milli-phots): the
+message says what it was read as and what to write.
 }
 \examples{
 u(35, m)

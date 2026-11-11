@@ -464,6 +464,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   carried <- NULL
   text_q <- FALSE
   ratio <- FALSE
+  keep_case <- isTRUE(attr(value, "is_symbol"))
+  in_spelled <- NULL
   if (inherits(value, "units")) {
     if (unit_present(attr(value, "units"))) un <- attr(value, "units") else ratio <- TRUE
     value <- bare_number(value)
@@ -473,14 +475,20 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     carried <- nzchar(attr(value, "unit_suffix") %||% character())
     text_q <- TRUE
     value <- strip_unit(value)
+    # an element of the text with no digit is a spelled number: it takes the name (4.4.15)
+    in_spelled <- !grepl("[0-9]", as.character(value))
   } else if (inherits(value, "weft_text")) {
     value <- strip_unit(value)
+  }
+  if (!is.null(un) && ".ord" %in% classes) {
+    value_error(sprintf(paste0("`.ord` cannot print a quantity with a unit (%s): a rank has no unit. ",
+                               "Pass the number alone (rule 4.4.15)."), as.character(un)))
   }
   if (!is.null(explicit) && !identical(explicit, "auto") && is.null(un)) {
     what <- if (is.null(unit_form)) intersect(classes, UNIT_CLASSES)[1L] else "`unit_form`"
     value_error(sprintf("%s needs a quantity with a unit, and %s (rule 1.4.19).", what,
                         if (ratio) "this value has no unit left (a ratio)"
-                        else sprintf("this value is not a quantity (class %s)", class(value)[1L])))
+                        else sprintf("this value is not a quantity (class `%s`)", class(value)[1L])))
   }
   nms <- names(value)
 
@@ -558,7 +566,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       text
     }
     if (".a" %in% classes) text <- add_article(text, cfg$minus)
-    if (".cap" %in% classes) text <- capitalise(text)
+    if (".cap" %in% classes && !keep_case) text <- capitalise(text)
     if (".em" %in% classes) text <- wrap(text, "*")
     if (".strong" %in% classes) text <- wrap(text, "**")
     for (nm in proj("text")) {
@@ -599,12 +607,14 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         construct_error(sprintf("A unit's name is English words, and the document's `lang` is `%s` (rule 1.6.8).", lang))
       }
     } else {
-      if (form_in_force == "symbol" && length(spell_cls)) {
+      # a unit with no symbol prints its name in every form (9.1.7), so no error
+      if (form_in_force == "symbol" && length(spell_cls) && !unit_prints_name(un, cfg)) {
         value_error(sprintf(paste0(
           "`%s` cannot print a quantity under `unit_form: symbol` (set in %s): a spelled number takes the ",
-          "unit's name, and \"three m\" is not written. Use `.uname` to print the name, `.nounit` to print ",
+          "unit's name, and \"%s m\" is not written. Use `.uname` to print the name, `.nounit` to print ",
           "the number alone, or drop `%s` (rule 4.4.15)."),
-          spell_cls[1L], cfg$unit_form_set %||% "the configuration", spell_cls[1L]))
+          spell_cls[1L], cfg$unit_form_set %||% "the configuration",
+          if (identical(spell_cls[1L], ".no")) "no" else "three", spell_cls[1L]))
       }
       if (form_in_force == "name" && !lang_is_english(lang)) {
         construct_error(sprintf(paste0("The unit's name is English words, and the document's `lang` is `%s`; ",
@@ -655,7 +665,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         rec <- format_p(value, cfg)
       } else {
         bound <- if (!is.null(clamp_rel) && length(clamp_rel) == length(value)) clamp_rel != "="
-        rec <- format_numbers(value, cls, keys, cfg, bound)
+        rec <- format_numbers(value, cls, keys, cfg, bound, range = ".range" %in% classes && cls == ".num")
         # a value a formatter already warned about is not warned about twice
         zero <- attr(rec, "zero")
         if (was_warned && is.null(clamp_rel)) zero <- NULL
@@ -690,6 +700,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     rep(TRUE, n_el)
   } else carried
   spelled <- rep(FALSE, n_el)
+  if (text_q && !length(ncls) && length(in_spelled) == n_el) spelled <- in_spelled
   placed <- FALSE
 
   # stage ii: wording
@@ -735,6 +746,13 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # the form of each element's unit (4.4.15) and the text that follows it
   forms <- rep(NA_character_, n_el)
   if (!is.null(un)) {
+    # spelled numbers that came in as text cannot take a symbol (U4)
+    if (form_in_force == "symbol" && !keep_forms && any(spelled & carry) && !unit_prints_name(un, cfg)) {
+      value_error(sprintf(paste0(
+        "A spelled number cannot take a unit's symbol under `unit_form = \"symbol\"`: \"five m\" is not ",
+        "written. Use the name form, `.nounit` to print the number alone, or format the number as digits ",
+        "(rule 4.4.15).")))
+    }
     forms <- vapply(seq_len(n_el), function(i) {
       if (!carry[i]) return(NA_character_)
       if (keep_forms && length(tforms) == n_el) return(tforms[i])
@@ -983,7 +1001,8 @@ apply_project <- function(spec, x, number_source) {
 #' class joins print it with every element. `fmt_pct()`, `fmt_p()` and
 #' `fmt_date()` on a quantity that still has a unit are a `weft_value_error`;
 #' a ratio with no unit left is a plain number, and `unit_form` other than
-#' `"auto"` on it is a `weft_value_error`. The result carries the attributes
+#' `"auto"` on it is a `weft_value_error`, as is `fmt_ord()` on a quantity with a
+#' unit (a rank has no unit). The result carries the attributes
 #' `unit` (the symbol text, for a plural number), `unit_form` (`"symbol"`,
 #' `"name"` or `NA` for each element) and `units` (the unit as the `units`
 #' package gives it), so `fmt_and(fmt_num(u(c(3, 5), m)))` prints the unit once,
