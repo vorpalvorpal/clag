@@ -692,3 +692,17 @@ not registered its unit (4.6.1 with 4.4.7), and the output name that
   some strings it cannot parse (`"m/(s"`): it warns and returns one
   symbolic unit. `read_dict()` should treat that warning as a problem,
   or a misparsed unit registers as a new unit (D16's cost, made worse).
+
+## Rulings on the test-writer's report for 2b
+
+- **The zero rule and a quantity.** A small quantity under the default
+  digits prints "0.0" and its unit and records the warned check, as a
+  number does (2.6.11). No test covers it yet.
+- **A collapsed list whose last item is a word** (D24: "20 and five",
+  no unit). Left as the literal reading of 4.4.2 and 4.4.3; a mixed list
+  loses its unit, which is put to Robin in `dev/decisions.md`.
+- `.p` and `.date` on a quantity with a unit give the same kind of value
+  error as `.pct`; the message names the class and the unit.
+- `.ord` keeps the unit ("3rd m") as the other digit forms do.
+- `ci()`, `pm()` and `clamp()` accept a ratio (no unit left).
+- A project formatter given a quantity (D26) is untested.

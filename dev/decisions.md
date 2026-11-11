@@ -14,6 +14,12 @@ around.
   (built as rule 4.4.8 says, "35 %"); `jsonlite` to Imports for the ledger;
   the ledger's and condition log's file formats (read before 2d is
   built); an optional `symbol:` field (recommended: not now).
+- **Stage 2b: a collapsed list of quantities that ends in a word.** With
+  `.word`, `u(c(20, 5), m)` prints "20 and five": the unit follows the
+  last numeral only when the last item is a numeral (4.4.2, 4.4.3 read
+  literally), so here it is lost. Options: leave; print the unit after
+  the last numeral wherever it is ("20 m and five"); make a mixed list a
+  value error. Built as the literal reading.
 - **`.Rprofile` activation and `use_setup()`.** Not a choice: they need the
   hooks run under the Render buttons of RStudio or Positron first (§22).
 
