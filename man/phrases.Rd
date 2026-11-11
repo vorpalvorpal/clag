@@ -69,6 +69,12 @@ When \code{digits} and \code{sigfig} are not given and a number of \code{ci()} o
 bounds, and "< floor" or "> ceiling" outside, with the relation of the
 printed record set (rule 3.5.4).
 }
+
+Given a quantity (a \code{units} value, see \code{\link[=u]{u()}}), \code{of_n()} and \code{about()} use
+its number and print no unit: they print words. \code{ci()}, \code{pm()} and
+\code{clamp()} do not take a quantity that has a unit (rule 4.4.8) and stop
+with a \code{weft_value_error}; pass the numbers, or format the parts with
+\code{\link[=fmt_num]{fmt_num()}}. A ratio, which has no unit left, is a number.
 }
 \examples{
 of_n(3, 7, "site", "sites")

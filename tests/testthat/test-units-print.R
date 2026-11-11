@@ -16,7 +16,8 @@ TIMES2 <- "×"
 
 pd <- function() read_dict(a2_fixture())
 tx <- function(x) as.character(unclass(x))        # text of a weft_text, attributes dropped
-nbsp <- function(x) gsub("\\ ", NB, x, fixed = TRUE)  # undo Pandoc's `\ `
+# undo Pandoc's `\ `, and the `--` its markdown writer gives for an en dash
+nbsp <- function(x) gsub("([0-9])--", "\\1\u2013", gsub("\\ ", NB, x, fixed = TRUE))
 
 # ---- the unit's text (D23, 4.4.8) ------------------------------------------------------
 
@@ -62,7 +63,7 @@ test_that("2b control: a plain number formats as before", {
 # ---- the number stage (stage i) -----------------------------------------------------
 
 test_that("2b stage i: digits and sigfig act on the number, the unit follows", {
-  expect_equal(tx(fmt_num(u(3.14159, m), digits = 3)), paste0("3.14", NB, "m"))
+  expect_equal(tx(fmt_num(u(3.14159, m), digits = 2)), paste0("3.14", NB, "m"))
   expect_equal(tx(fmt_num(u(0.012345, kg), sigfig = 2)), paste0("0.012", NB, "kg"))
   expect_equal(tx(fmt_num(u(1234.5, m))), paste0("1,234.5", NB, "m"))
 })
@@ -110,7 +111,7 @@ test_that("2b record: a rounded quantity records the number as printed (1.4.11)"
 
 test_that("2b chain: a number-stage formatter given a quantity's weft_text formats raw afresh and adds the unit once (D29)", {
   x <- fmt_num(u(3.14159, m))
-  y <- fmt_num(x, digits = 3)
+  y <- fmt_num(x, digits = 2)
   expect_equal(tx(y), paste0("3.14", NB, "m"))
   expect_equal(tx(fmt_num(fmt_num(u(50, m)))), paste0("50", NB, "m"))
   expect_equal(tx(fmt_sci(fmt_num(u(1200, m)))), paste0(tx(fmt_sci(1200)), NB, "m"))
@@ -137,7 +138,7 @@ test_that("2b stage ii: an element turned into a word takes no unit; one in digi
   expect_equal(tx(fmt_no(u(0, m))), "no")
   expect_equal(tx(fmt_no(u(2, m))), paste0("2", NB, "m"))   # control: .no leaves a non-zero value
   expect_equal(tx(fmt_ord(u(3, m))), paste0("3rd", NB, "m"))
-  expect_equal(tx(fmt_word(u(12, m))), paste0("12", NB, "m"))
+  expect_equal(tx(fmt_word(u(120, m))), paste0("120", NB, "m"))   # at or above word_limit: digits
   expect_equal(tx(fmt_a(u(8, m))), paste0("an 8", NB, "m"))
 })
 
@@ -170,8 +171,8 @@ test_that("2b stage iii: with trunc the unit follows the last number printed, be
 
 test_that("2b stage iii: when the last element is a word the unit is not added (D24)", {
   # 5 prints as a word under .word, 20 stays in digits: only the last element decides
-  expect_equal(tx(fmt_and(fmt_word(u(c(20, 5), m)))), "20 and five")
-  expect_equal(tx(glue_vec(fmt_word(u(c(5, 20), m)))), paste0("five and 20", NB, "m"))
+  expect_equal(tx(fmt_and(fmt_word(u(c(200, 5), m)))), "200 and five")
+  expect_equal(tx(glue_vec(fmt_word(u(c(5, 200), m)))), paste0("five and 200", NB, "m"))
 })
 
 test_that("2b stage iii: .pairs puts the unit on every value, in its parentheses", {

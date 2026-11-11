@@ -770,3 +770,18 @@ Findings 1 to 22 are accepted as the reviewer states them, except 15 and
   (an argument or a second function is new interface). `do.call(u,
   list(3, "m"))` is documented meanwhile.
 - **i, k.** Left; k is stated in the help for `read_dict()`.
+
+## Rulings on the implementer's report for 2b
+
+- Six test assertions were wrong and are corrected: `digits = 3` expected
+  two decimals; three `.word` cases used numbers below the word limit of
+  one hundred, so no numeral was left to carry a unit; two rendered
+  checks compared Pandoc's `--` with an en dash.
+- A quantity with any weft class, a text class included, goes through the
+  formatters and keeps its unit (`**3 m**`). Accepted.
+- `.dl` prints the unit with every element, as `.pairs`, `.ul` and `.ol`
+  do. Accepted.
+- A `weft_text` carries `unit` only when the unit is in its text.
+  Accepted.
+- Stage 2b has had no independent review; a project formatter given a
+  quantity (D26) is built and untested.

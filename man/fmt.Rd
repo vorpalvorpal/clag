@@ -116,6 +116,20 @@ warning is recorded for each call, however many elements print as zero; its
 message gives the first value, what printed and the count, and says to add
 \code{sigfig} to show the number or \code{digits} to confirm the zero. A bound of
 \code{\link[=clamp]{clamp()}} is never printed as zero: it prints as it was written.
+
+A \code{units} value (see \code{\link[=u]{u()}}) prints with its unit: the number is formatted as
+a plain number is, and the unit's text follows after a no-break space, with
+superscript exponents. A wording class that prints a word
+(\code{fmt_word()}, \code{fmt_count()}, \code{fmt_no()}) drops the unit; an element still
+in digits keeps it. \code{fmt_and()}, \code{fmt_or()}, \code{fmt_range()} and \code{\link[=glue_vec]{glue_vec()}}
+print the unit once, after the last number printed (none if that is a
+word); \code{fmt_pairs()}, \code{fmt_ul()}, \code{fmt_ol()}, \code{fmt_dl()} and a vector no
+collapse class joins print it with every element. \code{fmt_pct()}, \code{fmt_p()} and
+\code{fmt_date()} on a quantity that still has a unit are a \code{weft_value_error};
+a ratio with no unit left is a plain number. The result carries the unit
+as attribute \code{unit}, so \code{fmt_and(fmt_num(u(c(3, 5), m)))} prints it once.
+The record's \code{number} and \code{raw} never hold the unit, and \verb{#} in a span or
+\code{\link[=plural]{plural()}} never carries it.
 }
 \examples{
 fmt_num(3.14159)

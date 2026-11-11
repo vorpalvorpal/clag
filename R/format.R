@@ -442,6 +442,19 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
   if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
+  # a quantity (2b): the number is formatted as a number is, the unit follows.
+  # `strip` marks the elements of a weft_text that already end with the unit.
+  ut <- NULL
+  strip <- NULL
+  if (inherits(value, "units")) {
+    ut <- unit_text(value)
+    value <- bare_number(value)
+  } else if (inherits(value, "weft_text") && !is.null(attr(value, "unit"))) {
+    ut <- attr(value, "unit")
+    strip <- endsWith(as.character(value), paste0(UNIT_SEP, ut))
+    value <- strip_unit(value, ut)
+  }
+  if (governor) ut <- NULL   # `#` and a governor's record never carry a unit (4.4.4)
   nms <- names(value)
 
   if (!is.null(keys$none)) {
@@ -547,6 +560,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   zero <- NULL
   if (length(ncls)) {
     cls <- ncls[1]
+    if (!is.null(ut) && cls %in% c(".pct", ".p", ".date")) {
+      value_error(sprintf(paste0("`%s` cannot format a quantity in %s: give it a number ",
+                                 "with no unit (rule 4.4.8)."), cls, ut))
+    }
     if (cls == ".date") {
       if (!inherits(value, c("Date", "POSIXt"))) {
         value_error(sprintf("`.date` needs a Date or a date-time; the value is of class %s.",
@@ -605,6 +622,15 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   decimals <- attr(rec, "decimals")
   relation <- attr(rec, "relation")
   raw <- attr(rec, "raw") %||% rep(NA_real_, length(text))
+  # the elements that are in digits take the unit (stage ii may change that)
+  has_u <- if (is.null(ut)) rep(FALSE, length(text)) else if (length(ncls) || is.null(strip)) {
+    rep(TRUE, length(text))
+  } else strip
+  add_unit <- function(txt) {
+    txt[has_u] <- paste0(txt[has_u], UNIT_SEP, ut)
+    txt
+  }
+  placed <- FALSE
 
   # stage ii: wording
   is_no <- rep(FALSE, length(text))
@@ -612,11 +638,14 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     is_no <- !is.na(number) & number == 0 & !decimals & relation == "="
     if (!governor) is_no[zero$idx] <- TRUE   # a printed zero, "0.0" too (stage 1i)
     text[is_no] <- "no"
+    has_u[is_no] <- FALSE
   }
   if (length(wording_cls)) {
     w <- wording_cls[1]
     if (w %in% names(reg)) {
+      before <- text
       text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL))
+      if (length(text) == length(before)) has_u <- has_u & text == before
     } else {
       chk <- !is_no
       bad <- chk & (is.na(number) | relation != "=" | decimals %in% TRUE |
@@ -626,6 +655,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
           "`%s` needs a whole number that is not negative, judged as printed (rule 1.4.12); got %s.",
           w, paste0("\"", text[bad][1], "\"")))
       }
+      before <- text
       for (k in which(chk)) {
         nk <- number[k]
         intk <- group_int(sprintf("%.0f", nk), cfg$big_mark)
@@ -637,6 +667,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                           ordinal_suffix(nk))
         )
       }
+      # a word takes no unit; digits do (.ord always)
+      if (w != ".ord") has_u <- has_u & text == before
     }
   }
 
@@ -660,11 +692,19 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (length(ccls)) {
       cl <- ccls[1]
       if (cl %in% names(reg)) {
-        text <- as.character(apply_project(reg[[cl]], text, NULL))
+        placed <- any(has_u)
+        text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL))
         text <- text[1]
       } else if (cl == ".range") {
+        last_u <- length(has_u) > 0L && has_u[length(has_u)]
         text <- collapse_range(text, number, cfg, raw)
+        if (last_u) {
+          text <- paste0(text, UNIT_SEP, ut)
+          placed <- TRUE
+        }
       } else if (cl %in% c(".pairs", ".dl")) {
+        placed <- any(has_u)
+        text <- add_unit(text)
         if (is.null(nms) || anyNA(nms) || any(!nzchar(nms))) {
           value_error(sprintf("`%s` needs a named vector; this one has no names.", cl))
         }
@@ -676,10 +716,18 @@ apply_formatters <- function(value, classes = character(), keys = list(),
           text <- collapse_list(cl, text, nms)
         }
       } else if (cl %in% LIST_CLASSES) {
+        placed <- any(has_u)
+        text <- add_unit(text)
         text <- collapse_list(cl, text, nms)
       } else {
         sep <- keys$sep %||% ", "
         last <- keys$last %||% (if (cl == ".or") " or " else " and ")
+        # the unit once, after the last number printed (D24)
+        at <- if (!is.null(trunc) && length(text) > trunc) trunc else length(text)
+        if (!is.null(ut) && at >= 1L && has_u[at]) {
+          text[at] <- paste0(text[at], UNIT_SEP, ut)
+          placed <- TRUE
+        }
         text <- collapse_items(text, sep, last, trunc,
                                serial = isTRUE(cfg$serial_comma) && is.null(keys$last))
       }
@@ -692,6 +740,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
 
     # a vector no collapse class joined: an inline value prints as stock
     # prints an inline vector, joined by `join` (1.4.10 as ruled)
+    if (!length(ccls) && !is.null(ut)) {
+      placed <- any(has_u)
+      text <- add_unit(text)
+    }
     if (!length(ccls) && !is.null(join) && length(text) > 1L) {
       text <- paste(text, collapse = join)
       collapsed <- TRUE
@@ -707,6 +759,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!governor && !is.null(zero)) on_zero(zero_message(zero))
 
   out <- new_weft_text(text, number, decimals, relation, raw)
+  if (placed) attr(out, "unit") <- ut
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
   if (!collapsed && !is.null(nms) && length(nms) == length(text)) names(out) <- nms
   out
@@ -773,6 +826,20 @@ apply_project <- function(spec, x, number_source) {
 #' message gives the first value, what printed and the count, and says to add
 #' `sigfig` to show the number or `digits` to confirm the zero. A bound of
 #' [clamp()] is never printed as zero: it prints as it was written.
+#'
+#' A `units` value (see [u()]) prints with its unit: the number is formatted as
+#' a plain number is, and the unit's text follows after a no-break space, with
+#' superscript exponents. A wording class that prints a word
+#' (`fmt_word()`, `fmt_count()`, `fmt_no()`) drops the unit; an element still
+#' in digits keeps it. `fmt_and()`, `fmt_or()`, `fmt_range()` and [glue_vec()]
+#' print the unit once, after the last number printed (none if that is a
+#' word); `fmt_pairs()`, `fmt_ul()`, `fmt_ol()`, `fmt_dl()` and a vector no
+#' collapse class joins print it with every element. `fmt_pct()`, `fmt_p()` and
+#' `fmt_date()` on a quantity that still has a unit are a `weft_value_error`;
+#' a ratio with no unit left is a plain number. The result carries the unit
+#' as attribute `unit`, so `fmt_and(fmt_num(u(c(3, 5), m)))` prints it once.
+#' The record's `number` and `raw` never hold the unit, and `#` in a span or
+#' [plural()] never carries it.
 #'
 #' @return A `weft_text`.
 #' @examples
@@ -897,9 +964,21 @@ fmt_em <- function(x) apply_formatters(x, ".em")
 #' glue_vec(c("a", "b", "c"), last = " or ")
 #' @export
 glue_vec <- function(x, sep = ", ", last = " and ") {
+  # a quantity: the unit once, after the last element when that is in digits
+  ut <- NULL
+  if (inherits(x, "units")) {
+    ut <- unit_text(x)
+    x <- if (is.null(ut)) bare_number(x) else apply_formatters(bare_number(x), ".num")
+    ut_last <- !is.null(ut)
+  } else if (inherits(x, "weft_text") && !is.null(attr(x, "unit"))) {
+    ut <- attr(x, "unit")
+    ut_last <- endsWith(as.character(x)[length(x)], paste0(UNIT_SEP, ut))
+    x <- strip_unit(x, ut)
+  }
   x <- as.character(x)
   n <- length(x)
   if (n == 0L || anyNA(x)) no_value_error("A collapse")
+  if (!is.null(ut) && ut_last) x[n] <- paste0(x[n], UNIT_SEP, ut)
   out <- if (n == 1L) {
     x
   } else if (n == 2L) {
@@ -907,7 +986,9 @@ glue_vec <- function(x, sep = ", ", last = " and ") {
   } else {
     paste0(paste(x[-n], collapse = sep), last, x[n])
   }
-  new_weft_text(out)
+  out <- new_weft_text(out)
+  if (!is.null(ut) && ut_last) attr(out, "unit") <- ut
+  out
 }
 
 # ---- plural() -----------------------------------------------------------
@@ -986,6 +1067,7 @@ plural <- function(n, ...) {
                          "write `length(x)` to count items."))
     }
     rec <- n
+    if (!is.null(attr(n, "unit"))) rec[1L] <- sub(paste0(UNIT_SEP, attr(n, "unit"), "$"), "", as.character(n)[1L])
   } else {
     if (length(n) == 0L) no_value_error("plural()")
     if (length(n) > 1L) {

@@ -44,3 +44,59 @@ u <- function(value, unit) {
   tryCatch(units::set_units(value, txt, mode = "standard"),
            error = function(e) unit_abort(sprintf("u(): %s", sub("\n.*$", "", conditionMessage(e)))))
 }
+
+# ---- printing (2b) --------------------------------------------------------
+
+SUPER_DIGITS <- c("⁰", "¹", "²", "³", "⁴", "⁵",
+                  "⁶", "⁷", "⁸", "⁹")
+
+# The text of a `units` value's unit (4.4.8): `units`' own form, exponents in
+# superscript characters, `*` as the dot operator. `NULL` when no unit is left
+# (a ratio) or `x` is not a quantity.
+unit_text <- function(x) {
+  if (!inherits(x, "units")) return(NULL)
+  un <- attr(x, "units")
+  if (!length(un$numerator) && !length(un$denominator)) return(NULL)
+  s <- as.character(un, neg_power = FALSE)
+  if (!nzchar(s) || identical(s, "1")) return(NULL)
+  sup <- function(e) {
+    ch <- strsplit(e, "")[[1L]]
+    paste0(vapply(ch, function(k) if (k == "-") "⁻" else SUPER_DIGITS[as.integer(k) + 1L], ""),
+           collapse = "")
+  }
+  m <- gregexpr("\\^-?[0-9]+", s)
+  regmatches(s, m) <- lapply(regmatches(s, m), function(p) vapply(substring(p, 2L), sup, ""))
+  gsub("*", "⋅", s, fixed = TRUE)
+}
+
+# The number of a quantity, without its unit; other values pass unchanged.
+bare_number <- function(x) {
+  if (!inherits(x, "units")) return(x)
+  nm <- names(x)
+  out <- as.numeric(units::drop_units(x))
+  names(out) <- nm
+  out
+}
+
+# The phrase functions that cannot place a unit (D28).
+no_unit <- function(x, fn) {
+  if (inherits(x, "units") && !is.null(unit_text(x))) {
+    value_error(sprintf(paste0("`%s()` does not take a quantity with a unit; pass the ",
+                               "numbers, or format the parts with fmt_num()."), fn))
+  }
+  bare_number(x)
+}
+
+UNIT_SEP <- " "
+
+# A weft_text with the unit taken off the elements that end with it; its
+# record is kept.
+strip_unit <- function(x, ut) {
+  suf <- paste0(UNIT_SEP, ut)
+  tx <- as.character(x)
+  hit <- endsWith(tx, suf)
+  tx[hit] <- substr(tx[hit], 1L, nchar(tx[hit]) - nchar(suf))
+  x[] <- tx
+  attr(x, "unit") <- NULL
+  x
+}

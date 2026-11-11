@@ -22,7 +22,9 @@ as_phrase <- function(x) {
 }
 
 # One finite number of length one, from an argument of a phrase function.
-one_number <- function(x, fn, arg) {
+one_number <- function(x, fn, arg, unit_ok = TRUE) {
+  # a quantity: of_n() and about() take its number; the others cannot place the unit (D28)
+  x <- if (unit_ok) bare_number(x) else no_unit(x, fn)
   # a weft_text from a formatter passes its number on (3.4.2)
   if (inherits(x, "weft_text") && length(x) == 1L && is.numeric(attr(x, "number")) &&
       !is.na(attr(x, "number"))) {
@@ -69,6 +71,12 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #' * `clamp(x, floor, ceiling)` prints the value as `.num` does inside the
 #'   bounds, and "< floor" or "> ceiling" outside, with the relation of the
 #'   printed record set (rule 3.5.4).
+#'
+#' Given a quantity (a `units` value, see [u()]), `of_n()` and `about()` use
+#' its number and print no unit: they print words. `ci()`, `pm()` and
+#' `clamp()` do not take a quantity that has a unit (rule 4.4.8) and stop
+#' with a `weft_value_error`; pass the numbers, or format the parts with
+#' [fmt_num()]. A ratio, which has no unit left, is a number.
 #'
 #' @param k,n Whole numbers, `0 <= k <= n`, `n > 0`.
 #' @param singular,plural The noun, in each form.
@@ -164,9 +172,9 @@ about <- function(x, to = 1 / 2, tolerance = NULL) {
 #' @export
 ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
   check_english("ci")
-  est <- one_number(est, "ci", "est")
-  lo <- one_number(lo, "ci", "lo")
-  hi <- one_number(hi, "ci", "hi")
+  est <- one_number(est, "ci", "est", FALSE)
+  lo <- one_number(lo, "ci", "lo", FALSE)
+  hi <- one_number(hi, "ci", "hi", FALSE)
   cfg <- current_config()
   level <- one_number(level %||% cfg$ci_level %||% 0.95, "ci", "level")
   if (level <= 0 || level >= 1) value_error("`level` of ci() must be between 0 and 1.")
@@ -189,8 +197,8 @@ ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
 #' @rdname phrases
 #' @export
 pm <- function(est, se, digits = NULL, sigfig = NULL) {
-  est <- one_number(est, "pm", "est")
-  se <- one_number(se, "pm", "se")
+  est <- one_number(est, "pm", "est", FALSE)
+  se <- one_number(se, "pm", "se", FALSE)
   if (se < 0) value_error(sprintf("pm(): `se` (%s) must not be negative.", format(se)))
   cfg <- current_config()
   pe <- print_num(est, digits, sigfig, cfg)
@@ -204,13 +212,14 @@ pm <- function(est, se, digits = NULL, sigfig = NULL) {
 #' @rdname phrases
 #' @export
 clamp <- function(x, floor = NULL, ceiling = NULL) {
+  x <- no_unit(x, "clamp")
   if (length(x) == 0L) no_value_error("clamp()")
   if (is.logical(x) && all(is.na(x))) no_value_error("clamp()")
   if (!is.numeric(x)) value_error(sprintf("clamp() needs a number, not a %s.", class(x)[1L]))
   if (anyNA(x) || any(!is.finite(x))) no_value_error("clamp()")
   cfg <- current_config()
-  fl <- if (!is.null(floor)) one_number(floor, "clamp", "floor")
-  ce <- if (!is.null(ceiling)) one_number(ceiling, "clamp", "ceiling")
+  fl <- if (!is.null(floor)) one_number(floor, "clamp", "floor", FALSE)
+  ce <- if (!is.null(ceiling)) one_number(ceiling, "clamp", "ceiling", FALSE)
   if (!is.null(fl) && !is.null(ce) && fl > ce) {
     value_error(sprintf("clamp(): `floor` (%s) is more than `ceiling` (%s).", format(fl), format(ce)))
   }
