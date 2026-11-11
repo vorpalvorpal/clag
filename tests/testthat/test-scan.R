@@ -399,7 +399,6 @@ test_that("1.9.1: ordinary spans, links, citations, footnotes are not constructs
     "[1234]{.num digits=\"2\"}",
     "[x]{.pct}",
     "[a | b]",
-    "[a | b](http://example.org){n=\"k\"}",
     "[abc]{iff=\"x > 0\"}",
     "[abc]{trunk=\"3\"}",
     "![alt](fig.png){width=50%}",

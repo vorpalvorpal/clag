@@ -216,7 +216,8 @@ written in.
 | iii. collapse | at most one of `.and .or .pairs .range .ul .ol .dl` | the vector of elements |
 | iv. text | `.a`, then `.cap`, then `.strong` / `.em` | the final text |
 
-**1.4.2** Two classes from one at-most-one group are a construct error.
+**1.4.2** Two classes from one at-most-one group are a construct error. So is
+a wording class together with `.pct` or `.sci`.
 
 **1.4.3** What each class prints:
 
@@ -293,7 +294,10 @@ defaults to one hundred and is configurable (§9.1).
 
 **1.4.13** `.num` prints a whole number with no decimals unless `digits` or
 `sigfig` is given on the construct. A number that is not whole prints to the
-project's default digits (§9.1).
+project's default digits (§9.1). A number is whole when it is within 1e-9 of
+its rounding. Rounding is half away from zero on the number as written: 0.15
+prints "0.2" and 2.5 prints "3". A number that rounds to zero prints with no
+minus sign.
 
 ### 1.5 Governed spans
 
@@ -990,7 +994,10 @@ value can be guarded in place inside a larger expression:
 **3.1.3** Each check is a separate argument and is reported separately.
 
 **3.1.4** Checks are captured unevaluated, and a failure quotes the check as
-written.
+written. In inline R the text is the document's. In other R code it is the
+kept source where R kept it (`keep.source`), and the deparsed call where it
+did not, so `1e6` may read `1e+06` there. A check that raises an error is a
+failed check, reported with the error's message.
 
 **3.1.5** A failure is collected or immediate by context (§2.4).
 
@@ -1425,6 +1432,9 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
   function that prints words, under a `lang` whose words are not shipped
   (1.6.8)
 - a formatter on an `if` span (1.5.7)
+- a wording class with `.pct` or `.sci` (1.4.2)
+- a weft key on a link (`[a](u){if="x"}`), or an attribute block on inline R
+  inside a link target
 - an unescaped arm separator in a pipe-table cell (1.5.13)
 - `n="."` outside an `n` or `sign` span (1.7.2)
 - a duplicate id; a back-reference to an id that is unknown or defined later

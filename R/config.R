@@ -43,10 +43,12 @@ formatter_stages <- function() c("number", "wording", "collapse", "text")
 # key, already parsed to a list.
 read_config <- function(dir, front = list()) {
   front <- front %||% list()
-  if (!is.list(front)) {
+  if (!is.list(front) || (length(front) && (is.null(names(front)) ||
+                                            any(!nzchar(names(front)))))) {
     weft_abort("The `weft:` front-matter key must be a mapping of settings.",
                "weft_config_error")
   }
+  warn_unknown(front, "a document's `weft:` front matter")
   file <- file.path(dir, "_weft.yml")
   has_file <- file.exists(file)
   proj <- list()
@@ -63,6 +65,7 @@ read_config <- function(dir, front = list()) {
                  "weft_config_error")
     }
   }
+  if (has_file) warn_unknown(proj, "_weft.yml")
   if (has_file && "draft" %in% names(front)) {
     weft_abort(paste0(
       "`draft` is a project setting: set it in _weft.yml, not in a ",
@@ -71,10 +74,21 @@ read_config <- function(dir, front = list()) {
   }
   cfg <- merge_config(default_config(), proj)
   cfg <- merge_config(cfg, front)
-  validate_config(cfg)
   cfg$formatters <- check_formatters(cfg$formatters)
+  validate_config(cfg)
   if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) cfg$draft <- TRUE
   cfg
+}
+
+# An unknown setting is kept, with a warning that names it (a misspelt
+# setting would otherwise do nothing).
+warn_unknown <- function(over, where) {
+  unk <- setdiff(names(over), names(default_config()))
+  for (k in unk) {
+    rlang::warn(sprintf("Unknown weft setting `%s` in %s; it is ignored.", k, where),
+                class = "weft_config_warning")
+  }
+  invisible()
 }
 
 # Setting by setting: a later setting replaces an earlier one, except that
@@ -83,6 +97,11 @@ merge_config <- function(base, over) {
   for (nm in names(over)) {
     v <- over[[nm]]
     if (nm == "formatters") {
+      if (!is.null(v) && (!is.list(v) ||
+                          (length(v) && (is.null(names(v)) || any(!nzchar(names(v))))))) {
+        weft_abort(paste0("`formatters` must be a mapping from class name to ",
+                          "a function (rule 1.4.8)."), "weft_config_error")
+      }
       base$formatters <- utils::modifyList(base$formatters %||% list(),
                                            as.list(v %||% list()))
     } else if (nm == "severity") {
@@ -101,12 +120,6 @@ validate_config <- function(cfg) {
     weft_abort(sprintf("The setting `%s` must be %s.", nm, what),
                "weft_config_error")
   }
-  num <- function(nm, min = 0) {
-    v <- cfg[[nm]]
-    if (!is.numeric(v) || length(v) != 1L || is.na(v) || v < min) {
-      bad(nm, "a single number, not negative")
-    }
-  }
   str <- function(nm) {
     v <- cfg[[nm]]
     if (!is.character(v) || length(v) != 1L || is.na(v)) bad(nm, "a single string")
@@ -115,9 +128,27 @@ validate_config <- function(cfg) {
     v <- cfg[[nm]]
     if (!is.logical(v) || length(v) != 1L || is.na(v)) bad(nm, "TRUE or FALSE")
   }
-  num("digits"); num("count_threshold"); num("word_limit")
+  whole <- function(nm) {
+    v <- cfg[[nm]]
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
+        v != round(v)) {
+      bad(nm, "a whole number, not negative")
+    }
+  }
+  whole("digits"); whole("count_threshold"); whole("word_limit")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
   lgl("pct_proportion"); lgl("draft")
+  if (nzchar(cfg$decimal_mark) && identical(cfg$decimal_mark, cfg$big_mark)) {
+    weft_abort("`decimal_mark` and `big_mark` must differ.", "weft_config_error")
+  }
+  reg <- cfg$formatters %||% list()
+  proj_ok <- names(reg)[vapply(reg, function(r) (r[["stage"]] %||% "number") %in%
+                                 c("number", "wording"), NA)]
+  ok <- c(setdiff(c(NUMBER_CLASSES, ".no", WORDING_CLASSES), NOT_BUILT_CLASSES), proj_ok)
+  if (!cfg$governor_class %in% ok) {
+    bad("governor_class", paste0("a number- or wording-stage class (one of ",
+                                 paste(ok, collapse = ", "), ")"))
+  }
   invisible(cfg)
 }
 

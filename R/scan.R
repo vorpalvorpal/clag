@@ -8,6 +8,10 @@
 SCAN_SPECIAL <- c("`", "[", "]", "$", "\\", "<")
 GOVERNOR_KEYS <- c("n", "if", "sign", "cite")
 WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "sep", "last", "trunc")
+# The placeholder `#` of an arm template (1.5.8).
+ARM_PLACEHOLDER <- "\ue001"
+
+trim_ws <- function(x) gsub("^[ \t\r\n]+|[ \t\r\n]+$", "", x, perl = TRUE)
 
 # ---- setup --------------------------------------------------------------
 
@@ -23,26 +27,28 @@ new_scan <- function(text, file, first_line, config) {
   S$file <- file
   S$first_line <- as.integer(first_line)
   S$reg <- config$formatters %||% list()
-  S$nl <- which(chars == "\n")
-  S$special <- which(chars %in% SCAN_SPECIAL)
-  S$dollar <- which(chars == "$")
+  # index vectors are doubles, so findInterval() does not coerce them on every call
+  S$nl <- as.numeric(which(chars == "\n"))
+  S$special <- as.numeric(which(chars %in% SCAN_SPECIAL))
+  S$dollar <- as.numeric(which(chars == "$"))
 
   r <- rle(chars == "`")
   ends <- cumsum(r$lengths)
-  S$bt_start <- (ends - r$lengths + 1L)[r$values]
+  S$bt_start <- as.numeric((ends - r$lengths + 1L)[r$values])
   S$bt_len <- r$lengths[r$values]
 
   cend <- if (n) gregexpr("-->", text, fixed = TRUE)[[1]] else -1L
-  S$cend <- cend[cend > 0L]
+  S$cend <- as.numeric(cend[cend > 0L])
 
   find_fences(S)
   find_tables(S)
 
   bl <- if (n) gregexpr("\n[ \t\r]*(?=\n)", text, perl = TRUE)[[1]] else -1L
   bl <- bl[bl > 0L]
-  S$plim <- sort(unique(c(bl - 1L, S$f_start - 1L, n)))
+  S$plim <- as.numeric(sort(unique(c(bl - 1L, S$f_start - 1L, n))))
 
-  S$rows <- list()
+  S$rows <- new.env(parent = emptyenv())   # one entry per row: no copying
+  S$nrows <- 0L
   S
 }
 
@@ -54,26 +60,50 @@ find_fences <- function(S) {
   ls <- c(1L, S$nl + 1L)
   le <- c(S$nl - 1L, S$n)
   lines <- substring(S$text, ls, le)
-  open_re <- "^[ \t]*(`{3,}|~{3,})(.*)$"
-  m <- regmatches(lines, regexec(open_re, lines))
+  open_re <- "^[ \t]*((?:>[ \t]*)*)(`{3,}|~{3,})(.*)$"
+  m <- regmatches(lines, regexec(open_re, lines, perl = TRUE))
   k <- 1L
   nl <- length(lines)
+  starts <- integer()
+  ends <- integer()
   while (k <= nl) {
     mm <- m[[k]]
-    if (length(mm) && !(substr(mm[2], 1, 1) == "`" && grepl("`", mm[3], fixed = TRUE))) {
-      ch <- substr(mm[2], 1, 1)
-      len <- nchar(mm[2])
-      close_re <- paste0("^[ \t]*", if (ch == "`") "`" else "~", "{", len, ",}[ \t\r]*$")
+    k0 <- k
+    if (length(mm) && !(substr(mm[3], 1, 1) == "`" && grepl("`", mm[4], fixed = TRUE))) {
+      ch <- substr(mm[3], 1, 1)
+      len <- nchar(mm[3])
+      quoted <- nzchar(mm[2])
+      close_re <- paste0("^[ \t]*", if (quoted) "(?:>[ \t]*)+" else "",
+                         if (ch == "`") "`" else "~", "{", len, ",}[ \t\r]*$")
       j <- k + 1L
-      while (j <= nl && !grepl(close_re, lines[j])) j <- j + 1L
-      end <- if (j <= nl) le[j] else S$n
-      S$f_start <- c(S$f_start, ls[k])
-      S$f_end <- c(S$f_end, end)
-      k <- j + 1L
+      closed <- FALSE
+      while (j <= nl) {
+        if (grepl(close_re, lines[j], perl = TRUE)) {
+          closed <- TRUE
+          break
+        }
+        # a quoted fence ends with its block quote
+        if (quoted && !grepl("^[ \t]*>", lines[j])) break
+        j <- j + 1L
+      }
+      if (closed) {
+        end <- le[j]
+        k <- j + 1L
+      } else if (quoted && j <= nl) {
+        end <- le[j - 1L]
+        k <- j
+      } else {
+        end <- S$n
+        k <- j + 1L
+      }
+      starts <- c(starts, ls[k0])
+      ends <- c(ends, end)
     } else {
       k <- k + 1L
     }
   }
+  S$f_start <- as.numeric(starts)
+  S$f_end <- as.numeric(ends)
   invisible()
 }
 
@@ -88,11 +118,18 @@ find_tables <- function(S) {
   lines <- substring(S$text, ls, le)
   delim <- grepl("\\|", lines) &
     grepl("^[ \t]*\\|?[ \t]*:?-+:?[ \t]*(\\|[ \t]*:?-+:?[ \t]*)*\\|?[ \t\r]*$", lines)
+  # the header and the delimiter row must have the same number of cells
+  cells <- function(x) {
+    x <- sub("^\\|", "", trim_ws(x))
+    x <- sub("(?<!\\\\)\\|$", "", x, perl = TRUE)
+    sum(gregexpr("(?<!\\\\)\\|", x, perl = TRUE)[[1]] > 0L) + 1L
+  }
   for (d in which(delim)) {
     if (d < 2L) next
+    if (cells(lines[d - 1L]) != cells(lines[d])) next
     S$tbl[d - 1L] <- TRUE
     j <- d
-    while (j <= nlines && nzchar(trimws(lines[j]))) {
+    while (j <= nlines && nzchar(trim_ws(lines[j]))) {
       S$tbl[j] <- TRUE
       j <- j + 1L
     }
@@ -120,8 +157,29 @@ comment_end <- function(S, i) {
   if (i + 3L > S$n || !identical(S$chars[i:(i + 3L)], c("<", "!", "-", "-"))) {
     return(NA_integer_)
   }
-  c <- S$cend[S$cend >= i + 4L][1]
-  if (is.na(c)) S$n else c + 2L
+  k <- findInterval(i + 3L, S$cend) + 1L
+  if (k <= length(S$cend)) return(S$cend[k] + 2L)
+  # Unclosed: an HTML block at the start of a line runs on; in the middle of
+  # a line it is no comment at all (1.9.2).
+  j <- i - 1L
+  while (j >= 1L && S$chars[j] %in% c(" ", "\t")) j <- j - 1L
+  if (j < 1L || S$chars[j] == "\n") S$n else NA_integer_
+}
+
+# The end of an autolink `<scheme:target>` or `<name@host>` at `i`, or `NA`.
+autolink_end <- function(S, i) {
+  seg <- substr(S$text, i, min(S$n, i + 2000L))
+  m <- regexpr(paste0(
+    "^<(?:[A-Za-z][A-Za-z0-9+.-]{1,31}:[^<>[:space:]]*|",
+    "[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*)>"), seg, perl = TRUE)
+  if (m == -1L) NA_integer_ else i + attr(m, "match.length") - 1L
+}
+
+# A comment or an autolink starting with `<` at `i`: its last character, or `NA`.
+angle_end <- function(S, i) {
+  e <- comment_end(S, i)
+  if (!is.na(e)) return(e)
+  autolink_end(S, i)
 }
 
 is_space <- function(ch) ch %in% c(" ", "\t", "\n", "\r")
@@ -133,11 +191,16 @@ code_span <- function(S, i) {
   open_end <- S$bt_start[ri] + S$bt_len[ri] - 1L
   k <- open_end - i + 1L
   lim <- para_limit(S, i)
-  cand <- which(S$bt_len == k & seq_along(S$bt_len) > ri & S$bt_start <= lim)
-  if (!length(cand)) return(list(ok = FALSE, open_end = open_end))
-  j <- cand[1]
-  list(ok = TRUE, open_end = open_end, close_start = S$bt_start[j],
-       close_end = S$bt_start[j] + k - 1L)
+  j <- ri + 1L
+  nb <- length(S$bt_start)
+  while (j <= nb && S$bt_start[j] <= lim) {
+    if (S$bt_len[j] == k) {
+      return(list(ok = TRUE, open_end = open_end, close_start = S$bt_start[j],
+                  close_end = S$bt_start[j] + k - 1L))
+    }
+    j <- j + 1L
+  }
+  list(ok = FALSE, open_end = open_end)
 }
 
 # Inline math opening at `i`: the position of its closing `$`, or `NA`.
@@ -145,13 +208,18 @@ math_end <- function(S, i) {
   ch <- S$chars
   n <- S$n
   lim <- para_limit(S, i)
+  dollars <- function(lo, hi) {
+    a <- findInterval(lo, S$dollar) + 1L
+    b <- findInterval(hi, S$dollar)
+    if (a > b) integer() else S$dollar[a:b]
+  }
   if (i < n && ch[i + 1L] == "$") {
-    js <- S$dollar[S$dollar > i + 1L & S$dollar < lim]
+    js <- dollars(i + 1L, lim - 1L)
     for (j in js) if (ch[j + 1L] == "$") return(j + 1L)
     return(NA_integer_)
   }
   if (i >= n || is_space(ch[i + 1L])) return(NA_integer_)
-  for (j in S$dollar[S$dollar > i & S$dollar <= lim]) {
+  for (j in dollars(i, lim)) {
     prev <- ch[j - 1L]
     if (is_space(prev) || prev == "\\") next
     if (j < n && grepl("[0-9]", ch[j + 1L])) next
@@ -191,19 +259,23 @@ parse_block <- function(S, i) {
   ch <- S$chars
   n <- S$n
   if (i > n || ch[i] != "{") return(NULL)
-  k <- findInterval(i, S$nl) + 1L
-  lim <- if (k <= length(S$nl)) S$nl[k] - 1L else n
+  lim <- para_limit(S, i)
   blk <- parse_block_strict(ch, i, lim)
   if (!is.null(blk)) return(blk)
-  close <- which(ch[i:lim] == "}")[1]
-  if (is.na(close)) return(NULL)
-  close <- i + close - 1L
-  raw <- paste(ch[(i + 1L):max(close - 1L, i + 1L)], collapse = "")
-  if (close == i + 1L) return(NULL)
-  m <- regmatches(raw, regexec("(?:^|[[:space:]{,;])(n|if|sign|cite)[[:space:]]*=", raw,
-                               ignore.case = TRUE, perl = TRUE))[[1]]
-  if (!length(m)) return(NULL)
-  list(ok = FALSE, end = close, gkey = tolower(m[2]), raw = raw)
+  close <- i + 1L
+  while (close <= lim && ch[close] != "}") close <- close + 1L
+  if (close > lim || close == i + 1L) return(NULL)
+  raw <- paste(ch[(i + 1L):(close - 1L)], collapse = "")
+  gkey <- NA_character_
+  for (key in WEFT_KEYS) {
+    if (grepl(paste0("(?:^|[[:space:]{,;])", key, "[[:space:]]*="), raw,
+              ignore.case = TRUE, perl = TRUE)) {
+      gkey <- key
+      break
+    }
+  }
+  if (is.na(gkey)) return(NULL)
+  list(ok = FALSE, end = close, gkey = gkey, raw = raw)
 }
 
 parse_block_strict <- function(ch, i, lim) {
@@ -213,13 +285,13 @@ parse_block_strict <- function(ch, i, lim) {
   nms <- character()
   vals <- character()
   quotes <- character()
-  stops <- c(" ", "\t", "\r", "}")
+  stops <- c(" ", "\t", "\r", "\n", "}")
   token_end <- function(p) {
     while (p <= lim && !(ch[p] %in% stops)) p <- p + 1L
     p - 1L
   }
   repeat {
-    while (pos <= lim && ch[pos] %in% c(" ", "\t", "\r")) pos <- pos + 1L
+    while (pos <= lim && ch[pos] %in% c(" ", "\t", "\r", "\n")) pos <- pos + 1L
     if (pos > lim) return(NULL)
     c <- ch[pos]
     if (c == "}") break
@@ -228,8 +300,7 @@ parse_block_strict <- function(ch, i, lim) {
       if (e <= pos) return(NULL)
       tok <- paste(ch[pos:e], collapse = "")
       if (c == "#") {
-        if (!is.na(id)) return(NULL)
-        id <- substring(tok, 2L)
+        id <- substring(tok, 2L)   # the last id wins
       } else {
         classes <- c(classes, tok)
       }
@@ -237,7 +308,7 @@ parse_block_strict <- function(ch, i, lim) {
       next
     }
     ke <- pos
-    while (ke <= lim && !(ch[ke] %in% c(" ", "\t", "\r", "}", "=", "\"", "'", "{"))) ke <- ke + 1L
+    while (ke <= lim && !(ch[ke] %in% c(" ", "\t", "\r", "\n", "}", "=", "\"", "'", "{"))) ke <- ke + 1L
     if (ke == pos || ke > lim || ch[ke] != "=") return(NULL)
     key <- paste(ch[pos:(ke - 1L)], collapse = "")
     vp <- ke + 1L
@@ -307,7 +378,7 @@ find_close <- function(S, i) {
       m <- math_end(S, p)
       j <- if (is.na(m)) p + 1L else m + 1L
     } else if (c == "<") {
-      ce <- comment_end(S, p)
+      ce <- angle_end(S, p)
       j <- if (is.na(ce)) p + 1L else ce + 1L
     } else if (c == "[") {
       depth <- depth + 1L
@@ -365,7 +436,7 @@ split_arms <- function(S, b1, b2) {
       if (nx == "|") {
         push("s", "|", i + 1L, TRUE)
       } else if (nx == "#") {
-        push("h", "#", i + 1L, TRUE)
+        push("t", "#", i)   # an escaped `#` is a literal one
       } else {
         push("t", paste0(c, nx), i)
       }
@@ -373,7 +444,7 @@ split_arms <- function(S, b1, b2) {
       next
     }
     if (c %in% c("`", "$", "[", "<")) {
-      e <- if (c == "<") comment_end(S, i) else atom_end(S, i)
+      e <- if (c == "<") angle_end(S, i) else atom_end(S, i)
       if (!is.na(e) && e <= b2) {
         push("t", paste(ch[i:e], collapse = ""), i)
         i <- e + 1L
@@ -384,6 +455,7 @@ split_arms <- function(S, b1, b2) {
     i <- i + 1L
   }
   arms <- ""
+  tmpl <- ""     # the same arms with `#` as the placeholder, `##` as a literal `#`
   seps <- integer()
   unesc <- FALSE
   k <- 1L
@@ -392,6 +464,7 @@ split_arms <- function(S, b1, b2) {
     ty <- tp[k]
     if (ty == "t") {
       arms[length(arms)] <- paste0(arms[length(arms)], tv[k])
+      tmpl[length(tmpl)] <- paste0(tmpl[length(tmpl)], tv[k])
       k <- k + 1L
       next
     }
@@ -402,16 +475,21 @@ split_arms <- function(S, b1, b2) {
       if (any(!tesc[k:j])) unesc <- TRUE
       lit <- len %/% 2L
       arms[length(arms)] <- paste0(arms[length(arms)], strrep("|", lit))
+      tmpl[length(tmpl)] <- paste0(tmpl[length(tmpl)], strrep("|", lit))
       if (len %% 2L == 1L) {
         arms <- c(arms, "")
+        tmpl <- c(tmpl, "")
         seps <- c(seps, tpos[j])
       }
     } else {
       arms[length(arms)] <- paste0(arms[length(arms)], strrep("#", (len + 1L) %/% 2L))
+      tmpl[length(tmpl)] <- paste0(tmpl[length(tmpl)], strrep("#", len %/% 2L),
+                                   if (len %% 2L == 1L) ARM_PLACEHOLDER else "")
     }
     k <- j + 1L
   }
-  list(arms = trimws(arms), seps = seps, unescaped = unesc)
+  list(arms = trim_ws(arms), templates = trim_ws(tmpl), seps = seps,
+       unescaped = unesc)
 }
 
 # ---- expressions (5.3.5, 3.1.10) ----------------------------------------
@@ -422,10 +500,12 @@ claim_without_check <- function(expr) {
   is_claim <- identical(fn, quote(claim)) ||
     (is.call(fn) && length(fn) == 3L && identical(fn[[1L]], quote(`::`)) &&
        identical(fn[[3L]], quote(claim)))
-  if (is_claim && length(expr) < 3L) return(TRUE)
   l <- as.list(expr)
+  # an empty argument, as in `claim(x, )`, is no check (3.1.10)
+  empty <- vapply(seq_along(l), function(k) identical(l[[k]], quote(expr = )), NA)
+  if (is_claim && sum(!empty[-1L]) < 2L) return(TRUE)
   for (k in seq_along(l)) {
-    if (is.call(l[[k]]) && claim_without_check(l[[k]])) return(TRUE)
+    if (!empty[k] && is.call(l[[k]]) && claim_without_check(l[[k]])) return(TRUE)
   }
   FALSE
 }
@@ -433,18 +513,17 @@ claim_without_check <- function(expr) {
 # An error message for an inline expression, or `character()` when it is
 # fine. `as_list` reads `if` conditions as an argument list (1.5.4).
 expr_errors <- function(text, what, as_list = FALSE) {
-  if (!nzchar(trimws(text))) return(sprintf("%s is empty (rule 5.3.5).", what))
+  if (!nzchar(trim_ws(text))) return(sprintf("%s is empty (rule 5.3.5).", what))
   src <- if (as_list) paste0("list(", text, ")") else text
   ex <- tryCatch(parse(text = src, keep.source = FALSE), error = function(e) e)
   if (inherits(ex, "error")) {
     msg <- strsplit(conditionMessage(ex), "\n", fixed = TRUE)[[1]][1]
     return(sprintf("%s does not parse as R (rule 5.3.5): %s", what, msg))
   }
-  if (length(ex) != 1L) {
-    return(sprintf("%s is not a single R expression (rule 5.3.5).", what))
-  }
-  if (claim_without_check(ex[[1L]])) {
-    return(sprintf("%s has a claim() with no check (rule 3.1.10).", what))
+  for (e in as.list(ex)) {
+    if (claim_without_check(e)) {
+      return(sprintf("%s has a claim() with no check (rule 3.1.10).", what))
+    }
   }
   character()
 }
@@ -457,9 +536,18 @@ BIND_HINT <- "Bind the expression to a name in a chunk and use the name."
 block_errors <- function(S, blk, kind) {
   e <- character()
   if (!blk$ok) {
-    return(paste0(
-      "The attribute block does not parse: a `\"` or a `\\` inside a value ends ",
-      "it early (rules 1.2.3, 1.2.9). ", BIND_HINT))
+    raw <- blk$raw %||% ""
+    cause <- if (grepl("[[:space:]]=|=[[:space:]]", raw)) {
+      "spaces around `=` are not allowed"
+    } else if (grepl("=[[:space:]]*$", raw)) {
+      "a key has no value"
+    } else if (grepl("(^|[[:space:]])[#.]([[:space:]]|$)", raw)) {
+      "a `#` or `.` has nothing after it"
+    } else {
+      "a `\"` or a `\\` inside a value ends it early"
+    }
+    return(paste0("The attribute block does not parse: ", cause,
+                  " (rules 1.2.3, 1.2.9). ", BIND_HINT))
   }
   if (any(blk$quotes == "'")) {
     e <- c(e, paste0("A single-quoted value in an attribute block (rule 1.2.3). ",
@@ -486,8 +574,6 @@ block_errors <- function(S, blk, kind) {
       e <- c(e, "An `#id` on a text span is an error (rule 1.1.9).")
     } else if (kind == "cite") {
       e <- c(e, "An `#id` on a cite span is an error (rule 1.7.5).")
-    } else {
-      e <- c(e, "An `#id` is not built yet.")
     }
   }
   grp <- class_group(cls, S$reg)
@@ -525,14 +611,17 @@ lower_keys <- function(nms) ifelse(tolower(nms) %in% WEFT_KEYS, tolower(nms), nm
 # ---- rows ---------------------------------------------------------------
 
 add_row <- function(S, kind, start, end, bstart, expr, classes, keys, id, arms,
-                    seps, parent, error) {
-  S$rows[[length(S$rows) + 1L]] <- list(
+                    seps, parent, error, templates = NULL) {
+  S$nrows <- S$nrows + 1L
+  assign(as.character(S$nrows), list(
     kind = kind, start = start, end = end, bstart = bstart, expr = expr,
     classes = classes, keys = keys, id = id, arms = arms, seps = seps,
-    parent = parent, error = if (length(error)) paste(error, collapse = "\n") else NA_character_
-  )
-  length(S$rows)
+    templates = templates, parent = parent, error = if (length(error)) paste(error, collapse = "\n") else NA_character_
+  ), envir = S$rows)
+  S$nrows
 }
+
+get_row <- function(S, k) get(as.character(k), envir = S$rows, inherits = FALSE)
 
 named_chr <- function(values, names) {
   stats::setNames(as.character(values), as.character(names))
@@ -541,7 +630,7 @@ named_chr <- function(values, names) {
 # The nearest enclosing span that is a governor or marker, for `n="."`.
 enclosing_governor <- function(S, parent) {
   while (!is.na(parent)) {
-    r <- S$rows[[parent]]
+    r <- get_row(S, parent)
     if (r$kind %in% c("n", "if", "sign", "cite")) return(r$kind)
     parent <- r$parent
   }
@@ -565,7 +654,7 @@ scan_seq <- function(S, from, to, parent) {
       c,
       "\\" = p + 2L,
       "<" = {
-        ce <- comment_end(S, p)
+        ce <- angle_end(S, p)
         if (is.na(ce)) p + 1L else ce + 1L
       },
       "`" = handle_code(S, p, parent, FALSE),
@@ -595,17 +684,44 @@ scan_math <- function(S, p, m, parent) {
   m + 1L
 }
 
-handle_code <- function(S, p, parent, in_math) {
+# Inline R in a link target is evaluated by knitr, so it is read (1.1.8).
+scan_target <- function(S, from, to, parent) {
+  i <- from
+  while (i <= to) {
+    p <- next_special(S, i)
+    if (p > to) break
+    if (S$chars[p] == "\\") {
+      i <- p + 2L
+    } else if (S$chars[p] == "`") {
+      cs <- code_span(S, p)
+      if (!cs$ok || cs$close_end > to + 1L) {
+        i <- cs$open_end + 1L
+      } else {
+        i <- handle_code(S, p, parent, FALSE, TRUE)
+      }
+    } else {
+      i <- p + 1L
+    }
+  }
+  invisible()
+}
+
+handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   cs <- code_span(S, p)
   if (!cs$ok) return(cs$open_end + 1L)
   cstart <- cs$open_end + 1L
   cend <- cs$close_start - 1L
   content <- if (cend >= cstart) paste(S$chars[cstart:cend], collapse = "") else ""
-  # CommonMark strips one space from each side of a code span that has both
-  if (grepl("^ .*[^ ].* $|^ [^ ] $", content)) content <- substr(content, 2L, nchar(content) - 1L)
-  mm <- regmatches(content, regexec("^(r|\\{r\\})([ \t\r\n])", content))[[1]]
+  # What knitr evaluates: `r ` or `r#` straight after the backtick, with no
+  # padding stripped (1.1.8); `{r} ` is the Quarto form.
+  mm <- regmatches(content, regexec("^(r|\\{r\\})([ #\t\r\n])", content))[[1]]
   if (!length(mm)) return(cs$close_end + 1L)
-  expr <- trimws(substring(content, nchar(mm[1]) + 1L))
+  if (!(mm[3] %in% c("\r", "\n") ||
+        (mm[2] == "r" && mm[3] %in% c(" ", "#")) ||
+        (mm[2] != "r" && mm[3] %in% c(" ", "\t")))) {
+    return(cs$close_end + 1L)
+  }
+  expr <- trim_ws(substring(content, nchar(mm[1]) + 1L))
   newline <- mm[3] %in% c("\r", "\n")
   after <- cs$close_end + 1L
   blk <- parse_block(S, after)
@@ -630,6 +746,10 @@ handle_code <- function(S, p, parent, in_math) {
     bstart <- after
     errs <- c(errs, block_errors(S, blk, "value"))
     if (in_math) errs <- c(errs, "An attribute block inside math is an error (rule 5.2.6).")
+    if (in_target) {
+      errs <- c(errs, paste0("An attribute block on inline R in a link target is ",
+                             "an error; bind the value to a name or move it out of the link."))
+    }
     if (blk$ok) {
       lc <- lower_keys(blk$names)
       classes <- blk$classes
@@ -651,7 +771,19 @@ handle_bracket <- function(S, p, parent) {
   if (nx <= S$n && S$chars[nx] == "(") {
     inner(parent)
     t <- target_end(S, nx)
-    return(if (is.na(t)) close + 1L else t + 1L)
+    if (is.na(t)) return(close + 1L)
+    scan_target(S, nx + 1L, t - 1L, parent)
+    # a weft key on a link is an error (1.9.1)
+    lb <- parse_block(S, t + 1L)
+    if (!is.null(lb) && (!lb$ok || any(lower_keys(lb$names) %in% WEFT_KEYS))) {
+      add_row(S, "link", p, lb$end, t + 1L, NA_character_, character(),
+              named_chr(character(), character()), NA_character_, NULL, integer(),
+              parent, paste0(
+                "A weft key on a link is an error (rule 1.9.1); put the link ",
+                "inside a span, `[[text](url)]{...}`."))
+      return(lb$end + 1L)
+    }
+    return(t + 1L)
   }
   blk <- parse_block(S, nx)
   if (is.null(blk)) {
@@ -671,7 +803,7 @@ handle_bracket <- function(S, p, parent) {
       NA_character_
     }
   } else {
-    kind <- blk$gkey
+    kind <- if (blk$gkey %in% GOVERNOR_KEYS) blk$gkey else "text"
   }
   if (is.na(kind)) {
     inner(parent)
@@ -693,10 +825,12 @@ handle_bracket <- function(S, p, parent) {
     id <- blk$id
   }
   arms <- NULL
+  templates <- NULL
   seps <- integer()
   if (kind %in% c("n", "if", "sign", "cite")) {
     sp <- split_arms(S, p + 1L, close - 1L)
     arms <- sp$arms
+    templates <- sp$templates
     seps <- sp$seps
     if (kind != "cite") {
       allowed <- list(n = 1:4, `if` = 1:2, sign = 2:3)[[kind]]
@@ -711,7 +845,7 @@ handle_bracket <- function(S, p, parent) {
         "An unescaped arm separator in a pipe-table cell (rule 1.5.13); write `\\|`."))
     }
     if (blk$ok && !is.na(expr) && kind != "cite") {
-      if (kind == "n" && identical(trimws(expr), ".")) {
+      if (kind == "n" && identical(trim_ws(expr), ".")) {
         if (!identical(enclosing_governor(S, parent), "n") &&
             !identical(enclosing_governor(S, parent), "sign")) {
           errs <- c(errs, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")
@@ -723,7 +857,7 @@ handle_bracket <- function(S, p, parent) {
     }
   }
   idx <- add_row(S, kind, p, blk$end, nx, expr, classes, keys, id, arms, seps,
-                 parent, errs)
+                 parent, errs, templates)
   inner(idx)
   blk$end + 1L
 }
@@ -731,8 +865,8 @@ handle_bracket <- function(S, p, parent) {
 # ---- results ------------------------------------------------------------
 
 finish_scan <- function(S) {
-  rows <- S$rows
-  nr <- length(rows)
+  nr <- S$nrows
+  rows <- lapply(seq_len(nr), function(k) get_row(S, k))
   col <- function(f, type) {
     if (nr == 0L) return(type[0])
     vapply(rows, f, FUN.VALUE = type)
@@ -758,6 +892,7 @@ finish_scan <- function(S) {
     keys = lapply(rows, function(r) r$keys),
     id = col(function(r) as.character(r$id), ""),
     arms = lapply(rows, function(r) r$arms),
+    arm_templates = lapply(rows, function(r) r$templates),
     parent = parent,
     arm = arm,
     error = col(function(r) as.character(r$error), ""),
@@ -767,6 +902,7 @@ finish_scan <- function(S) {
     out$classes <- list()
     out$keys <- list()
     out$arms <- list()
+    out$arm_templates <- list()
   }
   structure(out, class = "data.frame", row.names = seq_len(nr))
 }
@@ -790,22 +926,53 @@ scan_file <- function(path, config = NULL) {
   }
   text <- rawToChar(bytes)
   Encoding(text) <- "UTF-8"
+  if (!validUTF8(text)) {
+    weft_abort(sprintf("%s is not valid UTF-8; save the file as UTF-8.", path),
+               "weft_encoding_error")
+  }
   text <- gsub("\r\n", "\n", text, fixed = TRUE)
   text <- blank_front_matter(text)
   scan_text(text, file = path, config = config)
 }
 
-# Replace a leading YAML block with spaces, keeping every line break so that
-# offsets and lines stay those of the file.
+# Replace each YAML metadata block with spaces, keeping every line break so
+# that offsets and lines stay those of the file. Like Pandoc, a block opens
+# with a `---` line at the start or after a blank line, followed by a line
+# that is not blank, and closes at the next `---` or `...` line. Fenced
+# blocks are left alone.
 blank_front_matter <- function(text) {
-  m <- regexpr("^---[ \t]*\n", text)
-  if (m != 1L) return(text)
-  rest <- substring(text, attr(m, "match.length") + 1L)
-  c <- regexpr("(^|\n)(---|\\.\\.\\.)[ \t]*(\n|$)", rest)
-  if (c == -1L) return(text)
-  stop_at <- attr(m, "match.length") + c + attr(c, "match.length") - 1L
-  head <- substr(text, 1L, stop_at)
-  paste0(gsub("[^\n]", " ", head), substring(text, stop_at + 1L))
+  if (!nzchar(text)) return(text)
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
+  n <- length(lines)
+  is_blank <- function(l) !nzchar(trim_ws(l))
+  fence <- NULL
+  k <- 1L
+  while (k <= n) {
+    l <- lines[k]
+    if (!is.null(fence)) {
+      if (grepl(fence, l, perl = TRUE)) fence <- NULL
+      k <- k + 1L
+      next
+    }
+    fm <- regmatches(l, regexec("^[ \t]*(`{3,}|~{3,})", l))[[1]]
+    if (length(fm)) {
+      fence <- paste0("^[ \t]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
+      k <- k + 1L
+      next
+    }
+    if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
+        k < n && !is_blank(lines[k + 1L])) {
+      j <- k + 1L
+      while (j <= n && !grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[j])) j <- j + 1L
+      if (j <= n) {
+        lines[k:j] <- gsub("[^\n]", " ", lines[k:j])
+        k <- j + 1L
+        next
+      }
+    }
+    k <- k + 1L
+  }
+  paste0(paste(lines, collapse = "\n"), if (endsWith(text, "\n")) "\n" else "")
 }
 
 # Mask every construct's code and attribute block (rule 2.10.5): one letter,

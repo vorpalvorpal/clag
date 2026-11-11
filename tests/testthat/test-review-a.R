@@ -55,8 +55,8 @@ test_that("review A #4 / ruling: wholeness is judged absolutely, to 1e-9 (1.4.13
   expect_equal(txt(fmt_num(3)), "3")                       # control
   expect_equal(txt(fmt_num(1e10 + 0.3)), "10,000,000,000.3")
   expect_equal(txt(fmt_num(123456789012.3)), "123,456,789,012.3")
-  expect_equal(txt(fmt_num(1e-10)), "0.0")
-  expect_equal(txt(fmt_no(1e-10)), "0.0")
+  expect_equal(txt(fmt_num(1e-6)), "0.0")
+  expect_equal(txt(fmt_no(1e-6)), "0.0")
   expect_equal(txt(fmt_no(0)), "no")
 })
 
@@ -361,4 +361,13 @@ test_that("review A ruling: apply_formatters(governor = TRUE) runs stages i and 
   conf$governor_class <- ".word"
   expect_equal(txt(af(3, character(), config = conf, governor = TRUE)), "three")
   expect_equal(txt(af(3, ".em", config = conf, governor = TRUE)), "three")
+})
+
+# Added by the orchestrator when ruling on the fixer's report.
+test_that("review A, 1.5.12: a backslash before # is removed, then # is read", {
+  ph <- "\ue001"
+  r <- weft:::scan_text("[a \\# b | c \\## d]{n=\"k\"}")
+  expect_identical(r$arm_templates[[1]], c(paste0("a ", ph, " b"), "c # d"))
+  expect_identical(as.character(plural(3, "\\# x")), "3 x")
+  expect_identical(as.character(plural(3, "\\## x")), "# x")
 })

@@ -40,7 +40,8 @@ formatter_classes <- function(reg = list()) {
 
 # ---- the printed record -------------------------------------------------
 
-new_weft_text <- function(text, number = NULL, decimals = NULL, relation = NULL) {
+new_weft_text <- function(text, number = NULL, decimals = NULL, relation = NULL,
+                          raw = NULL) {
   text <- as.character(text)
   n <- length(text)
   structure(
@@ -48,7 +49,8 @@ new_weft_text <- function(text, number = NULL, decimals = NULL, relation = NULL)
     class = c("weft_text", "character"),
     number = number %||% rep(NA_real_, n),
     decimals = decimals %||% rep(FALSE, n),
-    relation = relation %||% rep("=", n)
+    relation = relation %||% rep("=", n),
+    raw = raw %||% rep(NA_real_, n)
   )
 }
 
@@ -77,7 +79,10 @@ construct_error <- function(msg) weft_abort(msg, "weft_construct_error")
 # value of length zero.
 check_present <- function(x, what = "A formatter") {
   if (length(x) == 0L) no_value_error(what)
-  if (is.list(x)) return(invisible(x))
+  if (is.list(x)) {
+    for (el in x) check_present(el, what)
+    return(invisible(x))
+  }
   bad <- if (is.numeric(x)) !is.finite(x) else is.na(x)
   if (any(bad)) no_value_error(what)
   invisible(x)
@@ -90,20 +95,37 @@ group_int <- function(digits, mark) {
   gsub("(\\d)(?=(\\d{3})+$)", paste0("\\1", mark), digits, perl = TRUE)
 }
 
-is_whole <- function(v) abs(v - round(v)) <= 1e-9 * max(1, abs(v))
+is_whole <- function(v) abs(v - round(v)) < 1e-9
+
+# Round half away from zero on the decimal number as written (the double is
+# first read to 15 significant digits, so 0.15 is 0.15 and not 0.1499...).
+round_half_away <- function(x, nd) {
+  if (x == 0) return(0)
+  sgn <- sign(x)
+  a <- abs(x)
+  if (nd >= 0) {
+    y <- a * 10^nd
+    if (!is.finite(y)) return(x)
+    r <- floor(signif(y, 15) + 0.5) / 10^nd
+  } else {
+    p <- 10^(-nd)
+    r <- floor(signif(a / p, 15) + 0.5) * p
+  }
+  sgn * r
+}
 
 # One number printed by rule 1.4.13: returns text, the number as printed and
 # whether decimals show.
 print_one <- function(v, digits, sigfig, cfg) {
   if (!is.null(sigfig)) {
-    s <- signif(v, sigfig)
+    s <- if (v == 0) 0 else round_half_away(v, sigfig - 1L - floor(log10(abs(v))))
     nd <- if (s == 0) sigfig - 1L else max(sigfig - 1L - floor(log10(abs(s))), 0L)
   } else if (!is.null(digits)) {
     nd <- as.integer(digits)
-    s <- round(v, nd)
+    s <- round_half_away(v, nd)
   } else {
     nd <- if (is_whole(v)) 0L else as.integer(cfg$digits)
-    s <- round(v, nd)
+    s <- round_half_away(v, nd)
   }
   str <- sprintf(paste0("%.", nd, "f"), abs(s))
   num <- as.numeric(str)
@@ -152,13 +174,15 @@ format_numbers <- function(value, class, keys, cfg) {
   new_weft_text(
     vapply(res, `[[`, "", "text"),
     number = vapply(res, `[[`, 0, "number"),
-    decimals = vapply(res, `[[`, NA, "decimals")
+    decimals = vapply(res, `[[`, NA, "decimals"),
+    raw = as.numeric(value)
   )
 }
 
 sci_one <- function(v, digits, sigfig, cfg) {
   e <- if (v == 0) 0 else floor(log10(abs(v)))
-  m <- if (v == 0) 0 else v / 10^e
+  # 10^e is split in two so that a denormal number does not underflow
+  m <- if (v == 0) 0 else (v / 10^(e %/% 2)) / 10^(e - e %/% 2)
   p <- print_one(m, digits, sigfig, cfg)
   if (abs(p$number) >= 10) {
     e <- e + 1
@@ -167,7 +191,7 @@ sci_one <- function(v, digits, sigfig, cfg) {
   exp_txt <- if (e < 0) paste0(cfg$minus, abs(e)) else as.character(e)
   list(
     text = paste0(p$text, " \u00d7 10^", exp_txt, "^"),
-    number = p$number * 10^e,
+    number = (p$number * 10^(e %/% 2)) * 10^(e - e %/% 2),
     decimals = p$decimals
   )
 }
@@ -198,8 +222,10 @@ spell_int <- function(n) {
 }
 
 ordinal_suffix <- function(n) {
-  last2 <- n %% 100
-  last <- n %% 10
+  # from the printed digits, so a very large number does not lose accuracy
+  ds <- sprintf("%.0f", n)
+  last2 <- as.integer(substring(ds, max(nchar(ds) - 1L, 1L)))
+  last <- last2 %% 10L
   if (last2 %in% 11:13) "th"
   else if (last == 1) "st"
   else if (last == 2) "nd"
@@ -211,15 +237,29 @@ ordinal_suffix <- function(n) {
 
 # Format `value` by the classes and renderer keys of a construct (1.4.1).
 # `keys` is a named list or character vector of renderer keys. The knitr
-# resolver of a later package calls this too. Returns a weft_text.
+# resolver of a later package calls this too. Returns a weft_text. With
+# `governor = TRUE` only stages i and ii run, and a construct with no
+# formatter class, `digits` or `sigfig` uses `config$governor_class`
+# (1.5.7, 1.5.18).
 apply_formatters <- function(value, classes = character(), keys = list(),
-                             config = current_config()) {
+                             config = current_config(), governor = FALSE) {
   cfg <- config
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
   keys <- as.list(keys)
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
+
+  if (governor) {
+    has_fmt <- any(!is.na(class_group(classes, reg))) || ".no" %in% classes ||
+      !is.null(keys$digits) || !is.null(keys$sigfig)
+    if (!has_fmt) classes <- c(classes, cfg$governor_class)
+  }
+
+  proj <- function(stage) {
+    nm <- intersect(classes, names(reg))
+    nm[vapply(nm, function(k) identical(reg[[k]][["stage"]] %||% "number", stage), NA)]
+  }
 
   # construct errors that need no value
   grp <- class_group(classes, reg)
@@ -238,24 +278,33 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     construct_error(sprintf("The class `%s` is not built yet.", nb[1]))
   }
   if (!is.null(keys$trunc)) construct_error("The key `trunc` is not built yet.")
+  unit_cls <- intersect(classes, c(".pct", ".sci"))
+  wording_cls <- c(intersect(classes, WORDING_CLASSES), proj("wording"))
+  if (length(unit_cls) && length(wording_cls)) {
+    construct_error(sprintf(
+      "`%s` with `%s` in one construct is an error: the wording class would drop what `%s` prints (rule 1.4.1).",
+      unit_cls[1], wording_cls[1], unit_cls[1]))
+  }
 
   what <- "A formatter"
   if (!inherits(value, "weft_text")) check_present(value, what)
   if (is.factor(value)) value <- as.character(value)
 
-  proj <- function(stage) {
-    nm <- intersect(classes, names(reg))
-    nm[vapply(nm, function(k) identical(reg[[k]][["stage"]] %||% "number", stage), NA)]
-  }
-
-  # stage i: number
+  # stage i: number. `digits` or `sigfig` imply `.num` (1.4.7).
   ncls <- c(intersect(classes, c(".num", ".pct", ".sci")), proj("number"))
+  if (!length(ncls) && (!is.null(keys$digits) || !is.null(keys$sigfig))) {
+    ncls <- ".num"
+  }
   rec <- NULL
   if (length(ncls)) {
     cls <- ncls[1]
     if (inherits(value, "weft_text")) {
-      num <- attr(value, "number")
-      if (anyNA(num)) value_error("A number formatter needs a number, and this value has none.")
+      # a number formatter formats the raw value afresh (1.7.8)
+      num <- attr(value, "raw")
+      if (is.null(num)) num <- attr(value, "number")
+      if (!is.numeric(num) || anyNA(num)) {
+        value_error("A number formatter needs a number, and this value has none.")
+      }
       value <- num
     }
     if (!is.numeric(value)) {
@@ -278,6 +327,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   number <- attr(rec, "number")
   decimals <- attr(rec, "decimals")
   relation <- attr(rec, "relation")
+  raw <- attr(rec, "raw") %||% rep(NA_real_, length(text))
 
   # stage ii: wording
   is_no <- rep(FALSE, length(text))
@@ -285,14 +335,13 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     is_no <- !is.na(number) & number == 0 & !decimals & relation == "="
     text[is_no] <- "no"
   }
-  wcls <- c(intersect(classes, WORDING_CLASSES), proj("wording"))
-  if (length(wcls)) {
-    w <- wcls[1]
+  if (length(wording_cls)) {
+    w <- wording_cls[1]
     if (w %in% names(reg)) {
       text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL))
     } else {
       chk <- !is_no
-      bad <- chk & (is.na(number) | relation != "=" |
+      bad <- chk & (is.na(number) | relation != "=" | decimals %in% TRUE |
                       (!is.na(number) & (number < 0 | number != round(number))))
       if (any(bad)) {
         value_error(sprintf(
@@ -313,31 +362,39 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
 
-  # stage iii: collapse
-  ccls <- c(intersect(classes, c(".and", ".or")), proj("collapse"))
-  if (length(ccls)) {
-    cl <- ccls[1]
-    if (cl %in% names(reg)) {
-      text <- as.character(apply_project(reg[[cl]], text, NULL))
-      text <- text[1]
-    } else {
-      sep <- keys$sep %||% ", "
-      last <- keys$last %||% (if (cl == ".and") " and " else " or ")
-      text <- as.character(glue_vec(text, sep = sep, last = last))
+  if (!governor) {
+    # stage iii: collapse
+    ccls <- c(intersect(classes, c(".and", ".or")), proj("collapse"))
+    if (length(ccls)) {
+      cl <- ccls[1]
+      if (cl %in% names(reg)) {
+        text <- as.character(apply_project(reg[[cl]], text, NULL))
+        text <- text[1]
+      } else {
+        sep <- keys$sep %||% ", "
+        last <- keys$last %||% (if (cl == ".and") " and " else " or ")
+        text <- as.character(glue_vec(text, sep = sep, last = last))
+      }
+      number <- NA_real_
+      decimals <- FALSE
+      relation <- "="
+      raw <- NA_real_
     }
-    number <- NA_real_
-    decimals <- FALSE
-    relation <- "="
+
+    # stage iv: text (an empty string stays empty, 1.2.6)
+    wrap <- function(text, mark) {
+      nz <- nzchar(text)
+      text[nz] <- paste0(mark, text[nz], mark)
+      text
+    }
+    if (".em" %in% classes) text <- wrap(text, "*")
+    if (".strong" %in% classes) text <- wrap(text, "**")
+    for (nm in proj("text")) {
+      text <- as.character(apply_project(reg[[nm]], text, NULL))
+    }
   }
 
-  # stage iv: text
-  if (".em" %in% classes) text <- paste0("*", text, "*")
-  if (".strong" %in% classes) text <- paste0("**", text, "**")
-  for (nm in proj("text")) {
-    text <- as.character(apply_project(reg[[nm]], text, NULL))
-  }
-
-  new_weft_text(text, number, decimals, relation)
+  new_weft_text(text, number, decimals, relation, raw)
 }
 
 spell_or <- function(n, fallback) {
@@ -353,9 +410,9 @@ apply_project <- function(spec, x, number_source) {
   if (inherits(out, "weft_text")) return(out)
   if (!is.character(out)) out <- as.character(out)
   if (!is.null(number_source)) {
-    new_weft_text(out)
+    new_weft_text(out, raw = if (is.numeric(number_source) && length(number_source) == length(out)) as.numeric(number_source))
   } else if (inherits(x, "weft_text")) {
-    new_weft_text(out, attr(x, "number"), attr(x, "decimals"), attr(x, "relation"))
+    new_weft_text(out, attr(x, "number"), attr(x, "decimals"), attr(x, "relation"), attr(x, "raw"))
   } else {
     out
   }
@@ -540,6 +597,10 @@ plural <- function(n, ...) {
     if (length(n) != 1L) {
       value_error("plural() needs a single number; write `length(x)` to count a vector.")
     }
+    if (anyNA(attr(n, "number"))) {
+      value_error(paste0("plural() needs a number, and this value has none; ",
+                         "write `length(x)` to count items."))
+    }
     rec <- n
   } else {
     if (length(n) == 0L) no_value_error("plural()")
@@ -553,7 +614,7 @@ plural <- function(n, ...) {
       value_error(paste0("plural() needs a single number, not a ", class(n)[1],
                          "; write `length(x)` to count items."))
     }
-    rec <- apply_formatters(n, cfg$governor_class, list(), cfg)
+    rec <- apply_formatters(n, character(), list(), cfg, governor = TRUE)
   }
   i <- choose_arm_n(rec, k)
   resolve_arm(arms[i], as.character(rec)[1])

@@ -17,6 +17,7 @@ Imports:
     units,
     yaml
 Suggests:
+    pkgload,
     quarto,
     rmarkdown,
     testthat (>= 3.0.0),
