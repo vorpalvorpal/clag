@@ -11,14 +11,17 @@ Newest state first. Read this before anything else after a context reset.
   `dev/design-1a.md`.
 - `Rscript file.R` is blocked on battery by a hook; append `# battery-ok`.
 
-## State (03:10, 12 Nov)
+## State (05:00, 12 Nov)
 
 | Step | State |
 |---|---|
-| **Stage 1a, the kernel** | **Done.** 365 tests pass under rmarkdown and Quarto; `devtools::check()` gives 0 errors, 0 warnings, 2 notes (clock; `cli` and `units` imported but not yet used). Two independent reviews (`dev/review-1a-A.md`, `dev/review-1a-B.md`), 45 findings fixed with a regression test each. Package C (filter, `use_quarto()`, book report, freeze) has tests but has not had its own independent review |
-| Trials on two real documents | Done. `dev/field-notes.md`; six taste items under "for Robin" in `dev/decisions.md`. Trial files are in `dev/trials/` (not committed); the symlinks into the waterways project were removed because they broke `R CMD build` (list in `dev/trials/chapter/SYMLINKS-removed.txt`) |
-| Stage 1c (captions, `weft_str()`, front matter, ten trial bugs), moved ahead of 1b | contract in `dev/design-1c.md`; test-writer running, writing into `tests/testthat/_1c/` |
-| 1b, 1d, 1e, stages 2 to 4 | not started |
+| Stage 1a, the kernel | Done, reviewed twice, check clean |
+| Trials on two real documents | Done: `dev/field-notes.md` |
+| Stage 1c (captions, `weft_str()`, front matter, ten trial bugs) | Built and committed; 422 tests pass. Independent review running from a snapshot (covers the Quarto side of 1a too); report will be `dev/review-1c.md`. `R CMD check` on that commit running. One known fault to fix in the review round: bare inline R in a caption is evaluated, and stock leaves it literal (ruling at the end of `dev/design-1c.md`) |
+| Stages 1b and 1d (contract `dev/design-1b.md`) | 185 failing tests committed in `tests/testthat/`; implementer running. Older tests that assert "not built yet" for these names are superseded: delete them when the implementer lists them |
+| `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
+| 1e, stages 2 to 4 | not started |
+| Usage | weekly window 78% at 04:50. Plan: stop dispatching near 90% |
 
 ## How to run things
 
@@ -28,9 +31,9 @@ Newest state first. Read this before anything else after a context reset.
 
 ## Next
 
-1. 1c: move tests up, confirm they fail for the right reason, commit,
-   implementer (sonnet), reviewer (opus) covering 1c and package C together.
-2. 1b: design note, then the same cycle. Order inside 1b from the trials:
-   `.p`, `.range`, `.cap`, `sign`, ids, then `.a`, `lookup()`, `brk()`,
-   `cite`, `.weft-literal`.
-3. Then 1d, 1e, and stages 2 to 4 as far as the usage allows.
+1. 1b implementer reports: rule on disputes, delete superseded tests, run
+   the suite, commit.
+2. 1c review reports: rule, regression test-writer, fixer (the fixer runs
+   after the 1b implementer, both touch `R/`).
+3. Review of 1b+1d (opus), then its fix round. Run `devtools::check()`.
+4. 1e (`arms()`, `rehearse()`), then stage 2 if usage allows.
