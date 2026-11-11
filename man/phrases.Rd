@@ -60,7 +60,8 @@ false. The default tolerance is the setting \code{about_tolerance}
 (0.05).
 \item \code{ci(est, lo, hi, level, digits, sigfig)} prints "2.1 (95\% CI 1.3 to
 2.9)". The default level is the setting \code{ci_level} (0.95).
-\item \code{pm(est, se, digits, sigfig)} prints "2.1 ± 0.3".
+\item \code{pm(est, se, digits, sigfig)} prints the estimate, a plus-minus sign
+and the standard error.
 \item \code{clamp(x, floor, ceiling)} prints the value as \code{.num} does inside the
 bounds, and "< floor" or "> ceiling" outside, with the relation of the
 printed record set (rule 3.5.4).

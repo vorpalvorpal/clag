@@ -61,7 +61,8 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #'   (0.05).
 #' * `ci(est, lo, hi, level, digits, sigfig)` prints "2.1 (95% CI 1.3 to
 #'   2.9)". The default level is the setting `ci_level` (0.95).
-#' * `pm(est, se, digits, sigfig)` prints "2.1 ± 0.3".
+#' * `pm(est, se, digits, sigfig)` prints the estimate, a plus-minus sign
+#'   and the standard error.
 #' * `clamp(x, floor, ceiling)` prints the value as `.num` does inside the
 #'   bounds, and "< floor" or "> ceiling" outside, with the relation of the
 #'   printed record set (rule 3.5.4).
@@ -179,7 +180,7 @@ pm <- function(est, se, digits = NULL, sigfig = NULL) {
   cfg <- current_config()
   pe <- print_num(est, digits, sigfig, cfg)
   ps <- print_num(se, digits, sigfig, cfg)
-  as_phrase(new_weft_text(paste0(as.character(pe), " ± ", as.character(ps)),
+  as_phrase(new_weft_text(paste0(as.character(pe), " \u00b1 ", as.character(ps)),
                           number = attr(pe, "number"), decimals = attr(pe, "decimals"),
                           relation = "=", raw = est))
 }

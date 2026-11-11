@@ -351,7 +351,7 @@ collapse_range <- function(text, number, cfg) {
   }
   if (identical(text[1L], text[2L])) return(text[1L])
   neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus))
-  paste0(text[1L], if (neg) " to " else "–", text[2L])
+  paste0(text[1L], if (neg) " to " else "\u2013", text[2L])
 }
 
 # `.and`, `.or` and `.pairs` with `trunc` (1.4.7): the first `k` items, then
