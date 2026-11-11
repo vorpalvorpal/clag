@@ -95,3 +95,46 @@ after (3.7.2), in a project with `_weft.yml` too.
   copy, with `_weft.yml` and `_quarto.yml`. A bibliography given relative
   to the project root is not staged, so a `cite` span in a rehearsed
   `.qmd` can report an unknown key (in `dev/open-findings.md`).
+
+## Rulings on the review of stage 1e (`dev/review-1e.md`)
+
+Findings 1 to 13 are accepted as the reviewer states them, with these
+particulars:
+
+- **1.** In a rehearsal no chunk is cached, wherever the chunk sits and
+  however its cache was set: the child turns the cache off before the knit
+  starts, not from `weft_setup()`.
+- **2 to 5.** A choice is credited to the span that made it. The knit's
+  record of a governed span carries what is needed to identify it (its
+  context, chunk and option for a caption, its place among the spans of
+  its line), and `rehearse()` matches on that, never on evaluation order
+  alone. Front-matter and literal `weft_str()` spans are matched.
+- **6.** A `.qmd` is knitted with the document's own folder as the working
+  directory, so relative reads and `child=` work as in a render.
+- **7.** `params` defaults are evaluated in the child, in the document's
+  folder. The check for unknown names reads the names only and evaluates
+  no `!r` expression in the caller's session. A default that cannot be
+  evaluated stops that case with the error.
+- **8, c.** `chosen` has a row for every governed span the case evaluated;
+  `arm` and `role` are `NA` when it chose none. Such a span is not in
+  `unevaluated`.
+- **9.** A case named after a column of the result (`file`, `line`,
+  `context`, `span`, `key`, `expr`, `arm`, `role`, `text`, `parent_span`,
+  `parent_arm`, `reached`) is an error before anything runs.
+- **10.** The child is started in the project root (the nearest folder
+  upward holding `_weft.yml` or `_quarto.yml`, else the document's folder)
+  and reads that folder's `.Rprofile`, as a render does; it is not
+  `--vanilla`. The knit's working directory is still the document's.
+- **11.** A span that is a construct error in its language (1.6.4, 1.6.5)
+  goes in `errors` and has no rows.
+- **12, 13.** Accepted.
+- **a.** `arms()` lists the spans of the files it is given; a child
+  document is listed when it is given. `rehearse()` reports the spans of
+  the file rehearsed. Stated in the help pages; left.
+- **b.** One row per span and case: the last choice. Left.
+- **d.** Case values are not type-checked. Left.
+- **e.** An empty `cases` is an error. Left.
+- **f.** `r$arms` keeps the class `weft_arms`, the `errors` attribute and
+  the `file` values of `arms(file)`.
+- **g.** `execute-dir` is project metadata and is not read (the limits
+  already say so). Left.
