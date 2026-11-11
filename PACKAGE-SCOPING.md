@@ -366,7 +366,14 @@ three decimals ("p = 0.046", "p = 0.004", "p = 0.050"), any other with two
 
 **1.4.18** The minus sign weft prints is U+2212. In a knit to LaTeX weft
 declares the character for pdflatex, which has no definition for it; xelatex
-and lualatex set it already. A document needs nothing in its preamble.
+and lualatex set it already. It declares as well the other characters it can
+print for a unit that LaTeX does not set: the ohm sign (U+2126), the prime
+(U+2032) and double prime (U+2033), the micro sign (U+00B5) and the degree sign
+(U+00B0), for pdflatex and, where the default font lacks the glyph, for xelatex
+and lualatex. Under xelatex and lualatex the prime and double prime are set
+from Latin Modern Math through the LaTeX package `newunicodechar`, which a TeX
+installation that installs no packages by itself must have. A document needs
+nothing in its preamble.
 
 **1.4.19** A quantity's unit prints as its symbol or as its name (4.4.15), and
 the unit classes choose. `.uname` prints the name, `.usym` the symbol and
@@ -386,6 +393,11 @@ source, as are two unit classes, `.usym` with `.no`, `.word` or `.count`
 (1.4.2), and `.uname` under a `lang` that weft ships no words for (1.6.8).
 `.pct` is not a unit: `unit_form: name` leaves
 its "%" alone.
+
+**1.4.20** `.cap` never changes a unit's symbol, because the case of a symbol
+is its meaning: `fmt_cap(fmt_unit(u(5, mL)))` is "mL", not "ML". It capitalises
+a name: with `unit_form = "name"` the same call is "Millilitres". `.ord` on a
+quantity that has a unit is a value error.
 
 ### 1.5 Governed spans
 
@@ -1354,7 +1366,8 @@ a quantity (4.4.15), and the printed form of each element for a `weft_text`
 (3.4.4). Any other value, and `"symbol"` on `fmt_no()`, `fmt_word()` or
 `fmt_count()`, is a `weft_construct_error`; `"name"` is one too under a `lang`
 weft ships no words for (1.6.8). A value other than `"auto"` on a value with no
-unit is a value error (1.4.19). `plural()` takes no `unit_form`: write
+unit is a value error (1.4.19), and `fmt_ord()` on a quantity that has a unit
+is a value error (1.4.20). `plural()` takes no `unit_form`: write
 `plural(fmt_num(x, unit_form = "name"), "# ago")`.
 
 **3.4.9** `fmt_unit(x, unit_form = NULL, unit = NULL)` prints a unit alone, for
@@ -1590,7 +1603,8 @@ reach_len:
 `{unit="m"}` "2,000 m". Arithmetic, checks, `#`, `units::drop_units()` and the
 pipeline all see km. The `display` unit is registered as `unit` is (4.4.7).
 These are problems of the dictionary (4.2.6): `display` on another type, one
-that does not parse, and one that `unit` does not convert to. The `entries`
+that does not parse, one that `unit` does not convert to, and one that `units`
+reaches only by inverting the value (4.4.14). The `entries`
 attribute of the dictionary holds a `display` column, `NA` where an entry has
 none, and `print()` shows the display unit. An entry holds no form setting:
 the form is the reader's choice (4.4.15).
@@ -1647,6 +1661,8 @@ converted: `u(dict$core_len, cm)` is 50 cm. `u()` registers no unit. A unit
 the units database does not know, a unit the value does not convert to, a
 unit with a power that is not a whole number (`m^0.5`), a value that is not
 a number and a missing unit are each an error of class `weft_unit_error`.
+So is a unit that the `units` package reads as another unit, or misreads
+(4.4.20).
 
 **4.4.7** When it reads the dictionary, weft registers every unit symbol the
 units database does not know, with `units::install_unit()`. `PSU`, `NTU` and
@@ -1655,7 +1671,8 @@ object: the unit symbols the dictionary needs that the units database does
 not have are listed in the attribute `registered`, whoever installed them. A
 unit that cannot be parsed, or that `units` parses only with a warning, is a
 problem with the dictionary (4.2.6), not a new unit. A power that is not a
-whole number is a problem too. A key of the `units:` table (9.1.7) registers
+whole number is a problem too, and so is a unit that `units` reads as another
+unit or misreads (4.4.20). A key of the `units:` table (9.1.7) registers
 its unparseable tokens in the same way, when the configuration is read, before
 the dictionary.
 
@@ -1682,8 +1699,10 @@ or one factor, as written.
 
 **The space.** There is none before a unit whose whole symbol is `%`, `°`, `′`
 or `″` ("35%", "45°"). Before every other symbol there is a no-break space
-("20 °C"), and before every name. A `space:` in `units:` sets it for one unit,
-and a compound takes the space unless its own key says otherwise. What weft
+("20 °C"), and before every name. A `space:` in `units:` sets it for one unit's
+symbol only, and a compound takes the space unless its own key says otherwise;
+a name always has its space, so `space: false` never removes the space before a
+name. What weft
 derives is escaped as above; the text of a `units:` entry is markdown, printed
 as written.
 
@@ -1701,8 +1720,9 @@ in digits takes the unit's symbol ("5 m"). A number a wording class has
 spelled, and "no", take the unit's name ("five metres", "no metres"): a unit
 symbol belongs with a numeral, and a spelled number takes the name. The author
 writes neither; weft prints both. A number still in digits keeps the symbol:
-`.count` at or above its threshold, `.word` at or above its limit, and `.ord`,
-and so does a `.no` that prints a number ("2 m"). `.nounit` drops the unit
+`.count` at or above its threshold and `.word` at or above its limit, and so
+does a `.no` that prints a number ("2 m"). `.ord` on a quantity is a value
+error (1.4.20). `.nounit` drops the unit
 (1.4.19): `.word .nounit` on `u(3, m)` prints "three". The forms and the
 settings that change them are 4.4.15's.
 
@@ -1711,7 +1731,9 @@ form: "3–5 m", "3, 5 and 7 m". With `trunc` the last item is the last one
 printed: "3, 5 m and 2 others". Whatever the last item is, the unit follows it:
 `u(c(200, 5), m)` under `.word .and` prints "200 and five metres", and
 `.count .and` on `u(c(3, 12), m)` prints "three and 12 m". `.pairs`, `.ul`,
-`.ol` and `.dl` print the unit with every element, each in its own form. A
+`.ol` and `.dl` print the unit with every element, each in its own form. A collapse over spelled numbers takes the unit's name
+under `auto`: `.word .and` on `u(c(3, 5), m)` prints "three and five metres",
+and under `symbol` it is the value error of 4.4.15. A
 vector that no collapse class joins prints it with every element as well ("3 m,
 5 m"), as stock prints the vector; `.count` on `u(c(3, 12), m)` prints "three
 metres, 12 m".
@@ -1720,7 +1742,10 @@ metres, 12 m".
 under the span's classes, so it carries the unit in the form 4.4.2 gives: the
 symbol after digits, the name after a number a wording class has spelled. This
 holds whatever the governor is: a quantity, a formatter's text for a
-quantity, an id, `n="."`, a `sign` span, `plural()`. In a `list` span over
+quantity, an id, `n="."`, a `sign` span, `plural()`. `#` keeps the unit
+whatever classes or keys the span has: a back-reference and a formatter's text
+keep the quantity, number and unit, so `.word`, `digits`, `.uname`, `.nounit`
+and `unit=` on the span act on `#` as on the quantity itself. In a `list` span over
 quantities `#` is the collapsed list with the unit once after the last number
 (4.4.3), with or without a number class. The author does not write the unit
 in the arm: `[# was | # were]{n="dict$core_len"}` prints "5 m were", the
@@ -1757,7 +1782,12 @@ print in. The quantity is converted before anything else, so the number, the
 unit printed and the arm chosen are all in that unit: a value of 150 cm with
 `unit="m"` prints "1.5 m", and `[# is | # are]{n="x" unit="m"}` with `x` of
 100 cm prints "1 m is". A unit the quantity cannot be converted to, and
-`unit` on a value that is not a quantity, are value errors.
+`unit` on a value that is not a quantity, are value errors. So is a unit that
+`units` reaches only by inverting the value: `unit="1/m"` on a length and
+`unit="Hz"` on a time are refused, and an author who wants the reciprocal writes
+it in the expression. A conversion between two quotients is allowed:
+`L/(100*km)` to `km/L`. `display:` (4.2.7) follows the same rule, and is a
+problem of the dictionary.
 
 **4.4.15** A unit prints in one of two forms: its **symbol** ("5 m") or its
 **name** ("five metres"). The setting nearest the use decides the form: the
@@ -1780,8 +1810,9 @@ The number and a name are joined by a no-break space, as a symbol is, except
 before a symbol whose space is off (4.4.8). A value error under `symbol` says
 which class made the number a word, the form and where it was set, that a
 spelled number takes the name, and that `.uname`, `.nounit` or dropping the
-class would print: SI style has no "five m". A setting `unit_form` on a value
-with no unit changes nothing (1.4.19).
+class would print: SI style has no "five m". A unit that has no symbol, under `symbol`, prints its name with a spelled
+number and is no error: `u(5, year)` prints "5 years" under `.usym`. A setting
+`unit_form` on a value with no unit changes nothing (1.4.19).
 
 **4.4.16** A symbol never changes. A name is singular only when its number
 prints "1" or "one": 1 exactly, with no decimals, and the relation `=` (1.5.9).
@@ -1821,9 +1852,21 @@ when they resolve to the same prefix and row, or are the same unknown token:
 `metre` and `m` are one, and so are `year`, `years` and `yr`; `L` and `dm^3` are
 not.
 
-A token's name is the project's `name`, else the shipped name, else the
-database's singular name with `_` as a space, with a prefix name joined to it
-with nothing between ("kilometre"). Under a `lang` of `en-US` or `en_US`, in any
+A token's name is, in this order:
+
+1. the project's `name`;
+2. the shipped name;
+3. what the author typed, when it is a name or alias of the unit, with `_`
+   printed as a space and the plural from the database's alias plural, else
+   the English rule: `u(3, knot)` is "3 knots", `u(2, light_year)` is "2 light
+   years";
+4. the database's singular name, only when it is one plain word ("pascal",
+   "gram"), with a prefix name joined to it with nothing between
+   ("kilometre").
+
+A technical name of the database (`international_knot`, `IT_calorie`,
+`US_liquid_cup`) is never printed: the unit has no name (4.4.19), and its symbol
+form prints as the author typed it. Under a `lang` of `en-US` or `en_US`, in any
 letter case, the en-US column applies; under any other English `lang`, or none,
 the other, with the prefix "deca" for "deka". The shipped table is in full:
 
@@ -1839,8 +1882,13 @@ the other, with the prefix "deca" for "deka". The shipped table is in full:
 | `′`, `″` | | | | | off |
 | `%` | per cent | percent | as the singular | | off |
 | `Hz`, `lx`, `S` | | | as the singular | | |
+| `knot`, `calorie`, `horsepower`, `ton`, `gallon`, `Btu` | knot, calorie, horsepower, ton, gallon, Btu | | | | |
+| `degF`, `degC` | degree Fahrenheit, degree Celsius | | | `°F`, `°C` | |
+| `mmHg` | millimetre of mercury | millimeter of mercury | | `mmHg` | |
 
-A blank cell takes the database's. The day, hour and minute (`d`, `h`, `min`)
+A blank cell takes the database's. A unit the table does not hold and whose
+database name is technical prints as the author typed it, by 4.4.17's third
+rule: `byte`, `cycle`, `revolution`, `cup` and `quart` print as typed. The day, hour and minute (`d`, `h`, `min`)
 are not in the table, so they print as symbols; a project that wants "5 days"
 writes `symbol: false` for `d` (9.1.7).
 
@@ -1856,8 +1904,11 @@ metres per second squared"; `u(3, kW*h)` is "3 kilowatt hours"; `u(2,
 `units:` is "2.5 sites per hectare". A whole-unit key of `units:` wins over the
 names of its factors.
 
-**4.4.19** A unit has no name when a factor is unknown with no `units:` entry,
-when the unit holds a number (`100` in `CFU/100 mL`), or when a power is not 1, 2
+**4.4.19** A unit has no name when a factor is unknown with no `units:` entry, when
+its only name in the database is technical and the author did not type a name
+(4.4.17), when its database row has no name (a row with a symbol and an empty
+name is never named by its symbol: `s` is not a name), when the unit holds a
+number (`100` in `CFU/100 mL`), or when a power is not 1, 2
 or 3 (a negative power with no numerator, such as `s^-2`, is one; `1/s` is "per
 second"). weft never guesses a name. A name that may print for a unit that has
 none is a value error, raised in a knit as a collected failure (5.3.2). It is
@@ -1868,6 +1919,14 @@ needs one even when every number in the vector prints in digits, and under
 with the data. The message names the unit as `units` writes it and says why it
 has no name, shows how to add it to `_weft.yml` under `units:` with a YAML
 example keyed by it (9.1.7), and offers `.usym` or `.nounit` instead.
+
+**4.4.20** weft refuses a unit that the `units` package reads as another unit,
+and one it misreads, because the number would print with a unit the author did
+not write. `u()` raises a `weft_unit_error` and `read_dict()` reports a problem
+(4.2.6), for the unit alone or inside a compound. A unit read as another unit:
+`Sv`, `Bq`, `Bd`, `VA`, `Mg`, `mt`, `ut`. A unit misread: `mph`, `pH`, `nmi`,
+`Ma`, `ka`, `gal`. The message says what `units` read and what to write: `Mg`
+is read as a tonne, so write `t`.
 
 ### 4.5 Decision pointers
 
@@ -2594,6 +2653,7 @@ units:
     space: true            # "35 %"
 ```
 
+`space` governs the symbol only; a name always has its space (4.4.8).
 `name` and `plural` are non-empty strings (`plural` alone re-plurals the name
 weft finds, 4.4.17), `symbol` is a non-empty string or `false`, and `space` is
 `true` or `false`. A `name` with no `plural` takes the English rule (4.4.16).
@@ -2605,13 +2665,15 @@ Its first line is ``weft: <file>: N problem(s) in `units:` ``, then one line eac
 ``<file>: units: `<key>`: <what> (rule 9.1.7)``. The problems are: `units` that
 is not a mapping; a key that does not parse, parses only with a warning, or has
 a power that is not whole; two keys for one unit; an entry that is not a mapping,
-or is empty; an unknown field, which is named; a field of the wrong type; and
-`symbol: false` on a unit with no name. A read with problems registers nothing.
+or is empty; an unknown field, which is named; a field of the wrong type; a key that is a
+number, cancels to nothing (`m/m`) or holds no unit; and `symbol: false` on a
+unit with no name. A read with problems registers nothing.
 A document's `weft: units:` is checked alike, naming the document, and its
 entry for a unit replaces the project's entry for that unit whole; the other
 units merge (9.1.1). After the read `u(3, sites)` works with no dictionary. Outside
 a knit the `units:` table of the last configuration read is used, and
-`unit_form` is not carried over.
+`unit_form` is not carried over. The table kept for that use is cleared at the
+start of every read, so a read that fails leaves none.
 
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
 when the hooks are installed.
@@ -2992,6 +3054,9 @@ group that is not a stage because they do not reword the number: they choose
 how the unit goes beside it. `.pct` is not a unit, so `unit_form: name` leaves
 its "%" alone.
 
+**1.4.20** A symbol's case is its meaning ("mL" and "ML" are different units),
+so a capital would change what is said. "5th m" has no reading.
+
 **1.4.10** This is what stock knitr does, and a formatter's own output is
 markdown. Escaping would break both.
 
@@ -3046,7 +3111,8 @@ up two are enough.
 
 **1.4.18** rmarkdown builds a PDF with pdflatex by default, and without the
 declaration every negative number stops the build with an error that does not
-name weft.
+name weft. The ohm, prime, double prime, micro and degree signs are the same
+case: a unit written with one stops the same build the same way.
 
 **1.5.1** The key says what kind of governor it is, and each key fixes its arm
 counts, so a wrong count is found from the source without running R.
@@ -3466,6 +3532,10 @@ same as `auto`. A name is singular only for a number that prints "1" or "one",
 the rule of arm choice (1.5.9), so that `trunc="1"` reads "1 metre and 2
 others", and "−1 metres" is plural.
 
+**4.4.14** A conversion that `units` makes by inverting the value (metres to
+"1/m") turns a length into a different quantity without a word of warning;
+a quotient to a quotient is a true conversion.
+
 **4.4.17** The units database's names are technical (`international_foot`,
 `tropical_year`, `metric_ton`), give the US spelling first, and have no
 invariant plurals, so a shipped table comes before it. A day, hour and minute print as
@@ -3474,6 +3544,12 @@ for it. weft never guesses a name for a unit it does not know (4.4.19).
 
 **4.4.18** The names follow NIST SP 811: "square metre" for a length and "metres
 per second squared" for anything else.
+
+**4.4.20** A unit that `units` reads as another prints a true number with a
+wrong unit, which weft cannot detect afterwards; the refusal is the only
+place to stop it. Saying what was read and what to write turns the error into a
+one-line fix. The lists are of units found to misread, and are pruned or grown
+as more are found.
 
 **4.4.19** An error that waited for a number that prints a word would arrive
 months after the document was written, on the day the count fell below the
@@ -4488,7 +4564,14 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   the default spaces, registration, every `units:` problem in one error, and
   `lang` `en-US` and another. `display:` on a dictionary entry: the conversion
   when read, its three problems, the `entries` column, `print()`, `unit=` over
-  it and `units::drop_units()`.
+  it and `units::drop_units()`. Which name a unit gets, in each of the four
+  steps of 4.4.17, and a technical or empty database name as a no-name error;
+  `#` over every class and key of a span; a collapse over spelled numbers; `.cap`
+  on a symbol and on a name; `.ord` on a quantity; `space:` on a name; a unit
+  with no symbol under `symbol`; a conversion by inversion refused and one
+  between quotients allowed, by `unit=` and `display:`; each unit `u()` and
+  `read_dict()` refuse, alone and in a compound, with the message; each `units:`
+  key problem; the table kept outside a knit cleared by a failed read.
 - **Condition matching.** The spike's recorded messages, each under two
   console widths, with and without `cli` Unicode.
 

@@ -11,7 +11,7 @@ Newest state first. Read this before anything else after a context reset.
   `dev/design-1a.md`.
 - `Rscript file.R` is blocked on battery by a hook; append `# battery-ok`.
 
-## State (05:00, 12 Nov)
+## State (12 Nov)
 
 | Step | State |
 |---|---|
@@ -27,7 +27,12 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 1i (`dev/design-1i.md`) | A number that prints as zero prints "0.0" and records a warned check: contract written, tests being written; replaces 1g's fallback |
 | `PACKAGE-SCOPING.md` | Amended for 1f to 1i in one commit (it states the 1i rule ahead of the code) |
 | `.Rprofile` activation and `use_setup()` (rest of 1c) | Not built: §22 holds them until the hooks have been run under the Render buttons (Q2) |
-| Stage 2 | `dev/design-2.md`: five packages (2a dictionary object, 2b printing quantities, 2c tooling, 2d ledger and condition log, 2e pipeline and `changes()`); full contracts for 2a and 2b, outlines for the rest. 2a tests being written |
+| Stage 2 | `dev/design-2.md`: five packages (2a dictionary object, 2b printing quantities, 2c tooling, 2d ledger and condition log, 2e pipeline and `changes()`); full contracts for 2a and 2b, outlines for the rest |
+| Stage 2a, the dictionary object | Built, reviewed, fixed and committed (1065cb0, b0347d9) |
+| Stage 2b, printing quantities | Built, reviewed, fixed and committed (ab902cd, 803c91a). `#` carries the unit and the `unit` key, by Robin's ruling of 12 November 2026 (1eaaeff) |
+| Stage 2f, unit names and unit settings (`dev/design-2f.md`) | Designed, built, reviewed (`dev/review-2f.md`), fixed and committed (5f2aec1, 898221a). Not in the original §22 order; added on Robin's approval. `PACKAGE-SCOPING.md` amended for it and for the rulings after its review |
+| Stages 2c, 2d, 2e | Not started |
+| Suite | 1,354 tests passing at 898221a |
 | Stages 0, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
 
@@ -39,10 +44,10 @@ Newest state first. Read this before anything else after a context reset.
 
 ## Next
 
-1. Stage 2 (dictionary, quantities, ledger, `changes()`): write
-   `dev/design-2.md` first, then the same cycle as stage 1 (tests from the
-   contract, a different implementer, an independent review, regression
-   tests, a fixer).
+1. Stage 2, the rest (2c tooling, 2d ledger and condition log, 2e pipeline and
+   `changes()`): the same cycle as stage 1 (contract in `dev/design-2.md`,
+   tests from it, a different implementer, an independent review, regression
+   tests, a fixer). 2a, 2b and 2f are done.
 2. The items in `dev/decisions.md` under "For Robin" and
    `dev/open-findings.md`.
 3. `.Rprofile` activation and `use_setup()`, once the hooks have been run
