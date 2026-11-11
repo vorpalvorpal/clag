@@ -97,8 +97,8 @@ test_that("1f claim level: a check that itself errors is a failure at the level 
 })
 
 test_that("1f claim level: level must be given by name, and any other level is an error", {
-  # "warn" in the position of a check is a check (a string, so not TRUE)
-  expect_error(claim(5, . > 1, "warn"), class = "weft_claim_failed")
+  # a bare "warn" is refused with a message that says to write `level = ` (review F #15)
+  expect_error(claim(5, . > 1, "warn"), class = "weft_claim_level")
   expect_error(claim(5, . > 1, level = "info"))
   expect_error(claim(5, . > 1, level = "WARN"))
   expect_error(claim(5, . > 1, level = 1))

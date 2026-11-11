@@ -45,6 +45,14 @@ claim <- function(x, ..., level = c("fail", "warn")) {
   empty <- vapply(seq_along(checks),
                   function(k) identical(checks[[k]], quote(expr = )), NA)
   checks <- checks[!empty]
+  # a bare "warn" or "fail" is a level written without its name (3.1.11)
+  for (ck in checks) {
+    if (is.character(ck) && length(ck) == 1L && ck %in% c("warn", "fail")) {
+      weft_abort(sprintf(paste0("`%s` is a check, not a level: `level` must be written by ",
+                                "name, `level = \"%s\"` (rule 3.1.11)."), ck, ck),
+                 "weft_claim_level")
+    }
+  }
   if (length(checks) == 0L) {
     weft_abort(paste0(
       "`claim(x)` has no check (rule 3.1.10); write the check as a second ",

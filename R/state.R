@@ -172,7 +172,8 @@ format_report <- function(fr) {
 #'     columns `kind`, `file`, `line`, `chunk`, `expr`, `detail`, `hint`,
 #'     `option` and `chunk_line`;
 #'   * `warnings`: the checks that were warned about by `claim(level =
-#'     "warn")`, in the same columns as `failures` (zero rows when there are
+#'     "warn")` and the numbers that "printed as zero" (kind "printed as
+#'     zero"), in the same columns as `failures` (zero rows when there are
 #'     none);
 #'   * `conditions`: a data frame of the warnings and messages that chunks and
 #'     inline code raised (`source`, `class`, `text` and `normalised`);

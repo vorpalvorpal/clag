@@ -690,6 +690,14 @@ block_errors <- function(S, blk, kind) {
                         intersect(cls, LIST_CLASSES)[1L], tx[1L]))
     }
   }
+  if (kind %in% c("n", "sign", "list") && "level" %in% lc) {
+    e <- c(e, sprintf("A `%s` span has no `level`; only `claim()` takes a level.", kind))
+  }
+  if (kind == "list" && any(cls %in% LIST_CLASSES)) {
+    e <- c(e, sprintf(paste0("`%s` makes a block, and the `#` of a `list` span is inline; ",
+                             "a block class cannot go on a `list` span (rule 1.5.19)."),
+                      intersect(cls, LIST_CLASSES)[1L]))
+  }
   if (!is.na(blk$id)) {
     if (kind == "text") {
       e <- c(e, "An `#id` on a text span is an error (rule 1.1.9).")
@@ -743,6 +751,8 @@ block_errors <- function(S, blk, kind) {
     } else if (!any(cls %in% c(COLLAPSE_CLASSES, names(S$reg)[vapply(
         S$reg, function(r) identical(r[["stage"]], "collapse"), NA)]))) {
       e <- c(e, "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (stage 1h).")
+    } else if (".range" %in% cls) {
+      e <- c(e, "The key `none` does not apply to `.range`: a range has two ends (stage 1h).")
     } else if (!nzchar(trim_ws(nv))) {
       e <- c(e, "The key `none` is empty; give the text to print for an empty value (stage 1h).")
     }

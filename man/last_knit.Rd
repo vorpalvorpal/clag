@@ -15,7 +15,8 @@ chosen and whether it was evaluated), or \code{NULL} when there was none;
 \item \code{failures}: a data frame of the failures, one row for each, with the
 columns \code{kind}, \code{file}, \code{line}, \code{chunk}, \code{expr}, \code{detail}, \code{hint},
 \code{option} and \code{chunk_line};
-\item \code{warnings}: the checks that were warned about by \code{claim(level = "warn")}, in the same columns as \code{failures} (zero rows when there are
+\item \code{warnings}: the checks that were warned about by \code{claim(level = "warn")} and the numbers that "printed as zero" (kind "printed as
+zero"), in the same columns as \code{failures} (zero rows when there are
 none);
 \item \code{conditions}: a data frame of the warnings and messages that chunks and
 inline code raised (\code{source}, \code{class}, \code{text} and \code{normalised});

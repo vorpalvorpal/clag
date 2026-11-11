@@ -115,7 +115,7 @@ local({
   }
   first_construct <- function(prose) {
     # a span: ]{ ... } holding a weft key (any letter case) or a text class
-    key  <- "\\]\\{([^}]*[[:space:]])?(n|if|sign|cite)[[:space:]]*="
+    key  <- "\\]\\{([^}]*[[:space:]])?(n|if|sign|cite|list)[[:space:]]*="
     cls  <- "\\]\\{([^}]*[[:space:]])?\\.(a|cap|strong|em)([[:space:]}]|$)"
     for (j in seq_along(prose)) {
       p <- plain_of(prose[j])

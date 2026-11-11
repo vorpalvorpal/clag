@@ -123,3 +123,14 @@ example to the code's wording.
   last joiner is the `sep` ("a; b; and c").
 - **I.** A matrix or array is not a vector for a `list` span: a "no
   value" failure, as a data frame is.
+
+## Rulings on the fixer's report for the review of stages 1f to 1i
+
+- A bare `"warn"` check is an error of class `weft_claim_level`, not a
+  failed claim; the older 1f assertion is amended.
+- Ruling 13 holds for records made while a governor is evaluated and for
+  the zero check of a `list` span; a span's own failure rows keep their
+  label. Accepted.
+- With `serial_comma` and a `sep` key the mark before the last joiner is
+  the `sep` without its trailing space ("a; b; and c"), also under
+  `.pairs` and before a `trunc` tail. Accepted.

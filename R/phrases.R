@@ -63,6 +63,9 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #'   2.9)". The default level is the setting `ci_level` (0.95).
 #' * `pm(est, se, digits, sigfig)` prints the estimate, a plus-minus sign
 #'   and the standard error.
+#'   When `digits` and `sigfig` are not given and a number of `ci()` or
+#'   `pm()` that is not zero prints as zero, one warned check of kind
+#'   "printed as zero" is recorded for the call, as for [fmt_num()].
 #' * `clamp(x, floor, ceiling)` prints the value as `.num` does inside the
 #'   bounds, and "< floor" or "> ceiling" outside, with the relation of the
 #'   printed record set (rule 3.5.4).
@@ -86,6 +89,17 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #' clamp(150, ceiling = 99)
 #' @name phrases
 NULL
+
+# One warned check for the numbers a phrase printed (stage 1i): `parts` are
+# the results of print_num(); those that printed a number as zero under the
+# default digits are counted together.
+note_zero_parts <- function(parts) {
+  zs <- Filter(Negate(is.null), lapply(parts, attr, "zero"))
+  if (!length(zs)) return(invisible(NULL))
+  z <- list(idx = seq_len(sum(vapply(zs, function(z) length(z$idx), 1L))),
+            value = zs[[1L]]$value, printed = zs[[1L]]$printed)
+  note_zero(zero_message(z))
+}
 
 #' @rdname phrases
 #' @export
@@ -164,6 +178,7 @@ ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
   pe <- print_num(est, digits, sigfig, cfg)
   pl <- print_num(lo, digits, sigfig, cfg)
   ph <- print_num(hi, digits, sigfig, cfg)
+  note_zero_parts(list(pe, pl, ph))
   lv <- format(round(level * 100, 6), trim = TRUE)
   txt <- sprintf("%s (%s%% CI %s to %s)", as.character(pe), lv, as.character(pl),
                  as.character(ph))
@@ -180,6 +195,7 @@ pm <- function(est, se, digits = NULL, sigfig = NULL) {
   cfg <- current_config()
   pe <- print_num(est, digits, sigfig, cfg)
   ps <- print_num(se, digits, sigfig, cfg)
+  note_zero_parts(list(pe, ps))
   as_phrase(new_weft_text(paste0(as.character(pe), " \u00b1 ", as.character(ps)),
                           number = attr(pe, "number"), decimals = attr(pe, "decimals"),
                           relation = "=", raw = est))

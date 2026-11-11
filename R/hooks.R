@@ -349,6 +349,13 @@ init_knit <- function() {
 
 finish_knit <- function() {
   s <- weft_env$state
+  # a knit that stopped before the end of the document reports the warned
+  # checks it had collected (2.6.10)
+  if (!is.null(s) && !isTRUE(s$warnings_reported)) {
+    wr <- failures_frame(s, "warnings")
+    if (nrow(wr)) message(format_warnings(wr))
+    s$warnings_reported <- TRUE
+  }
   if (!is.null(s)) s$finished <- TRUE
   weft_env$config <- NULL
   weft_env$inline <- NULL
@@ -404,6 +411,7 @@ finish_document <- function() {
   # report instead
   wr <- failures_frame(s, "warnings")
   if (nrow(wr) && !collected) message(format_warnings(wr))
+  s$warnings_reported <- TRUE
   if (!nrow(fr)) return(invisible())
   # a collection file is open: the post-render script reports and fails
   if (collected) return(invisible())

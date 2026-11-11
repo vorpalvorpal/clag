@@ -153,7 +153,7 @@ key_number <- function(keys, name) {
 # one that would print as zero prints as written (stage 1i). The result
 # carries `zero` when a number that is not zero printed as zero under default
 # digits: the elements, the first value and what printed.
-format_numbers <- function(value, class, keys, cfg, bound = NULL) {
+format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE) {
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
   if (!is.null(sigfig) && sigfig < 1) {
@@ -162,6 +162,8 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL) {
   value <- as.numeric(value)
   if (is.null(bound)) bound <- rep(FALSE, length(value))
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
+  # `.range` prints both ends to the default decimals; that is not a `digits` given
+  if (range && default && !all(is_whole(value[is.finite(value)]))) digits <- cfg$digits
   hit <- rep(FALSE, length(value))
   shown <- rep("", length(value))
   one <- function(i) {
@@ -371,12 +373,13 @@ capitalise <- function(text) {
 
 # The collapse of `.range` (1.4.4): one number when both ends print the
 # same, " to " when either end is negative, an en dash otherwise.
-collapse_range <- function(text, number, cfg) {
+collapse_range <- function(text, number, cfg, raw = NULL) {
   if (length(text) != 2L) {
     value_error(sprintf(
       "`.range` needs a value of length 2; this has %d (rule 5.3.2).", length(text)))
   }
-  if (!anyNA(number) && number[1L] > number[2L]) {
+  ord <- if (is.numeric(raw) && length(raw) == 2L && !anyNA(raw)) raw else number
+  if (!anyNA(ord) && ord[1L] > ord[2L]) {
     value_error(sprintf("`.range` needs its first end not above its second; got %s and %s.",
                         text[1L], text[2L]))
   }
@@ -393,17 +396,21 @@ collapse_items <- function(text, sep, last, trunc, serial = FALSE) {
     rest <- n - trunc
     # the tail counts as an item, so the serial comma needs trunc + 1 >= 3
     return(paste0(paste(text[seq_len(trunc)], collapse = sep),
-                  if (serial && trunc >= 2L) "," else "",
+                  if (serial && trunc >= 2L) serial_mark(sep) else "",
                   " and ", rest, if (rest == 1L) " other" else " others"))
   }
-  if (serial && n >= 3L) last <- add_serial_comma(last)
+  if (serial && n >= 3L) last <- add_serial_comma(last, serial_mark(sep))
   as.character(glue_vec(text, sep = sep, last = last))
 }
 
 # " and " becomes ", and ": a comma before the joiner, unless it has one.
-add_serial_comma <- function(last) {
-  if (grepl("^[ ]*,", last)) last else paste0(",", last)
+add_serial_comma <- function(last, mark = ",") {
+  if (grepl("^[ ]*,", last)) last else paste0(mark, last)
 }
+
+# The mark before the last joiner: the separator without its trailing spaces
+# (", " gives ","; "; " gives ";").
+serial_mark <- function(sep) sub("[ \t]+$", "", sep)
 
 # The list formatters (1.4.3): a block with a blank line before and after.
 collapse_list <- function(cls, text, nms) {
@@ -434,6 +441,16 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   keys <- keys[!vapply(keys, is.null, NA)]
   if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
   nms <- names(value)
+
+  if (!is.null(keys$none)) {
+    nn <- keys$none
+    if (!is.character(nn) || length(nn) != 1L || is.na(nn) || !nzchar(trimws(nn))) {
+      construct_error("`none` must be one string that is not empty or only spaces (rule 1.4.14).")
+    }
+    if (".range" %in% classes) {
+      construct_error("`none` does not apply to `.range`: a range has two ends (rule 1.4.14).")
+    }
+  }
 
   # the result of of_n(), about(), ci() or pm() is finished wording: a number
   # or wording class on it is a value error (1.4.1, 1.4.12)
@@ -537,6 +554,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       rec <- new_weft_text(txt)
     } else {
       from_text <- inherits(value, "weft_text")
+      was_warned <- from_text && isTRUE(attr(value, "warned"))
       if (from_text) {
         # a number formatter formats the raw value afresh (1.7.8)
         clamp_rel <- if (isTRUE(attr(value, "clamped"))) attr(value, "relation")
@@ -560,7 +578,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         rec <- format_numbers(value, cls, keys, cfg, bound)
         # a value a formatter already warned about is not warned about twice
         zero <- attr(rec, "zero")
-        if (from_text && is.null(clamp_rel)) zero <- NULL
+        if (was_warned && is.null(clamp_rel)) zero <- NULL
         attr(rec, "zero") <- NULL
       }
       # clamp() keeps its relation: "< 1%" (3.5.4)
@@ -574,11 +592,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     rec <- value
   } else if (is.numeric(value)) {
     # `.range` prints both ends to the same number of decimals (1.4.4)
-    if (".range" %in% classes && is.null(keys$digits) && is.null(keys$sigfig) &&
-        !all(is_whole(value[is.finite(value)]))) {
-      keys$digits <- cfg$digits
-    }
-    rec <- format_numbers(value, ".num", keys, cfg)
+    rec <- format_numbers(value, ".num", keys, cfg, range = ".range" %in% classes)
     zero <- attr(rec, "zero")
     attr(rec, "zero") <- NULL
   } else {
@@ -630,7 +644,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     # range of its two ends (1.5.11): the span takes the plural unless both
     # ends print "1"
     if (".range" %in% classes) {
-      text <- collapse_range(text, number, cfg)
+      text <- collapse_range(text, number, cfg, raw)
       one <- identical(text, "1")
       number <- if (one) 1 else NA_real_
       decimals <- FALSE
@@ -647,7 +661,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         text <- as.character(apply_project(reg[[cl]], text, NULL))
         text <- text[1]
       } else if (cl == ".range") {
-        text <- collapse_range(text, number, cfg)
+        text <- collapse_range(text, number, cfg, raw)
       } else if (cl %in% c(".pairs", ".dl")) {
         if (is.null(nms) || anyNA(nms) || any(!nzchar(nms))) {
           value_error(sprintf("`%s` needs a named vector; this one has no names.", cl))
@@ -691,6 +705,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!governor && !is.null(zero)) on_zero(zero_message(zero))
 
   out <- new_weft_text(text, number, decimals, relation, raw)
+  if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
   if (!collapsed && !is.null(nms) && length(nms) == length(text)) names(out) <- nms
   out
 }

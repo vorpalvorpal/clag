@@ -62,6 +62,9 @@ false. The default tolerance is the setting \code{about_tolerance}
 2.9)". The default level is the setting \code{ci_level} (0.95).
 \item \code{pm(est, se, digits, sigfig)} prints the estimate, a plus-minus sign
 and the standard error.
+When \code{digits} and \code{sigfig} are not given and a number of \code{ci()} or
+\code{pm()} that is not zero prints as zero, one warned check of kind
+"printed as zero" is recorded for the call, as for \code{\link[=fmt_num]{fmt_num()}}.
 \item \code{clamp(x, floor, ceiling)} prints the value as \code{.num} does inside the
 bounds, and "< floor" or "> ceiling" outside, with the relation of the
 printed record set (rule 3.5.4).

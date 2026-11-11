@@ -78,7 +78,7 @@ fill_template <- function(tmpl, hash, outs, gov = logical(length(outs))) {
 # `gaps` (one more than `outs`) are the text between the printed pieces. A
 # governed span that printed nothing takes one adjacent space with it
 # (1.5.12): the space before it when a space, the end of the text or one of
-# `. , ; : ! ? )` follows; at the start of a block, the space after it. A
+# `. , ; : ! ? ) ]`, a closing quotation mark (U+201D, U+2019) or an em dash follows; at the start of a block, the space after it. A
 # space is one space or one line break.
 join_pieces <- function(gaps, outs, gov) {
   n <- length(outs)
@@ -97,7 +97,7 @@ join_pieces <- function(gaps, outs, gov) {
       "end"
     } else if (grepl("^[ \n]", nxt)) {
       "space"
-    } else if (grepl("^[.,;:!?)]", nxt)) {
+    } else if (grepl("^[].,;:!?)\u201d\u2019\u2014]", nxt)) {
       "punct"
     } else "other"
     start <- grepl("^\\s*$", acc) || grepl("\n[ \t]*\n[ \t]*$", acc) ||
@@ -324,6 +324,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       invisible(NULL)
     }
   }
+
+  # the label of a record made inside a governed span: its governor expression
+  gov_label <- function(k) trim_ws(gsub("[ \t\r\n]+", " ", R$expr[k]))
 
   source_label <- function(k) {
     t <- substr(text, R$start[k], R$end[k])
@@ -684,7 +687,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       return(list(v = gov, claim_failed = FALSE, inherit = TRUE))
     }
     if (is_backref(expr)) return(backref_value(k, expr, label, own_fmt))
-    ev <- eval_expr(k, expr, label)
+    ev <- eval_expr(k, expr, gov_label(k))
     if (!ev$ok) return(list(stop = fail_from_error(k, ev$error, label)))
     list(v = ev$value, claim_failed = ev$claim_failed)
   }
@@ -785,13 +788,13 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     msg <- lang_check(k, cc$own, cc$keys, narms)
     if (!is.null(msg)) return(construct_fail(k, msg))
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
-    ev <- eval_expr(k, R$expr[k], label)
+    ev <- eval_expr(k, R$expr[k], gov_label(k))
     if (!ev$ok) return(fail_from_error(k, ev$error, label))
     v <- ev$value
     claim_failed <- ev$claim_failed
-    if (is.null(v) || !is.atomic(v)) {
+    if (is.null(v) || !is.atomic(v) || !is.null(dim(v))) {
       return(record_fail(k, "no value", label, paste0(
-        "A `list` governor must be an atomic vector (NULL, an R list and a data frame are not); ",
+        "A `list` governor must be an atomic vector (NULL, an R list, a data frame, a matrix and an array are not); ",
         "NULL is not an empty list.")))
     }
     if (anyNA(v)) {
@@ -818,7 +821,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       out <- tryCatch(
         paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ",
-                                            on_zero = zero_note(k, label))), collapse = ""),
+                                            on_zero = zero_note(k, gov_label(k)))), collapse = ""),
         error = function(e) e)
       if (inherits(out, "error")) return(fail_from_error(k, out, label))
       hash <- out

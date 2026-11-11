@@ -113,7 +113,7 @@ local({
       end <- which(grepl("^(---|\\.\\.\\.)\\s*$", x[-1]))
       if (length(end)) x <- x[-seq_len(end[1] + 1L)]
     }
-    any(grepl("\\]\\{([^}]*[[:space:]])?(n|if|sign|cite)[[:space:]]*=", x, ignore.case = TRUE, perl = TRUE) |
+    any(grepl("\\]\\{([^}]*[[:space:]])?(n|if|sign|cite|list)[[:space:]]*=", x, ignore.case = TRUE, perl = TRUE) |
           grepl("\\]\\{([^}]*[[:space:]])?\\.(a|cap|strong|em)([[:space:]}]|$)", x, perl = TRUE) |
           grepl("`(r |R |\\{r\\})[^`]*`\\{[^}]*\\}", x, perl = TRUE))
   }
@@ -188,7 +188,7 @@ local({
   }
   if (length(warned)) {
     out <- c(out, sprintf("weft: %d warned check(s)", length(warned)),
-             unlist(lapply(warned, entry)))
+             unlist(lapply(warned, function(r) entry(r, tag = !identical(r$kind, "failed claim")))))
   }
   fz <- Filter(function(d) d$checks > 0L, frozen)
   if (length(fz) || length(unchecked)) {
