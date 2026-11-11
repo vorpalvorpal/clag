@@ -227,7 +227,11 @@ finish_document <- function() {
     }
   }
   fr <- failures_frame(s)
+  # the stamp, and in a book the held failures (2.6.6, 2.9.2, 2.9.4)
+  collected <- record_knit(s, fr)
   if (!nrow(fr)) return(invisible())
+  # a collection file is open: the post-render script reports and fails
+  if (collected) return(invisible())
   report <- format_report(fr)
   if (isTRUE(s$config$draft)) {
     message(report)

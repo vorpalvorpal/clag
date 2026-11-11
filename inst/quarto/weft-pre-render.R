@@ -8,7 +8,8 @@
 #    front matter (an `engine:` in _quarto.yml or _metadata.yml does not count).
 # 2. Opens the collection file, .weft/failures.jsonl, empty. Documents and the
 #    weft-check filter append to it while the render runs; the post-render
-#    script reports it and removes it (2.6.6, 2.9.5).
+#    script reports it and removes it (2.6.6, 2.9.5). Also writes .weft/run,
+#    the render's id and its files, for the freeze report (2.9.2).
 
 local({
   root <- normalizePath(".", winslash = "/", mustWork = TRUE)
@@ -129,5 +130,13 @@ local({
   # ---- open the collection file -------------------------------------------
   dir.create(file.path(root, ".weft"), showWarnings = FALSE, recursive = TRUE)
   file.create(file.path(root, ".weft", "failures.jsonl"))
+  # The run: an id on the first line, then the source files this render
+  # processes. Each executed knit stamps its document with the id; the
+  # post-render script takes a document whose stamp carries another id to
+  # have been served from freeze (2.9.2).
+  rels <- substring(normalizePath(files, winslash = "/"), nchar(root) + 2L)
+  writeLines(c(sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
+                       sample.int(999999L, 1L)), rels),
+             file.path(root, ".weft", "run"))
   invisible()
 })
