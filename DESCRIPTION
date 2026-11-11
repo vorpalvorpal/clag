@@ -17,6 +17,7 @@ Imports:
     units,
     yaml
 Suggests:
+    jsonlite,
     pkgload,
     quarto,
     rmarkdown,
