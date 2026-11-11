@@ -47,8 +47,8 @@ u <- function(value, unit) {
 
 # ---- printing (2b) --------------------------------------------------------
 
-SUPER_DIGITS <- c("⁰", "¹", "²", "³", "⁴", "⁵",
-                  "⁶", "⁷", "⁸", "⁹")
+SUPER_DIGITS <- c("\u2070", "\u00b9", "\u00b2", "\u00b3", "\u2074", "\u2075",
+                  "\u2076", "\u2077", "\u2078", "\u2079")
 
 # The text of a `units` value's unit (4.4.8): `units`' own form, exponents in
 # superscript characters, `*` as the dot operator. `NULL` when no unit is left
@@ -61,12 +61,12 @@ unit_text <- function(x) {
   if (!nzchar(s) || identical(s, "1")) return(NULL)
   sup <- function(e) {
     ch <- strsplit(e, "")[[1L]]
-    paste0(vapply(ch, function(k) if (k == "-") "⁻" else SUPER_DIGITS[as.integer(k) + 1L], ""),
+    paste0(vapply(ch, function(k) if (k == "-") "\u207b" else SUPER_DIGITS[as.integer(k) + 1L], ""),
            collapse = "")
   }
   m <- gregexpr("\\^-?[0-9]+", s)
   regmatches(s, m) <- lapply(regmatches(s, m), function(p) vapply(substring(p, 2L), sup, ""))
-  gsub("*", "⋅", s, fixed = TRUE)
+  gsub("*", "\u22c5", s, fixed = TRUE)
 }
 
 # The number of a quantity, without its unit; other values pass unchanged.
@@ -87,7 +87,7 @@ no_unit <- function(x, fn) {
   bare_number(x)
 }
 
-UNIT_SEP <- " "
+UNIT_SEP <- "\u00a0"
 
 # A weft_text with the unit taken off the elements that end with it; its
 # record is kept.
