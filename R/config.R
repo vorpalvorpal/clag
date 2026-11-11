@@ -1,0 +1,208 @@
+# Configuration (rules 9.1, 1.4.8, 9.4.1): defaults, `_weft.yml`, the
+# front-matter `weft:` key, the project root, formatter registration.
+
+`%||%` <- function(x, y) if (is.null(x)) y else x
+
+# ---- errors -------------------------------------------------------------
+
+weft_abort <- function(message, class, ...) {
+  rlang::abort(message, class = c(class, "weft_error"), call = NULL, ...)
+}
+
+# ---- state --------------------------------------------------------------
+
+# Per-session state. `config` is set by the knit initialiser of a later
+# package; outside a knit the defaults apply.
+weft_env <- new.env(parent = emptyenv())
+
+current_config <- function() weft_env$config %||% default_config()
+
+# ---- defaults -----------------------------------------------------------
+
+default_config <- function() {
+  list(
+    digits = 1,
+    decimal_mark = ".",
+    big_mark = ",",
+    minus = "\u2212",
+    governor_class = ".num",
+    pct_proportion = TRUE,
+    count_threshold = 10,
+    word_limit = 100,
+    draft = FALSE,
+    formatters = list(),
+    severity = character()
+  )
+}
+
+formatter_stages <- function() c("number", "wording", "collapse", "text")
+
+# ---- reading ------------------------------------------------------------
+
+# `dir` is the project root. `front` is the document's `weft:` front-matter
+# key, already parsed to a list.
+read_config <- function(dir, front = list()) {
+  front <- front %||% list()
+  if (!is.list(front)) {
+    weft_abort("The `weft:` front-matter key must be a mapping of settings.",
+               "weft_config_error")
+  }
+  file <- file.path(dir, "_weft.yml")
+  has_file <- file.exists(file)
+  proj <- list()
+  if (has_file) {
+    proj <- tryCatch(
+      yaml::read_yaml(file),
+      error = function(e) {
+        weft_abort(paste0("Cannot read ", file, ": ", conditionMessage(e)),
+                   "weft_config_error")
+      }
+    ) %||% list()
+    if (!is.list(proj) || (length(proj) && is.null(names(proj)))) {
+      weft_abort(paste0(file, " must be a mapping of settings."),
+                 "weft_config_error")
+    }
+  }
+  if (has_file && "draft" %in% names(front)) {
+    weft_abort(paste0(
+      "`draft` is a project setting: set it in _weft.yml, not in a ",
+      "document's `weft:` front matter (rule 9.1.4)."
+    ), "weft_config_error")
+  }
+  cfg <- merge_config(default_config(), proj)
+  cfg <- merge_config(cfg, front)
+  validate_config(cfg)
+  cfg$formatters <- check_formatters(cfg$formatters)
+  if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) cfg$draft <- TRUE
+  cfg
+}
+
+# Setting by setting: a later setting replaces an earlier one, except that
+# project formatters are merged by class name and the severity lists add up.
+merge_config <- function(base, over) {
+  for (nm in names(over)) {
+    v <- over[[nm]]
+    if (nm == "formatters") {
+      base$formatters <- utils::modifyList(base$formatters %||% list(),
+                                           as.list(v %||% list()))
+    } else if (nm == "severity") {
+      base$severity <- unique(c(base$severity, as.character(unlist(v))))
+    } else if (is.null(v)) {
+      next
+    } else {
+      base[[nm]] <- v
+    }
+  }
+  base
+}
+
+validate_config <- function(cfg) {
+  bad <- function(nm, what) {
+    weft_abort(sprintf("The setting `%s` must be %s.", nm, what),
+               "weft_config_error")
+  }
+  num <- function(nm, min = 0) {
+    v <- cfg[[nm]]
+    if (!is.numeric(v) || length(v) != 1L || is.na(v) || v < min) {
+      bad(nm, "a single number, not negative")
+    }
+  }
+  str <- function(nm) {
+    v <- cfg[[nm]]
+    if (!is.character(v) || length(v) != 1L || is.na(v)) bad(nm, "a single string")
+  }
+  lgl <- function(nm) {
+    v <- cfg[[nm]]
+    if (!is.logical(v) || length(v) != 1L || is.na(v)) bad(nm, "TRUE or FALSE")
+  }
+  num("digits"); num("count_threshold"); num("word_limit")
+  str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
+  lgl("pct_proportion"); lgl("draft")
+  invisible(cfg)
+}
+
+# ---- formatter registration (1.4.8) -------------------------------------
+
+# Returns the registrations with the stage filled in; stops on a name that
+# shadows a shipped class, an unknown stage, or a missing function.
+check_formatters <- function(fm) {
+  fm <- fm %||% list()
+  if (!length(fm)) return(list())
+  if (!is.list(fm) || is.null(names(fm)) || any(!nzchar(names(fm)))) {
+    weft_abort("`formatters` must be a mapping from class name to a function.",
+               "weft_config_error")
+  }
+  for (nm in names(fm)) {
+    if (!grepl("^\\.[A-Za-z][A-Za-z0-9_-]*$", nm)) {
+      weft_abort(sprintf(
+        "The formatter name `%s` must be a class name with a leading dot.", nm),
+        "weft_config_error")
+    }
+    if (nm %in% shipped_classes()) {
+      weft_abort(sprintf(
+        "The project formatter `%s` shadows the shipped class `%s` (rule 1.4.8); choose another name.",
+        nm, nm), "weft_config_error")
+    }
+    spec <- fm[[nm]]
+    fun <- if (is.list(spec)) spec[["function"]] else NULL
+    if (!is.character(fun) || length(fun) != 1L || is.na(fun) || !nzchar(fun)) {
+      weft_abort(sprintf("The formatter `%s` needs a `function:` (as pkg::fun).", nm),
+                 "weft_config_error")
+    }
+    stage <- spec[["stage"]] %||% "number"
+    if (!is.character(stage) || length(stage) != 1L ||
+        !stage %in% formatter_stages()) {
+      weft_abort(sprintf(
+        "The formatter `%s` has the unknown stage `%s`; the stages are %s.",
+        nm, paste(format(stage), collapse = " "),
+        paste(formatter_stages(), collapse = ", ")), "weft_config_error")
+    }
+    fm[[nm]][["stage"]] <- stage
+  }
+  fm
+}
+
+# The function behind a registered formatter, from "pkg::fun" or a bare name.
+resolve_formatter <- function(spec) {
+  f <- spec[["function"]]
+  fn <- tryCatch({
+    if (grepl("::", f, fixed = TRUE)) {
+      parts <- strsplit(f, ":::?")[[1]]
+      get(parts[2], envir = asNamespace(parts[1]), mode = "function")
+    } else {
+      get(f, envir = globalenv(), mode = "function")
+    }
+  }, error = function(e) NULL)
+  if (is.null(fn)) {
+    weft_abort(sprintf("Cannot find the formatter function `%s`.", f),
+               "weft_config_error")
+  }
+  fn
+}
+
+# ---- the project root ---------------------------------------------------
+
+# The nearest directory, from the input file upward, that holds `_weft.yml`;
+# failing that one that holds `_quarto.yml`; failing that the file's own
+# directory.
+find_project_root <- function(path) {
+  path <- normalizePath(path, mustWork = FALSE)
+  start <- if (dir.exists(path)) path else dirname(path)
+  walk <- function(marker) {
+    d <- start
+    repeat {
+      if (file.exists(file.path(d, marker))) return(d)
+      up <- dirname(d)
+      if (identical(up, d)) return(NA_character_)
+      d <- up
+    }
+  }
+  for (marker in c("_weft.yml", "_quarto.yml")) {
+    r <- walk(marker)
+    if (!is.na(r)) return(r)
+  }
+  start
+}
+
+# A project "has been set up" (9.3.2) when its root holds `_weft.yml`.
+is_set_up <- function(root) file.exists(file.path(root, "_weft.yml"))
