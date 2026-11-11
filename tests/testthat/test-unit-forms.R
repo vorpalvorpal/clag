@@ -274,7 +274,7 @@ test_that("2f attributes: text with no unit carries none of the three (3.4.4)", 
 
 test_that("2f chains: a collapse with unit_form NULL keeps each element's form (3.4.4)", {
   expect_equal(f2_tx(fmt_and(fmt_word(u(c(3, 5, 7), m)))), f2("three, five and seven~metres"))
-  expect_equal(f2_tx(fmt_and(fmt_count(u(c(3, 12), m)))), f2("three~metres and 12~m"))
+  expect_equal(f2_tx(fmt_and(fmt_count(u(c(3, 12), m)))), f2("three and 12~m"))   # ruling: the unit once, in the last item's form
 })
 
 test_that("2f chains: a number class given a text formats raw afresh in its own form in force (3.4.4)", {

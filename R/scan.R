@@ -708,9 +708,28 @@ block_errors <- function(S, blk, kind) {
   grp <- class_group(cls, S$reg)
   for (g in unique(grp[!is.na(grp)])) {
     if (sum(grp == g, na.rm = TRUE) > 1L) {
-      e <- c(e, sprintf("Two classes from one group in one block: %s (rule 1.4.2).",
-                        paste(cls[which(grp == g)], collapse = " ")))
+      e <- c(e, if (g == "unit") {
+        sprintf("Two unit classes in one block: %s (rule 1.4.2).", paste(cls[which(grp == g)], collapse = " "))
+      } else {
+        sprintf("Two classes from one group in one block: %s (rule 1.4.2).",
+                paste(cls[which(grp == g)], collapse = " "))
+      })
     }
+  }
+  # a spelled number takes the unit's name, so `.usym` cannot go with the
+  # classes that spell one (1.4.18)
+  spelling <- c(intersect(cls, c(".no", ".word", ".count")),
+                intersect(cls, names(S$reg))[vapply(intersect(cls, names(S$reg)), function(k) {
+                  identical(S$reg[[k]][["stage"]], "wording")
+                }, NA)])
+  if (".usym" %in% cls && length(spelling)) {
+    e <- c(e, sprintf("The unit class `.usym` with `%s` is an error: a spelled number takes the unit's name (rule 1.4.18).",
+                      spelling[1L]))
+  }
+  if (any(cls %in% UNIT_CLASSES) && kind %in% c("if", "cite")) {
+    e <- c(e, sprintf("A unit class on %s is an error (rule 1.4.18): %s.",
+                      if (kind == "if") "an `if` span" else "a `cite` span",
+                      paste(intersect(cls, UNIT_CLASSES), collapse = " ")))
   }
   if (all(c("digits", "sigfig") %in% lc)) {
     e <- c(e, "`digits` with `sigfig` is an error (rule 1.4.7).")
@@ -722,7 +741,7 @@ block_errors <- function(S, blk, kind) {
     fm <- intersect(cls, formatter_classes(S$reg))
     # a text-stage class acts on the chosen arm's final text (1.5.7, 1.4.8)
     is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text & !(fm %in% c(".em", ".strong"))]
+    fm <- fm[!is_text & !(fm %in% c(".em", ".strong", UNIT_CLASSES))]
     ky <- intersect(lc, RENDERER_KEYS)
     if (length(fm) || length(ky)) {
       e <- c(e, sprintf("A formatter on an `if` span is an error (rule 1.5.7): %s.",
@@ -760,7 +779,7 @@ block_errors <- function(S, blk, kind) {
   if (kind == "cite") {
     fm <- intersect(cls, formatter_classes(S$reg))
     is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text]
+    fm <- fm[!is_text & !(fm %in% UNIT_CLASSES)]
     if (length(fm)) {
       e <- c(e, sprintf("A formatter class on a cite span is an error (rule 1.8.7): %s.",
                         paste(fm, collapse = " ")))

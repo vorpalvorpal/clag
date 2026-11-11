@@ -3,7 +3,7 @@
 # Contract: dev/design-2.md section 2.
 
 DICT_TYPES <- c("number", "quantity", "year", "date", "string", "labels", "breaks")
-DICT_FIELDS <- c("value", "type", "definition", "unit", "decision", "why")
+DICT_FIELDS <- c("value", "type", "definition", "unit", "display", "decision", "why")
 
 # YAML words such as `yes` and `no` stay text (D6). A whole number is read
 # as a decimal, whatever its size (a double), and an octal or hex integer
@@ -150,7 +150,7 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
 #' @param path One string naming an existing file.
 #' @return A `weft_dict`, with the attributes `file`, `scope` (`"project"` or
 #'   `"local"`), `entries` (a data frame of the keys' type, definition, unit,
-#'   decision, why and line), `registered` and `local_keys`.
+#'   decision, why, line and display), `registered` and `local_keys`.
 #' @examples
 #' f <- tempfile(fileext = ".yml")
 #' writeLines(c("min_samples:",
@@ -265,6 +265,14 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     } else if (!is.null(e[["unit"]]) && type_ok) {
       p(sprintf("`unit` is only for a quantity, and this is a %s", type), "4.2.1")
     }
+    disp <- NA_character_
+    if (!is.null(e[["display"]])) {
+      if (type_ok && type != "quantity") {
+        p(sprintf("`display` is only for a quantity, and this is a %s", type), "4.2.7")
+      } else if (!str1(e[["display"]])) {
+        p("`display` must be a string that is not blank", "4.2.7")
+      } else disp <- e[["display"]]
+    }
     dec <- NA_character_
     if (!is.null(e[["decision"]])) {
       d <- e[["decision"]]
@@ -297,12 +305,27 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       } else {
         registered <- c(registered, reg$needed)
         values[i] <- list(units::set_units(values[[i]], unit, mode = "standard"))
+        # the value is read in `unit` and converted to `display` (4.2.7)
+        if (!is.na(disp)) {
+          dreg <- dict_register_unit(disp)
+          installed <- c(installed, dreg$installed)
+          if (!is.null(dreg$error)) {
+            p(sprintf("`display` `%s` is not a unit the units package can read: %s", disp, dreg$error), "4.2.7")
+          } else {
+            registered <- c(registered, dreg$needed)
+            conv <- tryCatch(units::set_units(values[[i]], disp, mode = "standard"),
+                             error = function(e) NULL)
+            if (is.null(conv)) {
+              p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", disp, unit), "4.2.7")
+            } else values[i] <- list(conv)
+          }
+        }
       }
     }
     str_or_na <- function(x) if (str1(x)) x else NA_character_
     rows[[i]] <- list(key = key, type = if (type_ok) type else NA_character_,
                       definition = str_or_na(e[["definition"]]), unit = unit,
-                      decision = dec, why = why, line = as.integer(line))
+                      display = disp, decision = dec, why = why, line = as.integer(line))
   }
   if (length(problems)) {
     # a read that reports problems installs no unit (ruling 6)
@@ -315,7 +338,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   entries <- data.frame(
     key = col("key", ""), type = col("type", ""), definition = col("definition", ""),
     unit = col("unit", ""), decision = col("decision", ""), why = col("why", ""),
-    line = col("line", 1L), stringsAsFactors = FALSE)
+    line = col("line", 1L), display = col("display", ""), stringsAsFactors = FALSE)
   rownames(entries) <- NULL
   names(values) <- keys
   structure(values, class = "weft_dict", file = file, scope = scope,
@@ -633,8 +656,9 @@ print.weft_dict <- function(x, ...) {
   cat(sprintf("<weft_dict> %s: %d %s\n", attr(x, "file"), length(x),
               if (length(x) == 1L) "key" else "keys"))
   for (i in seq_len(nrow(e))) {
+    shown <- if (is.na(e$display[i])) e$unit[i] else e$display[i]
     cat(sprintf("  %s  %s  %s\n", e$key[i], e$type[i],
-                dict_short(x, e$key[i], e$type[i], e$unit[i])))
+                dict_short(x, e$key[i], e$type[i], shown)))
   }
   reg <- attr(x, "registered")
   if (length(reg)) cat("Units registered: ", paste(reg, collapse = ", "), "\n", sep = "")
@@ -658,6 +682,12 @@ print.weft_dict <- function(x, ...) {
 #' * `definition` (required): a string that is not blank; it is the text the
 #'   glossary shows.
 #' * `unit`: a string, for a `quantity` only.
+#' * `display`: a string, for a `quantity` only (rule 4.2.7): the unit to show
+#'   the value in. The value is read in `unit` and converted to `display` when
+#'   the file is read, so `dict$key` is already in `display`, and arithmetic,
+#'   checks, `#` and `units::drop_units()` see it. A `display` that does not
+#'   parse, or that `unit` does not convert to, is a problem; `unit =` at the use
+#'   converts back. The `entries` column `display` is `NA` where absent.
 #' * `decision`: a whole number from 1, or a string that is not blank; it is
 #'   not resolved when the file is read.
 #' * `why`: a string that is not blank, for a `dict_local` entry only, where

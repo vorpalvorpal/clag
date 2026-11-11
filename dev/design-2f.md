@@ -412,3 +412,22 @@ Built as recommended until answered.
 - **Q5 — `d`, `h`, `min` as SI symbols** under `auto` ("5␣d"), while year,
   week and month print names. Alternative: ship `symbol: false` for them, so
   prose reads "5 days". Recommended: SI symbols; a project sets `false`.
+
+## Rulings on the implementer's report
+
+- **Two tests were wrong and are edited.** A collapse over elements in
+  different forms prints the unit once, in the last item's form
+  (`fmt_and(fmt_count(u(c(3, 12), m)))` is "three and 12 m"); the test
+  expected a unit on each. A fixture wrote `name:` twice under one
+  entry, which YAML refuses before weft reads it.
+- A project `name` with no `plural` takes the English rule. Accepted.
+- A project name holding " per " takes its plural before " per ".
+  Accepted.
+- `s^-2`, a negative power with no numerator, has no name; `1/s` is
+  "per second". Accepted; a name asked for is the value error.
+- Outside a knit the `units:` table of the last configuration read is
+  used; `unit_form` is not carried over. Accepted.
+- `fmt_unit()` on a string takes the plural. Accepted.
+- **Open:** the `#` of a `sign` span built from a formatter's text keeps
+  the unit text as printed and is not judged again for the singular; in
+  `dev/open-findings.md`.

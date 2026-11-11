@@ -194,7 +194,8 @@ test_that("2f units problems: an unknown field is named, with the four listed (9
 test_that("2f units problems: a field of the wrong type (9.1.7)", {
   for (bad in list(c("    name: 5"), c("    name: \"\""), c("    plural: [a, b]"), c("    symbol: true"),
                    c("    symbol: \"\""), c("    space: \"yes\""), c("    space: 1"))) {
-    e <- units_err(c("  zzre:", "    name: ok", bad))
+    # ruling: no second `name` line, which YAML refuses as a duplicate key
+    e <- units_err(c("  zzre:", if (!grepl("name:", bad)) "    name: ok", bad))
     f2_msg_has(e, "`zzre`", "(rule 9.1.7)")
   }
 })

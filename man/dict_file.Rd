@@ -20,6 +20,12 @@ any of them. All the problems in a file are reported together.
 \item \code{definition} (required): a string that is not blank; it is the text the
 glossary shows.
 \item \code{unit}: a string, for a \code{quantity} only.
+\item \code{display}: a string, for a \code{quantity} only (rule 4.2.7): the unit to show
+the value in. The value is read in \code{unit} and converted to \code{display} when
+the file is read, so \code{dict$key} is already in \code{display}, and arithmetic,
+checks, \verb{#} and \code{units::drop_units()} see it. A \code{display} that does not
+parse, or that \code{unit} does not convert to, is a problem; \verb{unit =} at the use
+converts back. The \code{entries} column \code{display} is \code{NA} where absent.
 \item \code{decision}: a whole number from 1, or a string that is not blank; it is
 not resolved when the file is read.
 \item \code{why}: a string that is not blank, for a \code{dict_local} entry only, where

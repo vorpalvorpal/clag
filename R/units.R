@@ -59,6 +59,11 @@ u <- function(value, unit) {
     unit_abort(sprintf("u(): the value must be a number or a units value, not a %s.",
                        class(value)[1L]))
   }
+  u_make(value, txt)
+}
+
+# The `units` value for `value` in the unit written `txt` (what u() makes).
+u_make <- function(value, txt) {
   parsed <- unit_parse_problem(txt)
   if (!is.null(parsed)) {
     unit_abort(sprintf(paste0(
@@ -72,22 +77,12 @@ u <- function(value, unit) {
 
 # ---- printing (2b) --------------------------------------------------------
 
-# The text of a `units` value's unit (4.4.8), as Pandoc markdown: an exponent
-# is a superscript (`m^2^`, `m^\u22123^`), a product is the middle dot, a unit
-# with no numerator is written with negative powers, and the characters
-# markdown reads are escaped. `NULL` when no unit is left (a ratio) or `x` is
-# not a quantity.
+# The text of a `units` value's unit (4.4.8), as Pandoc markdown, for a plural
+# number under the configuration in force (see unit_symbol_text()). `NULL` when
+# no unit is left (a ratio) or `x` is not a quantity.
 unit_text <- function(x) {
   if (!inherits(x, "units")) return(NULL)
-  un <- attr(x, "units")
-  if (!length(un$numerator) && !length(un$denominator)) return(NULL)
-  s <- as.character(un, neg_power = !length(un$numerator))
-  if (!nzchar(s) || identical(s, "1")) return(NULL)
-  # escape what markdown reads; the exponent marks are written back
-  s <- gsub("([\\_~`^]|\\[|\\])", "\\\\\\1", s, perl = TRUE)
-  s <- gsub("\\\\\\^(-?)([0-9]+)", "^\\1\\2^", s, perl = TRUE)
-  s <- gsub("\\^-", "^\u2212", s, perl = TRUE)
-  gsub("*", "\u00b7", s, fixed = TRUE)
+  unit_symbol_text(attr(x, "units"), TRUE, current_config(), current_lang())
 }
 
 # The number of a quantity, without its unit; other values pass unchanged.
@@ -102,7 +97,7 @@ bare_number <- function(x) {
 # The phrase functions that cannot place a unit (D28). A formatter's text that
 # carries a unit is a quantity to them (3.5.7).
 no_unit <- function(x, fn) {
-  if ((inherits(x, "units") && !is.null(unit_text(x))) ||
+  if ((inherits(x, "units") && unit_present(attr(x, "units"))) ||
       (inherits(x, "weft_text") && !is.null(attr(x, "unit")))) {
     value_error(sprintf(paste0("`%s()` does not take a quantity with a unit; pass the ",
                                "numbers, or format the parts with fmt_num()."), fn))
@@ -151,25 +146,32 @@ match_units <- function(a, b, fn) {
 UNIT_SEP <- "\u00a0"
 
 # Where the unit is in each element of a weft_text: the position of the
-# no-break space before it, or 0. The unit may be inside a text class's markup
-# (`**3 m**`), so only what follows it must be marks.
-unit_at <- function(tx, ut) {
-  suf <- paste0(UNIT_SEP, ut)
-  pos <- as.integer(regexpr(suf, tx, fixed = TRUE))
-  rest <- substring(tx, ifelse(pos > 0L, pos + nchar(suf), 1L))
-  ifelse(pos > 0L & !grepl("[[:alnum:]]", rest), pos, 0L)
+# no-break space (or first character) of its suffix `suf`, or 0. The unit may be
+# inside a text class's markup (`**3 m**`), so only what follows it must be marks.
+unit_at <- function(tx, suf) {
+  suf <- rep_len(suf, length(tx))
+  vapply(seq_along(tx), function(i) {
+    if (!nzchar(suf[i])) return(0L)
+    m <- gregexpr(suf[i], tx[i], fixed = TRUE)[[1L]]
+    if (m[1L] < 0L) return(0L)
+    pos <- as.integer(m[length(m)])
+    if (grepl("[[:alnum:]]", substring(tx[i], pos + nchar(suf[i])))) 0L else pos
+  }, 0L)
 }
 
 # A weft_text with the unit taken off the elements that carry it; its record
-# is kept.
-strip_unit <- function(x, ut) {
-  suf <- paste0(UNIT_SEP, ut)
+# is kept and the unit attributes go.
+strip_unit <- function(x) {
+  suf <- attr(x, "unit_suffix")
   tx <- as.character(x)
-  pos <- unit_at(tx, ut)
-  hit <- pos > 0L
-  tx[hit] <- paste0(substr(tx[hit], 1L, pos[hit] - 1L), substring(tx[hit], pos[hit] + nchar(suf)))
+  if (!is.null(suf)) {
+    suf <- rep_len(suf, length(tx))
+    pos <- unit_at(tx, suf)
+    hit <- pos > 0L
+    tx[hit] <- paste0(substr(tx[hit], 1L, pos[hit] - 1L), substring(tx[hit], pos[hit] + nchar(suf[hit])))
+  }
   x[] <- tx
-  attr(x, "unit") <- NULL
+  for (a in c("unit", "units", "unit_form", "unit_suffix")) attr(x, a) <- NULL
   x
 }
 
@@ -177,13 +179,17 @@ strip_unit <- function(x, ut) {
 # record with it.
 #' @export
 `[.weft_text` <- function(x, i) {
+  uf <- attr(x, "unit_form")
   ut <- attr(x, "unit")
-  if (is.null(ut)) return(unclass_text(x)[i])
+  if (is.null(ut) && is.null(uf)) return(unclass_text(x)[i])
   num <- attr(x, "number")
   new <- unclass_text(x)[i]
   at <- function(a) if (length(a) == length(x)) a[i] else NULL
   out <- new_weft_text(new, at(num), at(attr(x, "decimals")), at(attr(x, "relation")), at(attr(x, "raw")))
   attr(out, "unit") <- ut
+  attr(out, "units") <- attr(x, "units")
+  attr(out, "unit_form") <- at(uf)
+  attr(out, "unit_suffix") <- at(attr(x, "unit_suffix"))
   out
 }
 

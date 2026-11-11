@@ -163,3 +163,8 @@ So a later review does not raise them again without a new argument.
   text carries a unit; a plain one becomes a bare character vector.
 - `of_n()` and `about()` given one quantity and one bare number use the
   bare numbers (the review wanted an error).
+
+## From the build of 2f
+
+- `#` of a `sign` span over a formatter's text keeps the unit text as
+  printed; a name is not judged again for the singular.

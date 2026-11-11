@@ -396,7 +396,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                             "which weft does not ship; English rules are never applied to another ",
                             "language (rules 1.6.5, 1.6.7)."), R$kind[k], s$lang))
     }
-    eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date")
+    eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date", ".uname")
     bad <- intersect(classes, eng)
     if (length(bad) || "trunc" %in% names(keys)) {
       return(sprintf(paste0("The class `%s` prints English words, and the document's `lang` is ",

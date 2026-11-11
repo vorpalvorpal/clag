@@ -12,7 +12,7 @@ read_dict(path = "dict.yml")
 \value{
 A \code{weft_dict}, with the attributes \code{file}, \code{scope} (\code{"project"} or
 \code{"local"}), \code{entries} (a data frame of the keys' type, definition, unit,
-decision, why and line), \code{registered} and \code{local_keys}.
+decision, why, line and display), \code{registered} and \code{local_keys}.
 }
 \description{
 \code{read_dict()} reads a dictionary file, checks every entry against the

@@ -24,37 +24,51 @@
 \alias{fmt_em}
 \title{Formatter functions}
 \usage{
-fmt_num(x, digits = NULL, sigfig = NULL, unit = NULL)
+fmt_num(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
 
 fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL)
 
-fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL)
+fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
 
-fmt_no(x)
+fmt_no(x, unit_form = NULL)
 
-fmt_word(x)
+fmt_word(x, unit_form = NULL)
 
-fmt_count(x)
+fmt_count(x, unit_form = NULL)
 
-fmt_ord(x)
+fmt_ord(x, unit_form = NULL)
 
-fmt_and(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
+fmt_and(
+  x,
+  sep = ", ",
+  last = NULL,
+  trunc = NULL,
+  none = NULL,
+  unit_form = NULL
+)
 
-fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
+fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL)
 
 fmt_p(x)
 
 fmt_date(x)
 
-fmt_range(x, digits = NULL, sigfig = NULL, unit = NULL)
+fmt_range(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
 
-fmt_pairs(x, sep = ", ", last = NULL, trunc = NULL, none = NULL)
+fmt_pairs(
+  x,
+  sep = ", ",
+  last = NULL,
+  trunc = NULL,
+  none = NULL,
+  unit_form = NULL
+)
 
-fmt_ul(x, none = NULL)
+fmt_ul(x, none = NULL, unit_form = NULL)
 
-fmt_ol(x, none = NULL)
+fmt_ol(x, none = NULL, unit_form = NULL)
 
-fmt_dl(x, none = NULL)
+fmt_dl(x, none = NULL, unit_form = NULL)
 
 fmt_cap(x)
 
@@ -77,6 +91,16 @@ number, the unit and the arm an \code{n} span chooses are all in that unit. A
 unit the quantity cannot be converted to, and \code{unit} on a value that is
 not a quantity, are a \code{weft_value_error}. Like \code{digits}, it implies
 \code{.num}.}
+
+\item{unit_form}{How a quantity's unit prints (rule 3.4.8): \code{NULL} (the
+setting \code{unit_form} in force: \code{"auto"} unless \verb{_weft.yml} or the document
+says otherwise, and for a \code{weft_text} input given a collapse class alone,
+each element's own printed form), \code{"auto"} (the symbol after digits, the
+name after a spelled number), \code{"symbol"}, \code{"name"}, or \code{"none"} (the number
+alone). Anything else is a \code{weft_construct_error}, and so is \code{"symbol"} on
+\code{fmt_no()}, \code{fmt_word()} and \code{fmt_count()}, and \code{"name"} when the
+document's \code{lang} is not English. A form other than \code{"auto"} on a value
+with no unit is a \code{weft_value_error}. \code{fmt_pct()} and \code{fmt_p()} take none.}
 
 \item{sep}{The text between items of a collapse.}
 
@@ -123,22 +147,31 @@ message gives the first value, what printed and the count, and says to add
 \code{sigfig} to show the number or \code{digits} to confirm the zero. A bound of
 \code{\link[=clamp]{clamp()}} is never printed as zero: it prints as it was written.
 
-A \code{units} value (see \code{\link[=u]{u()}}) prints with its unit: the number is formatted as
-a plain number is, and the unit's text follows after a no-break space. The
-text is Pandoc markdown: an exponent is a superscript (\verb{m^2^}, and \code{m} to the minus three as \verb{m^-3^} with a true minus sign),
-a product is a middle dot, a unit with no numerator is written with negative
-powers, and characters markdown reads are escaped. A wording class that prints a word
-(\code{fmt_word()}, \code{fmt_count()}, \code{fmt_no()}) drops the unit; an element still
-in digits keeps it. \code{fmt_and()}, \code{fmt_or()}, \code{fmt_range()} and \code{\link[=glue_vec]{glue_vec()}}
-print the unit once, after the last number printed (none if that is a
-word); \code{fmt_pairs()}, \code{fmt_ul()}, \code{fmt_ol()}, \code{fmt_dl()} and a vector no
-collapse class joins print it with every element. \code{fmt_pct()}, \code{fmt_p()} and
+A \code{units} value (see \code{\link[=u]{u()}}) prints with its unit, after a no-break space.
+The unit is its symbol or its name (rules 4.4.2, 4.4.15): the symbol after
+digits ("5 m"), the name after a spelled number or "no" ("five metres"), and
+\code{unit_form} can ask for either, or for none. The symbol text is Pandoc markdown:
+an exponent is a superscript (\verb{m^2^}, and \code{m} to the minus three as \verb{m^-3^}
+with a true minus sign), a product is a middle dot, a unit with no numerator is
+written with negative powers, and characters markdown reads are escaped. A
+name is singular only when its number prints "1" or "one". A wording class
+that prints a word (\code{fmt_word()}, \code{fmt_count()}, \code{fmt_no()}) needs a name for
+the unit, judged on the class and never on the data: a unit with none is a
+\code{weft_value_error} (add it under \verb{units:} in \verb{_weft.yml}, or use
+\code{unit_form = "none"}). \code{fmt_and()}, \code{fmt_or()}, \code{fmt_range()} and
+\code{\link[=glue_vec]{glue_vec()}} print the unit once, after the last item, in that item's form;
+\code{fmt_pairs()}, \code{fmt_ul()}, \code{fmt_ol()}, \code{fmt_dl()} and a vector no collapse
+class joins print it with every element. \code{fmt_pct()}, \code{fmt_p()} and
 \code{fmt_date()} on a quantity that still has a unit are a \code{weft_value_error};
-a ratio with no unit left is a plain number. The result carries the unit
-as attribute \code{unit}, so \code{fmt_and(fmt_num(u(c(3, 5), m)))} prints it once.
-The record's \code{number} and \code{raw} never hold the unit. \verb{#} in a span or
-\code{\link[=plural]{plural()}} prints what the governor prints as a value, so it carries the
-unit when it prints as digits.
+a ratio with no unit left is a plain number, and \code{unit_form} other than
+\code{"auto"} on it is a \code{weft_value_error}. The result carries the attributes
+\code{unit} (the symbol text, for a plural number), \code{unit_form} (\code{"symbol"},
+\code{"name"} or \code{NA} for each element) and \code{units} (the unit as the \code{units}
+package gives it), so \code{fmt_and(fmt_num(u(c(3, 5), m)))} prints the unit once,
+and a number or wording class given the text formats its \code{raw} value afresh in
+the form then in force. The record's \code{number} and \code{raw} never hold the unit.
+\verb{#} in a span or \code{\link[=plural]{plural()}} prints what the governor prints as a value, unit
+included. See \code{\link[=fmt_unit]{fmt_unit()}} for the unit alone.
 }
 \examples{
 fmt_num(3.14159)

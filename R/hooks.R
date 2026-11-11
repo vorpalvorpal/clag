@@ -342,12 +342,19 @@ init_knit <- function() {
   path <- knit_input_path()
   front <- read_front_matter(path)
   root <- if (!is.null(path)) find_project_root(path) else getwd()
-  cfg <- read_config(root, front$weft)
+  cfg <- read_config(root, front$weft, doc = path)
   s <- new_state()
   s$config <- cfg
   s$input_path <- path %||% NA_character_
   s$front <- front
   s$lang <- document_lang(front, path)
+  # a unit's name is English words (1.6.8)
+  if (identical(cfg$unit_form, "name") && !lang_is_english(s$lang)) {
+    weft_abort(sprintf(paste0("The setting `unit_form: name` (set in %s) prints English words, and the ",
+                              "document's `lang` is `%s` (rule 1.6.8); use `auto` or `symbol`."),
+                       cfg$unit_form_set %||% "the configuration", s$lang),
+               "weft_config_error")
+  }
   # a dictionary problem stops the knit, in draft mode too (D15)
   init_dicts(s, root, path)
   weft_env$config <- cfg
