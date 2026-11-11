@@ -1,32 +1,27 @@
-Package: clag
-Title: Advanced cli-like markdown glue syntax
-Version: 0.2.0
+Package: weft
+Title: Computed Values and Checks for Quarto and R Markdown Prose
+Version: 0.0.0.9000
 Authors@R: 
     person("Robin", "Shannon", , "32329438+vorpalvorpal@users.noreply.github.com", role = c("aut", "cre"))
-Description: Generate markdown text using the familiar syntax of 'glue'
-    with enhanced templating features. Unlike 'cli' which produces styled
-    console output, 'clag' outputs plain markdown text, making it ideal
-    for document generation in R Markdown and Quarto documents.
+Description: Lets a manuscript's prose carry computed values, and wording
+    that depends on them, and adds deterministic checks for computational
+    manuscripts. Every construct is markdown that 'knitr', 'Pandoc' and
+    'Quarto' already accept.
 License: MIT + file LICENSE
 URL: https://github.com/vorpalvorpal/clag
 BugReports: https://github.com/vorpalvorpal/clag/issues
 Imports:
-    checkmate,
     cli,
-    ggplot2,
-    glue,
     knitr,
-    lifecycle,
-    pander,
     rlang,
-    uuid,
+    units,
     yaml
 Suggests:
     quarto,
     rmarkdown,
-    rstudioapi,
-    testthat (>= 3.0.0)
+    testthat (>= 3.0.0),
+    withr
 Config/testthat/edition: 3
 Encoding: UTF-8
 Roxygen: list(markdown = TRUE)
-RoxygenNote: 7.3.2
+RoxygenNote: 7.3.3

@@ -7,6 +7,6 @@
 # * https://testthat.r-lib.org/articles/special-files.html
 
 library(testthat)
-library(clag)
+library(weft)
 
-test_check("clag")
+test_check("weft")
