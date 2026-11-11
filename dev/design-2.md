@@ -799,3 +799,42 @@ Findings 1 to 22 are accepted as the reviewer states them, except 15 and
   `registered` on a second read.
 - Finding 10's failing case stops in knitr before weft runs and cannot be
   tested; in `dev/open-findings.md`.
+
+## Rulings on the review of 2b (`dev/review-2b.md`)
+
+Findings 1 to 12 are accepted as the reviewer states them, with these
+particulars.
+
+- **1, f. The unit's text is Pandoc markdown, not Unicode (replaces
+  D23).** An exponent is written as a Pandoc superscript (`m^2^`,
+  `m^−3^` with U+2212), as `.sci` already writes "10^3^", and a product
+  as the middle dot U+00B7 (`kg·m`). Both survive pdflatex, xelatex,
+  html and docx; the long report this package is for is built as PDF.
+  The no-break space stays U+00A0. The `unit` attribute of a `weft_text`
+  holds the same markdown text.
+- **2, 3, 4, a. `#` never carries a unit (4.4.4)**, whatever the governor
+  is: a quantity, a formatter's text for a quantity, an id, `n="."`, a
+  `sign` span, `plural()`, and a `list` span over quantities with or
+  without a number class (`#` is the numbers, collapsed).
+- **5.** A list of quantities, and a `mixed_units` vector, are a value
+  error: weft prints one unit for one vector.
+- **6.** `ci()`, `pm()` and `clamp()` given a formatter's text that
+  carries a unit are the same value error as given the quantity.
+- **7, e.** `of_n()` and `about()` given two quantities convert the
+  second to the first's unit before they compare; units that cannot be
+  converted are a value error.
+- **8.** `glue_vec()` prints a quantity's number as it prints a plain
+  number (no rounding of its own), then the unit.
+- **10.** Subsetting a formatter's text keeps its `unit`.
+- **12, g.** A unit's text is escaped for markdown (`_`, `*`, `~`, `^`,
+  `[`, `]`, `` ` ``, `\`) except the superscript marks weft writes.
+- **b.** A value with only an id or a pass-through class prints as stock
+  (the number, no unit: 4.4.10). Left.
+- **c.** A unit with no numerator prints with negative powers (`m^−3^`),
+  not `units`' "1/m³"; a unit with a numerator keeps the quotient
+  (`mg/L`).
+- **d.** The space before `°`: with R3, for Robin. Left.
+- **h.** A year multiplied by a unit prints with a thousands mark. Left;
+  in `dev/open-findings.md`.
+- **i.** A unit with a power that is not a whole number (`m^0.5`) is a
+  `weft_unit_error` from `u()` and a problem from `read_dict()`.

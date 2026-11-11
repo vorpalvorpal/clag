@@ -142,3 +142,10 @@ So a later review does not raise them again without a new argument.
 
 - A `labels` map in `dict_local` keyed by two YAML 1.1 booleans of the same
   truth value (`yes` and `on`) stops in knitr before weft runs (finding 10).
+
+## From the review of 2b
+
+- A year multiplied by a unit is a quantity and prints with a thousands
+  mark ("2,014 a"; question h).
+- A value with only an id prints its number without its unit (question
+  b; rule 4.4.10).

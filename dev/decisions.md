@@ -258,3 +258,11 @@ and are entries 30 to 37 under "Made".
     them as YAML 1.1 does (`010` is 8). Why: a committed file of
     constants must not hold a value its author cannot see. Reverse:
     `R/dict.R`.
+45. **4.4.8, how a unit's exponent and product are written (replaces D23
+    of `dev/design-2.md`).** The review of 2b showed Unicode superscripts
+    and U+22C5 stop a pdflatex render and vanish silently under xelatex.
+    Alternatives: keep Unicode and require a font; raw LaTeX for PDF only
+    (two code paths); Pandoc markdown. Chosen: Pandoc superscripts
+    (`m^2^`) and the middle dot U+00B7, as `.sci` already writes its
+    power. Cost: a formatter's text for a quantity is markdown, not plain
+    text, so a plot label needs its own unit. Reverse: `R/units.R`.
