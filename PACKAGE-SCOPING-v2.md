@@ -1,4 +1,4 @@
-# `clag` — package scoping, v2
+# `weft` — package scoping, v2
 
 **Date:** 2026-11-11
 **Status:** scoping. The syntax and the runtime are at spec level and were
@@ -6,21 +6,22 @@ exercised with throwaway stand-ins (§13 says exactly what was run). Open points
 are in §14. Integration facts were checked against knitr 1.51 and Quarto
 1.11.9 (Pandoc 3.10) on macOS.
 
-`clag` lets a manuscript's prose carry computed values, and wording that
+`weft` lets a manuscript's prose carry computed values, and wording that
 depends on them, and adds deterministic checks for computational manuscripts.
 It has no users and no backwards-compatibility obligations. Portable by
 design: the package knows about knitr, Quarto, Pandoc, `targets` and git, and
-nothing about any particular book.
+nothing about any particular book. The repository and the existing code still
+carry the old name, `clag`.
 
 The package is two layers. The **prose core** (the syntax of §0 and the
 runtime of §1) makes a computed value cost what knitr inline code already
-costs, and makes a checked value cost one attribute more. The **integrity
+costs, and makes a checked value cost one function call more. The **integrity
 harness** (checks, dictionary, lints, commit gate, ledger) is only socially
 sustainable because of that: a rule like "every numeral is a computed value"
 survives contact with authors only when writing one is nearly free, and when
 the inline R a document already contains counts without being rewritten.
 
-Every clag construct is markdown that knitr, Pandoc and Quarto already accept.
+Every weft construct is markdown that knitr, Pandoc and Quarto already accept.
 Nothing is compiled, there is no second source tree, and the file the author
 edits is the file that renders.
 
@@ -47,50 +48,63 @@ lints, to spellcheck and to the reader of the source.
 
 ### The attribute block
 
-`{ATTRS}` is Pandoc's own attribute syntax: an optional `#id`, then classes,
-then `key="value"` pairs. clag gives meaning to three keys (`n`, `if`,
-`claim`), to classes (formatters), and to a short list of renderer keys
-(`sep`, `last`).
+`{ATTRS}` is Pandoc's own attribute syntax: an optional `#id`, classes, and
+`key="value"` pairs. weft gives meaning to three keys (`n`, `if`, `sign`), to
+its own classes (formatters and text classes), and to a short list of renderer
+keys (`sep`, `last`, `trunc`).
 
-**Canonical form: id, then classes, then keys; every value double-quoted.**
-R strings inside a value use single quotes (`{if="tier == 'sev'"}`). Pandoc's
-markdown writer, and therefore the visual editor, rewrites any attribute block
-into this form, and Quarto 2's parser accepts no other order. A lint enforces
-it (§5).
+**weft accepts every attribute block Pandoc accepts**: id, classes and keys in
+any order; values double-quoted, single-quoted or unquoted. Pandoc's markdown
+writer, and therefore the visual editor, rewrites a block to id, then classes,
+then keys, with every value double-quoted. The examples here use that form,
+with single quotes for R strings inside a value (`{if="tier == 'sev'"}`). The
+gate and the ledger compare parsed attributes, never text.
 
 Meaning never depends on the order in which things are written inside the
-block. The order of operations is fixed by kind:
+block. Formatters run on the evaluated value; then the arm is chosen and `#`
+filled; then text classes act on the result.
 
-```
-value  >  checks  >  formatters  >  arm and #
-```
+**Classes are of three kinds.**
+
+- **Formatters** act on the value, left to right (`.num`, `.pct`, `.word`, …).
+- **Text classes** act on the final text (`.cap`, `.a`, `.strong`, `.em`).
+  `.strong` and `.em` emit markdown emphasis, because Pandoc gives those class
+  names no meaning.
+- **Everything else is passed through.** Any class or key weft does not own,
+  and any `#id`, is put on a Pandoc span around the output. So `.smallcaps`,
+  `.underline` and `.mark` (the three classes Pandoc itself turns into
+  formatting in every format), `custom-style="…"` (Word) and CSS classes
+  (HTML) work on a construct:
+  `` `r x`{.num .smallcaps custom-style="Key figure"} ``.
+
+An unknown class is therefore not an error. A class within one edit of a
+formatter name (`.nmu`) is (§5).
 
 ### Values
 
 ```
 `r x`                                bare value
-`r n_gap`{claim=". > 10"}            checked value
-`r x`{claim=". >= 10, . < 99"}       several checks
+`r claim(n_gap, . > 10)`             checked value
+`r claim(x, . >= 10, . < 99)`        several checks
 `r x`{.num}                          one formatter
 `r n`{.no .word}                     formatters, left to right
-`r depth`{.num claim=". > 0.5"}      check and formatter
+`r claim(depth, . > 0.5)`{.num}      check and formatter
+`r k`{.count .cap}                   formatter and text class: "Twelve"
 `r sites`{.or}                       "a, b or c"
 `r sites`{sep="; "}                  renderer argument
+`r sites`{.and trunc="3"}            "a, b, c and 4 others"
 `r sites`{.ul}                       bullet list
 ```
 
 - **A bare value is plain knitr inline code and prints exactly as knitr prints
-  it.** A document that already uses inline R is already a clag document.
+  it.** A document that already uses inline R is already a weft document.
   Quarto's `` `{r} x` `` form is equivalent.
 - **The attribute block must touch the closing backtick.**
-- **`claim` holds an R argument list of checks.** In each, `.` is the raw
-  value. Each must evaluate to a single `TRUE`. Checks always see the value as
-  evaluated, before any formatter.
-- **Classes are formatters**, applied left to right. An unknown class is an
-  error.
-- **Emphasis is ordinary markdown around the construct**: `` **`r x`{.num}** ``.
-  A value that needs a CSS class is wrapped in an ordinary span:
-  `` [`r x`{.num}]{.smallcaps} ``.
+- **A check is written in the expression, with `claim()`** (§4). `claim()`
+  returns the raw value, so the formatters apply after it and a check always
+  sees the value as evaluated.
+- **Emphasis is `.strong` or `.em`, or ordinary markdown around the
+  construct**: `` **`r x`{.num}** ``.
 
 Shipped formatters:
 
@@ -98,19 +112,42 @@ Shipped formatters:
 |---|---|
 | `.num`, `.pct`, `.sci` | a number, to the document's defaults |
 | `.word` | a spelled numeral ("three") |
+| `.count` | a word below ten, digits from ten up ("three sites", "12 sites"); the threshold is a document default |
 | `.ord` | an ordinal ("3rd") |
 | `.no` | zero as "no" |
+| `.p` | a p-value ("p < 0.001", never "p = 0.000") |
+| `.range` | a length-2 value as a range ("3–5") |
+| `.date` | a date, in the document's default format |
 | `.and`, `.or` | a vector collapsed with a final "and" / "or" |
+| `.pairs` | a named vector as "A (1.2), B (3.4) and C (5.6)" |
 | `.ul`, `.ol`, `.dl` | a bullet, ordered or definition list |
+
+Shipped text classes:
+
+| Class | Does |
+|---|---|
+| `.cap` | capitalises the first letter ("Twelve sites failed") |
+| `.a` | puts "a" or "an" before the text, by sound ("an 11-year record", "a 12-year record") |
+| `.strong`, `.em` | markdown emphasis |
+
+- **`.range`** prints one number when both ends print the same, writes
+  "−5 to −3" when either end is negative, and gives a unit once ("3–5 m").
+- **`.pairs`** takes names and values from one object, so their order cannot
+  drift apart. Formatters before it act on the values:
+  `` `r means`{.num .pairs} ``.
+- **`trunc`** is a renderer key for the collapsing formatters: the number of
+  items shown before "and N others".
 
 A project registers its own formatter (a function, optionally bundling options
 such as significant figures or a unit) under a class name. A project name may
 not shadow a shipped one. Dictionary quantities print with their unit (§4).
 
-Each formatter returns two things: the **text** and the **number as printed**
-(with a flag for whether decimals are shown). In a chain each formatter
-receives the previous result. One that rounds (`.num`, `.pct`) sets the
-number; one that only rewords (`.word`, `.no`) passes the number through.
+Each formatter returns the **text** and the **number as printed**: the number,
+a flag for whether decimals are shown, and a **relation** (`=`, `<`, `>`,
+`≈`). "< 0.001" is a bound, not a value, and arm selection, the ledger and
+the reports all need to know that. In a chain each formatter receives the
+previous result. One that rounds (`.num`, `.pct`) sets the number; one that
+only rewords (`.word`, `.count`, `.no`) passes the number through.
 
 ### Governed spans
 
@@ -120,39 +157,56 @@ keys. The bracket holds one or more **arms** separated by `|`.
 | Key | The value must be | Arms | Chosen |
 |---|---|---|---|
 | `n` | a single number | 1 | always (a template for `#`) |
-| | | 2 | one / otherwise |
-| | | 3 | zero / one / otherwise |
-| `if` | a single `TRUE` or `FALSE` | exactly 2 | true / false; either may be empty |
-| `claim` | one or more logical checks | exactly 1 | always; a `FALSE` check is a failed claim |
+| | | 2 | one / other |
+| | | 3 | zero / one / other |
+| | | 4 | zero / one / two / other |
+| `if` | a single `TRUE` or `FALSE` | 2 | true / false; either may be empty |
+| | | 1 | always (a guard): `FALSE` is a failed claim |
+| `sign` | a single number | 2 | positive / negative |
+| | | 3 | positive / negative / zero |
 
 ```
 [a person | # people]{n="n"} responded.
 [no people | a person | # people]{n="n"} responded.
+[neither site | one site | both sites | all # sites]{n="n"}
 file[ | s]{n="n"}
 Invertebrate numbers [rose | fell]{if="slope > 0"}.
 Council will need to [add more sampling sites | ]{if="n_gap > 10"}.
-Council will need to [add more sampling sites]{claim="n_gap > 10"}.
-[All]{claim="all(mod$rising)"} `r nrow(mod)` models rise.
-[# metre | # metres]{.num n="depth" claim=". > 0.5"}
+Council will need to [add more sampling sites]{if="n_gap > 10"}.
+[All]{if="all(mod$rising)"} `r nrow(mod)` models rise.
+Abundance [rose | fell | did not change]{sign="d"} by `r abs(d)`{.pct}.
+[# metre | # metres]{.num n="claim(depth, . > 0.5)"}
+[# site | # sites]{.range n="c(lo, hi)"}
 ```
 
-- **The key says what kind of governor it is.** The arm count allowed for each
-  key is fixed, so a wrong count is found from the source without running R.
-  A span carries exactly one of `n` and `if`, or `claim` alone.
-- **`claim` beside `n` or `if`** checks the governor, with `.` as its raw
-  value, exactly as on a value.
-- **`claim` alone is a phrase guard.** It prints its phrase and fails when a
-  check is false. It is the idiom for a phrase whose truth depends on a value
-  the sentence never displays.
+- **The key says what kind of governor it is.** The arm counts allowed for
+  each key are fixed, so a wrong count is found from the source without
+  running R. A span carries exactly one of `n`, `if` and `sign`.
+- **A case with no arm fails the render.** A one-arm `if` whose value is
+  `FALSE` and a two-arm `sign` at zero are failed claims, collected and
+  reported like any other (§1).
+- **A one-arm `if` is a phrase guard.** It always prints its phrase, and fails
+  when the value is `FALSE`. It is the idiom for a phrase whose truth depends
+  on a value the sentence never displays. The same phrase with an empty second
+  arm (`[add more sampling sites | ]`) is optional text, and fails nothing.
+- **A governor is checked with `claim()` in its expression**, exactly as a
+  value is.
+- **`sign` judges zero on the number as printed.** A change that prints as
+  "0.0%" takes the zero arm, whatever its raw value. Inside a `sign` span `#`
+  is the magnitude as printed, without its sign.
 - **`#` stands for the governor's printed text**, so the number and its noun
   are one unit.
 - **Selection sees the value as it prints.** Formatters run before the arm is
   chosen. The "one" arm is chosen only when the printed number is 1 and no
-  decimals are shown; the "zero" arm only when it is 0. A depth of 1.2 printed
-  by `.num` to zero decimals shows "1" and takes the singular; a value printed
-  as "1.0" takes the plural, as English does.
+  decimals are shown; the "zero" arm only when it is 0, and the "two" arm only
+  when it is 2. A depth of 1.2 printed by `.num` to zero decimals shows "1"
+  and takes the singular; a value printed as "1.0" takes the plural, as
+  English does. A number printed as a bound ("< 1") takes the "other" arm.
 - **`n` must be a single number.** A vector, a string or `NA` is an error that
-  says to write `length(x)`. A count is never inferred from a length.
+  says to write `length(x)`. A count is never inferred from a length. The one
+  exception is a length-2 value with `.range`: `#` is then the range, and the
+  span takes the plural (CLDR's rule for English ranges) unless the range
+  collapses to a printed 1.
 - **Arms are trimmed.** `\|` and `\#` mean the same as `|` and `#` (the visual
   editor adds those backslashes). A doubled `||` or `##` is the literal
   character.
@@ -182,13 +236,14 @@ governor again: `[was | were]{n="n"}`.
 `r sites`{.and} [was | were]{n="length(sites)"} sampled.
 ```
 
-### What is never a clag construct
+### What is never a weft construct
 
-- a bracket whose attribute block has none of `n`, `if`, `claim` (an ordinary
+- a bracket whose attribute block has none of `n`, `if`, `sign` (an ordinary
   Pandoc span, a link, a citation, a footnote)
 - a code span that is not inline R
-- anything inside a fenced block that is not executed: there, nothing is
-  evaluated, including bare inline R (stock knitr would evaluate it)
+- anything inside a fenced block that is not executed: there weft changes
+  nothing. Bare inline R is evaluated exactly as stock knitr evaluates it, and
+  an attribute block after it is left as text
 - math, link targets and raw blocks; a `|` inside math, a code span or a link
   inside an arm does not split the arm
 
@@ -205,36 +260,62 @@ A named `lookup()` or `brk()` is a stipulation and belongs in the dictionary
 
 ### In R code and in chunk options
 
-The markup exists only in prose. In R code each construct has a function:
+The markup exists in prose. In R code each construct has a function, and a
+check is the same function in both places:
 
 | Prose | R |
 |---|---|
-| `claim="…"` | `claim(x, …)` |
 | `[…]{n="…"}` | `plural(n, "a person", "# people")` |
 | `.num`, `.pct`, … | `num()`, `pct()`, … |
+| `claim(x, …)` in the expression | `claim(x, …)` |
 
-Chunk options are not prose and are never scanned. A caption that needs a
-value or a governed span is written as prose in a Quarto figure div
-(`::: {#fig-a}` … caption paragraph … `:::`), where both constructs work. A
-clag construct inside a `fig-cap:` string is an error (§1, §5).
+**Captions in chunk options are prose.** A construct works in `fig-cap`,
+`fig-alt`, `fig-subcap` and `tbl-cap` under Quarto, and in `fig.cap` and
+`fig.alt` under rmarkdown. The caption is resolved after its chunk has run,
+so it sees objects made in the same chunk (§1):
+
+````
+```{r}
+#| label: fig-depth
+#| fig-cap: |
+#|   Depth at [a site | # sites]{n="n_sites"}, mean `r depth`{.num} m.
+n_sites <- nrow(d)
+plot(d)
+```
+````
+
+- **A caption with a construct is written as a YAML block scalar**
+  (`fig-cap: |`). An unquoted scalar is cut at ` #`, silently; that is a
+  construct error (§5).
+- **Not supported:** rmarkdown's `tab.cap`, and `!expr` inside `fig-subcap`.
+- **A caption can also be prose in a Quarto figure or table div**
+  (`::: {#fig-a}` or `::: {#tbl-a}` … caption paragraph … `:::`), where both
+  constructs work as in any paragraph.
+
+**`weft_str()` renders a markup string** (exported provisionally). It is for
+the text slots no chunk option reaches: `gt::tab_caption()`,
+`knitr::kable(caption = )`, `ggplot2::labs()`. The lints read a literal
+string passed to it as prose.
 
 ---
 
 ## 1. Runtime
 
-### Four knitr hooks
+### The hooks
 
-clag attaches to a knit through hooks. There is no preprocessor.
+weft attaches to a knit through knitr's hooks. There is no preprocessor.
 
-| Hook | What clag does with it |
+| Hook | What weft does with it |
 |---|---|
 | `evaluate.inline` | does not evaluate; parks the code and returns a placeholder |
 | `text` | receives each block of prose between chunks, resolves every construct in it, in textual order |
 | `evaluate` | records every warning, message and error a chunk raises, then hides what the author asked to hide |
 | `document` | at the end: checks that everything was evaluated, writes the logs, fails the render if any check failed |
+| `opts_hooks` on the caption options | turns a caption string that contains a construct into a call, which knitr evaluates after the chunk |
+| `chunk` | removes a `NULL` `tbl-cap`, which Quarto would otherwise forward to every cell |
 
 **The `text` hook owns a block of prose.** Because inline code is parked
-rather than evaluated, clag decides what runs and in what order: it picks an
+rather than evaluated, weft decides what runs and in what order: it picks an
 arm first and evaluates only what that arm contains. Parking also gives every
 expression an index within its block, and means a data value whose text
 happens to look like a span is printed, never evaluated.
@@ -247,37 +328,73 @@ same environment a stock inline expression would.
 block is evaluated through knitr's own default inline evaluator, so
 `knit_print` methods and the `inline` hook apply as usual.
 
+**Captions are evaluated after their chunk.** The caption options are added
+to knitr's `eval.after` list, so a caption string is resolved once the chunk's
+code has run, in the chunk's environment. An error in a caption names the
+chunk label and the option. Figure and table numbering and cross-references
+are unaffected.
+
+**`claim()` behaves by context.** Under the hooks a failed check is collected
+and the value is returned, so the render continues to the single report at
+the end. Anywhere else (a pipeline, plain R, a document in which the hooks
+never installed) it stops at once. A check on a value therefore runs even
+when nothing else of weft does.
+
 ### Installing the hooks
 
 - **Loading the package installs the hooks, idempotently**, whether or not a
   knit is in progress. A conditional install fails silently when the package
   was loaded before the knit began (an `.Rprofile`, or a session that called
   `library()` earlier).
-- **`clag_setup()` does the same explicitly** and is what `use_clag()` writes
-  into a document's setup chunk. It also reads the project configuration.
+- **`weft_setup()` does the same explicitly.** It also reads the project
+  configuration.
 - **Hooks alone write nothing.** The condition log, the ledger and the
   failure report are written only in a project that has been set up with
-  `use_clag()` (P10).
+  `use_weft()` (P10).
 
-Prose above the chunk that loads the package is not processed. That is caught
-by the two backstops below.
+There are three places to activate a document. The first two run before any
+prose is read, so a construct in the first paragraph resolves.
+
+| Where | What is written | Covers |
+|---|---|---|
+| the document's front matter | `knitr:` / `opts_knit:` / `weft: !expr weft::weft_setup()` | one document, under Quarto and rmarkdown |
+| `.Rprofile` at the project root | `weft::weft_setup()` | every document in a Quarto project, wherever it sits |
+| a setup chunk | `library(weft)` | the prose below that chunk |
+
+- **The front-matter form works because R evaluates `!expr` when it reads the
+  document's own YAML.** The same line in `_quarto.yml` is passed through
+  unevaluated and activates nothing, silently, so there is no `_quarto.yml`
+  route. `params:` with `!expr` also works.
+- **`use_weft()` writes the `.Rprofile` line** in a Quarto project. Quarto
+  starts R in the project root even for a document in a subdirectory. A
+  missing package is then a render error.
+- **Under rmarkdown the project-wide form is `_output.yml`** naming a weft
+  output format that carries the hooks.
+- **Inline R in a YAML field is not a route.** knitr fetches its inline
+  evaluator once for the first block, so hooks installed from inside that
+  block miss the values in it.
+
+Prose above a setup chunk that loads the package is not processed. That is
+caught by the two backstops below.
 
 ### Failing loudly
 
 A construct that is valid markdown renders as plausible text when nothing
 evaluates it, so silence has to be made impossible by other means.
 
-1. **A value's attribute block is visible when unprocessed.** Without the
-   hooks, `` `r depth`{.num} `` renders as `1.2{.num}`.
-2. **The end-of-document check.** When the hooks are installed clag scans the
+1. **A value's attribute block is visible when unprocessed, and its check
+   still runs.** Without the hooks, `` `r depth`{.num} `` renders as
+   `1.2{.num}`, and a `claim()` in the expression stops the knit when it
+   fails.
+2. **The end-of-document check.** When the hooks are installed weft scans the
    input file and counts its constructs; the `document` hook compares that
    with what was evaluated and fails, naming each construct that was missed
    and its line.
-3. **The `clag-check` Lua filter**, installed in the project by
+3. **The `weft-check` Lua filter**, installed in the project by
    `use_quarto()`. After knitting, any span that still carries `n`, `if` or
-   `claim`, or any text that still shows an attribute block, fails the render.
+   `sign`, or any text that still shows an attribute block, fails the render.
    This is the one backstop that works when the package was never loaded. It
-   also catches a construct in a `fig-cap:` string. (The filter exits through
+   also catches an unresolved construct in a caption. (The filter exits through
    `os.exit(1)`: under Quarto a Lua `error()` prints but does not fail the
    render.)
 
@@ -288,10 +405,10 @@ value), a visible marker is left in the text, and the `document` hook fails
 the render once with every failure listed:
 
 ```
-clag: 2 claims failed
+weft: 2 claims failed
   14-percentile-bands.qmd:412  "All 10 models rise"
       all(mod$rising) was FALSE
-  14-percentile-bands.qmd:431  `r shift$n_down`
+  14-percentile-bands.qmd:431  `r claim(shift$n_down, . >= 10)`
       . >= 10 was FALSE (value 7)
 Read each sentence. If FALSE is right, rewrite the sentence.
 Do not loosen a claim to clear this.
@@ -314,16 +431,16 @@ the construct: the block's first line plus the newlines before the construct.
 Placeholders contain no newlines, so the count is stable.
 
 - The block's first line comes from `knitr:::knit_concord`, which is not
-  exported. An integration test pins it (§11); without it clag falls back to
+  exported. An integration test pins it (§11); without it weft falls back to
   the block's line range.
 - Under Quarto, knitr reads an intermediate file with `{{< include >}}`
-  already expanded. clag maps lines back through the includes, so an error in
+  already expanded. weft maps lines back through the includes, so an error in
   an included file names that file.
 
 ### Conditions
 
 knitr writes chunk warnings and messages into the rendered document, or
-discards them when the author hides them; neither reaches anyone. clag wraps
+discards them when the author hides them; neither reaches anyone. weft wraps
 knitr's `evaluate` hook so that every warning, message and error is logged
 with its chunk label and source expression, and then removes from the output
 exactly what the author's `warning:` and `message:` settings would have
@@ -341,9 +458,11 @@ removed. The rendered document is identical to a stock render.
   check the cached values.
 - **Quarto's `freeze` skips everything.** A frozen chapter is not executed, so
   none of its checks run, and freeze is keyed on the source file alone: a
-  change in the data does not thaw it. Every executed document writes a stamp;
-  the `post-render` script fails if a document with constructs has no stamp
-  from this render. `verify()` never passes a chapter served from freeze.
+  change in the data does not thaw it. Every executed document writes a stamp.
+  After an ordinary render the `post-render` script reports each document
+  with constructs that was served from freeze: how many checks did not run,
+  and when they last did. It fails nothing. `verify()` fails on a chapter
+  served from freeze.
 
 ### The scanner, and the two parsers
 
@@ -357,7 +476,8 @@ tree that Pandoc builds from the source with positions on every node
 (`commonmark_x+sourcepos`, from the Pandoc that Quarto ships), in which a
 value is a `Code` node with classes and attributes and a governed span is a
 `Span`. That reader does not parse citations, so the lints carry their own
-carve-out for citation brackets.
+carve-out for citation brackets. It does not hold chunk options either, so
+captions written there are read in a second pass over the chunk headers.
 
 Two readers of one syntax can disagree. The fixture suite (§11) asserts that
 they find the same constructs, and the end-of-document check compares them on
@@ -409,7 +529,7 @@ misses entirely.
 |---|---|---|
 | L1 | structural diff: removals are acknowledged | commit gate |
 | L2 | claim tokens: numerals and claim words in prose | gate |
-| L3 | checks: `claim=` and `claim()` | knit |
+| L3 | checks: `claim()` and one-arm `if` | knit |
 | L4 | cross-references and citations | gate |
 | L5 | value ledger | knit |
 | L6 | surfacing: conditions, unevaluated constructs, frozen chapters | knit |
@@ -427,7 +547,7 @@ for weeks.
 
 **Surfacing beats coverage.** Every layer must fail loudly at a checkpoint
 someone passes through, or not exist. A printed count is not a checkpoint; a
-count that may not rise is (§6).
+baseline that a commit must change in order to add to it is (§6).
 
 ---
 
@@ -474,11 +594,13 @@ only the R session. Every file the package places, and every file it writes
 during a render, exists because a `use_*()` function was called.
 
 **P11 — Every construct is markdown the toolchain already accepts.** The
-visual editor must be able to round-trip it, the next parser must be able to
-read it, and inline R that already exists must already count.
+visual editor must be able to round-trip it, and inline R that already exists
+must already count.
 
-**P12 — Measure before building.** A layer is built when a prototype of it
-reproduces findings from a real audit (§15).
+**P12 — Measure before building.** A prototype of each layer is run against
+the findings of a real audit, and the result ranks the layers (§15). The
+evidence is suggestive, not decisive: it comes from one corpus, and the
+package is for more than one project. It does not remove a layer.
 
 ---
 
@@ -486,30 +608,41 @@ reproduces findings from a real audit (§15).
 
 ### Checks
 
-One mechanism, two spellings. In prose a check is the `claim` attribute, on a
-value, on a governor, or alone on a phrase (§0). In R code it is a function:
+One mechanism: a function, the same in a value, in a governor and in a
+pipeline.
 
 ```r
 claim(x, <expression>, ...)
 ```
 
-- **`x` is any type**, and `claim()` returns it visibly, so a value can be
-  guarded in place inside a larger expression:
-  `` `r trend(claim(foo, . > 0))` ``.
+```
+`r claim(n_gap, . > 10)`
+`r claim(depth, . > 0.5)`{.num}
+[# metre | # metres]{.num n="claim(depth, . > 0.5)"}
+```
+
+- **`x` is any type**, and `claim()` returns it visibly and unchanged, so a
+  value can be guarded in place inside a larger expression
+  (`` `r trend(claim(foo, . > 0))` ``) and formatters apply to the raw value
+  after the check.
 - **`.` pronoun** — `claim(shift$n_down, . >= 10)`.
 - **Varargs, not `&&`** — each check is reported separately.
 - **NSE** — checks are captured unevaluated. The error text *is* the feature.
+- **Collected under the hooks, immediate elsewhere** (§1).
 
 `checkmate::test_*` is the right half of that package to use inside a check:
 it returns a logical.
+
+**A phrase is guarded by a one-arm `if`** (§0). It has no function form,
+because the guarded words must stay prose.
 
 **A guarded bracket is still prose.** The L2 lint recurses into it, so a
 numeral inside must be its own value. The idiom is to wrap the trigger word,
 or the clause, and nest what is computed:
 
 ```
-[All]{claim="all(mod$rising)"} `r nrow(mod)` models rise
-[All `r nrow(mod)` models rise]{claim="all(mod$rising)"}
+[All]{if="all(mod$rising)"} `r nrow(mod)` models rise
+[All `r nrow(mod)` models rise]{if="all(mod$rising)"}
 ```
 
 The hole that remains is a long bracket with one loose check. An advisory
@@ -520,7 +653,7 @@ which the sentence stays honest. Too tight and it fires on every refit and
 gets widened without thought; too loose and it is inert.
 
 **A check that cannot fail is flagged statically**: one with no `.` and no
-variable, such as `claim="TRUE"`.
+variable, such as `claim(x, TRUE)` or a one-arm `if="TRUE"`.
 
 ### Literals
 
@@ -528,15 +661,15 @@ A number that cannot be computed is written as a literal value, and should
 carry a check saying why it is trusted:
 
 ```
-`r 10`{claim="cite(smith2020)"}
-`r 2020`{claim="is_year(.)"}
+`r claim(10, cite(smith2020))`
+`r claim(2020, is_year(.))`
 ```
 
 A bare `` `r 10` `` is allowed. It is the deliberate escape hatch: nobody
 types it by accident, and a rule demanding a check would be met with
-`claim="TRUE"`. What a bare literal cannot do is hide: it is counted, the
-count may not rise unnoticed (§6), and a computed value replaced by a literal
-is reported at the commit.
+`claim(10, TRUE)`. What a bare literal cannot do is hide: each one is an item
+in the baseline, a new one fails the commit until the baseline lists it (§6),
+and a computed value replaced by a literal is reported at the commit.
 
 | Check | For | What it verifies |
 |---|---|---|
@@ -586,6 +719,11 @@ salinity_res:
 ```
 
 `decision:` is an optional pointer to wherever the project records decisions.
+The package keeps no register of its own (§12), but every id pointer it reads
+resolves through a configured resolver: a GitHub issue in the repository's
+remote (the default), a file glob (`decisions/{id}*.md`), or a project
+function. A lint checks that each pointer resolves (L10).
+
 A `type: labels` entry is returned as a `lookup()`.
 
 **Overrides.** A chapter may narrow a key, rarely, and a shadowing entry must
@@ -595,30 +733,89 @@ quietly changing meaning. `dict_local$x` with no local `x` is an error;
 `dict$x` where the chapter defines a local `x` is an ambiguity error. Local
 entries require a `why:` field.
 
-**The pipeline reads the same dictionary.** A stipulation matters most where
-it is computed with. `tar_dict()` exposes each key as its own target, so a
-changed entry invalidates exactly the targets that read it.
+**The pipeline reads the same dictionary, with the same spelling.** A
+stipulation matters most where it is computed with.
 
-**Two things the dictionary removes rather than checks:** the glossary is
-generated from `definition:`, and a `type: quantity` entry prints with its
-`unit:`.
+```r
+# _targets.R
+dict <- weft::dict("dict.yml")        # the same object prose reads
+list(
+  tar_dict("dict.yml"),
+  tar_dict_deps(list(
+    tar_target(era_fit, fit_eras(obs, split = dict$era_split))
+  ))
+)
+```
+
+- **`tar_dict()`** returns a file target for the YAML and one target per key,
+  holding the value only.
+- **`tar_dict_deps()`** walks each target's command, and the functions it
+  calls, for `dict$key` and `dict[["key"]]`, and declares the per-key targets
+  as dependencies. A changed value re-runs exactly the targets that read it;
+  a changed definition, a new key or a reorder re-runs no consumer.
+- **An unknown key errors when the pipeline is defined**, before anything
+  runs.
+- **A `.qmd` rendered by `tar_quarto()` is scanned for `dict$key` the same
+  way.** Without that, a dictionary change does not re-render the report.
+- **Dynamic access (`dict[[k]]`) and a bare `dict`** depend on the whole
+  dictionary.
+- **Keys must be valid R symbols**, and `file` is reserved.
+- `tar_outdated()` over-reports what a dictionary edit will re-run;
+  `tar_make()` is authoritative.
+
+**Three things the dictionary removes rather than checks:** the glossary is
+generated from `definition:`, a `type: quantity` entry prints with its
+`unit:`, and `dict_vale()` writes Vale terminology rules from the canonical
+spellings (§12).
 
 ### Formatters and plurals
 
 Each shipped formatter is a class in prose and a function in R (`num()`,
 `pct()`, `n_word()`, …), returning the text and the number as printed (§0).
 `plural(n, ...)` is the function form of an `n` span. The collapse engine
-behind `.and`, `.or` and the list formatters is `glue_vec()`, which is
-exported.
+behind `.and`, `.or`, `.pairs` and the list formatters is `glue_vec()`, which
+is exported.
+
+### Phrases built from numbers
+
+Some wording is fixed by arithmetic, and goes stale silently when it is typed
+by hand. These are functions called in a value. The function words they
+print ("of the", "nearly") are a closed set, like the "and" of `.and`.
+
+| Function | Prints |
+|---|---|
+| `of_n(k, n)` | "none of the 4", "the only", "both", "all 5", "3 of the 7" |
+| `about(x, to = 1/2)` | "nearly half", "just over half", "half" |
+| `ci(est, lo, hi)` | "2.1 (95% CI 1.3 to 2.9)" |
+| `pm(est, se)` | "2.1 ± 0.3" |
+| `clamp(x, floor, ceiling)` | "< 0.01", "> 99" for a value outside the bounds |
+
+- **`of_n()`** returns `k` as its number as printed, so a following `n` span
+  agrees with it. It prevents "all 2 sites" and "both of the 3".
+- **`about()`** takes its tolerance from the dictionary: how near is "nearly"
+  is a stipulation.
+- **`ci()`** takes its level from the dictionary and writes "to" between the
+  bounds, never a dash beside a minus sign.
+- **`clamp()`** sets the relation in the printed record (§0), as `.p` does.
+
+**Not built, with the package to use instead.** Fractions and multiples in
+words ("two-thirds", "twice") come from `nombre`. Compact and signed numbers
+("1.2 million", "+3.2%") come from `scales`, registered as a project
+formatter.
+
+**Planned, deferred.** `drange()` for date ranges ("3–5 June 2024") and
+`dur()` for durations ("2 years and 3 months"). Both need calendar arithmetic
+and a decision on date order (§15).
 
 ---
 
 ## 5. Lints
 
 Each ships as a function returning a structured result, and as an entry in the
-gate. All static lints read one tree: Pandoc's, with source positions (§1).
-What the lints skip is decided by node type (code, math, link target,
-citation, raw block), not by pattern.
+gate. All static lints read one tree: Pandoc's, with source positions (§1),
+plus the captions written in chunk options and the literal strings passed to
+`weft_str()`, which are parsed the same way. What the lints skip is decided by
+node type (code, math, link target, citation, raw block), not by pattern.
 
 ### L2 — claim tokens
 
@@ -635,12 +832,13 @@ citation, raw block), not by pattern.
   quotations are dense with numbers that are not data claims:
 
   ```
-  ::: {.clag-literal why="laboratory method, as specified in the SOP"}
+  ::: {.weft-literal why="laboratory method, as specified in the SOP"}
   Samples were filtered through 0.45 µm membranes and stored at 4 °C.
   :::
   ```
 
-  Opted-out blocks are counted, and the count may not rise unnoticed (§6).
+  Each opted-out block is an item in the baseline, so a new one fails the
+  commit until the baseline lists it (§6).
 - **Number words, quantifiers, extrema, direction words — tier 2.** "two",
   "all", "none", "only", "largest", "rose", "majority". These carry a data
   claim often but not reliably.
@@ -657,14 +855,25 @@ sentences (a new chapter, a moved section) it prints a count.
 **Value expressions.** Every numeric constant in a value expression that
 carries no check is tier 2: an unchecked literal (`` `r 10` ``) is listed with
 the suggestion to say why it is trusted; a constant buried in a computation
-(`x * 100`) is listed separately and more quietly. Constants inside checks are
-exempt.
+(`x * 100`) is listed separately and more quietly. Constants inside the check
+arguments of a `claim()` call are exempt.
 
-### Canonical form
+### Construct errors
 
-An attribute block not in canonical form (§0), an unknown class, an unknown
-key, a wrong arm count for its key, and a clag construct in a chunk option are
-tier-1 errors, found without running R.
+Tier-1 errors, found without running R:
+
+- a wrong arm count for its key
+- a class within one edit of a formatter or text-class name (`.nmu`)
+- a key within one edit of a weft key (`sing=`, `trunk=`). Other unknown keys
+  and classes are passed through (§0), so only a near miss can be told from an
+  attribute meant for Pandoc
+- a caption that contains a construct and is written as an unquoted YAML
+  scalar
+
+One tier-2 warning sits beside them. A governor key misspelt beyond a near
+miss (`[a site | # sites]{count="k"}`) leaves an ordinary Pandoc span that
+prints both arms. A bracketed span with an unescaped `|` between its words and
+no governor key is listed as a probable construct.
 
 ### L4 — cross-references and citations
 
@@ -691,7 +900,8 @@ the citing sentence claims. That is tier 3.
 5. **Seed discipline** — `sample`/`rnorm`/`runif` without `set.seed()`.
 6. **Internal file links resolve.**
 7. **Orphaned build artefacts.**
-8. **No construct above the chunk that loads the package.**
+8. **No construct above the chunk that loads the package**, in a document
+   activated from a setup chunk.
 
 ### L10, L11
 
@@ -709,11 +919,13 @@ Covered under the dictionary (§4) and figures (§7).
 | `{#sec-…}` sections | stable across heading rewording | exact |
 | labelled chunks | exact where labelled | exact |
 | constructs with an `#id` | the id | exact, including their checks |
-| other constructs | none | the multiset of their source text, per file |
+| other constructs | none | the multiset of their parsed form, per file |
 
-Rewording a sentence leaves its constructs present; a `sed` that eats them
-removes them from the multiset. The comparison is file-wide, so a move between
-sections does not trip it.
+A construct's parsed form is its expression, classes, keys and arms, so the
+order and quoting of an attribute block never count as a change. Rewording a
+sentence leaves its constructs present; a `sed` that eats them removes them
+from the multiset. The comparison is file-wide, so a move between sections
+does not trip it.
 
 ### Removals are acknowledged; everything else is reported
 
@@ -761,17 +973,28 @@ commit-msg: removal not acknowledged
 ### The ratchet
 
 Some costs are legal one at a time and corrosive in bulk: unchecked literals,
-opted-out blocks, shadowed dictionary keys. Their counts live in a committed
-baseline file. **A commit that raises a count fails unless it also raises the
-baseline**, which puts the increase in the diff where a reviewer sees it.
-Counts that fall lower the baseline automatically.
+opted-out blocks, shadowed dictionary keys. Each tolerated one is a line in a
+committed baseline file: its file, its source text, and how many times it
+occurs there.
+
+- **An item that is not in the baseline fails the commit until the commit
+  adds it**, which puts the addition in the diff where a reviewer sees it.
+- **An item that has gone is pruned automatically.**
+- **A swap is caught.** Removing one literal and adding another leaves the
+  total unchanged but adds an item the baseline does not hold. The exception
+  is a swap between two items with the same text in the same file.
+
+Items are sorted, one per line, so the file merges cleanly. Moving a paragraph
+to another file shows as one item removed and one added.
 
 ### The check-loosening report
 
 The pressure runs toward widening a bound rather than rewriting a sentence.
 **Every commit that changes a check lists the before and after**, computed
-from the two trees. The same report lists a check **removed** from a construct
-that still exists, and a **computed value replaced by a literal**. A construct
+from the two trees: the `claim()` calls are parsed out of each expression and
+compared. The same report lists a check **removed** from a construct that
+still exists, a **guard turned into optional text** (a one-arm `if` that
+gained an empty arm), and a **computed value replaced by a literal**. A construct
 is matched across versions by its `#id` where it has one, and otherwise by its
 section and expression; a check worth tracking through rewording is given an
 id.
@@ -783,13 +1006,13 @@ id.
 ### The value ledger (L5)
 
 The `text` hook evaluates every value and every governed span, so it records
-each one as it renders: expression, raw value, printed text, file, line,
-section, and for a span the arm chosen. Commit the ledger; diff it on
-re-render.
+each one as it renders: expression, raw value, printed text with its relation
+(§0), file, line, section, and for a span the arm chosen. Commit the ledger;
+diff it on re-render.
 
 **Format.** One JSON-lines file per source file, under `generated/ledger/`
 (P8). Each line is keyed on the construct's `#id`, or on section anchor,
-source text and occurrence index within the section. Line numbers are not
+parsed form (§6) and occurrence index within the section. Line numbers are not
 stored. Numbers are stored to a fixed number of significant figures alongside
 the printed text, so two machines produce the same file.
 
@@ -825,14 +1048,22 @@ the document's setup, or fix code.
 
 - **Presence, static:** every figure has a label, a caption and alt text;
   every table a caption.
-- **Captions are prose.** A caption written in a figure div is scanned like
-  any paragraph: its numerals must be values and it can carry checks. A count
-  stated in a caption is guarded the way any count is.
+- **Captions are prose.** A caption, whether written in a chunk option or in
+  a figure or table div, is scanned like any paragraph: its numerals must be
+  values and it can carry checks. A count stated in a caption is guarded the
+  way any count is.
 - **Free scales are flagged** (tier 2): they make panels look comparable that
   are not.
 
 The package does not write alt text and does not judge whether alt text
 describes the figure.
+
+### Sentence starts
+
+A recomputed value can open a sentence with a digit or a lowercase word
+("12 sites failed"; "no sites failed"). The `text` hook lists every construct
+whose text opens a sentence that way (tier 2; a project can make it fail).
+The fix is `.cap`, with `.count` or `.word` for a number.
 
 ---
 
@@ -862,9 +1093,9 @@ All under P10: explicit calls, each saying what it will write.
 
 | Function | Writes |
 |---|---|
-| `use_clag()` | everything below, with a summary first |
-| `use_setup()` | the `clag_setup()` line in each document's setup chunk; the project config |
-| `use_quarto()` | the `clag-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
+| `use_weft()` | everything below, with a summary first |
+| `use_setup()` | the `weft::weft_setup()` line in the project's `.Rprofile` (Quarto), or the front-matter line in a single document; the project config |
+| `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
 | `use_hooks()` | the `commit-msg` shim calling the gate; the baseline file |
 | `use_dictionary()` | dictionary skeleton and schema |
 | `use_agent_docs()` | agent-facing conventions and the Claude skill |
@@ -878,7 +1109,8 @@ trailer; `dict_local` rules).
 
 - **`recall_check()`** — given recorded findings and a pre-remediation commit,
   runs a lint against the historical state and reports what fraction of the
-  findings it reproduces.
+  findings it reproduces, and how much else it flags. The result ranks the
+  layers for that project; it is one corpus, and proves nothing about another.
 - **`dict_seed()`** — harvests candidate dictionary keys by finding constants
   defined in more than one chapter.
 - **`status()`** — reports which layers are installed, which are configured
@@ -896,9 +1128,12 @@ mismatch.
 One entry point. Runs, in order:
 
 ```
-L4 → L2 → canonical form → L10 → L1 → L8 → ratchet
+L4 → L2 → construct errors → L10 → L1 → L8 → ratchet
    → render with freeze disabled (L6) → L3 + L11 → L5
 ```
+
+A chapter that is nevertheless served from freeze fails `verify()`. An
+ordinary render only reports it (§1).
 
 The git hook calls the pre-render subset as a single tool. Each layer is
 individually switchable in config; `verify()` reports which were skipped and
@@ -922,12 +1157,16 @@ fixture pair.
   must find the same constructs at the same positions.
 - **Round trip.** Every fixture, passed through Pandoc's markdown writer, must
   render to the same text.
+- **Attribute forms.** Each fixture is also run with its attribute blocks
+  reordered, single-quoted and unquoted, and must render the same text.
 - **Pinned internals.** One test each for `knitr:::knit_concord`, the
-  signature of knitr's `evaluate` hook, Quarto's `.QuartoInlineRender`
-  wrapper, and a Lua `os.exit` failing a Quarto render. Each is a place where
-  an upgrade could change behaviour silently.
+  signature of knitr's `evaluate` hook, knitr's evaluation of `eval.after`
+  options after the chunk, Quarto's `.QuartoInlineRender` wrapper, Quarto's
+  forwarding of a `NULL` `tbl-cap`, and a Lua `os.exit` failing a Quarto
+  render. Each is a place where an upgrade could change behaviour silently.
 - **Stock parity.** A document with no attribute blocks renders byte-identical
-  with and without the hooks.
+  with and without the hooks, including inline R inside a fenced block that is
+  not executed.
 
 ---
 
@@ -940,12 +1179,44 @@ fixture pair.
   not.
 - **Define its own syntax.** No construct needs a compile step or a custom
   engine.
+- **Pluralise nouns automatically.** Explicit arms are visible in the source
+  and spellchecked; an inflector gets taxa, genera and "data" wrong.
+- **Render a fallback.** A construct that cannot be evaluated fails the
+  render; nothing is printed in its place and carried on from.
 - **Keep registers.** Decision logs, task registers and status conventions are
-  a project's own; the dictionary's `decision:` field points at them.
-- **Lint prose style (L7).** Vale does that and needs no wrapper to run on a
-  rendered file.
+  a project's own. The dictionary's `decision:` field points at them through
+  a configurable resolver (§4), so the package is tied to no one tracker.
+- **Lint prose style (L7).** Vale does that and needs no runner. The one
+  thing the package knows that Vale does not is the dictionary, so
+  `dict_vale()` writes Vale terminology rules from it.
 - **Wrap a data-validation package (L12).** §8.
 - **Install itself.** P10.
+
+### One package, two parts
+
+The package is built as one, with a hard internal boundary.
+
+- **The prose core** (scanner, hooks, formatters, `claim()`, `plural()`)
+  imports nothing from the harness, and emits a record of every construct it
+  evaluates.
+- **The harness** (lints, gate, ledger, dictionary, `verify()`) subscribes to
+  that record.
+
+They split into two packages when the core has a user who does not want the
+harness. Integration with Vale, data validation and an issue tracker belongs
+in a project template, not in package code.
+
+Names held in reserve for a split. All were free on CRAN's index on
+2026-11-11.
+
+| Name | Idea |
+|---|---|
+| `inlay` | values inlaid in prose |
+| `dovetail` | a joint that holds without glue |
+| `vouch` | every number vouched for |
+| `warrant` | in Toulmin's model, the warrant links data to claim |
+| `tally` | to count and to agree (hard to search beside `dplyr::tally()`) |
+| `stet` | the proofreader's "let it stand" |
 
 ---
 
@@ -963,24 +1234,48 @@ and Quarto 1.11.9 (Pandoc 3.10). "Both" means under `quarto render` and under
 | Every error names the exact source line | both |
 | Bare values print as stock knitr, 24 kinds of value | both |
 | Quarto's `` `{r} x` `` form, bare and with attribute blocks | Quarto |
-| A caption written as prose in a figure div resolves, and the figure is numbered and referenced | Quarto |
+| A caption written as prose in a figure div or a table div resolves, and the float is numbered and referenced | Quarto |
+| Constructs in `fig-cap`, `fig-alt`, `fig-subcap` and `tbl-cap` (kable and gt) resolve through an option hook and `eval.after`, and see objects made in the same chunk; numbering and cross-references hold | Quarto (html, docx, Typst) |
+| Constructs in `fig.cap` and `fig.alt` resolve the same way | rmarkdown |
+| A caption resolved inside the option hook itself reads the values from before the chunk; `tab.cap` and `!expr` in `fig-subcap` do not work; an unquoted YAML caption is cut at ` #` | both / Quarto |
+| A failed check in a caption stops the render, naming the chunk and the option | Quarto |
+| Stock knitr evaluates inline R inside a fenced block that is not executed | knitr |
 | Constructs in an included file resolve | Quarto |
 | docx and Typst output | Quarto |
+| Of span classes, Pandoc turns only `.smallcaps`, `.underline` and `.mark` into formatting, in html, docx, LaTeX and Typst; `custom-style` reaches docx | Pandoc |
+| Pandoc accepts attribute blocks written key-first, unquoted and single-quoted, and its writer rewrites them to id, classes, keys with double quotes | Pandoc |
+| `tar_dict()` and `tar_dict_deps()`: a changed value re-runs exactly its readers, through commands and through functions; a changed definition, a new key or a reorder re-runs no consumer; an unknown key errors at definition | targets 1.12.0 |
+| A `tar_quarto()` report notices a dictionary change only when its `.qmd` is scanned for `dict$key`; then exactly | targets, Quarto |
+| CLDR's plural-range data gives every English range the plural | CLDR |
 | Failed checks collected, one report, exit 1, no output written; draft mode | both |
 | Book: failures from all chapters in one report through pre/post-render scripts | Quarto |
 | Hidden warnings and messages logged, output byte-identical to stock | both |
 | End-of-document check catches a construct above the setup chunk | both |
-| `clag-check` filter fails the render when the hooks are absent, passes when present | both |
+| `weft-check` filter fails the render when the hooks are absent, passes when present | both |
 | Hooks installed on package load, including when loaded before the knit | both |
+| Activation from the document's front matter (`!expr` under `knitr:` or `params:`): a construct in the first paragraph resolves | both |
+| Activation from `.Rprofile` at the project root, for documents in the root and in a subdirectory, project and single-file render | Quarto |
+| `!expr` in `_quarto.yml` or `_metadata.yml` is not evaluated; inline R in a YAML field installs the hooks too late for values in the first block | Quarto |
+| Activation from `_output.yml` through an output format that carries the hooks | rmarkdown |
 | Chunk cache: checks still run on cached values | both |
 | `freeze: auto`: checks do not run; the stamp mechanism detects it | Quarto |
-| Pandoc's markdown writer keeps values and governed spans as constructs, rewriting them to canonical form with `\|` and `\#` | Pandoc |
+| Pandoc's markdown writer keeps values and governed spans as constructs, writing `\|` and `\#` inside them | Pandoc |
 | Pandoc's position-tracking reader parses values and spans into nodes with line and column | Pandoc |
 | Knit time with 4,000 constructs: about 1.5 s against 0.2 s stock | knitr |
 
-Not run: Windows; the Render button in RStudio or Positron; running chunks
-interactively with the hooks loaded; LaTeX PDF; bookdown; nested includes;
-knitr child documents.
+The stand-in for the syntax cases spelled a check as an attribute, stopped at
+three arms, rejected unknown classes and left inline R in a fence unevaluated.
+Not run in the form §0 gives them: `claim()` in the expression under the
+hooks; `sign`; a four-arm `n`; a one-arm `if`; pass-through classes and keys;
+attribute blocks in other orders and quotings at knit time; stock evaluation
+inside a fence with the hooks installed; the formatters, text classes and
+functions other than `.num`, `.pct`, `.word`, `.no`, `.or` and `.ul`.
+
+Not run at all: Windows; the Render button in RStudio or Positron; running
+chunks interactively with the hooks loaded; LaTeX PDF; bookdown; nested
+includes; knitr child documents. For captions in chunk options: LaTeX, books
+and `cache: true`. For `tar_dict()`: branching, parallel workers and functions
+in a package namespace.
 
 Quarto 2 (experimental, 0.43.0): its parser accepts a governed span whose key
 has a quoted value, and rejects a key written before a class and an unquoted
@@ -1001,10 +1296,21 @@ has a quoted value, and rejects a key written before a class and an unquoted
    is no command-line flag. The mechanism `verify()` uses is undecided.
 5. **Quarto 2 execution.** It hands knitr text re-serialised from its parsed
    tree. Whether the hooks then see the constructs unchanged is untested.
-6. **`tar_dict()`.** Per-key dictionary targets are a proposal, not yet tried
-   against `targets`.
+6. **`tar_dict()` beyond the toy pipeline.** Not run: branching, parallel
+   workers, functions in a package namespace, Windows.
 7. **Matching a construct across versions** when it has no `#id` is a
    heuristic. How often the check-loosening report mismatches is unmeasured.
+8. **Plural forms for other languages**, and whether an `n` span ever needs
+   more than four arms, are undecided. The rules in §0 are English's.
+9. **A `gt::tab_caption()` caption went missing in Word output** in one test,
+   while the same chunk was correct in Typst. Unexplained.
+10. **`weft_str()`** is exported provisionally. Whether a string renderer in R
+    code earns its place beside the function forms is open.
+11. **An `#id` as a back-reference.** Whether a later span may agree with a
+    value as it was printed (`[was | were]{n="#d"}`), and how that is spelt,
+    is undecided. An id is identity only until it is.
+12. **`.Rprofile` activation beside `renv`**, which owns that file, and under
+    the editors' Render buttons, is untested.
 
 ---
 
@@ -1014,35 +1320,47 @@ Each stage leaves something usable on its own.
 
 **Stage 0 — measure.** `recall_check()` and rough prototypes of the candidate
 lints, run against the audit corpus of the companion plan. The result ranks
-the layers and can remove one from this list (P12).
+the layers. It is suggestive: one corpus cannot remove a layer from a package
+meant for more than one project (P12).
 
 **Stage 1 — the prose core.** Usable alone.
 
-- the scanner and the four hooks
-- values, checks, formatters, governed spans; `claim()`, `plural()`,
-  `lookup()`, `brk()`, `cite()`, `is_year()`
+- the scanner and the hooks
+- values and governed spans with `n`, `if` and `sign`; pass-through of
+  classes, keys and ids
+- `claim()`, `plural()`, `lookup()`, `brk()`, `cite()`, `is_year()`
+- the formatters and text classes of §0, with the relation in the printed
+  record; `of_n()`, `about()`, `ci()`, `pm()`, `clamp()`
+- captions in chunk options; `weft_str()`
 - collected failures, exact positions, draft mode
+- the sentence-start report
 - the condition log and severity list
-- the end-of-document check and the `clag-check` filter
+- the end-of-document check and the `weft-check` filter
 - `use_setup()`, `use_quarto()`
 - the syntax fixtures, conformance and pinned-internals tests
 
 **Stage 2 — dictionary and ledger (L10, L5).**
 
-- `dict`, `dict_local`, the schema, the generated glossary, `tar_dict()`
+- `dict`, `dict_local`, the schema, the generated glossary, the pointer
+  resolver, `dict_vale()`
+- `tar_dict()` and `tar_dict_deps()`
 - the ledger: emit, three states, `ledger_review()`
 
 **Stage 3 — static lints (L2, L4, L8, L11).**
 
-- the Pandoc-tree reader and the citation carve-out
-- L2 with the opt-out block; the canonical-form lint; L4; L8; figure presence
+- the Pandoc-tree reader, the citation carve-out and the second pass over
+  chunk-option captions
+- L2 with the opt-out block; construct errors; L4; L8; figure presence
 
 **Stage 4 — the commit gate (L1).**
 
 - the structural diff and the `Removed:` trailer
-- the ratchet and the check-loosening report
+- the itemised baseline and the check-loosening report
 - `verify()` as the single entry point, including the commit-range form
 
 Stage 2 comes before stage 3 because L2's tier-1 rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
 to go.
+
+**Planned, after stage 4.** `drange()` and `dur()` (§4). They are not in a
+stage: both need calendar arithmetic and a decision on date order.
