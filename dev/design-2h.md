@@ -347,3 +347,46 @@ Built as recommended until answered.
   class. Accepted.
 - The zero rule's advice names the ladder only when every element
   printed zero in the first rung. Accepted.
+
+## Rulings on the review of 2h (`dev/review-2h.md`)
+
+Findings 1 to 13 are accepted as the reviewer states them, with these
+particulars. Where a ruling differs from the contract above, the ruling
+wins.
+
+- **2, 3, 7, a. `display:` takes one unit; a ladder is written at the
+  use (reverses L2 in part, L13, L14; decision 53).** A `display:` with
+  more than one rung, as a `|` string or a list of more than one item,
+  is a `read_dict()` problem that says to write the ladder in a `unit`
+  key where the value is printed. A list of one item stays one unit.
+  Why: with a ladder at read the unit the entry is held in follows its
+  value, so a one-character edit (800 to 8000) changed
+  `units::drop_units(dict$x)` by a factor of 1,000 with no error, and
+  `a + b` and `b + a` printed in different units.
+- **3, e.** A rung with an offset (`degC`, `degF`, against `K`) on a
+  ladder of more than one rung is a value error naming the rung: a
+  ratio window means nothing across an offset.
+- **1, g.** `.nounit` or `unit_form = "none"` with a ladder of more than
+  one rung is a value error: the reader could not tell which unit the
+  number is in.
+- **4, f.** With a class that spells the number (`.word`, `.count`), a
+  rung is eligible only where the number prints whole; if none is, the
+  error is 1.4.12's as for any number that is not whole.
+- **5, b.** For a vector, a rung that prints an element that is not zero
+  as zero is passed over when another rung prints none as zero; then
+  "most elements fit" as before. Stated too: a value may print in one
+  unit alone and another inside a vector, and elements hidden by
+  `trunc` take part in the choice.
+- **6, i.** When no rung fits, "nearest" is measured on the number
+  before rounding.
+- **8.** `plural()` chooses its arm by the number as printed in the
+  picked rung, as a span does.
+- **9.** `unit_picked` is `NA` for a construct that failed.
+- **10 to 13.** Accepted (one rule cited once; the twin's rung named
+  once; the `unit =` message; decision 51's last sentence; the spec's
+  example).
+- **c, d, h.** Kept: `|`; order as the author's preference (a
+  descending ladder breaks ties toward the larger unit, stated); a
+  back-reference formatted again may print outside the window, stated
+  with an example.
+- **j.** 4.4.13 says "an SI unit with no prefix".

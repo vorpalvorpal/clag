@@ -318,9 +318,8 @@ and are entries 30 to 37 under "Made".
     field (rain in mm, a concentration in its limit's unit), because a
     compound unit has no single best scaling, and because the arm
     chosen follows the number as printed. Built instead: the zero
-    rule's warning names a unit that would show the value. For Robin:
-    a ladder the author approves (`unit="mm|m|km"`, weft picks the
-    first giving 1 up to 1,000), not built.
+    rule's warning names a unit that would show the value. The ladder the author approves
+    (`unit="mm|m|km"`) is decision 52.
 52. **Package 2h, the unit ladder (Robin approved, 12 November 2026;
     completes decision 51).** `unit="mm|m|km"`, a vector for `unit =`,
     or a list in `display:` names the units the author approves; weft
@@ -332,3 +331,11 @@ and are entries 30 to 37 under "Made".
     picked (an attribute carrying the ladder is lost by `c()`, `mean()`
     and subsetting). Its questions Q1 to Q4 are built as recommended
     and are for Robin.
+53. **A ladder is not allowed in `display:` (reverses part of decision
+    52).** The review of 2h measured the hazard: the unit an entry is
+    held in followed its value, so editing 800 to 8000 changed
+    `units::drop_units()` of the entry by a factor of 1,000 silently.
+    Alternatives: keep it and document the hazard; carry the ladder on
+    the quantity (lost by `c()`, `mean()`, subsetting). Chosen: one
+    unit in `display:`, ladders in the `unit` key at the use. Reverse:
+    `R/dict.R`; the tests are in git history at 80d3ff9.
