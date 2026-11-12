@@ -1565,7 +1565,7 @@ salinity_res:
 
 **4.2.1** An entry has a `value`, a `type` and a `definition`. `decision` is
 optional, and so are `term` (any type, 4.7.3) and `avoid` (4.7.4). `unit` is required for `type: quantity` and an error on any other
-type. `display`, a unit or a ladder of units, is optional on a `type: quantity` entry
+type. `display`, one unit, is optional on a `type: quantity` entry
 (4.2.7) and an error on any other type. A field that is not named here is an error; the problem lists
 the nine fields: `value`, `type`, `definition`, `unit`, `display`, `decision`,
 `why`, `term` and `avoid`.
@@ -1641,27 +1641,19 @@ reach_len:
 `{unit="m"}` "2,000 m". Arithmetic, checks, `#`, `units::drop_units()` and the
 pipeline all see km. The `display` unit is registered as `unit` is (4.4.7).
 
-`display:` may be a ladder (4.4.23), written `display: m|km` or as a list,
-`display: [m, km]`. The entry's own value is converted, when the dictionary is
-read, to the unit the ladder picks for it, tested as `.num` prints it under
-weft's default digits (1) whatever `_weft.yml` sets, so that `read_dict()` in a
-pipeline and a knit agree. An entry of 2000 m with `display: m|km` is 2 km, and
-one of 900 m is 900 m. `dict$x` is held in that unit for arithmetic, checks,
-`#`, `units::drop_units()`, the glossary and the pipeline, as with a single
-`display:`. The ladder does not travel: a value computed from the entry
-(`dict$x * 3`) stays in the unit the entry's own value picked, and a ladder on
-it is written as `unit=` at the use. A `unit` at the use wins over `display:`
-(4.4.15): its ladder picks from the value in whatever unit the dictionary gave
-it.
+`display:` takes one unit. A ladder (4.4.23) in it, written as a `|` string
+(`display: m|km`) or as a list of more than one item (`display: [m, km]`), is a
+`read_dict()` problem that tells the author to write the ladder in a `unit` key
+where the value is printed. A list of one item is that unit. A `unit` at the use
+wins over `display:` (4.4.15), and its ladder picks from the value in whatever
+unit the dictionary gave it.
 
 These are problems of the dictionary (4.2.6): `display` on another type, one
 that does not parse, one that `unit` does not convert to, and one that `units`
-reaches only by inverting the value (4.4.14), each judged for every rung of a
-ladder, and for a ladder an empty or repeated rung, two rungs of the same size
-(4.4.23), a list item that holds `|`, and a `display` that is neither a string
-nor a list of strings. The `entries`
+reaches only by inverting the value (4.4.14), and a `display` that is a
+ladder, as above, or is neither a string nor a list of strings. The `entries`
 attribute of the dictionary holds a `display` column, `NA` where an entry has
-none and the rungs joined by `|` (`"m|km"`) where it has a ladder, then a `term` column (`NA` where absent) and an `avoid` column (a list
+none, then a `term` column (`NA` where absent) and an `avoid` column (a list
 column, `character(0)` where absent), and `print()` shows the unit the entry is held in. An entry holds no form setting:
 the form is the reader's choice (4.4.15).
 
@@ -1838,15 +1830,15 @@ a value error: weft prints one unit for one vector.
 and its unit, and records the warned check, as a number does (1.4.13):
 `u(0.04, m)` under `.uname` prints "0.0 metres". A
 missing element is the "no value" failure, as for a number. The warned check
-says how to show the value: `digits` or `sigfig` and, when the unit is one SI
-unit that takes a prefix, the prefixed unit that would print a number from 1 up
+says how to show the value: `digits` or `sigfig` and, when the unit is an SI
+unit with no prefix, the prefixed unit that would print a number from 1 up
 to 1,000 (`unit = "mm"` for 0.04 m). For a compound unit it names `digits` and
 `sigfig` only. weft does not pick the unit itself, except from a ladder the
 author wrote (4.4.23).
 
 Under a ladder a quantity prints "0.0" only when every rung prints zero, since
 a rung that shows a number other than zero is nearer; the rung is then the
-first. When the first rung is one SI unit that takes a prefix, the advice is the
+first. When the first rung is an SI unit with no prefix, the advice is the
 ladder with the prefixed unit that would print from 1 up to 1,000 put first:
 `unit="mm|m|km"` for 0.04 m under `unit="m|km"`. For a compound first rung, and
 for a vector of which the picked rung prints only some elements as zero
@@ -1882,7 +1874,7 @@ rule, and is a problem of the dictionary.
 use first (`.uname`, `.usym`, `.nounit`, or `unit_form =` on a function), then
 the document (`weft: unit_form:`), then the project (`unit_form:` in
 `_weft.yml`), then `auto`. The unit shown follows an order of its own: `unit=`
-at the use, one unit or a ladder (4.4.14, 4.4.23), then the dictionary's `display:` (4.2.7), then the
+at the use, one unit or a ladder (4.4.14, 4.4.23), then the dictionary's `display:` (4.2.7, one unit), then the
 value's own unit. What the form in force prints:
 
 | Form in force | A number in digits | A number a wording class has spelled, or "no" |
@@ -2195,9 +2187,9 @@ space (4.4.8). A negative number prints the unit, the space, then the sign: "pH
 
 **4.4.23** A **ladder** is the set of units the author approves for a quantity. weft
 picks from it the unit to print in, by the value. It is written `unit="mm|m|km"`
-on a value or a governed span, as `unit =` of a formatter function and as
-`display:` in the dictionary (4.2.7). weft never picks a unit the author did not
-name (4.4.14).
+on a value or a governed span, or as `unit =` of a formatter function: it is
+written at the use only, and `display:` in the dictionary takes one unit (4.2.7).
+weft never picks a unit the author did not name (4.4.14).
 
 *Writing a ladder.*
 
@@ -2206,9 +2198,9 @@ name (4.4.14).
   (`"CFU/100 mL|CFU/L"`). Each rung is read as `u()` reads a unit, under the
   `unit_defaults` mode and the `units:` rows in force. A ladder of one rung is
   `unit="m"`, unchanged in every respect.
-- Where a language has lists the ladder may be one: a YAML sequence in `display:`
-  (`display: [mm, m, km]`), a character vector for `unit =` (`unit = c("mm", "m",
-  "km")`). Each item is one rung and holds no `|`. A one-item list is the rung.
+- Where a language has lists the ladder may be one: a character vector for
+  `unit =` (`unit = c("mm", "m", "km")`). Each item is one rung and holds no `|`.
+  A one-item list is the rung.
 - In a pipe-table cell the separator is written `\|` (1.5.13): `` `r x`{unit="mm\|m\|km"} ``.
   weft reads `\|` as `|` in `unit`, in a table or not, and in no other value; a
   `\` elsewhere stays the error of 1.2.3. An unescaped `|` in `unit` in a
@@ -2226,6 +2218,11 @@ name (4.4.14).
   (`m|km|m`) are construct errors. Two rungs of one size (`m|metre`, `L|dm^3`,
   `mg/L|g/m^3`; the factor is 1 within 1e-9) are a value error, since the later
   could never be picked.
+- A rung with an offset (`degC`, `degF`, against `K`) on a ladder of more than
+  one rung is a value error that names the rung, since a ratio window means
+  nothing across an offset. `.nounit`, or `unit_form="none"`, with a ladder of
+  more than one rung is a value error, since the reader could not tell which
+  unit the number is in.
 - Compound units, the default table's units, project units and a unit written
   before the number are rungs like any other. The picked rung prints exactly as
   `unit="<rung>"` would: its symbol as typed (`ug/L`), name, plural, space and
@@ -2233,35 +2230,51 @@ name (4.4.14).
 
 *Picking the rung.* For each rung the quantity is converted and its numbers are
 printed as the use's classes and keys would print them (`digits`, `sigfig`,
-`.range`'s shared decimals), before any wording class. What is tested is the
+`.range`'s shared decimals), before any wording class. With a class that spells
+the number (`.word`, `.count`) a rung is eligible only where the number prints
+whole, when any rung does; if none does, the error is 1.4.12's, as for any
+number that is not whole. What is tested is the
 absolute value of each number **as printed**, so that 999.96 m is never printed
 "1,000.0 m". A number **fits** a rung when 1 ≤ |n| < 1,000. Missing and
 non-finite elements are not tested.
 
 - **One number** takes the first rung, in the ladder's order, where it fits. If
-  none fits it takes the rung whose number is nearest the window, measured as a
-  ratio (|n| below 1 is 1/|n| away, |n| of 1,000 or more is |n|/1,000 away), ties
-  to the earlier rung. Zero is infinitely far in every rung and takes the first.
-  With an ascending ladder a number too small for every rung takes the smallest
-  unit, and one too large the largest.
-- **A vector** takes one rung for all its elements: the rung where the most of its
-  tested numbers fit, ties to the earlier rung. If no rung has a fit, the rung
-  its largest absolute value takes alone, by the one-number rule. This holds
+  none fits, a rung that prints the number as 1,000 or more is taken before any
+  rung that prints it below 1, because the first keeps every digit and the
+  second loses them. Among rungs that print 1,000 or more, the one with the
+  smallest number; if there is none, among rungs that print below 1, the one with
+  the largest number; ties go to the earlier rung. All of this is measured on the
+  number as printed. Zero takes the first rung. With `mm|km`, every length from 1 m
+  up to the one that prints "1.0 km" prints in mm: 149 m is "149,000 mm", 940 m is
+  "940,000 mm" and 960 m is "1.0 km". A number too small for every rung takes the
+  smallest unit and one too large the largest.
+- **A vector** takes one rung for all its elements. A rung that prints an element
+  that is not zero as zero is passed over when another rung prints none as zero.
+  Of the rungs left, it takes the one where the most of its tested numbers fit,
+  ties to the earlier rung. If no rung has a fit, the rung its largest absolute
+  value takes alone, by the one-number rule. This holds
   under `.and`, `.or`, `.range`, `.pairs`, the list classes, `trunc`, an
   uncollapsed vector, `glue_vec()` and the `#` of a `list` span, and every
   element counts, those `trunc` hides too. A vector with nothing to test (length
   zero, all `NA`) takes the first rung.
 - A negative number is judged by its magnitude, and so is a `sign` governor.
-- The rung depends only on the value's own numbers, the ladder and the use's
-  classes and keys: the same value with the same ladder prints in the same rung
-  in every call, chunk and session. A value whose numbers change may print in
-  another rung.
+- The rung depends only on the value's own numbers, the ladder, the use's
+  classes and keys, and the `digits` and `sigfig` settings of the project and the
+  document, which decide how the number prints: the same value with the same
+  ladder and settings prints in the same rung in every call, chunk and session.
+  A value whose numbers change may print in another rung.
+- A value may print in one unit alone and in another inside a vector, since the
+  vector takes one rung for all its elements. The elements `trunc` hides take
+  part in the choice. A descending ladder breaks ties toward the larger unit,
+  since ties go to the earlier rung.
 - Everything after the pick happens in the picked rung: the printed record, the
-  arm chosen (4.4.9), `#`, names and plurals (4.4.16), the attributes `unit`,
+  arm chosen (4.4.9), which `plural()` follows as it follows the number as printed
+  in the picked rung, `#`, names and plurals (4.4.16), the attributes `unit`,
   `unit_form` and `units` (3.4.4), and the zero rule (4.4.13).
 - `last_knit()$constructs` has a column `unit_picked`: for a construct with a
   `unit` key, the rung it printed in, as written in the ladder; `NA` for a
-  construct with no `unit` (3.7.5). The ledger holds nothing of it.
+  construct with no `unit`, and for a construct that failed (3.7.5). The ledger
+  holds nothing of it.
 
 *Examples.* With `L` for `unit="mm|m|km"`, and `.num`:
 
@@ -2300,17 +2313,24 @@ m)` under `unit="m|km"` the result is "0.0 m" and a warned check whose advice is
   afresh it starts from the quantity in that rung, so `.uname` or `digits` keeps
   the unit. A `unit` on the referring span converts again, by one unit or by a
   ladder that picks afresh: after `` `r x`{#d unit="m|km"} `` with 1500 m,
-  `[#]{n="#d"}` prints "1.5 km", `{n="#d" .uname}` "1.5 kilometres" and
-  `{n="#d" unit="m"}` "1,500 m". `n="."` inherits the governor as printed, in the
-  picked rung.
-- **`display:`** is read as 4.2.7 says: picked once, when the dictionary is read.
+  `[#]{n="#d"}` prints "1.5 km", `[#]{n="#d" .uname}` "1.5 kilometres" and
+  `[#]{n="#d" unit="m"}` "1,500 m". `n="."` inherits the governor as printed, in
+  the picked rung. A back-reference formatted again may print outside the
+  window: after `` `r y`{#e unit="m|km"} `` with 999.6 m, which prints "999.6 m",
+  `[#]{n="#e" digits="0"}` prints "1,000 m". It starts from the quantity in the
+  rung already picked and a `unit` of its own is what picks afresh, so an author
+  who adds `digits` to a reference adds `unit=` too.
+- **`display:`** takes one unit (4.2.7), so a ladder is not picked when the dictionary
+  is read. A ladder in it is a `read_dict()` problem.
 - **`unit_form`, `.uname`, `.usym`, `.nounit`** act on the picked rung.
   **`unit_defaults: si`** reads the rungs in the mode in force, so `mph` on a
   ladder is a milliphot under `si` and does not convert from km/h.
 - **Errors.** An empty or repeated rung is a construct error that names the
   ladder and says to separate units with `|`, as in `unit="mm|m|km"` (rule
   4.4.23). A list item holding `|`, or an `NA` or blank item, is a construct error
-  that says a ladder is one string with `|` or a vector of single units. A rung
+  that says a ladder is one string with `|` or a vector of single units. A
+  `unit =` that is neither a string nor a character vector says so, naming both
+  forms (4.4.14, 4.4.23). A rung
   that fails the checks above, and two rungs of one size, are value errors that
   name the ladder and the rung, in a knit a collected failure (5.3.2).
 
@@ -4149,11 +4169,13 @@ when `vctrs` is loaded, so weft does not depend on it.
 the reader expects, as 4.4.14 says. `display:` converts when the dictionary is
 read, not when it is printed, because `units` keeps an attribute through
 `x * 2` but drops it in `c()`, `x[1]`, `mean()` and `y + x`, so a display unit
-kept as an attribute would be lost in the pipeline. A ladder in `display:` is
-picked at read for the same reason: an attribute carrying it survives `x * y` onto
-the wrong dimension (a length ladder on an area) and is lost in `c()` and
-`mean()`, so the pipeline would see a unit that depended on how a value was
-computed. The cost is that the
+kept as an attribute would be lost in the pipeline. A ladder is not
+allowed in `display:` for the reason that picking at read would give: the unit an
+entry is held in would follow its value, so changing 800 m to 8,000 m would change
+`units::drop_units(dict$x)` by a factor of 1,000 with no error, and `a + b` and
+`b + a` would print in different units. An attribute carrying the ladder would
+survive `x * y` onto the wrong dimension and be lost in `c()` and `mean()`. So the
+ladder is written where the value is printed (decision 53). The cost is that the
 pipeline sees the display unit, so adding `display:` changes the value a
 target reads, and the readers of that target re-run.
 
@@ -4268,8 +4290,11 @@ rung where most of its numbers fit because the largest value would print the
 small elements as "0.0" ("0.0, 0.1, 0.8 and 2.5 km"). Every rung is checked so
 that an error does not come and go with the data, as in 4.4.19. The order is the
 author's because overlapping rungs (`mm|cm|m`) need one. The `|` is written
-`\|` in a pipe-table cell for the reason given at 1.5.13, and `display:` picks
-once at read for the reason given at 4.2.7.
+`\|` in a pipe-table cell for the reason given at 1.5.13, and `display:` takes
+one unit for the reason given at 4.2.7. When no rung fits, a rung that prints
+1,000 or more is taken before one that prints below 1 because the first keeps
+every digit and the second loses them; the cost is that 940 m under `mm|km`
+prints "940,000 mm" (decision 54).
 
 **4.4.19** An error that waited for a number that prints a word would arrive
 months after the document was written, on the day the count fell below the
@@ -5381,10 +5406,10 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   pipe-table cell and an unescaped `|` there an error, in a value and in a span;
   `\|` outside a table accepted; `\` elsewhere in `unit` and in any other key
   still an error; a `|` in `unit` leaving a span's arm count alone. `display:`
-  as a string and as a list: 2000 m and 900 m picking `km` and `m`, arithmetic
-  keeping the held unit, the `display` column and `print()`, every new problem in
-  one error with the old ones, `unit=` over a ladder, `dict_local`, a `_weft.yml`
-  `digits: 3` not changing the pick, and the glossary printing the held unit.
+  as one unit, and as a `|` string and a list of more than one item refused with
+  the advice to write the ladder in a `unit` key, a list of one item accepted,
+  every problem in one error with the old ones, `unit=` over a `display:`,
+  `dict_local`, and the glossary printing the held unit.
 - **Default units.** Every example of 4.4.20 to 4.4.22 in each mode: the token
   kept as written, by `units::deparse_unit()`, through `u()`, `read_dict()`,
   `display:` and `unit=`; the twin conversions refused and the conversions

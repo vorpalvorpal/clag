@@ -347,6 +347,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   record_fail <- function(k, kind, label, detail, hint = NA_character_) {
+    R$unit_picked[k] <<- NA_character_   # a construct that printed nothing printed in no unit
     if (strict) {
       weft_abort(sprintf("weft: %s: %s", loc_str(k), detail),
                  switch(kind, `failed claim` = "weft_claim_failed",

@@ -46,7 +46,7 @@ test_that("review 2h #1: unit_form = \"none\" with a ladder is a value error, fo
 test_that("review 2h #1: control - none with one unit, and a ladder with a unit shown, still print (ruling g)", {
   h2_restore()
   expect_equal(h2_ws(r2h_cx("u(1500, m)", '.nounit unit="km"')), "1.5")
-  expect_equal(h2_ws(r2h_cx("u(1500, m)", '.nounit unit="m|km "')), "1.5")        # a ladder of one, trimmed
+  expect_equal(h2_ws(r2h_cx("u(1500, m)", '.nounit unit="km "')), "1.5")        # a ladder of one, trimmed
   expect_equal(f2_tx(fmt_num(u(400, m), unit = "m", unit_form = "none")), "400")
   expect_equal(f2_tx(fmt_num(u(400, m), unit = c("m"), unit_form = "none")), "400")
   expect_equal(h2_ws(r2h_cx("u(1500, m)", '.usym unit="m|km"')), f2("1.5~km"))

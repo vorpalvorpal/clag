@@ -479,6 +479,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     nm <- intersect(classes, names(reg))
     nm[vapply(nm, function(k) identical(reg[[k]][["stage"]] %||% "number", stage), NA)]
   }
+  # the form a unit is asked to print in at the use: a unit class, or the
+  # `unit_form` of a function (4.4.15)
+  explicit <- unit_class_form(classes)
+  if (is.na(explicit)) explicit <- unit_form
   # `unit` converts a quantity before anything else (4.4.14)
   # a ladder of units (4.4.23) picks one by the value
   ladder <- NULL
@@ -486,12 +490,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     value <- convert_unit(value, keys$unit, classes, keys, cfg, function(rung, v, rungs) {
       if (length(rungs) > 1L) ladder <<- list(rungs = rungs, picked = rung)
       if (!is.null(on_pick)) on_pick(rung, v, length(rungs) > 1L)
-    })
+    }, form = explicit)
   }
-  # the form a unit is asked to print in at the use: a unit class, or the
-  # `unit_form` of a function (4.4.15)
-  explicit <- unit_class_form(classes)
-  if (is.na(explicit)) explicit <- unit_form
   # a quantity (2b, 2f): the number is formatted as a number is, the unit follows
   # in its symbol or its name. A governor carries its unit too, so `#` prints it
   # (4.4.4); its record does not. `un` is the unit, `tforms` the forms a text of a

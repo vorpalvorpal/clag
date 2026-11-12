@@ -319,7 +319,7 @@ and are entries 30 to 37 under "Made".
     compound unit has no single best scaling, and because the arm
     chosen follows the number as printed. Built instead: the zero
     rule's warning names a unit that would show the value. The ladder the author approves
-    (`unit="mm|m|km"`) is decision 52.
+    (`unit="mm|m|km"`) is decision 52, built as package 2h.
 52. **Package 2h, the unit ladder (Robin approved, 12 November 2026;
     completes decision 51).** `unit="mm|m|km"`, a vector for `unit =`,
     or a list in `display:` names the units the author approves; weft

@@ -198,7 +198,12 @@ convert_one <- function(x, rung, pre, ladder = FALSE) {
     as.character(attr(x, "units")), sub("\n.*$", "", conditionMessage(e)))))
   to <- tryCatch(unit_symbolic(rung), error = cannot)
   tw <- unit_twin_problem(attr(x, "units"), to, rung)
-  if (!is.null(tw)) value_error(paste0(if (ladder) pre else "", tw, " (rule 4.4.14)."))
+  if (!is.null(tw)) {
+    # the twin text opens with the unit; a ladder's `pre` already names the rung
+    lead <- sprintf("`%s`: ", rung)
+    if (ladder && startsWith(tw, lead)) tw <- substring(tw, nchar(lead) + 1L)
+    value_error(paste0(if (ladder) pre else "", tw, " (rule 4.4.14)."))
+  }
   out <- tryCatch(units::set_units(x, to, mode = "standard"), error = cannot)
   if (converts_by_inversion(x, out)) {
     value_error(paste0(pre, sprintf(paste0(
@@ -225,38 +230,63 @@ ladder_same_size <- function(from, rungs) {
   NULL
 }
 
-# How far a number as printed is from the window 1 up to 1,000, as a ratio; zero is infinitely far.
-ladder_far <- function(a) {
-  ifelse(a == 0, Inf, ifelse(a < LADDER_FIT_LO, 1 / a, ifelse(a >= LADDER_FIT_HI, a / LADDER_FIT_HI, 1)))
-}
-
 # The index of the rung a ladder picks (rule 4.4.23). `nums` holds the quantity's numbers in
 # each rung. They are tested as the number stage prints them (`.num`, with the use's `digits`,
 # `sigfig` and `.range`).
+#  1. With a class that spells the number (`.word`, `.count`) only a rung that prints every number
+#     whole is eligible, if any is.
+#  2. A rung that prints an element that is not zero as zero is passed over when another rung
+#     prints none as zero.
+#  3. The rung with most elements in the window 1 up to 1,000; ties to the earlier rung.
+#  4. With none: by the largest value alone, a rung that prints it at 1,000 or more before one that
+#     prints it below 1 (the smallest such number; else the largest below 1); ties to the earlier.
 ladder_pick <- function(nums, classes, keys, cfg) {
   fin <- is.finite(nums[[1L]])
   if (!any(fin)) return(1L)
   range <- ".range" %in% classes
   shown <- lapply(nums, function(v) abs(attr(format_numbers(v[fin], ".num", keys, cfg, range = range), "number")))
-  fits <- vapply(shown, function(a) sum(a >= LADDER_FIT_LO & a < LADDER_FIT_HI), 0L)
-  if (max(fits) > 0L) return(which(fits == max(fits))[1L])
+  ok <- rep(TRUE, length(nums))
+  if (any(c(".word", ".count") %in% classes)) {
+    whole <- vapply(shown, function(a) all(!is.na(a) & a == round(a)), NA)
+    if (any(whole)) ok <- whole
+  }
+  zeroed <- vapply(seq_along(nums), function(j) sum(shown[[j]] == 0 & abs(nums[[j]][fin]) > 0), 0L)
+  if (any(ok & zeroed == 0L) && any(ok & zeroed > 0L)) ok <- ok & zeroed == 0L
+  cand <- which(ok)
+  fits <- vapply(shown[cand], function(a) sum(a >= LADDER_FIT_LO & a < LADDER_FIT_HI), 0L)
+  if (max(fits) > 0L) return(cand[which(fits == max(fits))[1L]])
   big <- which.max(abs(nums[[1L]][fin]))
-  far <- vapply(shown, function(a) ladder_far(a[big]), 0)
-  which(far == min(far))[1L]
+  a <- vapply(shown[cand], function(s) s[big], 0)
+  hi <- a >= LADDER_FIT_HI
+  if (any(hi)) return(cand[hi][which.min(a[hi])])
+  cand[which.max(a)]
+}
+
+# The rung, if any, whose conversion from `x`'s unit has an offset (degC, degF, K among themselves):
+# zero in the quantity's unit is not zero in the rung.
+ladder_offset <- function(from, rungs) {
+  zero <- tryCatch(units::set_units(0, from, mode = "standard"), error = function(e) NULL)
+  if (is.null(zero)) return(NULL)
+  for (r in rungs) {
+    z <- tryCatch(as.numeric(units::set_units(zero, unit_symbolic(r), mode = "standard")), error = function(e) NA_real_)
+    if (is.finite(z) && abs(z) > 1e-9) return(r)
+  }
+  NULL
 }
 
 # `x` converted to the unit `unit` for the `unit` key (4.4.14): one unit (a string), or a ladder
 # (4.4.23) of which every rung is checked and one is picked by the number as printed. `on_pick`,
 # when given, is called with the rung picked, the quantity in it and the rungs.
 convert_unit <- function(x, unit, classes = character(), keys = list(), cfg = current_config(),
-                         on_pick = NULL) {
+                         on_pick = NULL, form = NULL) {
   if (!inherits(x, "units")) {
     value_error(sprintf("`unit = %s` needs a quantity (see u()); the value is of class %s.",
                         paste(as.character(unit), collapse = "|"), class(x)[1L]))
   }
   if (!is.character(unit) || length(unit) < 1L ||
       (length(unit) == 1L && (is.na(unit) || !nzchar(trimws(unit))))) {
-    value_error("`unit` must be one string that names a unit, such as \"m\" (rule 4.4.14).")
+    value_error(paste0("`unit` must be a string that names a unit, such as \"m\", or a character vector of ",
+                       "units, which is a ladder (rule 4.4.23)."))
   }
   lad <- ladder_split(unit)
   if (!is.null(lad$problem)) construct_error(lad$problem)
@@ -266,7 +296,18 @@ convert_unit <- function(x, unit, classes = character(), keys = list(), cfg = cu
     if (!is.null(on_pick)) on_pick(rungs, out, rungs)
     return(out)
   }
+  if (identical(form, "none")) {
+    value_error(sprintf(paste0("`unit = %s` is a ladder, and the unit is not printed (`.nounit`, `unit_form = \"none\"`): ",
+                               "the reader could not tell which unit the number is in. Name one unit (rule 4.4.23)."),
+                        lad$written))
+  }
   outs <- lapply(rungs, function(r) convert_one(x, r, sprintf("`unit = %s`: rung `%s`: ", lad$written, r), TRUE))
+  off <- ladder_offset(attr(x, "units"), rungs)
+  if (!is.null(off)) {
+    value_error(sprintf(paste0("`unit = %s`: rung `%s`: the quantity (%s) and the rung differ by an offset, and a window of ",
+                               "1 up to 1,000 means nothing across an offset; name one unit (rule 4.4.23)."),
+                        lad$written, off, as.character(attr(x, "units"))))
+  }
   same <- ladder_same_size(attr(x, "units"), rungs)
   if (!is.null(same)) {
     value_error(sprintf(paste0("`unit = %s`: `%s` and `%s` are the same size, so `%s` could never be ",

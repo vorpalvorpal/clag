@@ -404,3 +404,17 @@ wins.
   back-reference formatted again may print outside the window, stated
   with an example.
 - **j.** 4.4.13 says "an SI unit with no prefix".
+
+## Rulings on the fixer's report
+
+- The control in `test-review-2h.R` that wrote `unit="m|km "` as "a
+  ladder of one" was a test fault (two rungs and a stray space); it now
+  reads `unit="km "`. The value error stands.
+- Finding 8 (`plural()`) needed no change in `R/`: the test passed as
+  built.
+- The `.nounit` check reads the class and the `unit_form` argument. The
+  setting `unit_form` takes only `auto`, `symbol` or `name`, so there is
+  no third way in. Accepted.
+- With `.word` or `.count`, a negative number is 1.4.12's error in every
+  rung, as without a ladder. Accepted.
+- Whole suite after the fixes: 2,106 tests, none failing, none skipped.

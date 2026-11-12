@@ -33,12 +33,21 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 2f, unit names and unit settings (`dev/design-2f.md`) | Designed, built, reviewed (`dev/review-2f.md`), fixed and committed (5f2aec1, 898221a). Not in the original §22 order; added on Robin's approval. `PACKAGE-SCOPING.md` amended for it and for the rulings after its review |
 | Stage 2c, dictionary tooling (`dev/design-2c.md`) | Designed, built (c440a72), reviewed (`dev/review-2c.md`, rulings in `dev/design-2c.md`), fixed (d37e33f) |
 | Stage 2g, weft's default units (`dev/design-2g.md`) | Added on Robin's instruction of 12 November 2026. Designed, built (827e80f), reviewed (`dev/review-2g.md`, rulings in `dev/design-2g.md`), fixed (818020e) |
-| Stage 2h, the unit ladder (`dev/design-2h.md`) | Added on Robin's approval of 12 November 2026 (completes decision 51, entry 52). Designed, built (80d3ff9). Review in progress |
-| `PACKAGE-SCOPING.md` for 2c, 2g and 2h | Amended to state all three as built, with the rulings after the reviews of 2c and 2g (rule 4.4.23 is new) |
+| Stage 2h, the unit ladder (`dev/design-2h.md`) | Added on Robin's approval of 12 November 2026 (completes decision 51, entry 52). Designed, built (80d3ff9), reviewed (`dev/review-2h.md`, rulings in `dev/design-2h.md`). Regression tests written (27 failing before the fix), fixes built. Finding 6 was re-ruled as decision 54 on the test-writer's report; decision 53 removed ladders from `display:` |
+| `PACKAGE-SCOPING.md` for 2c, 2g and 2h | Amended to state all three as built, with the rulings after the reviews of 2c and 2g (rule 4.4.23 is new), and again for the rulings on the review of 2h (rules 4.2.1, 4.2.7, 4.4.13, 4.4.23) |
 | Stages 2d, 2e | Not started |
 | Suite | 1,908 tests at the code of 818020e, the last whole-suite run; five test faults in it have since been corrected. 2h added 160 tests, not yet run as a whole suite |
 | Stages 0, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
+
+## For Robin (from the 2h review)
+
+- Decisions 53 (no ladder in `display:`) and 54 (which rung a number takes when
+  it fits none) were taken by the orchestrator, not by Robin. Both are
+  reversible: 53 in `R/dict.R`, 54 in `ladder_pick()` in `R/units.R`.
+- The cost of 54: under `mm|km`, 940 m prints "940,000 mm", not "0.9 km". The
+  rule keeps every digit of a long number rather than lose the digits of a short
+  one.
 
 ## How to run things
 
@@ -48,11 +57,11 @@ Newest state first. Read this before anything else after a context reset.
 
 ## Next
 
-1. Finish the review of 2h (`dev/design-2h.md`), then its fix round; run the whole suite.
+1. Run the whole suite on the fixed 2h code.
 2. Stage 2, the rest (2d ledger and condition log, 2e pipeline and
    `changes()`): the same cycle as stage 1 (contract in `dev/design-2.md`,
    tests from it, a different implementer, an independent review, regression
-   tests, a fixer). 2a, 2b, 2c, 2f and 2g are done; 2h is built and under review.
+   tests, a fixer). 2a, 2b, 2c, 2f, 2g and 2h are done.
 3. The items in `dev/decisions.md` under "For Robin" and
    `dev/open-findings.md`.
 4. `.Rprofile` activation and `use_setup()`, once the hooks have been run
