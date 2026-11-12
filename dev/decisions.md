@@ -364,3 +364,18 @@ and are entries 30 to 37 under "Made".
     of the source heading; arms are stored by role; `jsonlite` moves to
     Imports; `git` is called, when present, to report new conditions.
     Questions Q1 to Q5 are for Robin; built as recommended.
+56. **Package 2e, the pipeline and `changes()`, split in two (2e-1,
+    2e-2).** Contract and choices T1 to T32 in `dev/design-2e.md`. The
+    one with most reach: in a pipeline `dict` comes from `tar_dict()`,
+    which attaches it to the search path, and a global `dict` in
+    `_targets.R` is an error. Measured: `targets` tracks a global and
+    re-runs every reader, through functions too, when any definition
+    changes; the earlier spike that seemed to show otherwise had
+    dropped all automatic dependencies. Alternatives: the spec's global
+    (re-runs too much); wrapping each command (kept as the way to
+    support `crew` workers, which cannot see an attached `dict`).
+    Others: dependencies are appended to the internal `t$deps`, pinned
+    by a test; the ledger header records hashes of the targets,
+    dictionary entries and source files a chapter reads; upstream
+    conditions run `tar_network()` once per project render. Questions
+    E1 to E5 are for Robin; built as chosen.
