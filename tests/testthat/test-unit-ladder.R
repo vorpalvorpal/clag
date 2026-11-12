@@ -19,7 +19,7 @@ h2_row(cx("u(999.96, m)", L), "1.0~km")        # 999.96 m prints "1,000.0" and d
 h2_row(cx("u(0.99996, m)", L), "1.0~m")        # 999.96 mm prints "1,000.0" and does not fit; m does
 h2_row(cx("u(0.0004, m)", L), "0.4~mm")
 h2_row(cx("u(5e6, m)", L), "5,000~km")
-h2_row(cx("u(0, m)", L), "0~mm")
+h2_row(cx("u(0, m)", L), "0~m")        # 2i I9: a lone zero takes the held unit's rung when it is on the ladder
 h2_row(cx("u(-1500, m)", L), "\u22121.5~km")
 
 h2_row(cx("u(1500, m)", 'unit="mm | m | km"'), "1.5~km")
@@ -35,7 +35,7 @@ h2_row(cx("u(0.002, ppm)", '.uname unit="ppm|ppb"'), "2~parts per billion")
 h2_row(cx("u(1000, m)", paste(".uname", L)), "1~kilometre")
 h2_row(cx("u(2500, m)", paste(".uname", L)), "2.5~kilometres")
 h2_row(cx("u(3000, m)", '.word unit="m|km"'), "three~kilometres")
-h2_row(cx("u(0, m)", '.no unit="mm|m"'), "no~millimetres")
+h2_row(cx("u(0, m)", '.no unit="mm|m"'), "no~metres")        # 2i I9
 h2_row(cx("u(1234.5, m)", 'unit="m|km" digits="2"'), "1.23~km")
 h2_row(cx("u(999.6, m)", 'unit="m|km" sigfig="2"'), "1.0~km")
 h2_row(paste0("[# was | # were]{n=\"u(1000, m)\" ", L, "}"), "1~km was")
@@ -141,12 +141,13 @@ test_that("2h L8: no fit is judged the same way for a descending ladder", {
   expect_equal(h2_ws(cx("u(0.0004, m)", 'unit="km|m|mm"')), f2("0.4~mm"))
 })
 
-test_that("2h L8: zero takes the first rung, whatever its order", {
+test_that("2h L8 (amended by 2i I9): a lone zero takes the held unit's rung when it is on the ladder, whatever its order", {
   h2_restore()
-  expect_equal(h2_ws(cx("u(0, m)", 'unit="mm|m|km"')), f2("0~mm"))
-  expect_equal(h2_ws(cx("u(0, m)", 'unit="km|m|mm"')), f2("0~km"))
-  expect_equal(h2_ws(cx("u(0, m)", '.uname unit="km|m"')), f2("0~kilometres"))
-  expect_equal(h2_ws(cx("u(0, m)", '.no unit="km|m"')), f2("no~kilometres"))
+  expect_equal(h2_ws(cx("u(0, m)", 'unit="mm|m|km"')), f2("0~m"))
+  expect_equal(h2_ws(cx("u(0, m)", 'unit="km|m|mm"')), f2("0~m"))
+  expect_equal(h2_ws(cx("u(0, m)", '.uname unit="km|m"')), f2("0~metres"))
+  expect_equal(h2_ws(cx("u(0, m)", '.no unit="km|m"')), f2("no~metres"))
+  expect_equal(h2_ws(cx("u(0, m)", 'unit="mm|km"')), f2("0~mm"))        # held unit not on the ladder: the first rung
   expect_no_warning(h2_ws(cx("u(0, m)", 'unit="km|m"')))                         # an exact zero is not the zero rule
 })
 

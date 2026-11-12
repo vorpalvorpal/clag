@@ -92,3 +92,19 @@ change a rule are in `dev/decisions.md` (58 to 61).
   threshold".
 - `weft_setup()` costs about 2.3 s a render: taken up separately as a
   performance task, with no change of behaviour.
+
+## Rulings made when the tests were written
+
+- **I5 reaches only units the project defines.** A row that gives a
+  `name` to a unit weft or udunits already knows (`m`, `NTU`, `PSU`)
+  keeps that unit's symbol, as the older tests have it. Alternative:
+  drop the symbol there too; refused, since it would change the print
+  of every renamed known unit.
+- **I3 and I4 in a knit** are raised as ordinary weft warnings, so the
+  condition log records them like any other.
+- **I4 and an arm that types the unit after `#`.** The text printed is
+  unchanged; only the warning is new.
+- **I7** covers every token of a compound (`mm/day`, `ha/yr`), not
+  only `hr`.
+- **I10** in front matter overrides the project file in either
+  direction, as other settings do.

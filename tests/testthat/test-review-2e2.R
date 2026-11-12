@@ -292,7 +292,7 @@ test_that("review 2e2 #7: 1.2 km (raw 1200 m) to 0.8 km (raw 800 m) crosses a li
 test_that("review 2e2 #7: near variants, the same unit and another convertible unit", {
   skip_if(Sys.which("git") == "")
   r <- unit_rows(list(text = "1.2 km", raw = 1.2, unit = "km"), list(text = "0.8 km", raw = 0.8, unit = "km"))
-  expect_identical(r$structural, "crosses 1.0, crosses dict$lim")
+  expect_identical(r$structural, "crosses dict$lim")        # 2i I11: no "crosses 1.0" for a quantity
   r2 <- unit_rows(list(text = "1.2 km", raw = 1200000, unit = "mm"), list(text = "0.8 km", raw = 800000, unit = "mm"))
   expect_identical(r2$structural, "crosses dict$lim")
   r3 <- unit_rows(list(text = "800 m", raw = 800, unit = "m"), list(text = "1.2 km", raw = 1200, unit = "m"))

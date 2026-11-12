@@ -85,7 +85,7 @@ test_that("2f units: a key written as u() takes one, a compound key registers it
 })
 
 test_that("2f units: after the read u() works in weft_str with no dictionary (9.1.7)", {
-  expect_equal(f2_ws("`r u(3, zzqd)`{.num}", c("units:", "  zzqd:", "    name: quark")), f2("3~zzqd"))
+  expect_equal(f2_ws("`r u(3, zzqd)`{.num}", c("units:", "  zzqd:", "    name: quark")), f2("3~quarks"))        # 2i I5: a name and no symbol prints by name
   expect_equal(f2_ws("`r u(3, zzqd)`{.uname}", c("units:", "  zzqd:", "    name: quark")), f2("3~quarks"))
 })
 
