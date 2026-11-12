@@ -80,6 +80,8 @@ g2_kv <- function(out, key) {
 # skipped on CRAN. Returns the lines the child printed.
 g2_child <- function(body) {
   testthat::skip_on_cran()
+  # under R CMD check the package is installed and has no source folder to load
+  testthat::skip_if_not(weft_is_dev(), "needs the development copy of weft")
   root <- weft_pkg_root()
   code <- paste0("suppressMessages(pkgload::load_all(", deparse(root), ", quiet = TRUE, helpers = FALSE))\n",
                  "options(warn = 1)\n", body)
