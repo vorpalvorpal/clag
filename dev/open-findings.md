@@ -193,3 +193,9 @@ So a later review does not raise them again without a new argument.
   space off its name form ("pH7.2"), unlike a unit after the number.
 - Not tested: a default unit in `dict_local`, in a `list` span, and a
   vector whose elements differ in `unit_before`.
+
+## From the fix round for the review of 2c
+
+- The generated Vale rule's header says `dict.yml` whatever the dictionary
+  file is called; a rule generated from another dictionary is replaced
+  without a word.

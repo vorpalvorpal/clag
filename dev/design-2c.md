@@ -1269,3 +1269,24 @@ wins.
   another file, never removes the project's rule file.
 - **15.** `decisions: GitHub`, the route's name in another letter case,
   is a configuration error that offers `github`.
+
+## Rulings on the fixer's report for the review of 2c
+
+- **Two tests were faulty and are edited.** A `_weft.yml` with a comma
+  as the decimal mark and the default thousands mark is refused by the
+  configuration read (the marks must differ), so the glossary test now
+  sets both. An older Vale test still used a spelling ending in `)`.
+- Outside a knit, a `_weft.yml` that cannot be read leaves the glossary
+  on the defaults, so a bad file does not stop a preview. Accepted.
+- An absolute `path` for `dict_vale()` outside the project is still
+  allowed (C14); a relative one that climbs out is a `weft_tool_error`.
+  Accepted.
+- The decimals a value was written with are kept in an attribute
+  `decimals` of the dictionary. Accepted.
+- A `term` is trimmed, not collapsed; `*emph* term` is allowed.
+  Accepted.
+- An issue number is one to ten digits and at most 2147483647.
+  Accepted.
+- **Open:** the header of the Vale rule names `dict.yml` whatever the
+  dictionary's file is called, and `dict_vale()` replaces a rule
+  generated from a different dictionary; in `dev/open-findings.md`.

@@ -31,7 +31,9 @@ variant as a spelling of its own. Spellings are keys of a regular expression
 in Vale, so their metacharacters are escaped; longer spellings come first.
 
 It replaces only a file it wrote (the first line says so) and stops with an
-error on any other. When the dictionary has no \code{avoid} left, a file it wrote
-is removed. It never writes \code{.vale.ini}: when that file does not list the
+error on any other, on a path outside the project, and on a symbolic link
+or a folder in place of the rule file or its folders. When the project's own
+dictionary (\code{dict = NULL}) has no \code{avoid} left, a file it wrote is removed;
+a dictionary given as \code{dict} never removes anything. It never writes \code{.vale.ini}: when that file does not list the
 style in \code{BasedOnStyles}, it says what the file needs.
 }

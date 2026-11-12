@@ -240,6 +240,23 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     e2 <- raw2[[i]]
     if (is.list(e2) && "avoid" %in% names(e2)) e2[["avoid"]] else NULL
   }
+  # the decimals a number was written with (`0.50` is read as 0.5): the file
+  # read once more, with a float marked by its text
+  wr <- NULL
+  written <- function(i) {
+    if (is.null(prep)) return(NULL)
+    if (is.null(wr)) {
+      h <- c(dict_yaml_handlers(),
+             list("float#fix" = function(x) structure(as.numeric(x), decimals = text_decimals(x))))
+      y <- tryCatch(suppressWarnings(yaml::yaml.load(paste(prep$lines, collapse = "\n"), handlers = h,
+                                                     eval.expr = FALSE)),
+                    error = function(e) list())
+      if (scope != "project") y <- if (is.list(y) && is.list(y$weft)) y$weft$dict_local else list()
+      wr <<- if (is.list(y) && length(y) == length(raw)) y else list()
+    }
+    if (length(wr) >= i) wr[[i]] else NULL
+  }
+  decs <- rep(NA_integer_, length(raw))
   canon <- rep(NA_character_, length(raw))
   tprob <- rep(FALSE, length(raw))
   for (i in seq_along(raw)) {
@@ -295,10 +312,12 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     dec <- NA_character_
     if (!is.null(e[["decision"]])) {
       d <- e[["decision"]]
-      if (is.numeric(d) && length(d) == 1L && !is.na(d) && d >= 1 && d == round(d)) {
-        dec <- as.character(as.integer(d))
+      if (is.numeric(d) && length(d) == 1L && !is.na(d) && is.finite(d) && d >= 1 && d == round(d)) {
+        # never through as.integer(): a number past its range is kept, not dropped
+        dec <- format(d, scientific = FALSE, trim = TRUE)
       } else if (str1(d)) {
-        dec <- d
+        # `#12` is the issue number 12; any other text is kept as written (ruling 7)
+        dec <- if (grepl("^#[1-9][0-9]*$", d)) substring(d, 2L) else d
       } else p("`decision` must be a whole number from 1, or a string that is not blank", "4.2.1")
     }
     why <- NA_character_
@@ -312,8 +331,16 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     # `term` and `avoid` (rules 4.7.3, 4.7.4)
     trm <- NA_character_
     if (!is.null(e[["term"]])) {
-      if (str1(e[["term"]])) trm <- e[["term"]]
-      else { p("`term` must be a string that is not blank", "4.7.3"); tprob[i] <- TRUE }
+      tv <- e[["term"]]
+      if (!str1(tv)) {
+        p("`term` must be a string that is not blank", "4.7.3"); tprob[i] <- TRUE
+      } else if (grepl("[\r\n]", trimws(tv))) {
+        p("`term` must be written on one line", "4.7.3"); tprob[i] <- TRUE
+      } else if (grepl(TERM_BLOCK_RX, trimws(tv), perl = TRUE)) {
+        p(sprintf("`term` `%s` starts with a character that markdown reads as the start of a block (a heading, list, quote or fence)",
+                  trimws(tv)), "4.7.3")
+        tprob[i] <- TRUE
+      } else trm <- trimws(tv)
     }
     avd <- character()
     if (!is.null(e[["avoid"]])) {
@@ -335,6 +362,12 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
           p("`avoid` needs a `term`: the spelling the avoided ones are replaced by", "4.7.4")
           tprob[i] <- TRUE
         } else {
+          for (v in unique(avd[!(grepl("^[\\p{L}\\p{N}]", avd, perl = TRUE) &
+                                 grepl("[\\p{L}\\p{N}]$", avd, perl = TRUE))])) {
+            p(sprintf(paste0("`avoid` lists `%s`, which starts or ends with a character that is not a letter or digit; ",
+                             "Vale matches a spelling at word boundaries and could never match it"), v), "4.7.4")
+            tprob[i] <- TRUE
+          }
           cn <- if (!is.na(trm)) trm else e[["value"]]
           if (is.character(cn) && length(cn) == 1L && !is.na(cn)) {
             for (v in unique(avd[avd == cn])) {
@@ -359,7 +392,20 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     if (type_ok && !is.null(e[["value"]])) {
       r <- dict_value(e[["value"]], type, unit)
       if (!is.null(r$error)) p(paste0("`value` ", r$error), "4.2.1")
-      else values[i] <- list(r$value)
+      else {
+        values[i] <- list(r$value)
+        ev <- e[["value"]]
+        if (type %in% c("number", "quantity")) {
+          if (is.character(ev) && length(ev) == 1L) {
+            decs[i] <- text_decimals(ev)
+          } else if (is.numeric(ev) && length(ev) == 1L) {
+            w <- written(i)
+            if (is.list(w)) {
+              decs[i] <- attr(w[["value"]], "decimals") %||% (if (ev == round(ev)) 0L else NA_integer_)
+            }
+          }
+        }
+      }
     }
     if (type_ok && type == "quantity" && !is.na(unit) && length(problems) == n0) {
       reg <- dict_register_unit(unit)
@@ -446,7 +492,18 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   names(values) <- keys
   structure(values, class = "weft_dict", file = file, scope = scope,
             entries = entries, registered = unique(registered),
-            local_keys = character())
+            local_keys = character(), decimals = stats::setNames(decs, keys))
+}
+
+# What markdown would read as the start of a block, at the start of a `term`.
+TERM_BLOCK_RX <- "^(?:#{1,6}(?:\\s|$)|[*+:-](?:\\s|$)|>|[0-9]+[.)](?:\\s|$)|`{3,}|~{3,})"
+
+# The decimals of a number literal as written, or NA when it is not a plain one.
+text_decimals <- function(x) {
+  x <- trimws(x)
+  if (!grepl("^[+-]?([0-9]+\\.?[0-9]*|\\.[0-9]+)$", x)) return(NA_integer_)
+  if (!grepl(".", x, fixed = TRUE)) return(0L)
+  nchar(sub("^[^.]*\\.", "", x))
 }
 
 mark_bool <- function(x) if (tolower(x) %in% c("true", "false")) paste0("\001", x) else x
@@ -813,6 +870,9 @@ print.weft_dict <- function(x, ...) {
 #' * `definition` (required): a string that is not blank; it is the text the
 #'   glossary shows.
 #' * `unit`: a string, for a `quantity` only.
+#'
+#' An empty field (`term:` with nothing after it) is read as absent. A one-item
+#' list where a string or number is wanted (`unit: [m]`) is read as its item.
 #' * `display`: a string, for a `quantity` only (rule 4.2.7): the unit to show
 #'   the value in. The value is read in `unit` and converted to `display` when
 #'   the file is read, so `dict$key` is already in `display`, and arithmetic,
@@ -820,18 +880,25 @@ print.weft_dict <- function(x, ...) {
 #'   parse, or that `unit` does not convert to, is a problem; `unit =` at the use
 #'   converts back. The `entries` column `display` is `NA` where absent.
 #' * `decision`: a whole number from 1, or a string that is not blank; it is
-#'   not resolved when the file is read.
+#'   not resolved when the file is read. `"#12"` is read as 12; text such as
+#'   `012`, `0x1F` or `1e3`, or a number with more digits than an issue number
+#'   can have, is kept as written and does not resolve.
 #' * `why`: a string that is not blank, for a `dict_local` entry only, where
 #'   it is required.
 #' * `term`: a string that is not blank, on any type: the words a reader knows
 #'   the entry by. [dict_glossary()] heads the entry with it and [dict_vale()]
-#'   keeps it as the entry's spelling (rule 4.7.3).
+#'   keeps it as the entry's spelling (rule 4.7.3). White space around it is
+#'   trimmed; a `term` that holds a line break, or that starts with what
+#'   markdown reads as a block (`#`, `>`, `-`, `*`, `+` or `:` and a space, `1.`,
+#'   a fence), is a problem.
 #' * `avoid`: one string, or a non-empty list of strings, none blank, in
 #'   `dict.yml` only (rule 4.7.4). They are spellings [dict_vale()] replaces by
 #'   the entry's canonical spelling: its `term`, or, for a `string` entry with
 #'   no `term`, its value; any other entry needs a `term`. A spelling that is
 #'   the entry's own, is listed twice, is listed by another entry, or is found
-#'   as whole words inside any entry's canonical spelling is a problem. The
+#'   as whole words inside any entry's canonical spelling is a problem, and so
+#'   is a spelling that starts or ends with a character that is not a letter or
+#'   digit (Vale matches at word boundaries and could never match it). The
 #'   `entries` columns `term` and `avoid` hold `NA` and `character(0)` where
 #'   absent.
 #'

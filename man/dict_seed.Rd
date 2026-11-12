@@ -27,7 +27,8 @@ With \code{paths = NULL} it reads every \code{.qmd}, \code{.Rmd} and \code{.rmd}
 project root, except in folders whose name starts with \verb{_} or \code{.} or is
 \code{renv}. Given \code{paths} it reads those files, which may be \code{.R} files too; a
 \code{.R} file is read only when named. In a document it reads each \code{r} chunk
-except one with \code{eval = FALSE} in its header or \verb{#| eval: false}.
+except one with \code{eval = FALSE} or another \code{engine} in its header, or
+\verb{#| eval: false}. A file that is not UTF-8 is read as Latin-1.
 
 A name counts when a top-level expression of a piece (not inside \verb{\{}, \code{if},
 \code{function} or any other call) is \code{name <- literal}, \code{name = literal} or

@@ -14,6 +14,14 @@ decisions_route <- function(resolver) {
     m <- regmatches(resolver, regexec("^github:([A-Za-z0-9-]+)/([A-Za-z0-9._-]+)$", resolver))[[1L]]
     if (length(m) == 3L) return(list(kind = "github", owner = m[2L], repo = m[3L]))
     if (grepl("{id}", resolver, fixed = TRUE)) return(list(kind = "glob", pattern = resolver))
+    # the route's own name in another letter case is a slip, not a function
+    if (grepl("^github(:|$)", resolver, ignore.case = TRUE)) {
+      weft_abort(sprintf(paste0("The setting `decisions` must be %s; got `%s`: did you mean `%s`? ",
+                                "The route names are written in lower case (rule 9.1.8)."),
+                         DECISIONS_FORMS, resolver,
+                         sub("^github", "github", resolver, ignore.case = TRUE)),
+                 "weft_config_error")
+    }
     if (grepl("^[A-Za-z.][A-Za-z0-9._]*$", resolver) ||
         grepl("^[A-Za-z.][A-Za-z0-9.]*::[A-Za-z.][A-Za-z0-9._]*$", resolver)) {
       return(list(kind = "function", fun = resolver))
@@ -26,12 +34,15 @@ decisions_route <- function(resolver) {
 
 has_curl <- function() requireNamespace("curl", quietly = TRUE)
 
-# The owner and repository of a github.com remote URL, or NULL.
+# The owner and repository of a github.com remote URL, or NULL. The host may be
+# in any letter case, and ssh.github.com is GitHub too; a repository name is
+# letters, digits, `.`, `_` and `-`.
 parse_github_remote <- function(url) {
   if (!is.character(url) || length(url) != 1L || is.na(url)) return(NULL)
-  rx <- c("^https?://(?:[^/@]+@)?(?:www\\.)?github\\.com/([^/]+)/([^/]+?)(?:\\.git)?/?$",
-          "^git@github\\.com:([^/]+)/([^/]+?)(?:\\.git)?/?$",
-          "^ssh://git@github\\.com(?::[0-9]+)?/([^/]+)/([^/]+?)(?:\\.git)?/?$")
+  own <- "([A-Za-z0-9-]+)/([A-Za-z0-9._-]+?)(?:\\.git)?/?$"
+  rx <- c(paste0("^https?://(?:[^/@]+@)?(?:www\\.)?(?i:github\\.com)(?::[0-9]+)?/", own),
+          paste0("^[A-Za-z0-9_-]+@(?i:github\\.com):", own),
+          paste0("^ssh://(?:[A-Za-z0-9_-]+@)?(?i:(?:ssh\\.)?github\\.com)(?::[0-9]+)?/", own))
   for (r in rx) {
     m <- regmatches(url, regexec(r, url, perl = TRUE))[[1L]]
     if (length(m) == 3L && nzchar(m[2L]) && nzchar(m[3L])) return(c(owner = m[2L], repo = m[3L]))
@@ -109,7 +120,8 @@ decisions_github <- function(ptr, route, root, fetch) {
   n <- length(ptr)
   resolved <- rep(FALSE, n)
   detail <- sprintf("`%s` is not an issue number; the github resolver takes whole numbers (rule 4.5.3)", ptr)
-  num <- grepl("^[1-9][0-9]*$", ptr)
+  num <- grepl("^[1-9][0-9]{0,9}$", ptr)
+  num[num] <- as.numeric(ptr[num]) <= .Machine$integer.max
   if (!any(num)) return(list(resolved = resolved, detail = detail))
   fail <- function(msg) {
     resolved[num & is.na(resolved) | num & !resolved] <<- NA
@@ -124,6 +136,16 @@ decisions_github <- function(ptr, route, root, fetch) {
   } else if (!nzchar(Sys.which("git"))) {
     fail(none("git is not installed")); return(gone())
   } else {
+    # the remote of a repository that is the project's own, not of one that holds it
+    top <- suppressWarnings(system2("git", c("-C", shQuote(root), "rev-parse", "--show-toplevel"),
+                                    stdout = TRUE, stderr = FALSE))
+    if (is.null(attr(top, "status")) && length(top)) {
+      top <- normalizePath(top[1L], mustWork = FALSE)
+      here <- normalizePath(root, mustWork = FALSE)
+      if (!identical(top, here) && !startsWith(top, paste0(sub("/+$", "", here), "/"))) {
+        fail(none("the git repository above the project belongs to another project")); return(gone())
+      }
+    }
     url <- suppressWarnings(system2("git", c("-C", shQuote(root), "remote", "get-url", "origin"),
                                     stdout = TRUE, stderr = FALSE))
     if (!is.null(attr(url, "status")) || !length(url)) {
@@ -141,6 +163,22 @@ decisions_github <- function(ptr, route, root, fetch) {
   for (v in c("GITHUB_PAT", "GITHUB_TOKEN")) {
     if (nzchar(Sys.getenv(v))) { var <- v; token <- Sys.getenv(v); break }
   }
+  one_line <- function(x) trimws(gsub("[[:space:]]+", " ", x))
+  # one request: whatever `fetch` does, the answer is list(status, error), and
+  # the token is never in the text of an error
+  call <- function(url) {
+    a <- tryCatch(fetch(url, token), error = function(e) {
+      list(status = NA_integer_, error = paste0("the request failed: ", conditionMessage(e)))
+    })
+    st <- if (is.list(a)) suppressWarnings(as.integer(a$status)) else NULL
+    if (!is.list(a) || length(st) != 1L) {
+      return(list(status = NA_integer_, error = "the request gave an answer weft cannot read"))
+    }
+    err <- a$error
+    err <- if (is.character(err) && length(err) >= 1L && !is.na(err[1L])) one_line(err[1L]) else NULL
+    if (!is.null(err) && !is.null(token)) err <- gsub(token, "<token>", err, fixed = TRUE)
+    list(status = st, error = err)
+  }
   refused <- function(st, err, repo_call) {
     if (is.na(st)) return(sprintf("GitHub could not be reached (%s)", err %||% "no answer"))
     if (st == 404L && repo_call) {
@@ -148,7 +186,15 @@ decisions_github <- function(ptr, route, root, fetch) {
         "%s/%s is not visible (private without a token, or misnamed); set GITHUB_PAT", o, r)
         else sprintf("%s/%s is not visible with the token in %s", o, r, var))
     }
-    if (st == 401L) return(sprintf("GitHub refused the token in %s (401)", var %||% "GITHUB_PAT"))
+    if (st == 401L) {
+      return(if (is.null(token)) "GitHub answered 401, though no token was sent; set GITHUB_PAT"
+             else sprintf("GitHub refused the token in %s (401)", var))
+    }
+    if (st == 410L) {
+      return(sprintf(paste0("GitHub answered 410: issues are turned off for %s/%s (as in a fork); ",
+                            "set decisions: github:<owner>/<repo> in _weft.yml to name the repository that has them"),
+                     o, r))
+    }
     if (st %in% c(403L, 429L)) {
       return(if (is.null(token)) sprintf(paste0(
         "GitHub refused the request (%d), usually its limit of 60 requests an hour ",
@@ -159,17 +205,17 @@ decisions_github <- function(ptr, route, root, fetch) {
   }
   base <- sprintf("https://api.github.com/repos/%s/%s", o, r)
   # 3, 4. the repository, then each number
-  a <- fetch(base, token)
-  if (!identical(as.integer(a$status), 200L)) {
-    fail(refused(as.integer(a$status), a$error, TRUE)); return(gone())
+  a <- call(base)
+  if (!identical(a$status, 200L)) {
+    fail(refused(a$status, a$error, TRUE)); return(gone())
   }
   for (k in which(num)) {
-    a <- fetch(paste0(base, "/issues/", ptr[k]), token)
-    st <- as.integer(a$status)
+    a <- call(paste0(base, "/issues/", ptr[k]))
+    st <- a$status
     if (identical(st, 200L)) {
       resolved[k] <- TRUE
       detail[k] <- sprintf("%s/%s#%s exists", o, r, ptr[k])
-    } else if (identical(st, 404L) || identical(st, 410L)) {
+    } else if (identical(st, 404L)) {
       resolved[k] <- FALSE
       detail[k] <- sprintf("%s/%s has no issue or pull request #%s", o, r, ptr[k])
     } else {
@@ -187,15 +233,33 @@ decisions_glob <- function(ptr, pattern, root) {
   resolved <- rep(FALSE, n)
   detail <- character(n)
   root <- sub("/+$", "", root)
+  # a relative pattern is a pattern after the root: the glob runs in the root, so
+  # that no character of the root's own path is read as a pattern character
+  absolute <- grepl("^(/|~|[A-Za-z]:[/\\\\])", pattern)
+  if (!absolute) {
+    owd <- tryCatch(setwd(root), error = function(e) NULL)
+    if (is.null(owd)) {
+      detail[] <- "the project folder cannot be entered"
+      return(list(resolved = resolved, detail = detail))
+    }
+    on.exit(setwd(owd), add = TRUE)
+  }
+  rootn <- normalizePath(root, mustWork = FALSE)
+  inside <- function(p) {
+    np <- normalizePath(p, mustWork = FALSE)
+    startsWith(np, paste0(rootn, "/"))
+  }
   for (k in seq_len(n)) {
     if (grepl("[*?/\\\\]|\\[|\\]", ptr[k])) {
       detail[k] <- sprintf("`%s` holds a character a file pattern cannot match literally (* ? [ ] / \\)", ptr[k])
       next
     }
     pat <- gsub("{id}", ptr[k], pattern, fixed = TRUE)
-    abs <- grepl("^(/|~|[A-Za-z]:[/\\\\])", pat)
-    hits <- Sys.glob(if (abs) pat else file.path(root, pat))
-    hits <- hits[!dir.exists(hits)]
+    hits <- Sys.glob(if (absolute) pat else paste0("./", pat))
+    if (!absolute) hits <- sub("^\\./", "", hits)
+    # a file, not a folder or a dangling link, and inside the project
+    hits <- hits[file.exists(hits) & !dir.exists(hits)]
+    hits <- hits[vapply(hits, inside, NA)]
     if (!length(hits)) {
       detail[k] <- paste("no file matches", pat)
       next
@@ -213,7 +277,7 @@ decisions_function <- function(ptr, fun) {
     if (grepl("::", fun, fixed = TRUE)) {
       parts <- strsplit(fun, "::", fixed = TRUE)[[1L]]
       get(parts[2L], envir = asNamespace(parts[1L]), mode = "function")
-    } else get(fun, envir = globalenv(), mode = "function")
+    } else get(fun, envir = globalenv(), mode = "function", inherits = FALSE)
   }, error = function(e) NULL)
   if (is.null(fn)) {
     weft_abort(sprintf("Cannot find the decisions function `%s` (rule 9.1.8).", fun),
@@ -225,15 +289,20 @@ decisions_function <- function(ptr, fun) {
   for (k in seq_len(n)) {
     v <- tryCatch(fn(ptr[k]), error = function(e) e)
     if (inherits(v, "error")) {
-      detail[k] <- sprintf("could not check: %s failed: %s", fun, sub("\n.*$", "", conditionMessage(v)))
+      msg <- trimws(sub("\n.*$", "", trimws(conditionMessage(v))))
+      detail[k] <- if (nzchar(msg)) sprintf("could not check: %s failed: %s", fun, msg)
+                   else sprintf("could not check: %s failed with an empty message", fun)
     } else if (is.logical(v) && length(v) == 1L && !is.na(v)) {
       resolved[k] <- v
       detail[k] <- sprintf("%s returned %s", fun, if (v) "TRUE" else "FALSE")
     } else if (is.logical(v) && length(v) == 1L) {
       detail[k] <- sprintf("could not check: %s returned NA", fun)
     } else {
-      detail[k] <- sprintf("could not check: %s returned a %s of length %d, not TRUE, FALSE or NA",
-                           fun, class(v)[1L], length(v))
+      what <- if (is.null(v)) "NULL" else {
+        cls <- class(v)[1L]
+        sprintf("%s %s of length %d", if (grepl("^[AEIOUaeiou]", cls)) "an" else "a", cls, length(v))
+      }
+      detail[k] <- sprintf("could not check: %s returned %s, not TRUE, FALSE or NA", fun, what)
     }
   }
   list(resolved = resolved, detail = detail)

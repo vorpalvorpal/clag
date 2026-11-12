@@ -23,8 +23,9 @@ It writes, under the project root (see below):
 \itemize{
 \item \code{dict.yml}, only when there is none: a starter that reads as a dictionary
 with no keys, with two examples commented out. An existing \code{dict.yml} is
-never changed; when it has no \code{yaml-language-server} schema line,
-\code{use_dictionary()} prints the line to add.
+never changed; when it has no \code{yaml-language-server} schema line, or one
+that points somewhere else than \verb{_weft/dict.schema.json},
+\code{use_dictionary()} prints the line to use.
 \item \verb{_weft/dict.schema.json}, when it is missing or differs from the schema of
 this version of weft (it is weft's own file). The folder \verb{_weft/} is
 created if needed.
@@ -33,6 +34,11 @@ created if needed.
 The project root is the nearest folder from \code{path} upward that holds
 \verb{_weft.yml}, else \verb{_quarto.yml}, else \code{path} itself; when it is not \code{path},
 \code{use_dictionary()} says so and writes there.
+
+Nothing is written through a symbolic link (\code{dict.yml}, \verb{_weft} or the schema
+file being one is an error, before anything is written), and a failed write
+is a \code{weft_tool_error} naming the file: \verb{Wrote:} names only files that were
+written.
 
 The schema covers what an editor can see of a dictionary file; \code{\link[=read_dict]{read_dict()}}
 checks more (see \link{dict_file}), and a file the schema accepts can still be

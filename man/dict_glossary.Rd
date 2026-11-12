@@ -36,11 +36,16 @@ An entry is two lines: a heading and \verb{:   <definition>}. The heading is the
 entry's \code{term} as written (markdown), else the key in code; then, when
 \code{values} is \code{TRUE} and the entry is a \code{number}, \code{quantity}, \code{year}, \code{date} or
 \code{string}, its value in parentheses: numbers and quantities through
-\code{\link[=fmt_num]{fmt_num()}} with the decimals written in the file, dates through
-\code{\link[=fmt_date]{fmt_date()}}, so the configuration in force (marks, \code{thousands_from},
-\code{unit_form}, the \verb{units:} table) applies. A \code{labels} or \code{breaks} entry shows
+\code{\link[=fmt_num]{fmt_num()}} with the decimals written in the file (\code{0.50} prints \code{0.50}; a
+quantity converted by \verb{display:} prints as \code{\link[=fmt_num]{fmt_num()}} prints it), dates
+through \code{\link[=fmt_date]{fmt_date()}}, so the configuration in force (marks,
+\code{thousands_from}, \code{unit_form}, the \verb{units:} table) applies; outside a knit
+that is the \verb{_weft.yml} of the project root, if there is one. A \code{labels} or \code{breaks} entry shows
 no value. White space in a definition and in a string value becomes one
-space; markdown is kept as written. \code{why} is never shown.
+space (a blank line in a definition starts a paragraph, indented four spaces
+so that Pandoc keeps it in the same definition); markdown is kept as
+written. \code{why} is never shown. The string ends with a blank line, so text
+after the chunk is not read as part of the last definition.
 }
 \examples{
 f <- tempfile(fileext = ".yml")

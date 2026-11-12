@@ -20,27 +20,53 @@
       }
     },
     "text": {
+      "description": "A string with a character other than space, tab and line break (read_dict() trims only those; \\S would also refuse a no-break space).",
       "type": "string",
-      "pattern": "\\S"
+      "pattern": "[^ \\t\\r\\n]"
+    },
+    "text_or_list": {
+      "description": "Text; a one-item list is read as its item.",
+      "anyOf": [
+        { "$ref": "#/definitions/text" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/text" } }
+      ]
+    },
+    "optional_text": {
+      "description": "Text. An empty field (null) is read as absent, and a one-item list as its item.",
+      "anyOf": [
+        { "$ref": "#/definitions/text" },
+        { "type": "null" },
+        { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/text" } }
+      ]
     },
     "numberish": {
       "description": "A number, or a string that is a number literal such as \"1e-3\".",
       "anyOf": [
         { "type": "number" },
-        { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" }
+        { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" },
+        { "type": "array", "minItems": 1, "items": { "anyOf": [
+          { "type": "number" },
+          { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" }
+        ] } }
       ]
     },
     "year": {
       "description": "A whole number from 1000 to 9999.",
       "anyOf": [
         { "type": "integer", "minimum": 1000, "maximum": 9999 },
-        { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" }
+        { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" },
+        { "type": "array", "minItems": 1, "items": { "anyOf": [
+          { "type": "integer", "minimum": 1000, "maximum": 9999 },
+          { "type": "string", "pattern": "^\\s*[+-]?(?:[0-9]+[.]?[0-9]*|[.][0-9]+)(?:[eE][+-]?[0-9]+)?\\s*$" }
+        ] } }
       ]
     },
     "date": {
       "description": "A date written YYYY-MM-DD.",
-      "type": "string",
-      "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$"
+      "anyOf": [
+        { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" },
+        { "type": "array", "minItems": 1, "items": { "type": "string", "pattern": "^[0-9]{4}-[0-9]{2}-[0-9]{2}$" } }
+      ]
     },
     "labels": {
       "description": "A mapping from label to phrase.",
@@ -76,33 +102,43 @@
         },
         "definition": {
           "description": "What the value is; the glossary's text (rule 4.7.1).",
-          "$ref": "#/definitions/text"
+          "$ref": "#/definitions/text_or_list"
         },
         "unit": {
           "description": "The unit the value is written in; a quantity only (rule 4.2.1).",
-          "$ref": "#/definitions/text"
+          "$ref": "#/definitions/optional_text"
         },
         "display": {
           "description": "The unit the value is read in; a quantity only (rule 4.2.7).",
-          "$ref": "#/definitions/text"
+          "$ref": "#/definitions/optional_text"
         },
         "decision": {
           "description": "Where the choice is recorded: an issue number, or an id the project's resolver knows (rule 4.5).",
           "anyOf": [
             { "type": "integer", "minimum": 1 },
-            { "$ref": "#/definitions/text" }
+            { "$ref": "#/definitions/text" },
+            { "type": "null" },
+            { "type": "array", "minItems": 1, "items": { "anyOf": [
+              { "type": "integer", "minimum": 1 },
+              { "$ref": "#/definitions/text" }
+            ] } }
           ]
         },
         "term": {
           "description": "The term the glossary shows, and the spelling dict_vale() keeps (rule 4.7.3).",
-          "$ref": "#/definitions/text"
+          "$ref": "#/definitions/optional_text"
         },
         "avoid": {
           "description": "Spellings to avoid; dict_vale() writes a rule that replaces each with the term (rule 4.7.4).",
           "anyOf": [
             { "$ref": "#/definitions/text" },
+            { "type": "null" },
             { "type": "array", "minItems": 1, "items": { "$ref": "#/definitions/text" } }
           ]
+        },
+        "why": {
+          "description": "For a chapter's own entries only (rule 4.3.3); in dict.yml an empty one is read as absent.",
+          "type": "null"
         }
       },
       "allOf": [
@@ -115,13 +151,16 @@
         { "if": { "properties": { "type": { "const": "date" } }, "required": ["type"] },
           "then": { "properties": { "value": { "$ref": "#/definitions/date" } } } },
         { "if": { "properties": { "type": { "const": "string" } }, "required": ["type"] },
-          "then": { "properties": { "value": { "type": "string" } } } },
+          "then": { "properties": { "value": { "anyOf": [
+            { "type": "string" },
+            { "type": "array", "minItems": 1, "items": { "type": "string" } }
+          ] } } } },
         { "if": { "properties": { "type": { "const": "labels" } }, "required": ["type"] },
           "then": { "properties": { "value": { "$ref": "#/definitions/labels" } } } },
         { "if": { "properties": { "type": { "const": "breaks" } }, "required": ["type"] },
           "then": { "properties": { "value": { "$ref": "#/definitions/breaks" } } } },
         { "if": { "properties": { "type": { "not": { "const": "quantity" } } }, "required": ["type"] },
-          "then": { "properties": { "unit": false, "display": false } } },
+          "then": { "properties": { "unit": { "type": "null" }, "display": { "type": "null" } } } },
         { "if": { "required": ["avoid"] },
           "then": { "anyOf": [
             { "required": ["term"] },

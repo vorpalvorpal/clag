@@ -263,15 +263,15 @@ test_that("2c vale C9: a dict.yml with a problem raises its weft_dict_error and 
 })
 
 test_that("2c vale: regular-expression characters in a spelling are escaped in the key; the value is as written (4.7.2)", {
-  specials <- "a.b (c)"
+  specials <- "a.b (c)d"
   dir <- c2_proj(list(dict.yml = c(
-    "a: {value: Canon, type: string, definition: x, avoid: [\"a.b (c)\"]}",
+    "a: {value: Canon, type: string, definition: x, avoid: [\"a.b (c)d\"]}",
     "b: {value: Other, type: string, definition: x, avoid: [\"x+y*z?q\", \"p|q\", \"k[k]{2}k\", \"s^s$s\", \"back\\\\slash\"]}")))
   withr::local_dir(dir)
   suppressMessages(dict_vale())
   lines <- read_rule(abs_path(dir))
   swap <- lines[(which(lines == "swap:") + 1):length(lines)]
-  expect_true("  'a\\.b \\(c\\)': 'Canon'" %in% swap)
+  expect_true("  'a\\.b \\(c\\)d': 'Canon'" %in% swap)
   expect_true("  'x\\+y\\*z\\?q': 'Other'" %in% swap)
   expect_true("  'p\\|q': 'Other'" %in% swap)
   expect_true("  'k\\[k\\]\\{2\\}k': 'Other'" %in% swap)

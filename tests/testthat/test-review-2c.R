@@ -796,7 +796,7 @@ test_that("review 2c #G: outside a knit the glossary uses the decimal mark of th
   dir <- c2_proj(list(
     dict.yml = c("a: {value: 12345.5, type: number, definition: x}",
                  "b: {value: 0.5, type: quantity, unit: m, definition: y}"),
-    `_weft.yml` = "decimal_mark: ','"))
+    `_weft.yml` = c("decimal_mark: ','", "big_mark: '.'")))   # the two marks must differ
   withr::local_dir(dir)
   expect_identical(as.character(dict_glossary()), c2("\n`a` (12.345,5)\n:   x\n\n`b` (0,5~m)\n:   y\n\n"))
 })

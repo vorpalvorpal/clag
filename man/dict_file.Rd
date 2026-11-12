@@ -20,6 +20,11 @@ any of them. All the problems in a file are reported together.
 \item \code{definition} (required): a string that is not blank; it is the text the
 glossary shows.
 \item \code{unit}: a string, for a \code{quantity} only.
+}
+
+An empty field (\verb{term:} with nothing after it) is read as absent. A one-item
+list where a string or number is wanted (\verb{unit: [m]}) is read as its item.
+\itemize{
 \item \code{display}: a string, for a \code{quantity} only (rule 4.2.7): the unit to show
 the value in. The value is read in \code{unit} and converted to \code{display} when
 the file is read, so \code{dict$key} is already in \code{display}, and arithmetic,
@@ -27,18 +32,25 @@ checks, \verb{#} and \code{units::drop_units()} see it. A \code{display} that do
 parse, or that \code{unit} does not convert to, is a problem; \verb{unit =} at the use
 converts back. The \code{entries} column \code{display} is \code{NA} where absent.
 \item \code{decision}: a whole number from 1, or a string that is not blank; it is
-not resolved when the file is read.
+not resolved when the file is read. \code{"#12"} is read as 12; text such as
+\code{012}, \code{0x1F} or \code{1e3}, or a number with more digits than an issue number
+can have, is kept as written and does not resolve.
 \item \code{why}: a string that is not blank, for a \code{dict_local} entry only, where
 it is required.
 \item \code{term}: a string that is not blank, on any type: the words a reader knows
 the entry by. \code{\link[=dict_glossary]{dict_glossary()}} heads the entry with it and \code{\link[=dict_vale]{dict_vale()}}
-keeps it as the entry's spelling (rule 4.7.3).
+keeps it as the entry's spelling (rule 4.7.3). White space around it is
+trimmed; a \code{term} that holds a line break, or that starts with what
+markdown reads as a block (\verb{#}, \code{>}, \code{-}, \code{*}, \code{+} or \code{:} and a space, \code{1.},
+a fence), is a problem.
 \item \code{avoid}: one string, or a non-empty list of strings, none blank, in
 \code{dict.yml} only (rule 4.7.4). They are spellings \code{\link[=dict_vale]{dict_vale()}} replaces by
 the entry's canonical spelling: its \code{term}, or, for a \code{string} entry with
 no \code{term}, its value; any other entry needs a \code{term}. A spelling that is
 the entry's own, is listed twice, is listed by another entry, or is found
-as whole words inside any entry's canonical spelling is a problem. The
+as whole words inside any entry's canonical spelling is a problem, and so
+is a spelling that starts or ends with a character that is not a letter or
+digit (Vale matches at word boundaries and could never match it). The
 \code{entries} columns \code{term} and \code{avoid} hold \code{NA} and \code{character(0)} where
 absent.
 }
