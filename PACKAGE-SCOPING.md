@@ -2194,7 +2194,9 @@ that redefines nothing (`NTU`, `PSU`, `CFU`, `MPN`, and the tokens of 4.4.7) are
 not undone during the session; `false` removes only their names. A read that
 fails removes every token installed since it began and returns the session to
 mode `weft` with the default rows only; it does not restore an earlier
-project's. When the package is unloaded, what it installed is
+project's. A unit that a project registers through `units:` is removed when
+another project's tables are read, and by `units_reset()`.
+When the package is unloaded, what it installed is
 removed (the base registrations apart) and `gal` is restored. A project unit
 defined as a unit with a non-ASCII symbol is refused before anything is
 installed, and the units database is left as it was.
@@ -2393,7 +2395,9 @@ m)` under `unit="m|km"` the result is "0.0 m" and a warned check whose advice is
 **4.4.24** When a construct prints a quantity with its unit and the prose
 straight after it, after white space, is that unit again, as its symbol or as
 its name in the singular or the plural, the knit raises one unit warning (2.6.12)
-naming the word ("5 days days"). The same holds when an arm types the unit after
+naming the word ("5 days days"). The symbol is compared as typed; the name is
+compared as typed and in lower case. No warning is raised when the symbol is
+`a`, `am`, `as`, `at` or `in`. The same holds when an arm types the unit after
 `#`. Nothing is removed, and the text printed is unchanged.
 
 ### 4.5 Decision pointers
@@ -2489,10 +2493,14 @@ before anything runs. The error names the nearest key as 4.1.2 does.
 construct keys. `tar_quarto_rep()` and `tar_render_rep()` targets are report
 targets too. A report's sources are followed through knitr `child=` files, Quarto
 includes and any source that `tarchetypes` lists, whatever its extension, to any
-depth.
+depth. A Quarto include whose path starts with `/` is resolved against the Quarto
+project root, the folder that holds `_quarto.yml`, else the document's own
+folder; a quoted include path may hold spaces. A report with a `child=` that is
+computed rather than a literal, or a child or include that does not resolve to a
+file, depends on every key (4.6.8). The scan prints nothing to the console.
 
 **4.6.6** Dynamic access (`dict[[k]]`) and a bare `dict` depend on the whole
-dictionary.
+dictionary. With no keys, a read of the whole dictionary is allowed.
 
 **4.6.7** `tar_dict()` attaches the dictionary as `dict` on the search path. A
 `dict` object in the pipeline's environment is a `weft_pipeline_error`, because
@@ -2506,8 +2514,15 @@ read of key `k` requires `dict_k` among that target's dependencies, and a read o
 the whole dictionary requires every `dict_<key>`. Otherwise it is a
 `weft_pipeline_error` naming the target and the key, and saying to pass the
 target through `tar_dict_deps()`. A read outside a running target checks
-nothing. A target left out of `tar_dict_deps()`, or a
+nothing. The check guards only the attached `dict`: a value that a target
+returns never carries the guard's marker, so a copy of `dict` that one target
+stores reads freely in another, and the message names only what was read. A
+target left out of `tar_dict_deps()`, or a
 read the walker cannot see, stops the first make and never gives a stale number.
+A report is not protected by this check, because it knits against its own
+dictionary (and `tar_quarto()` renders in another process): it is protected by
+the scan (4.6.5), and what the scan cannot follow makes the report depend on the
+whole dictionary.
 
 ### 4.7 Generated from the dictionary
 
@@ -3020,7 +3035,10 @@ block of markdown that holds the construct's text, after what is not prose is
 masked: code, maths, link targets, citations and cross-references, footnotes,
 attribute blocks and raw HTML. A boundary is dropped before a lower-case letter
 or a digit, inside brackets, after an initial, and after a short list of
-abbreviations. The list is weft's own, because ICU's are thin; it is in
+abbreviations. A sentence ends before the next block marker (a list item's `-`,
+`*`, `+` or number, a block quote's `>`), which is no part of it. An inline
+footnote that does not hold the construct is masked as closing brackets, so a
+boundary after `.^[note]` stands, and the note stays with the sentence before it. The list is weft's own, because ICU's are thin; it is in
 `dev/design-2d.md` under decision 57. The sentence is for display (7.3.3) and
 ranking only, and never decides whether an entry has changed. A failure marker inside a stored
 sentence has no line number. A footnote's definition marker is not part of its
@@ -3048,7 +3066,10 @@ for each, and a render that overwrites an output overwrites its ledger. The
 ledger is committed. It is written when the knit reaches the end of the
 document and its output is written: in draft mode, with each failed construct
 marked; not by a render that stops on its failures, and not with `ledger: false`
-(9.1.9), which also leaves the condition log unwritten.
+(9.1.9), which also leaves the condition log unwritten. With `ledger: false` no
+reads are collected (7.2.2): there are no ledger warnings, no network cache
+(7.4.1) and no background process, and the conditions of the targets upstream
+are not looked for.
 
 **7.1.4** An entry is keyed on its `#id` where it has one, with the id's
 occurrence. Otherwise it is keyed on five things: the file the construct is
@@ -3063,8 +3084,10 @@ Line numbers are not stored.
 
 The anchor of a section is its heading's `{#id}` where it has one, kept as
 written, repeated or not. Otherwise it is Pandoc's identifier rule applied to
-the heading's source text, from which inline code, attribute blocks, link
-targets, footnote references, raw HTML and emphasis markers are first removed.
+the heading's source text, from which attribute blocks, link
+targets, footnote references, inline R code, tag-shaped runs of raw HTML (`<` and a
+letter, to the next `>`) and emphasis markers are first removed. The text of
+other inline code is kept, and a `<` or `>` that opens no tag is text.
 A heading in an HTML comment is not a heading. The anchor is `""` above the
 first heading and in front matter. A caption, a string and a child's text are
 in the section of their chunk. A construct inside a heading takes that
@@ -3124,9 +3147,14 @@ under the store it is read from: a literal `store`, else the knit's configured
 store. A function of the author's, in the knit's environment, whose body passes
 one of its own arguments as the name to one of these four is a reader: a call of
 it with a literal name is a read of that target, from the store its body gives,
-evaluated as follows. A `store` that is not a literal is evaluated at the end
+evaluated as follows. The reader's default `store` and default `name` are used
+when the call leaves them out. The argument may be passed as `{{ x }}`,
+`!!enquo(x)` or `!!ensym(x)`, which are seen through, and a bare symbol at the
+call is then the name; a reader that passes its argument plainly to
+`tar_read_raw()` needs a string. A `store` that is not a literal is evaluated at the end
 of the knit, in the knit's environment; when it gives one string, that is the
-store. When it cannot be evaluated, the read is recorded under the default store
+store. A `store` that is a local of the reader is unresolved. When it cannot be
+evaluated, or is unresolved, the read is recorded under the default store
 and the knit raises one `weft_ledger_warning` naming the read. A target's hash is the `data` hash in `tar_meta()`; a
 dictionary entry's is of its JSON with names sorted at every level, so reordering
 its fields changes nothing; a file's is of its bytes with line ends made `\n`. A
@@ -3237,7 +3265,7 @@ the ledger, one file for each ledger file. It has four sources:
   targets upstream runs the pipeline's script once per project render, and the
   edges are kept, keyed on the store's `meta` file (its size and modification
   time) and the script's path, not on the run, so a render of one file reuses
-  them. They are found for every store a chapter reads, and a store whose script
+  them. They are found for every store a chapter reads (not with `ledger: false`, 7.1.3), and a store whose script
   cannot be found is one warning. A script that cannot
   be run is one warning, and the targets read are still logged.
 
@@ -3564,7 +3592,13 @@ found is a `weft_config_error`: "Cannot find the decisions function `<fun>` (rul
 `ledger: false` in `_weft.yml` or in a document's `weft:` front matter, the
 ledger and the condition log are not written (7.1.3), so a project can keep
 `units:` rows in `_weft.yml` without a ledger. The front matter overrides the
-project file in either direction.
+project file in either direction. With `ledger: false` the knit also collects no
+reads (7.1.3).
+
+**9.1.10** The units tables are kept for the session. A copy in the user's cache
+directory (`tools::R_user_dir("weft", "cache")`) is written only under
+`options(weft.units_cache = TRUE)`; weft writes nothing outside the project
+unless asked.
 
 ### 9.2 Activation
 
