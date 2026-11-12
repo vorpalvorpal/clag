@@ -21,7 +21,7 @@ gloss_text <- function(keys, values = TRUE) {
     h <- if (values) v[1] else sub(" \\(.*\\)$", "", v[1])
     paste0(h, "\n:   ", v[2])
   }, "")
-  c2(paste0("\n", paste(ent, collapse = "\n\n"), "\n"))
+  c2(paste0("\n", paste(ent, collapse = "\n\n"), "\n\n"))
 }
 
 fx_dict <- function() read_dict(c2_fixture())
@@ -39,7 +39,7 @@ test_that("2c glossary: the fixture's glossary is exactly the contract's example
     "`study_area` (Northern catchment)\n:   Name used for the study region.\n\n",
     "`survey_start` (1 June 2024)\n:   First day of the summer survey.\n\n",
     "`trend_word`\n:   Wording for the ratio of this year's mean to last year's.\n\n",
-    "zone names\n:   Display names for the survey zones.\n")))
+    "zone names\n:   Display names for the survey zones.\n\n")))
 })
 
 test_that("2c glossary: values = FALSE drops the parentheses from the headings (C4)", {
@@ -82,7 +82,7 @@ test_that("2c glossary: whitespace runs in a definition and a string value becom
     "    First line,",
     "      second **bold** line.",
     ""))
-  expect_identical(gl(d), "\n*emph* term (Two spaces and a newline)\n:   First line, second **bold** line.\n")
+  expect_identical(gl(d), "\n*emph* term (Two spaces and a newline)\n:   First line, second **bold** line.\n\n")
 })
 
 test_that("2c glossary: labels and breaks show no value, even with values = TRUE (C6)", {
@@ -103,7 +103,7 @@ test_that("2c glossary: why is never shown, and a local dictionary is accepted (
   expect_false(res$failed, label = res$message)
   out <- gl(res$knit$dict_local)
   expect_identical(out, paste0("\n`core_len` (local text)\n:   A local core length.\n\n",
-                               "`site_class`\n:   Local site classes.\n"))
+                               "`site_class`\n:   Local site classes.\n\n"))
   expect_false(grepl("differently", out, fixed = TRUE))
   expect_false(grepl("Chapter-specific", out, fixed = TRUE))
 })

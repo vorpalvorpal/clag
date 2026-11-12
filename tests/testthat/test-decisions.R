@@ -146,16 +146,16 @@ test_that("2c github: a pointer that is not a whole number is FALSE with no requ
                                      c("zones-2023", "0", "012", "1.5", " 7", "-3")))
 })
 
-test_that("2c github: an issue that answers 404 or 410 is FALSE with its detail; a pull request or closed issue is just 200 (C30)", {
+test_that("2c github: an issue that answers 404 is FALSE with its detail, one that answers 410 is NA (could not check, ruling D); a pull request or closed issue is just 200 (C30)", {
   c2_no_token()
   x <- c2_decision_dict(list(12, 99, 98))
   f <- c2_fetch(setNames(list(200, 200, 404, 410),
                          c(REPO, paste0(REPO, "/issues/12"), paste0(REPO, "/issues/99"), paste0(REPO, "/issues/98"))))
   r <- chk(x, resolver = "github:example/proj", fetch = f$fetch)
-  expect_identical(r$resolved, c(TRUE, FALSE, FALSE))
-  expect_identical(r$detail, c("example/proj#12 exists",
-                               "example/proj has no issue or pull request #99",
-                               "example/proj has no issue or pull request #98"))
+  expect_identical(r$resolved, c(TRUE, FALSE, NA))
+  expect_identical(r$detail[1:2], c("example/proj#12 exists",
+                                    "example/proj has no issue or pull request #99"))
+  expect_true(startsWith(r$detail[3], "could not check: "))
   expect_identical(length(f$calls()), 4L)
   c2_expect_na_iff_detail(r)
 })

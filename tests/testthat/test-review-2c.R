@@ -6,6 +6,7 @@
 # `~` in an expected string is U+00A0 (c2()). Non-ASCII is written as \uXXXX.
 
 R2C_REPO <- "example/proj"
+R2C_FIXTURE <- c2_fixture_lines()   # read while the working folder is tests/testthat
 
 # the messages, the error (or NULL) and the value of an expression; warnings are muffled
 r2c_run <- function(expr) {
@@ -24,7 +25,7 @@ r2c_run <- function(expr) {
 
 # a project holding the 2c fixture as dict.yml (and `extra` files), as the working folder
 r2c_vale_proj <- function(extra = list(), env = parent.frame()) {
-  files <- list(dict.yml = c2_fixture_lines())
+  files <- list(dict.yml = R2C_FIXTURE)
   files[names(extra)] <- extra
   dir <- c2_proj(files, env)
   withr::local_dir(dir, .local_envir = env)
@@ -828,4 +829,70 @@ test_that("review 2c #H: control - a value written with the decimals it has prin
   s <- as.character(dict_glossary(d))
   expect_true(grepl(c2("`a` (2.5~m)\n"), s, fixed = TRUE))
   expect_true(grepl("`b` (5)\n", s, fixed = TRUE))
+})
+
+# ---- added in the finishing round: rulings for the cases first left untested ------------------------
+
+test_that("review 2c #13: a nested four-backtick fence inside a chunk puts that chunk in `skipped`, and the file's other chunks are still read (9.5.2, finding 13)", {
+  nested <- c("# Doc", "", "```{r}", "zi <- 3", "```", "",
+              "```{r}", "xi <- 1", "````{r}", "yi <- 2", "````", "```", "")
+  plain <- c("# Doc", "", "```{r}", "wi <- 4", "```", "")
+  dir <- c2_proj(list(a.qmd = nested, b.qmd = nested, c.qmd = plain, d.qmd = plain))
+  withr::local_dir(dir)
+  r <- NULL
+  expect_no_error(r <- suppressMessages(dict_seed()))
+  expect_true(all(c("wi", "zi") %in% r$name), label = "chunks outside the nested example are read")
+  expect_false(any(c("xi", "yi") %in% r$name))
+  sk <- attr(r, "skipped")
+  expect_true(all(c("a.qmd", "b.qmd") %in% sk$file))
+  expect_true(all(sk$line[sk$file == "a.qmd"] == 7L), label = "the chunk holding the nested fence is the one skipped")
+})
+
+test_that("review 2c #9: dict_vale() given a dictionary read from another file, with or without spellings, never removes the project's rule (4.7.2, ruling 9)", {
+  for (other_lines in list("a: {value: 1, type: number, definition: x}",
+                           "a: {value: Alpha, type: string, definition: x, avoid: [alfa]}")) {
+    dir <- r2c_vale_proj(list(`other.yml` = other_lines))
+    suppressMessages(dict_vale())
+    rule <- file.path(dir, "styles", "Weft", "Terms.yml")
+    expect_true(file.exists(rule))
+    other <- read_dict(file.path(dir, "other.yml"))
+    r <- r2c_run(dict_vale(other))
+    expect_false(any(grepl("^Removed: |weft will remove", r$msgs)), label = paste(r$msgs, collapse = " | "))
+    expect_true(file.exists(rule), label = "the project's rule file is still there")
+  }
+})
+
+test_that("review 2c #9: dict_vale() given a chapter's dict_local never removes the project's rule (4.7.2, ruling 9)", {
+  res <- render_rmd(
+    c("Body."),
+    front = c("weft:", "  dict_local:",
+              "    site_class:", "      value: {yes: Allowed, no: Barred}", "      type: labels",
+              "      definition: \"Local site classes.\"", "      why: \"Chapter-specific.\""),
+    files = list(dict.yml = c2_fixture_lines()), format = "knit", in_process = TRUE)
+  expect_false(res$failed, label = res$message)
+  dir <- r2c_vale_proj()
+  suppressMessages(dict_vale())
+  rule <- file.path(dir, "styles", "Weft", "Terms.yml")
+  expect_true(file.exists(rule))
+  r <- r2c_run(dict_vale(res$knit$dict_local))
+  expect_false(any(grepl("^Removed: |weft will remove", r$msgs)), label = paste(r$msgs, collapse = " | "))
+  expect_true(file.exists(rule), label = "the project's rule file is still there")
+})
+
+test_that("review 2c #15: `decisions: GitHub` (wrong case) is a configuration error whose message offers `github` (9.1.8, finding 15)", {
+  withr::local_envvar(WEFT_DRAFT = NA)
+  x <- c2_decision_dict(list(12))
+  writeLines("decisions: GitHub", file.path(x$root, "_weft.yml"))
+  e <- c2_err({
+    weft:::read_config(x$root)
+    weft:::check_decisions(x$dict, root = x$root, fetch = c2_no_fetch())
+  })
+  c2_expect_cond(e, "weft_config_error")
+  c2_expect_msg(e, "github")
+})
+
+test_that("review 2c #15: control - `decisions: github` is read without error (9.1.8)", {
+  withr::local_envvar(WEFT_DRAFT = NA)
+  dir <- c2_proj(list(`_weft.yml` = "decisions: github"))
+  expect_identical(weft:::read_config(dir)$decisions, "github")
 })

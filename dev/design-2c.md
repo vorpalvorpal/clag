@@ -1260,3 +1260,12 @@ wins.
 - **A.** Whether Vale honours the order of a `swap` map is not checked
   here (Vale is not installed); in `dev/open-findings.md`.
 - **C, K.** Left; in `dev/open-findings.md`. K belongs to `verify()`.
+
+## Rulings added for the regression tests of the review of 2c
+
+- **13.** A chunk that holds a nested code fence is listed in `skipped`,
+  never an R error; chunks before it are read.
+- **9.** `dict_vale()` given a `dict_local`, or a dictionary read from
+  another file, never removes the project's rule file.
+- **15.** `decisions: GitHub`, the route's name in another letter case,
+  is a configuration error that offers `github`.

@@ -266,16 +266,16 @@ test_that("2c vale: regular-expression characters in a spelling are escaped in t
   specials <- "a.b (c)"
   dir <- c2_proj(list(dict.yml = c(
     "a: {value: Canon, type: string, definition: x, avoid: [\"a.b (c)\"]}",
-    "b: {value: Other, type: string, definition: x, avoid: [\"x+y*z?\", \"p|q\", \"[k]{2}\", \"^s$\", \"back\\\\slash\"]}")))
+    "b: {value: Other, type: string, definition: x, avoid: [\"x+y*z?q\", \"p|q\", \"k[k]{2}k\", \"s^s$s\", \"back\\\\slash\"]}")))
   withr::local_dir(dir)
   suppressMessages(dict_vale())
   lines <- read_rule(abs_path(dir))
   swap <- lines[(which(lines == "swap:") + 1):length(lines)]
   expect_true("  'a\\.b \\(c\\)': 'Canon'" %in% swap)
-  expect_true("  'x\\+y\\*z\\?': 'Other'" %in% swap)
+  expect_true("  'x\\+y\\*z\\?q': 'Other'" %in% swap)
   expect_true("  'p\\|q': 'Other'" %in% swap)
-  expect_true("  '\\[k\\]\\{2\\}': 'Other'" %in% swap)
-  expect_true("  '\\^s\\$': 'Other'" %in% swap)
+  expect_true("  'k\\[k\\]\\{2\\}k': 'Other'" %in% swap)
+  expect_true("  's\\^s\\$s': 'Other'" %in% swap)
   expect_true("  'back\\\\slash': 'Other'" %in% swap)
 })
 
