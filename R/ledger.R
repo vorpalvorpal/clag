@@ -53,7 +53,10 @@ json_value <- function(x) {
   if (is.null(x)) return("null")
   if (is.list(x)) {
     if (!is.null(names(x))) {
-      return(paste0("{", paste(paste0(json_str(names(x)), ":", vapply(x, json_value, "")),
+      # an object: names sorted byte by byte, `{}` when empty
+      if (!length(x)) return("{}")
+      x <- x[order(names(x), method = "radix")]
+      return(paste0("{", paste(paste0(vapply(names(x), json_str, ""), ":", vapply(x, json_value, "")),
                                collapse = ","), "}"))
     }
     return(paste0("[", paste(vapply(x, json_value, ""), collapse = ","), "]"))
@@ -70,7 +73,7 @@ ledger_header_line <- function(kind, source, output, extra = NULL) {
                   LEDGER_VERSION, json_str(source), json_str(output))
   if (length(extra)) {
     extra <- extra[order(names(extra), method = "radix")]
-    base <- paste0(base, ",", paste(paste0(json_str(names(extra)), ":", vapply(extra, json_value, "")),
+    base <- paste0(base, ",", paste(paste0(vapply(names(extra), json_str, ""), ":", vapply(extra, json_value, "")),
                                     collapse = ","))
   }
   paste0(base, "}")

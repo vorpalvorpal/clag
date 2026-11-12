@@ -19,7 +19,7 @@ normalise_condition <- function(text) {
   x <- gsub("[^[:space:]'\"`<>]*[/\\\\]Rtmp[A-Za-z0-9]+[^[:space:]'\"`<>]*", "<path>", x)
   # 3. every number
   x <- gsub(paste0("(?:(?<=^|[\\s(=,:\\[])[-+])?",
-                   "(?:[0-9]+(?:\\.[0-9]*)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?"),
+                   "(?:[0-9]+(?:\\.[0-9]+)?|\\.[0-9]+)(?:[eE][-+]?[0-9]+)?"),
             "<n>", x, perl = TRUE)
   # 4. curly quotes; cli's bullets and rules
   x <- gsub("[\u2018\u2019\u201a\u201b]", "'", x)
@@ -58,19 +58,28 @@ log_condition <- function(s, source, class, text, file = NA_character_,
     source = source, class = class, text = text,
     normalised = normalise_condition(text), from = from, lsource = lsource,
     severe = FALSE)
-  for (pat in severity_patterns(s$config)) {
-    hit <- tryCatch(grepl(pat, text, perl = TRUE), error = function(e) FALSE)
-    if (isTRUE(hit)) {
-      s$conditions[[n]]$severe <- TRUE
-      add_failure(s, "condition", file = file, line = line, chunk = chunk,
-                  expr = if (!is.na(chunk)) NA_character_ else NA_character_,
-                  detail = sprintf("%s: %s", class, sub("\n.*$", "", text)),
-                  hint = sprintf("matched the severity pattern %s", pat))
-      break
-    }
+  pat <- severity_match(s$config, text)
+  if (!is.null(pat)) {
+    s$conditions[[n]]$severe <- TRUE
+    add_failure(s, "condition", file = file, line = line, chunk = chunk,
+                expr = NA_character_,
+                detail = sprintf("%s: %s", class, sub("\n.*$", "", text)),
+                hint = severity_hint(pat))
   }
   invisible()
 }
+
+# The first severity pattern (7.4.2) the text matches, or NULL. Both the
+# conditions chunks raise and the ones `tar_meta()` holds are matched here.
+severity_match <- function(cfg, text) {
+  for (pat in severity_patterns(cfg)) {
+    hit <- tryCatch(grepl(pat, text, perl = TRUE), error = function(e) FALSE)
+    if (isTRUE(hit)) return(pat)
+  }
+  NULL
+}
+
+severity_hint <- function(pat) sprintf("matched the severity pattern %s", pat)
 
 # ---- the evaluate hook (2.8.1) ----------------------------------------------
 

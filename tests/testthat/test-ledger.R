@@ -18,10 +18,18 @@ test_that("2d D1: a set-up project gets exactly the two files, in _weft/ledger/<
   expect_setequal(list.files(file.path(res$dir, "_weft"), no.. = TRUE), "ledger")
 })
 
-test_that("2d D4: the header line is exactly the four fixed fields", {
+test_that("2d D4 + 2e P13: the header starts with the four fixed fields, then dict, files and targets", {
   res <- d2_example()
-  expect_identical(d2_lines(d2_path(res$dir))[1],
-                   "{\"weft\":\"ledger\",\"version\":1,\"source\":\"doc.Rmd\",\"output\":\"doc\"}")
+  line <- d2_lines(d2_path(res$dir))[1]
+  fixed <- "{\"weft\":\"ledger\",\"version\":1,\"source\":\"doc.Rmd\",\"output\":\"doc\""
+  expect_true(startsWith(line, paste0(fixed, ",\"dict\":{")))
+  h <- d2_header(d2_path(res$dir))
+  expect_identical(names(h), c("weft", "version", "source", "output", "dict", "files", "targets"))
+  expect_identical(names(h$dict), "limit")
+  expect_identical(names(h$files), "doc.Rmd")
+  expect_true(grepl("^[0-9a-f]{16}$", h$files[["doc.Rmd"]]))
+  expect_length(h$targets, 0L)
+  expect_true(endsWith(line, "\"targets\":{}}"))
 })
 
 test_that("2d D3 + D8 + D13: the entry lines equal the example of the design note, byte for byte, in order", {

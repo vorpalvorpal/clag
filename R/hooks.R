@@ -295,6 +295,7 @@ install_option_hook <- function() {
     # a rehearsal uses no chunk cache (3.7.2)
     if (rehearsing()) options$cache <- FALSE
     note_chunk_label(s, options$label)
+    note_chunk_code(s, options)
     note_cached_chunk(s, options)
     if (is.function(cur)) cur(options) else options
   }
@@ -468,6 +469,11 @@ finish_document <- function() {
   s <- active_state()
   if (is.null(s)) return(invisible())
   settle_pending(s)
+  # what the chapter read, before the failures are counted (7.2.2, 7.4.1)
+  tryCatch(chapter_reads(s), error = function(e) {
+    ledger_warn(sprintf("weft: what the chapter reads could not be recorded: %s (rule 7.2.2).",
+                        conditionMessage(e)))
+  })
   for (F in s$files) {
     if (is.null(F$expected) || !nrow(F$expected)) next
     want <- paste(F$expected$kind, F$expected$line)

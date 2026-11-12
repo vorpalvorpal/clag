@@ -79,7 +79,7 @@ e1_built <- function() {
   meta <- targets::tar_meta(fields = "parent")
   done <- prog$name[prog$progress == "completed"]
   parent <- meta$parent[match(done, meta$name)]
-  done <- ifelse(!is.na(parent), parent, done)
+  done <- as.character(ifelse(!is.na(parent), parent, done))
   sort(unique(done[!grepl("^dict_", done)]))
 }
 

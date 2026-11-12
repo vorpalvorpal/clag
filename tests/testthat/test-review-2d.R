@@ -556,10 +556,13 @@ test_that("review 2d C: a failure marker in `sentence` is written without its li
 test_that("review 2d C: inserting a line above a failed construct does not change the ledger", {
   dir <- withr::local_tempdir()
   one <- d2_render(d2r_failed_doc, code = "k <- 3; k2 <- 4", env = c(WEFT_DRAFT = "1"), dir = dir)
-  b1 <- d2_bytes(d2_path(dir))
+  e1 <- d2_lines(d2_path(dir))[-1]
+  cb1 <- d2_bytes(d2_path(dir, conditions = TRUE))
   two <- d2_render(c("Padding line.", "", "Another padding line.", "", d2r_failed_doc), code = "k <- 3; k2 <- 4",
                    env = c(WEFT_DRAFT = "1"), dir = dir)
-  expect_identical(d2_bytes(d2_path(dir)), b1)
+  # the header's files hash rightly changes with the source: compare everything after it
+  expect_identical(d2_lines(d2_path(dir))[-1], e1)
+  expect_identical(d2_bytes(d2_path(dir, conditions = TRUE)), cb1)
 })
 
 test_that("review 2d C control: a failed claim in draft mode still has failed set and text null", {

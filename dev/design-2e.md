@@ -903,3 +903,26 @@ Questions:
 - **G.** Nothing now.
 
 The implementer's calls on the layout stand, as the reviewer agrees.
+
+## Rulings on the 2e-1 implementer's report
+
+- Two tests failed in a helper (`e1_built()` returned `logical(0)`), and
+  two 2d tests compared the whole header line; all four were test
+  faults and were corrected by the test-writer.
+- **P8, "Did you mean"**: the suggestion is the one nearest key within
+  edit distance 2; a tie gives none. (2a's rule gives none when two
+  keys are within the distance; the difference is filed for the
+  review.)
+- **7.4.5**: in the normaliser a number's decimal part needs a digit
+  after the point, so "first 5. second" becomes "first <n>. second".
+  Accepted; a change to a stage 1 rule.
+- **P16**: `tar_network()` and its cache run for reads from the knit's
+  default store. A read with another literal `store` gets the targets
+  read and no upstream. Accepted for now; filed for the review.
+- **P13**: the source is always in `files`; an entry's file or a child
+  is listed when it exists under the root.
+- **P10**: only `.qmd`, `.Rmd` and `.rmd` sources of a report target
+  are scanned; a missing source is the error.
+- A fault in 2d's header writer was fixed: every extra header field
+  was written under the first field's name.
+- Whole suite after the build: 2,513 tests, none failing, none skipped.

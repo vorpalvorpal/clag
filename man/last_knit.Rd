@@ -37,7 +37,12 @@ failures);
 \item \code{sentence_starts}: a data frame of the values that start a sentence
 (\code{file}, \code{line}, \code{expr} and \code{text});
 \item \code{dict} and \code{dict_local}: the project dictionary and the chapter's
-own, as \code{\link[=read_dict]{read_dict()}} returns them, or \code{NULL} when there was none.
+own, as \code{\link[=read_dict]{read_dict()}} returns them, or \code{NULL} when there was none;
+\item \code{reads}: what the chapter read, as the ledger's header records it
+(rule 7.2.2): \code{dict} and \code{files} (named character vectors of hashes,
+the key or path as the name) and \code{targets} (a named list, one named
+character vector for each \code{targets} store). A hash is \code{NA} when it could
+not be taken. \code{NULL} for a rehearsal and for a project that is not set up.
 }
 }
 \description{

@@ -19,6 +19,8 @@ new_state <- function() {
   s$ledger <- list()
   s$ledger_header <- NULL
   s$condition_rows <- NULL
+  s$chunks <- list()
+  s$reads <- NULL
   s$ledger_root <- NULL
   s$file_rel <- NULL
   s$output <- NULL
@@ -203,7 +205,12 @@ format_report <- function(fr) {
 #'   * `sentence_starts`: a data frame of the values that start a sentence
 #'     (`file`, `line`, `expr` and `text`);
 #'   * `dict` and `dict_local`: the project dictionary and the chapter's
-#'     own, as [read_dict()] returns them, or `NULL` when there was none.
+#'     own, as [read_dict()] returns them, or `NULL` when there was none;
+#'   * `reads`: what the chapter read, as the ledger's header records it
+#'     (rule 7.2.2): `dict` and `files` (named character vectors of hashes,
+#'     the key or path as the name) and `targets` (a named list, one named
+#'     character vector for each `targets` store). A hash is `NA` when it could
+#'     not be taken. `NULL` for a rehearsal and for a project that is not set up.
 #' @examples
 #' last_knit()
 #' @export
@@ -243,5 +250,6 @@ last_knit <- function() {
   list(constructs = cons, failures = fr, warnings = failures_frame(s, "warnings"),
        conditions = conds, ledger = ledger, condition_log = clog,
        output = s$output, written = s$written, config = s$config,
-       sentence_starts = sentence_starts, dict = s$dict, dict_local = s$dict_local)
+       sentence_starts = sentence_starts, dict = s$dict, dict_local = s$dict_local,
+       reads = s$reads)
 }
