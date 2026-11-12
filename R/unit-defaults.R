@@ -21,6 +21,7 @@ ud_state$default_entries <- NULL
 ud_state$disabled <- character()
 # the tokens a project's keys without `is` registered (4.4.7); they go with the project
 ud_state$registered <- character()
+ud_state$dict_reg <- character()   # token -> project root of the dictionary that registered it
 
 UNIT_TOKEN_RE <- "^[^[:space:][:digit:]*/^().+-][^[:space:]*/^().+-]*$"
 
@@ -468,10 +469,29 @@ ud_unload <- function() {
 
 # Remove the tokens that the keys without `is` of an earlier read registered: they belong to the
 # project that was read, not to the session.
-ud_forget_registered <- function() {
-  for (tok in rev(ud_state$registered)) try(units::remove_unit(tok, tok), silent = TRUE)
-  if (length(ud_state$registered)) un_cache$sym <- NULL
+# The tokens a dictionary registered (4.4.7) belong to the project root in force when it was read
+# (decision 63): `keep_root` is the root whose tokens stay; NULL forgets them all.
+ud_forget_registered <- function(keep_root = NULL) {
+  dr <- ud_state$dict_reg
+  gone <- if (is.null(keep_root)) names(dr) else names(dr)[dr != keep_root]
+  toks <- c(ud_state$registered, gone)
+  for (tok in rev(toks)) try(units::remove_unit(tok, tok), silent = TRUE)
+  if (length(toks)) un_cache$sym <- NULL
   ud_state$registered <- character()
+  ud_state$dict_reg <- dr[setdiff(names(dr), gone)]
+  invisible()
+}
+
+# The project root (found from the working directory), path-normalised.
+ud_cur_root <- function() {
+  normalizePath(find_project_root(getwd()), winslash = "/", mustWork = FALSE)
+}
+
+# Record the tokens a dictionary read installed against the project root in force.
+ud_dict_registered <- function(toks) {
+  if (!length(toks)) return(invisible())
+  ud_state$dict_reg <- c(ud_state$dict_reg[setdiff(names(ud_state$dict_reg), toks)],
+                         stats::setNames(rep(ud_cur_root(), length(toks)), toks))
   invisible()
 }
 
@@ -490,7 +510,7 @@ units_reset <- function() {
   if (isTRUE(ud_state$resetting)) return(invisible())
   ud_state$resetting <- TRUE
   on.exit(ud_state$resetting <- FALSE)
-  ud_forget_registered()
+  ud_forget_registered(NULL)
   ud_state$ready <- FALSE
   ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
   weft_env$units <- NULL
@@ -661,7 +681,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
 read_units_tables <- function(tabs, mode) {
   ud_state$busy <- TRUE
   on.exit(ud_state$busy <- FALSE)
-  ud_forget_registered()
+  ud_forget_registered(ud_cur_root())
   # a failed read ends with the database as before it: the tokens it installed go again
   before <- names(ud_state$installed)
   back <- function() {

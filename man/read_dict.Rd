@@ -30,10 +30,9 @@ the units the dictionary needs that \code{udunits} does not ship, whenever and
 by whomever they were installed, so two reads of one file give the same
 \code{registered}, and \code{print()} lists them.
 
-The units installed stay installed for the rest of the R session, so a
-unit one project's dictionary declared is known to the next document knitted
-in the same session, even one that never declared it (it fails in a fresh
-session). In a knit, \code{dict} and \code{dict_local} are removed at the start of
+The units installed are removed when another project's configuration is
+read and by \code{units_reset()}, so a unit one project's dictionary declared is
+not known to the next project's document (decision 63). In a knit, \code{dict} and \code{dict_local} are removed at the start of
 every top-level knit and assigned again from that knit's own files: a
 document with neither sees neither, and an object of the session's own
 called \code{dict} is replaced during a knit that has a dictionary and is not

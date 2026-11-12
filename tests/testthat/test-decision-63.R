@@ -175,3 +175,18 @@ test_that("decision 63 W4 control: a unit nobody registered is refused in E, and
   expect_true(w4_refused(r$e))
   expect_null(i2_run(src, c("units:", "  zzdc:", "    is: 2 m"))$e)
 })
+
+test_that("decision 63 W4: within one project a dictionary's unit outlives weft_str() and a re-read of the configuration", {
+  cl_units_clean()
+  withr::defer(cl_units_clean())
+  dir <- f2_proj()
+  writeLines("zzs: {value: 3, type: quantity, unit: zzsame, definition: \"A made-up unit.\"}", file.path(dir, "dict.yml"))
+  withr::with_dir(dir, {
+    d <- weft::read_dict("dict.yml")
+    expect_identical(attr(d, "registered"), "zzsame")
+    for (i in 1:2) expect_null(tryCatch({ weft_str("`r u(3, zzsame)`{.num}"); NULL }, error = function(e) e))
+    weft:::read_config(dir)
+    expect_silent(units::as_units("zzsame"))
+    expect_null(tryCatch({ u(3, zzsame); NULL }, error = function(e) e))
+  })
+})

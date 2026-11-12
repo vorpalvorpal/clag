@@ -595,12 +595,20 @@ unmark_command <- function(t) {
   ex <- t$command$expr
   if (length(ex) != 1L) return(invisible())
   e <- ex[[1L]]
-  if (is.call(e) && identical(e[[1L]], quote(weft:::dict_unmark))) return(invisible())
-  t$command$expr <- as.expression(as.call(list(quote(weft:::dict_unmark), e)))
+  if (is.call(e) && identical(e[[1L]], quote(weft::dict_unmark))) return(invisible())
+  t$command$expr <- as.expression(as.call(list(quote(weft::dict_unmark), e)))
   invisible()
 }
 
-# `x` without the marker of the attached dictionary, in `x` and in the lists it holds.
+#' Remove the dictionary marker from a target's value
+#'
+#' Generated target commands call this; it is not for direct use.
+#' It returns `x` without the marker of the attached dictionary, in `x` and in its lists.
+#'
+#' @param x A target's value.
+#' @return `x`, without the marker.
+#' @keywords internal
+#' @export
 dict_unmark <- function(x) {
   if (!is.null(attr(x, "weft_pipeline"))) attr(x, "weft_pipeline") <- NULL
   if (is.list(x) && !is.data.frame(x) && is.null(oldClass(x))) {

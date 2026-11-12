@@ -127,10 +127,9 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
 #' by whomever they were installed, so two reads of one file give the same
 #' `registered`, and `print()` lists them.
 #'
-#' The units installed stay installed for the rest of the R session, so a
-#' unit one project's dictionary declared is known to the next document knitted
-#' in the same session, even one that never declared it (it fails in a fresh
-#' session). In a knit, `dict` and `dict_local` are removed at the start of
+#' The units installed are removed when another project's configuration is
+#' read and by `units_reset()`, so a unit one project's dictionary declared is
+#' not known to the next project's document (decision 63). In a knit, `dict` and `dict_local` are removed at the start of
 #' every top-level knit and assigned again from that knit's own files: a
 #' document with neither sees neither, and an object of the session's own
 #' called `dict` is replaced during a knit that has a dictionary and is not
@@ -496,6 +495,8 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     dict_abort(paste0(sprintf("weft: %s: %d problem(s) in the dictionary", file, length(problems)),
                       "\n", paste(problems, collapse = "\n")))
   }
+  # the units this read installed go with the project, as those of `units:` rows do (decision 63)
+  ud_dict_registered(unique(installed))
   col <- function(f, type) vapply(rows, function(r) r[[f]], type)
   entries <- data.frame(
     key = col("key", ""), type = col("type", ""), definition = col("definition", ""),

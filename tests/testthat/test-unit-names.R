@@ -291,8 +291,10 @@ test_that("2f no name: the error is judged on the classes, not the data (U3, 4.4
 })
 
 test_that("2f no name: .count on 12 prints digits yet still needs a name (U3)", {
-  f2_register()
-  f2_has_class(f2_err("`r u(12, sites)`{.count}"), "weft_value_error")
+  # the dictionary is read in the project that then formats: its units go with the project (decision 63)
+  dir <- f2_proj()
+  e <- tryCatch(withr::with_dir(dir, { f2_register(); weft_str("`r u(12, sites)`{.count}"); NULL }), error = function(e) e)
+  f2_has_class(e, "weft_value_error")
   expect_equal(f2_ws("`r u(12, sites)`{.count}", c("units:", "  sites: {name: site}")), f2("12~sites"))
 })
 

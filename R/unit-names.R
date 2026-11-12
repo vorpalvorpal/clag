@@ -93,15 +93,15 @@ split_cells <- function(x) {
 # second, so one read serves the whole session (ud_db() and ud_shipped() both use it) and,
 # keyed on the units package's version and on the path, size and modification time of
 # every XML file of the database, a copy kept in the user's cache directory serves the
-# next session when the option `weft.units_cache` is TRUE. A changed database, or a cache that cannot be read or written, is a read
+# next session unless the option `weft.units_cache` is FALSE. A changed database, or a cache that cannot be read or written, is a read
 # of the XML as before.
 ud_tables <- function() {
   key <- ud_tables_key()
   if (!is.null(un_cache$tables) && identical(un_cache$tables_key, key)) return(un_cache$tables)
   disk <- NULL
-  # the disk copy is asked for: `options(weft.units_cache = TRUE)`. Off, weft writes nothing
-  # outside the project.
-  on_disk <- !is.null(key) && isTRUE(getOption("weft.units_cache", FALSE))
+  # the disk copy is on unless `options(weft.units_cache = FALSE)` (decision 63); off, weft reads
+  # and writes nothing outside the project. It is never written under a package check.
+  on_disk <- !is.null(key) && !isFALSE(getOption("weft.units_cache", NULL))
   if (on_disk) {
     disk <- tryCatch({
       f <- ud_tables_file(key)
@@ -441,7 +441,7 @@ tok_symbol <- function(tok, cfg, keep = FALSE) {
   if (is.character(E$symbol)) return(list(text = E$symbol, raw = TRUE))
   if (identical(E$symbol, FALSE)) return(list(name = TRUE))
   if (!r$known) return(list(text = tok))
-  if (keep && is.na(r$pre)) return(list(text = tok))
+  if (keep) return(list(text = tok))
   db <- ud_db()
   S <- SHIPPED_UNITS[[db$id[r$row]]] %||% list()
   # a unit with no symbol prints its name, but a prefix makes the abbreviation one (`Myr`)
