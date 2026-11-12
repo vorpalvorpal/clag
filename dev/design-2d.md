@@ -210,7 +210,7 @@ places for 2e to fill (D27).
   rendered on its own has its own files; as a child it has none.
 - **D22 — Chunk cache.** Prose is resolved on every render (2.9.1), so its
   entries are always complete. A chunk computed with `cache=TRUE` also
-  stores the ledger rows it recorded (its captions and `weft_str()`
+  stores the ledger rows it recorded (its `weft_str()`
   strings) as `<cache hash>.weft-ledger.rds` beside the conditions stage 1
   stores there, and serving the chunk from the cache adds them, as the
   conditions are replayed. A render from the cache writes the same ledger as
