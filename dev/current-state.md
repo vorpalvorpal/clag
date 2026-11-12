@@ -33,10 +33,17 @@ first, then `dev/build-log.md`.
 
 ## In progress
 
-- **W1 to W4** (decision 63): tests committed b81a422 (14 tests, 7
-  failing); a sonnet implementer is making them pass in the main tree
-  (uncommitted edits in `R/`, `man/`, `NAMESPACE` are its). Then commit
-  "Build the items decided under delegation (decision 63)".
+- **W1 to W4 are built** (b6ec418; filters pass, whole suite not yet
+  re-run). STILL OWED: the spec for decision 63 (9.1.10 cache on by
+  default; 4.4.20 a compound prints names as typed; 4.4.7 a dictionary's
+  units go with the project root; `dict_unmark()` exported) - fold into
+  the next spec-editor run.
+- **GitHub issues for r-quantities/units**: two drafts shown to Robin
+  (export `ud_get_symbol()`/`ud_parse()`; a failed `install_unit()`
+  leaves the symbol mapped and `remove_unit()` strips the old unit's
+  symbol). NOT posted: wait for Robin's go-ahead and answers (both or
+  one; keep the PR offer?). Installing units from GitHub was blocked by
+  the permission system; do not retry.
 - **Stage 0 inputs are ready** under `dev/trials/stage0/` (git-ignored):
   `audit-summary.md`, `findings.csv` (866 findings; 419 carry a quoted
   claim, 278 of those found verbatim in the sources), `pre/` (sources at
