@@ -45,7 +45,13 @@ weft_setup <- function() {
   install_boundary_hooks()
   if (knit_in_progress()) {
     install_hooks()
-    ensure_knit()
+    s <- ensure_knit()
+    # the label hook was not installed when this chunk started: its code is walked
+    # for reads like any other chunk's (2e-1, I15)
+    opts <- tryCatch(knitr::opts_current$get(), error = function(e) NULL)
+    if (is.list(opts) && !is.null(opts$code) && !rehearsing() && !is_child_knit()) {
+      note_chunk_code(s, opts)
+    }
   }
   invisible(TRUE)
 }

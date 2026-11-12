@@ -15,8 +15,8 @@ A list of target objects.
 \description{
 \code{tar_dict()} makes a \code{targets} pipeline depend on the entries of \code{dict.yml}
 it reads, and on nothing else in the file. It returns the targets
-\code{dict_file} (the file) and \verb{dict_<key>} (the value of each entry, as
-\code{\link[=read_dict]{read_dict()}} reads it), and attaches the dictionary as the object \code{dict} on
+\code{dict_file} (the file), \code{dict_values} (the dictionary as \code{\link[=read_dict]{read_dict()}}
+reads it) and \verb{dict_<key>} (the value of each entry), and attaches the dictionary as the object \code{dict} on
 the search path, as \code{weft:dict}, so that commands and functions in the
 pipeline find it (rule 4.6.1). Pass the result of the pipeline's targets to
 \code{\link[=tar_dict_deps]{tar_dict_deps()}}, which adds to each target the entries it reads. A changed

@@ -141,6 +141,16 @@ failures_frame_empty <- function() {
              stringsAsFactors = FALSE)
 }
 
+# Make a folder under `.weft/` and, with it, `.weft/.gitignore` holding `*`, so
+# that what weft keeps there is not committed by accident.
+weft_state_dir <- function(root, ...) {
+  d <- file.path(root, ".weft")
+  dir.create(file.path(d, ...), showWarnings = FALSE, recursive = TRUE)
+  g <- file.path(d, ".gitignore")
+  if (!file.exists(g)) writeLines("*", g)
+  invisible(file.path(d, ...))
+}
+
 # The run id the pre-render script wrote (first line of .weft/run), or "".
 run_id <- function(root) {
   p <- file.path(root, ".weft", "run")
@@ -184,8 +194,7 @@ record_knit <- function(s, fr) {
     if (length(lines)) c(paste0("    ", lines, c(rep(",", length(lines) - 1L), "")), "  ]"),
     "}")
   ok <- tryCatch({
-    dir <- file.path(root, ".weft", "stamps")
-    dir.create(dir, showWarnings = FALSE, recursive = TRUE)
+    dir <- weft_state_dir(root, "stamps")
     writeLines(stamp, file.path(dir, paste0(gsub("/", "__", src, fixed = TRUE), ".json")),
                useBytes = TRUE)
     TRUE

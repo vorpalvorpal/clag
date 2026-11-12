@@ -745,13 +745,24 @@ init_dicts <- function(s, root, path) {
 
 dict_name <- function(x) if (identical(attr(x, "scope"), "local")) "dict_local" else "dict"
 
+# The one rule for a mistyped key, wherever it is read: the nearest key within
+# edit distance 2, none when two are as near (rule 4.1.2). " Did you mean `k`?"
+# or "".
+did_you_mean <- function(key, keys) {
+  if (!length(keys)) return("")
+  d <- as.vector(utils::adist(key, keys))
+  if (min(d) <= 2L && sum(d == min(d)) == 1L) sprintf(" Did you mean `%s`?", keys[which.min(d)]) else ""
+}
+
 dict_key <- function(x, k) {
-  keys <- names(x)
+  keys <- names(unclass(x))
   acc <- dict_name(x)
   if (!is.character(k) || length(k) != 1L || is.na(k)) {
     dict_abort(sprintf("`%s[[i]]`: the key must be one string (rule 4.1.2).", acc),
                "weft_dict_key_error")
   }
+  # the dictionary tar_dict() attaches checks that the running target depends on the key
+  if (!is.null(attr(x, "weft_pipeline")) && k %in% keys) dict_guard(x, k)
   if (identical(acc, "dict") && k %in% attr(x, "local_keys")) {
     dict_abort(sprintf("`dict$%s`: this chapter defines a local `%s`; read it as `dict_local$%s` (rule 4.3.2).",
                        k, k, k), "weft_dict_ambiguous")
@@ -765,10 +776,7 @@ dict_key <- function(x, k) {
     dict_abort(msg, "weft_dict_key_error")
   }
   msg <- sprintf("`dict$%s`: no such key in %s (rule 4.1.2).", k, attr(x, "file"))
-  if (length(keys)) {
-    near <- keys[as.vector(utils::adist(k, keys)) <= 2]
-    if (length(near) == 1L) msg <- paste0(msg, sprintf(" Did you mean `%s`?", near))
-  }
+  msg <- paste0(msg, did_you_mean(k, keys))
   dict_abort(msg, "weft_dict_key_error")
 }
 
@@ -834,7 +842,15 @@ dict_readonly <- function() {
 
 #' @rdname weft_dict
 #' @export
+names.weft_dict <- function(x) {
+  if (!is.null(attr(x, "weft_pipeline"))) dict_guard(x)
+  names(unclass(x))
+}
+
+#' @rdname weft_dict
+#' @export
 as.list.weft_dict <- function(x, ...) {
+  if (!is.null(attr(x, "weft_pipeline"))) dict_guard(x)
   l <- unclass(x)
   attributes(l) <- list(names = names(l))
   l
@@ -855,6 +871,7 @@ dict_short <- function(x, key, type, unit) {
 #' @rdname weft_dict
 #' @export
 print.weft_dict <- function(x, ...) {
+  if (!is.null(attr(x, "weft_pipeline"))) dict_guard(x)
   e <- attr(x, "entries")
   cat(sprintf("<weft_dict> %s: %d %s\n", attr(x, "file"), length(x),
               if (length(x) == 1L) "key" else "keys"))

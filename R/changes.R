@@ -859,7 +859,7 @@ print.weft_changes <- function(x, ...) {
                      new = paste0("new, ", chg_plural(n, "entry", "entries")),
                      deleted = paste0("deleted, ", chg_plural(n, "entry", "entries")),
                      renamed = paste0("renamed from ", ln$from[i]),
-                     unreadable = "unreadable",
+                     unreadable = paste0("unreadable", if (n > 0L) paste0(", ", chg_plural(n, "entry", "entries")) else ""),
                      NA_character_)
       txt <- paste(c(base[!is.na(base)], if (!is.na(ln$note[i])) ln$note[i]), collapse = "; ")
       sprintf("  %s (%s): %s", ln$ledger[i], ln$output[i], txt)

@@ -14,30 +14,92 @@ pipeline_abort <- function(msg) weft_abort(msg, "weft_pipeline_error")
 TAR_READERS <- c("tar_read", "tar_load", "tar_read_raw", "tar_load_raw")
 
 # A walker over R code. `add(code)` walks a call, an expression vector, or a
-# character vector of lines of code; `result()` is what `code_reads()` returns.
+# character vector of lines of code; `result()` is what `code_reads()` returns;
+# `store_exprs()` holds the `store` expressions that were not literal strings.
 reads_walker <- function(envir = globalenv(), keys = character()) {
   keys <- as.character(keys)
   st <- new.env(parent = emptyenv())
   st$keys <- character()
   st$all <- FALSE
   st$unknown <- character()
-  st$tname <- character()
-  st$tstore <- character()
+  st$reads <- list()       # list(name, store, expr) for each target read
   st$seen <- character()
+  st$visited <- list()
+  st$scopes <- list()
+  st$params <- character() # the arguments of the function being walked
+  st$cur <- NULL           # the name of the function being walked
+  st$wrappers <- list()
+  st$names <- NULL
+  st$files <- character()  # literal paths given to source() and sys.source()
 
   add_key <- function(k) {
     if (k %in% keys) st$keys <- c(st$keys, k) else st$unknown <- c(st$unknown, k)
   }
   lit_chr <- function(e) if (is.character(e) && length(e) == 1L && !is.na(e)) e else NULL
 
-  follow <- function(nm) {
-    if (nm %in% st$seen) return(invisible())
+  lookup <- function(nm) {
     f <- get0(nm, envir = envir, inherits = FALSE, mode = "function")
-    if (!is.function(f) || is.primitive(f)) return(invisible())
-    st$seen <- c(st$seen, nm)
+    if (is.function(f)) return(f)
+    for (sc in st$scopes) {
+      f <- get0(nm, envir = sc, inherits = FALSE, mode = "function")
+      if (is.function(f)) return(f)
+    }
+    NULL
+  }
+
+  walk_fn <- function(f, label) {
+    old <- list(params = st$params, cur = st$cur)
+    on.exit({ st$params <- old$params; st$cur <- old$cur }, add = TRUE)
+    st$params <- c(st$params, names(formals(f)))
+    st$cur <- label
     walk(formals(f))
     walk(body(f))
+  }
+
+  follow <- function(nm) {
+    if (nm %in% st$seen) return(invisible())
+    f <- lookup(nm)
+    if (!is.function(f) || is.primitive(f)) return(invisible())
+    st$seen <- c(st$seen, nm)
+    st$visited <- c(st$visited, list(f))
+    walk_fn(f, nm)
+    # the functions bound in the closure's own environment
+    ce <- environment(f)
+    if (!is.null(ce) && !identical(ce, envir) && !identical(ce, globalenv()) &&
+        !nzchar(environmentName(ce)) && !identical(ce, emptyenv())) {
+      st$scopes <- c(st$scopes, list(ce))
+      for (n2 in ls(ce, all.names = TRUE)) {
+        g <- get0(n2, envir = ce, inherits = FALSE, mode = "function")
+        if (!is.function(g) || is.primitive(g)) next
+        if (any(vapply(st$visited, identical, NA, g))) next
+        st$visited <- c(st$visited, list(g))
+        walk_fn(g, n2)
+      }
+    }
     invisible()
+  }
+
+  # `g()` may dispatch to any `g.<class>` in the pipeline's environment
+  follow_methods <- function(g) {
+    if (!grepl("^[A-Za-z.][A-Za-z0-9._]*$", g)) return(invisible())
+    if (is.null(st$names)) st$names <- ls(envir, all.names = TRUE)
+    pre <- paste0(g, ".")
+    for (m in st$names[startsWith(st$names, pre)]) follow(m)
+    invisible()
+  }
+
+  # the strings a `name`/`names` argument gives (literal strings, or `c()` of them)
+  literal_names <- function(v) {
+    l <- lit_chr(v)
+    if (!is.null(l)) return(l)
+    if (is.call(v) && identical(v[[1L]], quote(c))) {
+      return(unlist(lapply(as.list(v)[-1L], lit_chr)))
+    }
+    character()
+  }
+
+  add_read <- function(nm, store, expr) {
+    st$reads[[length(st$reads) + 1L]] <- list(name = nm, store = store, expr = expr)
   }
 
   record_target <- function(fname, x) {
@@ -49,12 +111,30 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     want <- if (load) "names" else "name"
     i <- which(an == want)[1L]
     if (is.na(i)) i <- which(an == "")[1L]
+    store <- NA_character_
+    sexpr <- NULL
+    j <- which(an == "store")[1L]
+    if (!is.na(j)) {
+      l <- lit_chr(args[[j]])
+      if (!is.null(l)) store <- l else sexpr <- args[[j]]
+    }
+    # an argument of the function being walked, given as the name: a reader
+    wrapper_param <- NULL
+    unparam <- function(e) {
+      if (is.call(e) && identical(e[[1L]], quote(`!!`)) && length(e) == 2L) e <- e[[2L]]
+      if (is.symbol(e) && as.character(e) %in% st$params) as.character(e) else NULL
+    }
     names_found <- character()
     if (!is.na(i)) {
       v <- args[[i]]
       one <- function(e) {
         l <- lit_chr(e)
         if (!is.null(l)) return(l)
+        pm <- unparam(e)
+        if (!is.null(pm)) {
+          wrapper_param <<- pm
+          return(NULL)
+        }
         if (!raw && is.symbol(e) && nzchar(as.character(e))) return(as.character(e))
         NULL
       }
@@ -64,20 +144,40 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
         one(v)
       }
     }
-    store <- NA_character_
-    j <- which(an == "store")[1L]
-    if (!is.na(j)) {
-      l <- lit_chr(args[[j]])
-      if (!is.null(l)) store <- l
+    if (!is.null(wrapper_param) && !is.null(st$cur)) {
+      sp <- if (!is.null(sexpr)) unparam(sexpr) else NULL
+      st$wrappers[[st$cur]] <- list(param = wrapper_param, store = store,
+                                    expr = if (is.null(sp)) sexpr else NULL, store_param = sp)
     }
-    for (nm in as.character(names_found)) {
-      st$tname <- c(st$tname, nm)
-      st$tstore <- c(st$tstore, store)
-    }
+    for (nm in as.character(names_found)) add_read(nm, store, sexpr)
     rest <- args[setdiff(seq_along(args), i)]
     for (a in rest) if (!missing(a)) walk(a)
     invisible()
   }
+
+  # a call of a function of the author's that reads the target it is given
+  call_wrapper <- function(x, hname) {
+    w <- st$wrappers[[hname]]
+    f <- lookup(hname)
+    if (is.null(w) || is.null(f)) return(invisible())
+    mc <- tryCatch(match.call(f, x, expand.dots = FALSE), error = function(e) NULL)
+    if (is.null(mc)) return(invisible())
+    nms <- literal_names(mc[[w$param]])
+    if (!length(nms)) return(invisible())
+    store <- w$store
+    expr <- w$expr
+    if (!is.null(w$store_param)) {
+      a <- mc[[w$store_param]]
+      if (!is.null(a)) {
+        l <- lit_chr(a)
+        if (!is.null(l)) store <- l else expr <- a
+      }
+    }
+    for (nm in nms) add_read(nm, store, expr)
+    invisible()
+  }
+
+  is_string_dict <- function(e) is.character(e) && "dict" %in% e
 
   walk <- function(x) {
     if (is.symbol(x)) {
@@ -103,6 +203,36 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
       fname <- as.character(head[[3L]])
     }
     if (fname %in% TAR_READERS) return(record_target(fname, x))
+    # get("dict"), get0("dict"), mget("dict"), exists("dict"): every key
+    bname <- fname
+    if (is.call(head) && length(head) == 3L && is.symbol(head[[1L]]) &&
+        as.character(head[[1L]]) %in% c("::", ":::") && is.symbol(head[[3L]]) &&
+        identical(as.character(head[[2L]]), "base")) bname <- as.character(head[[3L]])
+    if (bname %in% c("get", "get0", "mget", "exists")) {
+      for (a in as.list(x)[-1L]) {
+        if (is_string_dict(a) ||
+            (is.call(a) && identical(a[[1L]], quote(c)) &&
+             any(vapply(as.list(a)[-1L], is_string_dict, NA)))) st$all <- TRUE
+      }
+    }
+    if (bname %in% c("source", "sys.source") && n >= 2L) {
+      an <- names(x)
+      if (is.null(an)) an <- rep("", n)
+      k <- which(an == "file")[1L]
+      if (is.na(k)) k <- setdiff(which(an == ""), 1L)[1L]
+      if (!is.na(k)) {
+        l <- lit_chr(x[[k]])
+        if (!is.null(l)) st$files <- c(st$files, l)
+      }
+    }
+    if (identical(hname, "function") && n >= 3L) {
+      old <- st$params
+      on.exit(st$params <- old, add = TRUE)
+      st$params <- c(st$params, names(x[[2L]]))
+      walk(x[[2L]])
+      walk(x[[3L]])
+      return(invisible())
+    }
     if (hname %in% c("$", "[[", "[") && n >= 3L && is.symbol(x[[2L]]) &&
         identical(as.character(x[[2L]]), "dict")) {
       if (hname == "$") {
@@ -127,6 +257,11 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
       walk(x[[3L]])
       return(invisible())
     }
+    if (nzchar(hname)) {
+      follow(hname)
+      follow_methods(hname)
+      call_wrapper(x, hname)
+    }
     for (a in as.list(x)) if (!missing(a)) walk(a)
     invisible()
   }
@@ -148,7 +283,9 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   }
 
   result <- function() {
-    tg <- unique(data.frame(name = as.character(st$tname), store = as.character(st$tstore),
+    nm <- vapply(st$reads, function(r) r$name, "")
+    sr <- vapply(st$reads, function(r) r$store, "")
+    tg <- unique(data.frame(name = as.character(nm), store = as.character(sr),
                             stringsAsFactors = FALSE))
     rownames(tg) <- NULL
     list(keys = if (st$all) sort(unique(keys), method = "radix") else
@@ -157,7 +294,9 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
          unknown = sort(unique(st$unknown), method = "radix"),
          targets = tg)
   }
-  list(add = add, result = result)
+  # every read with the `store` expression it gave when that was not a literal
+  store_exprs <- function() st$reads
+  list(add = add, result = result, store_exprs = store_exprs, source_files = function() st$files)
 }
 
 # What code reads: the dictionary keys, whether every key (`all`), the keys it
@@ -184,19 +323,33 @@ dict_path_ok <- function(path) {
 refuse_global_dict <- function() {
   if (exists("dict", envir = targets::tar_option_get("envir"), inherits = FALSE)) {
     pipeline_abort(paste0(
-      "weft: `dict` is an object in the pipeline's environment, so targets tracks it and every ",
-      "target that reads it re-runs when any entry changes, its definition included. Remove ",
-      "`dict <- ...` from _targets.R: tar_dict() provides `dict` (rule 4.6.3)."))
+      "weft: `dict` is an object in the pipeline's environment (the global environment when ",
+      "`callr_function = NULL`, so it may come from this R session), so targets tracks it and ",
+      "every target that reads it re-runs when any entry changes, its definition included. ",
+      "Remove `dict <- ...` from _targets.R, or `rm(dict)` in the session: tar_dict() provides ",
+      "`dict` (rule 4.6.3)."))
   }
   invisible()
+}
+
+# The frame of the targets function that is evaluating a pipeline script, or
+# NULL (a call made at the console, or in a test, has none). A second
+# tar_dict() in the same evaluation is a second dictionary in one pipeline.
+script_frame <- function() {
+  inner <- targets::tar_callr_inner_try
+  for (i in rev(seq_len(sys.nframe() - 1L))) {
+    f <- tryCatch(sys.function(i), error = function(e) NULL)
+    if (is.function(f) && identical(f, inner)) return(sys.frame(i))
+  }
+  NULL
 }
 
 #' Targets for a project dictionary
 #'
 #' `tar_dict()` makes a `targets` pipeline depend on the entries of `dict.yml`
 #' it reads, and on nothing else in the file. It returns the targets
-#' `dict_file` (the file) and `dict_<key>` (the value of each entry, as
-#' [read_dict()] reads it), and attaches the dictionary as the object `dict` on
+#' `dict_file` (the file), `dict_values` (the dictionary as [read_dict()]
+#' reads it) and `dict_<key>` (the value of each entry), and attaches the dictionary as the object `dict` on
 #' the search path, as `weft:dict`, so that commands and functions in the
 #' pipeline find it (rule 4.6.1). Pass the result of the pipeline's targets to
 #' [tar_dict_deps()], which adds to each target the entries it reads. A changed
@@ -230,16 +383,57 @@ tar_dict <- function(path = "dict.yml") {
   dict_path_ok(path)
   d <- read_dict(path)
   refuse_global_dict()
+  fr <- script_frame()
+  if (!is.null(fr) && identical(weft_env$dict_frame, fr)) {
+    pipeline_abort(paste0(
+      "weft: tar_dict() was called twice in one pipeline; a pipeline has one dictionary, and ",
+      "the second would replace the `dict` the first attached (rule 4.6.1)."))
+  }
+  weft_env$dict_frame <- fr
   while ("weft:dict" %in% search()) detach("weft:dict", character.only = TRUE)
   env <- new.env(parent = emptyenv())
+  attr(d, "weft_pipeline") <- TRUE
   assign("dict", d, envir = env)
   get("attach", envir = baseenv())(env, name = "weft:dict", pos = 2L, warn.conflicts = FALSE)
-  out <- list(targets::tar_target_raw("dict_file", path, format = "file"))
-  for (k in names(d)) {
-    out[[length(out) + 1L]] <- targets::tar_target_raw(
-      paste0("dict_", k), bquote(weft::read_dict(dict_file)[[.(k)]]))
+  mark <- function(t) {
+    attr(t, "weft_dict") <- TRUE
+    t
+  }
+  out <- list(mark(targets::tar_target_raw("dict_file", path, format = "file")),
+              mark(targets::tar_target_raw("dict_values", quote(weft::read_dict(dict_file)))))
+  for (k in names(unclass(d))) {
+    out[[length(out) + 1L]] <- mark(targets::tar_target_raw(
+      paste0("dict_", k), bquote(dict_values[[.(k)]])))
   }
   out
+}
+
+# The check the attached `dict` makes while a target runs: the running target
+# must depend on the entry it reads (rule 4.6.2, 4.6.3).
+dict_guard <- function(x, key = NULL) {
+  if (!isTRUE(tryCatch(targets::tar_active(), error = function(e) FALSE))) return(invisible())
+  # outside a running target tar_definition() gives its default: a pipeline script that reads
+  # `dict` while it is being defined is not a target
+  if (is.null(weft_env$no_target)) {
+    weft_env$no_target <- targets::tar_target_raw("weft_no_target", quote(NULL))
+  }
+  def <- tryCatch(targets::tar_definition(default = weft_env$no_target), error = function(e) NULL)
+  if (is.null(def) || identical(def, weft_env$no_target)) return(invisible())
+  keys <- names(unclass(x))
+  need <- paste0("dict_", if (is.null(key)) keys else key)
+  miss <- setdiff(need, def$deps)
+  if (!length(miss)) return(invisible())
+  nm <- def$settings$name
+  what <- if (is.null(key)) {
+    sprintf("reads the whole dictionary, and does not depend on %s",
+            paste0("`", miss, "`", collapse = ", "))
+  } else {
+    sprintf("reads `dict$%s`, and does not depend on `%s`", key, miss)
+  }
+  pipeline_abort(sprintf(paste0(
+    "weft: the target `%s` %s. Pass the target through tar_dict_deps(), which adds the entries ",
+    "it reads; a read it cannot see, such as eval(parse(text = )), cannot be tracked (rule 4.6.2)."),
+    nm, what))
 }
 
 # ---- tar_dict_deps() (P6-P8, P10) ---------------------------------------------------------------
@@ -276,11 +470,28 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
   dict_path_ok(path)
   keys <- names(read_dict(path))
   envir <- targets::tar_option_get("envir")
-  own <- c("dict_file", paste0("dict_", keys))
+  own <- c("dict_file", "dict_values", paste0("dict_", keys))
+  # one dictionary, and the names it uses are its own
+  mine <- vapply(flat, function(t) isTRUE(attr(t, "weft_dict")), NA)
+  nms <- vapply(flat, function(t) t$settings$name, "")
+  if (sum(nms == "dict_file" & mine) > 1L) {
+    pipeline_abort(paste0(
+      "weft: tar_dict() was called more than once in this pipeline; a pipeline has one ",
+      "dictionary (rule 4.6.1)."))
+  }
+  clash <- unique(nms[!mine & nms %in% own])
+  if (length(clash)) {
+    pipeline_abort(sprintf(paste0(
+      "weft: the target%s %s %s names tar_dict() uses (`dict_file`, `dict_values`, `dict_<key>`); ",
+      "rename %s (rule 4.6.1)."),
+      if (length(clash) == 1L) "" else "s", paste0("`", clash, "`", collapse = ", "),
+      if (length(clash) == 1L) "has one of the" else "have",
+      if (length(clash) == 1L) "it" else "them"))
+  }
   bad <- list()
   for (t in flat) {
     nm <- t$settings$name
-    if (nm %in% own) next
+    if (isTRUE(attr(t, "weft_dict"))) next
     rep <- report_files(t)
     found <- character()
     if (!is.null(rep)) {
@@ -289,7 +500,7 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
           pipeline_abort(sprintf(
             "weft: `%s` names the source %s, which does not exist (rule 4.6.5).", nm, f))
         }
-        if (dir.exists(f) || !grepl("\\.(qmd|Rmd|rmd)$", f)) next
+        if (dir.exists(f)) next
         r <- report_reads(f, envir, keys)
         found <- c(found, r$keys)
         for (u in r$unknown) bad[[length(bad) + 1L]] <- list(target = nm, file = f, key = u)
@@ -304,12 +515,9 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
   }
   if (length(bad)) {
     lines <- vapply(bad, function(b) {
-      d <- as.vector(utils::adist(b$key, keys))
-      hint <- if (length(d) && min(d) <= 2L && sum(d == min(d)) == 1L) {
-        sprintf(" Did you mean `%s`?", keys[which.min(d)])
-      } else ""
       sprintf("  `%s`%s reads `dict$%s`, which %s does not hold (rule 4.6.4).%s", b$target,
-              if (is.na(b$file)) "" else paste0(" (", b$file, ")"), b$key, path, hint)
+              if (is.na(b$file)) "" else paste0(" (", b$file, ")"), b$key, path,
+              did_you_mean(b$key, keys))
     }, "")
     pipeline_abort(paste(c(sprintf("weft: %s: %d unknown key(s) read by the pipeline", path, length(bad)),
                            lines), collapse = "\n"))
@@ -324,37 +532,97 @@ flatten_targets <- function(x) {
                         "(rule 4.6.2)."))
 }
 
-# The source files of a report target (a `tar_quarto()` or `tar_render()`
-# target), or NULL for any other target (P10).
+# The source files of a report target (`tar_quarto()`, `tar_render()`,
+# `tar_render_rep()`, `tar_quarto_rep()`), or NULL for any other target (P10).
 report_files <- function(t) {
   ex <- t$command$expr
   if (length(ex) != 1L || !is.call(ex[[1L]])) return(NULL)
   cmd <- ex[[1L]]
   h <- paste(deparse(cmd[[1L]]), collapse = "")
+  one <- function(p) if (is.character(p) && length(p) == 1L && !is.na(p)) p else NULL
   if (identical(h, "tarchetypes::tar_quarto_run")) {
     s <- tryCatch(eval(cmd[["sources"]], baseenv()), error = function(e) NULL)
     if (is.character(s)) return(s)
-  } else if (identical(h, "tarchetypes::tar_render_run")) {
-    p <- cmd[["path"]]
-    if (is.character(p) && length(p) == 1L) return(p)
+  } else if (h %in% c("tarchetypes::tar_render_run", "tarchetypes::tar_render_rep_run")) {
+    p <- one(cmd[["path"]])
+    if (!is.null(p)) return(p)
+  } else if (identical(h, "tarchetypes::tar_quarto_rep_run")) {
+    a <- tryCatch(eval(cmd[["args"]], baseenv()), error = function(e) NULL)
+    p <- one(a$input)
+    x <- tryCatch(eval(cmd[["extra_files"]], baseenv()), error = function(e) NULL)
+    if (!is.null(p)) return(c(p, if (is.character(x)) x))
   }
   NULL
 }
 
+# The knitr child files and Quarto includes a document names, as written.
+document_children <- function(lines) {
+  out <- character()
+  strs <- function(txt) {
+    v <- tryCatch(eval(parse(text = txt, keep.source = FALSE), baseenv()), error = function(e) NULL)
+    if (is.character(v)) v else character()
+  }
+  lines <- tryCatch(dequote_chunks(lines), error = function(e) lines)
+  for (ch in tryCatch(find_chunks(lines), error = function(e) list())) {
+    o <- tryCatch(parse_header(ch$header)$opts$child, error = function(e) NULL)
+    if (!is.null(o)) out <- c(out, strs(o$text))
+    body <- lines[seq_len(max(0L, min(ch$close, length(lines) + 1L) - 1L - ch$open)) + ch$open]
+    hit <- regmatches(body, regexec("^\\s*#\\|\\s*child:\\s*(.+?)\\s*$", body))
+    for (h in hit) {
+      if (length(h) == 2L) {
+        y <- tryCatch(yaml::yaml.load(h[2L], eval.expr = FALSE), error = function(e) NULL)
+        if (is.character(y)) out <- c(out, y)
+      }
+    }
+  }
+  inc <- regmatches(lines, regexec("\\{\\{<\\s*include\\s+([^ >]+)\\s*>\\}\\}", lines))
+  for (h in inc) if (length(h) == 2L) out <- c(out, gsub("^[\"']|[\"']$", "", h[2L]))
+  unique(out[nzchar(out)])
+}
+
+BINARY_EXT <- c("png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp", "ico", "pdf", "zip", "gz",
+                "rds", "rda", "rdata", "xlsx", "xls", "docx", "pptx", "woff", "woff2", "ttf", "otf",
+                "eot", "mp3", "mp4", "mov", "svg")
+
 # What the R code of one document reads: the code of every chunk that is not
 # `eval: false`, inline R in prose and front matter, and the code of
-# constructs (P10).
+# constructs (P10), and the same for each knitr child and Quarto include it
+# names, to any depth. A file that is not an R Markdown document is read as
+# one too; an `.R` file is code.
 report_reads <- function(path, envir, keys) {
   w <- reads_walker(envir, keys)
-  lines <- tryCatch(read_view_lines(path), error = function(e) character())
-  if (length(lines)) {
+  seen <- character()
+  todo <- path
+  top <- path
+  while (length(todo)) {
+    f <- todo[[1L]]
+    todo <- todo[-1L]
+    key <- norm_path(f)
+    if (key %in% seen || dir.exists(f) || !file.exists(f)) next
+    seen <- c(seen, key)
+    if (tolower(tools::file_ext(f)) %in% BINARY_EXT) next
+    lines <- tryCatch(read_view_lines(f), error = function(e) character())
+    if (!length(lines)) next
+    if (grepl("\\.[Rr]$", f)) {
+      w$add(paste(lines, collapse = "\n"))
+      next
+    }
     for (pc in tryCatch(seed_chunks(lines), error = function(e) list())) {
       w$add(paste(pc$code, collapse = "\n"))
     }
-    rows <- tryCatch(scan_document(lines, file = path, config = NULL, project = ""),
+    rows <- tryCatch(scan_document(lines, file = f, config = NULL, project = ""),
                      error = function(e) NULL)
     if (!is.null(rows) && nrow(rows)) {
       for (x in c(rows$expr, unlist(rows$keys))) if (!is.na(x)) w$add(as.character(x))
+    }
+    kids <- document_children(lines)
+    if (length(kids)) {
+      base <- dirname(f)
+      cand <- vapply(kids, function(k) {
+        c1 <- if (is_abs_path(k)) k else file.path(base, k)
+        if (file.exists(c1)) c1 else if (file.exists(k)) k else NA_character_
+      }, "")
+      todo <- c(todo, cand[!is.na(cand)])
     }
   }
   w$result()
@@ -423,6 +691,7 @@ chapter_reads <- function(s) {
   es <- ledger_entries(s)
   for (e in es) w$add(as.character(e$expr %||% NA_character_))
   r <- w$result()
+  reads <- w$store_exprs()
 
   # the dictionary entries
   dict_h <- stats::setNames(character(), character())
@@ -436,6 +705,9 @@ chapter_reads <- function(s) {
   src <- state_source(s, root)
   files <- c(src, unlist(lapply(es, function(e) as.character(e$file))))
   for (ch in s$chunks) files <- c(files, vapply(ch$child, function(p) rel_path(root, p), ""))
+  for (p in w$source_files()) {
+    files <- c(files, rel_path(root, norm_path(if (is_abs_path(p)) p else file.path(norm_path(getwd()), p))))
+  }
   files <- unique(enc2utf8(files[!is.na(files) & nzchar(files)]))
   files <- files[files == src | file.exists(file.path(root, files))]
   files <- sort(files, method = "radix")
@@ -450,7 +722,27 @@ chapter_reads <- function(s) {
   } else "_targets"
   abs_of <- function(st) norm_path(if (is_abs_path(st)) st else file.path(wd, st))
   default_abs <- abs_of(default_store)
-  tg <- r$targets
+  # a store given as an expression is evaluated here, where the chapter has just run its code
+  tg <- data.frame(name = vapply(reads, function(x) x$name, ""),
+                   store = vapply(reads, function(x) x$store, ""), stringsAsFactors = FALSE)
+  unresolved <- character()
+  for (i in seq_along(reads)) {
+    if (!is.null(reads[[i]]$expr) && is.na(tg$store[i])) {
+      v <- tryCatch(eval(reads[[i]]$expr, knitr::knit_global()), error = function(e) NULL)
+      if (is.character(v) && length(v) == 1L && !is.na(v) && nzchar(v)) {
+        tg$store[i] <- v
+      } else {
+        unresolved <- c(unresolved, reads[[i]]$name)
+      }
+    }
+  }
+  tg <- unique(tg)
+  rownames(tg) <- NULL
+  if (length(unresolved)) {
+    ledger_warn(sprintf(paste0(
+      "weft: the `store` of the read of %s could not be worked out; the read is recorded under the ",
+      "default store (rule 7.2.2)."), paste0("`", sort(unique(unresolved), method = "radix"), "`", collapse = ", ")))
+  }
   tg$abs <- if (nrow(tg)) vapply(ifelse(is.na(tg$store), default_store, tg$store), abs_of, "") else character()
   tg$rel <- if (nrow(tg)) vapply(tg$abs, function(a) rel_path(root, a), "") else character()
   metas <- list()
@@ -501,16 +793,14 @@ target_conditions <- function(s, root, tg, default_abs, meta_of) {
     m <- meta_of(abs)
     if (!is.data.frame(m) || !nrow(m)) next
     set <- unique(tg$name[tg$abs == abs])
-    if (identical(abs, default_abs)) {
-      up <- upstream_targets(root, set)
-      if (!is.null(up$error)) {
-        ledger_warn(sprintf(paste0(
-          "weft: the targets upstream of %s were not read (%s); the condition log holds the ",
-          "conditions of the targets the document reads (rule 7.4.1)."),
-          paste(sort(set, method = "radix"), collapse = ", "), up$error))
-      } else {
-        set <- unique(c(set, up$targets))
-      }
+    up <- upstream_targets(root, set, abs, if (identical(abs, default_abs)) norm_path(getwd()) else dirname(abs))
+    if (!is.null(up$error)) {
+      ledger_warn(sprintf(paste0(
+        "weft: the targets upstream of %s were not read (%s); the condition log holds the ",
+        "conditions of the targets the document reads (rule 7.4.1)."),
+        paste(sort(set, method = "radix"), collapse = ", "), up$error))
+    } else {
+      set <- unique(c(set, up$targets))
     }
     par <- if ("parent" %in% names(m)) m$parent else rep(NA_character_, nrow(m))
     hit <- which(m$name %in% set | (!is.na(par) & par %in% set))
@@ -540,33 +830,53 @@ target_conditions <- function(s, root, tg, default_abs, meta_of) {
   invisible()
 }
 
-# Every target upstream of `set`: list(targets, error). The edges are kept in
-# .weft/targets/network.rds with the run id and the script's path, and reused
-# while both match (P16).
-upstream_targets <- function(root, set) {
+# The last line of a condition's message, or of its parent's: `callr` puts the
+# cause of an error in a subprocess after its own first line.
+condition_cause <- function(e) {
+  while (!is.null(e$parent) && inherits(e$parent, "condition")) e <- e$parent
+  lines <- trimws(strsplit(conditionMessage(e), "\n", fixed = TRUE)[[1L]])
+  lines <- lines[nzchar(lines) & !grepl("^See https?://", lines)]
+  if (!length(lines)) return(class(e)[1L])
+  sub("^(!|x|Error:)\\s*", "", lines[length(lines)])
+}
+
+# Every target upstream of `set`, in the store `store`, whose pipeline is run
+# from the folder `dir`: list(targets, error). The edges are kept in
+# .weft/targets/network.rds for each store, with the size and modification time
+# of its meta/meta file and the script's path, and reused while those match (P16).
+upstream_targets <- function(root, set, store, dir) {
+  old <- setwd(dir)
+  on.exit(setwd(old), add = TRUE)
   script <- tryCatch(targets::tar_config_get("script"), error = function(e) "_targets.R")
-  script_rel <- rel_path(root, norm_path(if (is_abs_path(script)) script else file.path(getwd(), script)))
-  id <- run_id(root)
-  cache <- file.path(root, ".weft", "targets", "network.rds")
-  edges <- NULL
-  if (nzchar(id) && file.exists(cache)) {
-    old <- tryCatch(readRDS(cache), error = function(e) NULL)
-    if (is.list(old) && identical(old$run, id) && identical(old$script, script_rel)) edges <- old$edges
+  script_abs <- norm_path(if (is_abs_path(script)) script else file.path(dir, script))
+  if (!file.exists(script_abs)) {
+    return(list(targets = character(),
+                error = sprintf("there is no pipeline script at %s", rel_path(root, script_abs))))
   }
+  script_rel <- rel_path(root, script_abs)
+  skey <- rel_path(root, store)
+  mi <- file.info(file.path(store, "meta", "meta"))
+  sig <- c(size = mi$size, mtime = as.numeric(mi$mtime))
+  cache <- file.path(root, ".weft", "targets", "network.rds")
+  all <- if (file.exists(cache)) tryCatch(readRDS(cache), error = function(e) NULL) else NULL
+  if (!is.list(all) || !is.list(all$stores)) all <- list(stores = list())
+  hit <- all$stores[[skey]]
+  edges <- NULL
+  if (is.list(hit) && identical(hit$sig, sig) && identical(hit$script, script_rel)) edges <- hit$edges
   if (is.null(edges)) {
-    net <- tryCatch(targets::tar_network(targets_only = TRUE, outdated = FALSE, script = script),
+    net <- tryCatch(targets::tar_network(targets_only = TRUE, outdated = FALSE, script = script,
+                                         store = store),
                     error = function(e) e)
     if (inherits(net, "error")) {
-      return(list(targets = character(), error = sub("\n.*$", "", conditionMessage(net))))
+      return(list(targets = character(), error = condition_cause(net)))
     }
     edges <- as.data.frame(net$edges, stringsAsFactors = FALSE)
     if (!all(c("from", "to") %in% names(edges))) edges <- data.frame(from = character(), to = character())
-    if (nzchar(id)) {
-      tryCatch({
-        dir.create(dirname(cache), showWarnings = FALSE, recursive = TRUE)
-        saveRDS(list(run = id, script = script_rel, edges = edges), cache)
-      }, error = function(e) NULL, warning = function(w) NULL)
-    }
+    all$stores[[skey]] <- list(sig = sig, script = script_rel, edges = edges)
+    tryCatch({
+      weft_state_dir(root, "targets")
+      saveRDS(all, cache)
+    }, error = function(e) NULL, warning = function(w) NULL)
   }
   up <- character()
   todo <- set
