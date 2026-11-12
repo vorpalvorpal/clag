@@ -13,24 +13,30 @@ e2x_esc <- function(s) {
   gsub(" ", "\\u00a0", s, fixed = TRUE)
 }
 e2x_str <- function(s) if (is.null(s) || length(s) == 0L || is.na(s)) "null" else paste0("\"", e2x_esc(s), "\"")
-e2x_num <- function(x) if (is.null(x) || length(x) == 0L || is.na(x)) "null" else if (x == 0) "0" else formatC(x, digits = 6, format = "g")
+e2x_num <- function(x) if (is.null(x) || length(x) == 0L || is.na(x)) "null" else if (x == 0) "0" else trimws(formatC(x, digits = 6, format = "g"))
 e2x_arr <- function(x) paste0("[", paste(vapply(x, e2x_str, ""), collapse = ","), "]")
 
 # an entry as a list of D8's fields, defaults as the design's helper has them; `file` is filled in by
 # e2x_put_ledger() when left NULL; a null `text` is NA
 e2x_entry <- function(expr = "x", text = "1", section = "", kind = "value", occ = 1L, id = NA_character_,
                       context = "prose", arm = NA_character_, rel = NA_character_, raw = NA_real_,
-                      failed = NA_character_, dict = character(), sentence = NULL, file = NULL) {
-  list(file = file, section = section, kind = kind, expr = expr, occ = occ, id = id, context = context,
+                      failed = NA_character_, dict = character(), sentence = NULL, file = NULL, unit = NULL) {
+  e <- list(file = file, section = section, kind = kind, expr = expr, occ = occ, id = id, context = context,
        text = text, arm = arm, rel = rel, raw = raw, failed = failed, dict = dict,
        sentence = if (is.null(sentence)) (if (is.na(text)) "" else text) else sentence)
+  # `unit` (2d D8 as amended by the review of 2e-2): NULL leaves the field out, as an old ledger has
+  # it; NA writes null; a string writes the unit raw is in
+  if (!is.null(unit)) e$unit <- unit
+  e
 }
 
 e2x_entry_line <- function(e) {
   paste0("{\"file\":", e2x_str(e$file), ",\"section\":", e2x_str(e$section), ",\"kind\":", e2x_str(e$kind),
          ",\"expr\":", e2x_str(e$expr), ",\"occ\":", as.integer(e$occ), ",\"id\":", e2x_str(e$id),
          ",\"context\":", e2x_str(e$context), ",\"text\":", e2x_str(e$text), ",\"arm\":", e2x_str(e$arm),
-         ",\"rel\":", e2x_str(e$rel), ",\"raw\":", e2x_num(e$raw), ",\"failed\":", e2x_str(e$failed),
+         ",\"rel\":", e2x_str(e$rel), ",\"raw\":", e2x_num(e$raw),
+         if ("unit" %in% names(e)) paste0(",\"unit\":", e2x_str(e$unit)),
+         ",\"failed\":", e2x_str(e$failed),
          ",\"dict\":", e2x_arr(e$dict), ",\"sentence\":", e2x_str(e$sentence), "}")
 }
 
@@ -163,8 +169,9 @@ e2x_file_hash <- function(path) {
 E2X_DOC_FIELDS <- c("definition", "decision", "why", "term", "avoid")
 e2x_dict_hashes <- function(path) {
   y <- yaml::read_yaml(path)
+  srt <- function(x) if (is.list(x) && !is.null(names(x))) lapply(x[order(names(x), method = "radix")], srt) else x
   vapply(y, function(e) {
-    e <- e[setdiff(names(e), E2X_DOC_FIELDS)]
+    e <- srt(e[setdiff(names(e), E2X_DOC_FIELDS)])
     cli::hash_raw_xxhash64(charToRaw(enc2utf8(as.character(jsonlite::toJSON(e, auto_unbox = TRUE, digits = NA)))))
   }, "")
 }
