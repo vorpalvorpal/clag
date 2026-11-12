@@ -92,7 +92,17 @@ install_boundary_hooks <- function() {
       install_hooks()
       if (!is_child_knit()) {
         old <- weft_env$state
-        if (!is.null(old)) old$finished <- TRUE
+        if (!is.null(old) && !isTRUE(old$finished) && knit_nested()) {
+          # a render started inside a chunk is its own top-level knit; the outer
+          # knit's state is kept, and comes back when the inner one ends
+          weft_env$outer <- c(list(list(state = old, config = weft_env$config, units = weft_env$units,
+                                        units_default = weft_env$units_default,
+                                        inline = weft_env$inline)), weft_env$outer)
+          weft_env$state <- NULL
+        } else {
+          weft_env$outer <- NULL
+          if (!is.null(old)) old$finished <- TRUE
+        }
       }
       s <- ensure_knit()
       push_knit(s)
@@ -419,7 +429,25 @@ finish_knit <- function() {
   if (!is.null(s)) s$finished <- TRUE
   weft_env$config <- NULL
   weft_env$inline <- NULL
+  if (length(weft_env$outer)) {
+    o <- weft_env$outer[[1L]]
+    weft_env$outer <- weft_env$outer[-1L]
+    weft_env$state <- o$state
+    weft_env$config <- o$config
+    weft_env$units <- o$units
+    weft_env$units_default <- o$units_default
+    weft_env$inline <- o$inline
+  }
   invisible()
+}
+
+# TRUE when this top-level knit runs inside another knit (a render started from a chunk).
+knit_nested <- function() {
+  n <- 0L
+  for (i in seq_len(sys.nframe())) {
+    if (identical(sys.function(i), knitr::knit)) n <- n + 1L
+  }
+  n >= 2L
 }
 
 # ---- the end of the document (2.5.2, 2.6) ------------------------------------------

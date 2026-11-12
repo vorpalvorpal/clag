@@ -10,8 +10,8 @@ LEDGER_COLS <- c("file", "section", "kind", "expr", "occ", "id", "context", "tex
                  "arm", "rel", "raw", "failed", "dict", "sentence")
 CONDITION_COLS <- c("from", "source", "class", "normalised", "text")
 # the invisible characters D3 writes as escapes
-JSON_INVISIBLE <- c(0x00a0L, 0x00adL, 0x2000L:0x200fL, 0x2028L, 0x2029L, 0x202fL,
-                    0x205fL, 0x2060L, 0xfeffL)
+JSON_INVISIBLE <- c(0x0085L, 0x00a0L, 0x00adL, 0x061cL, 0x2000L:0x200fL, 0x2028L:0x202eL, 0x202fL,
+                    0x205fL, 0x2060L, 0x2066L:0x2069L, 0xfeffL)
 
 ledger_warn <- function(msg) {
   rlang::warn(msg, class = c("weft_ledger_warning", "weft_warning"))
@@ -247,6 +247,7 @@ heading_anchors <- function(lines) {
     if (!is.na(end)) skip[1L:(end + 1L)] <- TRUE
   }
   fence <- NULL
+  in_comment <- FALSE
   for (i in seq_len(n)) {
     if (skip[i]) next
     l <- lines[i]
@@ -255,10 +256,18 @@ heading_anchors <- function(lines) {
       if (grepl(fence, l, perl = TRUE)) fence <- NULL
       next
     }
+    # an HTML comment is not part of the output (D10)
+    if (in_comment) {
+      skip[i] <- TRUE
+      if (grepl("-->", l, fixed = TRUE)) in_comment <- FALSE
+      next
+    }
     fm <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1L]]
     if (length(fm)) {
       skip[i] <- TRUE
       fence <- paste0("^[ \t>]*", substr(fm[2L], 1L, 1L), "{", nchar(fm[2L]), ",}[ \t\r]*$")
+    } else if (grepl("<!--", gsub("<!--.*?-->", "", l, perl = TRUE), fixed = TRUE)) {
+      in_comment <- TRUE
     }
   }
   blank <- function(l) !nzchar(trimws(l))
@@ -268,7 +277,11 @@ heading_anchors <- function(lines) {
     l <- lines[i]
     m <- regmatches(l, regexec("^ {0,3}#{1,6}[ \t]+(.*?)([ \t]+#+)?[ \t]*$", l, perl = TRUE))[[1L]]
     if (length(m)) {
-      heads[[length(heads) + 1L]] <- list(line = i, text = m[2L])
+      # Pandoc wants a blank line (or the start of a block) before an ATX heading
+      if (i == 1L || blank(lines[i - 1L]) || skip[i - 1L] ||
+          grepl("^ {0,3}#{1,6}[ \t]+", lines[i - 1L])) {
+        heads[[length(heads) + 1L]] <- list(line = i, text = m[2L])
+      }
       next
     }
     if (i < n && !skip[i + 1L] && !blank(l) && grepl("^ {0,3}(=+|-+)[ \t]*$", lines[i + 1L]) &&
@@ -292,7 +305,8 @@ heading_anchors <- function(lines) {
     base <- if (!is.na(id)) id else pandoc_id(txt)
     a <- base
     k <- 0L
-    while (a %in% used) {
+    # an explicit id is kept as written; a generated one steps round the anchors taken
+    while (is.na(id) && a %in% used) {
       k <- k + 1L
       a <- paste0(base, "-", k)
     }
@@ -307,6 +321,12 @@ heading_anchors <- function(lines) {
 pandoc_id <- function(txt) {
   x <- gsub("`[^`]*`", "", txt)
   x <- gsub("\\{[^{}]*\\}", "", x)
+  # what Pandoc does not keep: link and image targets, footnote references,
+  # raw HTML tags, emphasis markers
+  x <- gsub("\\]\\([^)]*\\)", "]", x)
+  x <- gsub("\\[\\^[^]]*\\]", "", x)
+  x <- gsub("<[^<>]*>", "", x)
+  x <- gsub("(?<![\\p{L}\\p{N}])_+|_+(?![\\p{L}\\p{N}])", "", x, perl = TRUE)
   x <- gsub("[^\\p{L}\\p{N}_.\\s-]", "", x, perl = TRUE)
   x <- trimws(tolower(x))
   x <- gsub("\\s+", "-", x, perl = TRUE)
@@ -374,7 +394,13 @@ ledger_raw <- function(v) {
     if (!(is.numeric(v) && length(v) == 1L)) return(NA_real_)
   }
   if (is.null(v) || is.logical(v) || !is.numeric(v) || length(v) != 1L) return(NA_real_)
-  x <- tryCatch(as.numeric(unclass(v)), error = function(e) NA_real_)
+  if (inherits(v, "integer64")) {
+    # a double holds it exactly, or there is no raw
+    x <- tryCatch(as.double(v), error = function(e) NA_real_)
+    if (length(x) != 1L || !is.finite(x) || !identical(as.character(v), sprintf("%.0f", x))) return(NA_real_)
+  } else {
+    x <- tryCatch(as.numeric(unclass(v)), error = function(e) NA_real_)
+  }
   if (length(x) != 1L || !is.finite(x)) return(NA_real_)
   if (x == 0) return(0)
   as.numeric(formatC(x, digits = 6L, format = "g"))
@@ -422,8 +448,12 @@ ledger_file <- function(s, F, name) {
   if (!is.null(hit)) return(hit)
   root <- ledger_root(s)
   full <- normalizePath(file.path(dirname(F$path), name), winslash = "/", mustWork = FALSE)
+  # the author's own file, where rmarkdown knitted a copy (D1)
+  if (identical(F$path, s$input_path) && identical(name, F$name) && !grepl("\\.rmarkdown$", F$path)) {
+    full <- state_input(s)
+  }
   pre <- if (is.na(root)) "" else paste0(sub("/+$", "", root), "/")
-  out <- if (nzchar(pre) && startsWith(full, pre)) substring(full, nchar(pre) + 1L) else name
+  out <- enc2utf8(if (nzchar(pre) && startsWith(full, pre)) substring(full, nchar(pre) + 1L) else name)
   assign(key, out, envir = s$file_rel)
   out
 }
@@ -462,8 +492,25 @@ chunk_log_source <- function(s, label) {
 
 # ---- the sentence (D12) --------------------------------------------------------
 
-# The sentence around the printed text out[a:b] of a rendered block.
+# The sentence around the printed text out[a:b] of a rendered block. A failure
+# marker is written without its line number, so a line inserted above it
+# changes nothing.
 ledger_sentence <- function(out, a, b, whole = FALSE, front = FALSE) {
+  gsub("(<<weft: [^,>]+), line [0-9?]+>>", "\\1>>", ledger_sentence_at(out, a, b, whole, front))
+}
+
+# Whether the full stop (or `?`, `!`) at `pos` of `txt` ends a sentence; `after`
+# is the position just past it and its closing marks. A full stop after an
+# abbreviation, or before a lower-case letter or a digit, does not (D12).
+sentence_ends_at <- function(txt, pos, after) {
+  if (substr(txt, pos, pos) != ".") return(TRUE)
+  before <- substr(txt, max(1L, pos - 12L), pos - 1L)
+  if (grepl("(^|[^[:alnum:].])(e\\.g|i\\.e|cf|al|Mr|Mrs|Ms|Dr|Fig|approx|vs)$", before, ignore.case = TRUE)) return(FALSE)
+  rest <- sub("^[ \t\n]+", "", substr(txt, after, nchar(txt)))
+  !(nzchar(rest) && grepl("^[[:lower:][:digit:]]", rest))
+}
+
+ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
   n <- nchar(out)
   if (is.na(a) || is.na(b)) return(collapse_ws(out))
   if (b < a - 1L) b <- a - 1L
@@ -514,14 +561,25 @@ ledger_sentence <- function(out, a, b, whole = FALSE, front = FALSE) {
   pre <- substr(para, 1L, a2 - 1L)
   st <- 1L
   m <- gregexpr("[.?!][]\"')*_~]*[ \t\n]+", pre, perl = TRUE)[[1L]]
-  if (m[1L] > 0L) st <- max(m + attr(m, "match.length"))
-  m <- gregexpr("(^|\n)[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>)[ \t]+)", pre, perl = TRUE)[[1L]]
+  if (m[1L] > 0L) {
+    ml <- attr(m, "match.length")
+    real <- vapply(seq_along(m), function(k) sentence_ends_at(para, m[k], m[k] + ml[k]), NA)
+    if (any(real)) st <- max((m + ml)[real])
+  }
+  m <- gregexpr("(^|\n)[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|\\[\\^[^]]+\\]:)[ \t]+)", pre, perl = TRUE)[[1L]]
   if (m[1L] > 0L) st <- max(st, max(m + attr(m, "match.length")))
   # end: the end of the sentence, or of the list item
   post <- substr(para, b2 + 1L, nchar(para))
   en <- nchar(para)
-  m <- regexpr("[.?!][]\"')*_~]*(?=[ \t\n]|$)", post, perl = TRUE)
-  if (m > 0L) en <- b2 + m + attr(m, "match.length") - 1L
+  m <- gregexpr("[.?!][]\"')*_~]*(?=[ \t\n]|$)", post, perl = TRUE)[[1L]]
+  if (m[1L] > 0L) {
+    ml <- attr(m, "match.length")
+    real <- vapply(seq_along(m), function(k) sentence_ends_at(para, b2 + m[k], b2 + m[k] + ml[k]), NA)
+    if (any(real)) {
+      k <- which(real)[1L]
+      en <- b2 + m[k] + ml[k] - 1L
+    }
+  }
   m <- regexpr("\n(?=[ \t]*([-*+]|[0-9]+[.)])[ \t])", post, perl = TRUE)
   if (m > 0L && b2 + m - 1L < en) en <- b2 + m - 1L
   sentence_cut_around(para, a2, b2, st, en)
@@ -569,7 +627,7 @@ strip_ext <- function(x) sub("\\.[^.]*$", "", basename(x))
 
 ledger_output_name <- function(s, warn = FALSE) {
   e <- Sys.getenv("WEFT_OUTPUT", "")
-  if (nzchar(e)) return(e)
+  if (nzchar(e)) return(strip_ext(e))
   info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
   quarto <- nzchar(info) && file.exists(info)
   # Quarto's knitr engine runs inside an rmarkdown::render() of its own, whose
@@ -593,11 +651,14 @@ ledger_output_name <- function(s, warn = FALSE) {
     x <- tryCatch(jsonlite::fromJSON(info, simplifyVector = FALSE), error = function(e) NULL)
     of <- x$format$pandoc[["output-file"]]
     if (is.character(of) && length(of) == 1L && nzchar(of)) return(strip_ext(of))
-    if (warn) {
+    # Quarto gives no output-file for gfm and typst: the output is named after the source
+    to <- unlist(c(x$format$identifier[["base-format"]], x$format$identifier[["target-format"]]))
+    quiet <- any(grepl("^(gfm|typst)([-+]|$)", as.character(to)))
+    if (warn && !quiet) {
       ledger_warn(sprintf(paste0(
         "weft: this render's output file is not visible to weft, so its ledger is named after the ",
         "source (%s) and renders to other outputs will overwrite it; set WEFT_OUTPUT to name the ",
-        "ledger (rule 7.1.3)."), src))
+        "ledger (its folder and extension are dropped) (rule 7.1.3)."), src))
     }
   }
   src
@@ -609,7 +670,7 @@ ledger_output_name <- function(s, warn = FALSE) {
 ledger_entries <- function(s) {
   es <- Filter(Negate(is.null), s$ledger)
   if (!length(es)) return(list())
-  g <- function(f) vapply(es, function(e) as.character(e[[f]]), "")
+  g <- function(f) enc2utf8(vapply(es, function(e) as.character(e[[f]]), ""))
   key <- paste(g("file"), g("section"), g("kind"), g("expr"), sep = "\r")
   occ <- as.integer(stats::ave(seq_along(key), key, FUN = seq_along))
   for (i in seq_along(es)) es[[i]]$occ <- occ[i]
@@ -641,11 +702,13 @@ condition_rows <- function(s, prior = NULL) {
                                       text = cap_text(as.character(r$text)))
   }
   if (!length(rows)) return(list())
-  g <- function(f) vapply(rows, function(r) as.character(r[[f]]), "")
+  g <- function(f) enc2utf8(vapply(rows, function(r) as.character(r[[f]]), ""))
   key <- paste(g("from"), g("source"), g("class"), g("normalised"), sep = "\r")
   keep <- !duplicated(key)
   rows <- rows[keep]
   key <- key[keep]
+  # a line with no usable text supplies none (D18)
+  if (!is.null(prior) && nrow(prior)) prior <- prior[!is.na(prior$text), , drop = FALSE]
   if (!is.null(prior) && nrow(prior)) {
     pk <- paste(prior$from, prior$source, prior$class, prior$normalised, sep = "\r")
     pk_first <- !duplicated(pk)
@@ -654,7 +717,7 @@ condition_rows <- function(s, prior = NULL) {
       if (!is.na(j)) rows[[i]]$text <- prior$text[pk_first][j]
     }
   }
-  g <- function(f) vapply(rows, function(r) as.character(r[[f]]), "")
+  g <- function(f) enc2utf8(vapply(rows, function(r) as.character(r[[f]]), ""))
   rows[order(g("from"), g("source"), g("class"), g("normalised"), method = "radix")]
 }
 
@@ -664,10 +727,12 @@ condition_rows <- function(s, prior = NULL) {
 # NULL, or the reason it failed.
 write_whole_file <- function(path, lines) {
   bytes <- charToRaw(paste0(paste(enc2utf8(lines), collapse = "\n"), "\n"))
-  tryCatch({
+  # a warning from the file system is the reason, not a second condition (D26)
+  reason <- NULL
+  tryCatch(withCallingHandlers({
     d <- dirname(path)
     if (!dir.exists(d)) {
-      suppressWarnings(dir.create(d, recursive = TRUE))
+      dir.create(d, recursive = TRUE)
       if (!dir.exists(d)) stop("cannot create the folder ", d, call. = FALSE)
     }
     if (file.exists(path) && !dir.exists(path) &&
@@ -679,7 +744,28 @@ write_whole_file <- function(path, lines) {
       if (!file.copy(tmp, path, overwrite = TRUE)) stop("cannot write ", path, call. = FALSE)
     }
     NULL
-  }, error = function(e) conditionMessage(e))
+  }, warning = function(w) {
+    reason <<- sub("^cannot create dir '[^']*', reason '(.*)'$", "\\1",
+                   sub("^cannot open file '[^']*': ", "", conditionMessage(w)))
+    invokeRestart("muffleWarning")
+  }), error = function(e) {
+    m <- conditionMessage(e)
+    if (is.null(reason)) m else if (grepl("^cannot create the folder", m)) paste0(m, ": ", reason) else reason
+  })
+}
+
+# The first of the folders and files the writer would touch that is a symbolic
+# link (D6), as its path, or NULL. `rel` are paths under `root`.
+ledger_link_in <- function(root, rel) {
+  for (r in rel) {
+    parts <- strsplit(r, "/", fixed = TRUE)[[1L]]
+    for (k in seq_along(parts)) {
+      p <- file.path(root, paste(parts[seq_len(k)], collapse = "/"))
+      lk <- suppressWarnings(Sys.readlink(p))
+      if (!is.na(lk) && nzchar(lk)) return(p)
+    }
+  }
+  NULL
 }
 
 # The prior condition log, read for D16, or NULL (absent, or a later version).
@@ -750,6 +836,23 @@ ledger_finish <- function(s, write = TRUE) {
   if (!do_write) return(invisible())
   lpath <- file.path(root, paths[["ledger"]])
   cpath <- file.path(root, paths[["conditions"]])
+  # nothing is written where the locale would change the keys (F), where the
+  # log's name would be the ledger's (H), or through a symbolic link (D6)
+  refuse <- if (!isTRUE(l10n_info()[["UTF-8"]])) {
+    sprintf(paste0("weft: not writing the ledger: this session's locale (%s) is not UTF-8, and keys under ",
+                   "non-ASCII text would differ from a UTF-8 render's; run R in a UTF-8 locale (rule 7.1.3)."),
+            Sys.getlocale("LC_CTYPE"))
+  } else if (grepl("\\.conditions$", s$output)) {
+    sprintf(paste0("weft: not writing the ledger: the output name `%s` ends in `.conditions`, which would ",
+                   "be the name of another output's condition log; rename the output (rule 7.1.3)."), s$output)
+  } else {
+    ln <- ledger_link_in(root, paths)
+    if (!is.null(ln)) sprintf("weft: not writing the ledger: %s is a symbolic link (rule 7.1.3).", ln)
+  }
+  if (!is.null(refuse)) {
+    ledger_warn(refuse)
+    return(invisible())
+  }
   lines <- c(ledger_header_line("ledger", source, s$output, hdr), vapply(es, ledger_entry_line, ""))
   clines <- c(ledger_header_line("conditions", source, s$output), vapply(rows, condition_line, ""))
   bad <- list(ledger = write_whole_file(lpath, lines), conditions = write_whole_file(cpath, clines))
@@ -766,10 +869,13 @@ ledger_finish <- function(s, write = TRUE) {
   label <- NULL
   if (nzchar(Sys.which("git")) && git_in_work_tree(root)) {
     gl <- git_show(root, paths[["conditions"]])
-    cmp <- if (is.null(gl)) condition_df(list()) else
-      tryCatch(read_condition_log(lines = gl, lenient = TRUE), error = function(e) condition_df(list()))
-    label <- "HEAD"
-  } else if (!is.null(prior)) {
+    if (!is.null(gl)) {
+      cmp <- tryCatch(read_condition_log(lines = gl, lenient = TRUE), error = function(e) condition_df(list()))
+      label <- "HEAD"
+    }
+  }
+  # a log no commit holds (ignored, or no commit yet) is compared with the last render (E)
+  if (is.null(cmp) && !is.null(prior)) {
     cmp <- prior
     label <- "the last render"
   }

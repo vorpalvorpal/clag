@@ -46,15 +46,39 @@ state_root <- function(s) {
   normalizePath(find_project_root(s$input_path), winslash = "/", mustWork = FALSE)
 }
 
-# The source path relative to the root. Quarto knits a temporary copy
-# (`doc.rmarkdown`, `doc.knit.md`...) beside the source; the source is the
-# `.qmd` of the same name when there is one.
-state_source <- function(s, root) {
+# The file the author named for the knit. rmarkdown knits a copy when the
+# name holds a shell character (`a b.Rmd` is knitted as `a-b.Rmd`) and keeps
+# the original in its `render()` frame (the frame the output name is read from).
+state_input <- function(s) {
   p <- normalizePath(s$input_path, winslash = "/", mustWork = FALSE)
-  q <- sub("\\.(rmarkdown|rmd)$", ".qmd", p, ignore.case = TRUE)
-  if (!identical(q, p) && file.exists(q)) p <- q
+  if (isNamespaceLoaded("rmarkdown")) {
+    rf <- get("render", envir = asNamespace("rmarkdown"))
+    for (i in rev(seq_len(sys.nframe()))) {
+      if (identical(sys.function(i), rf)) {
+        oi <- get0("original_input", envir = sys.frame(i), inherits = FALSE)
+        if (is.character(oi) && length(oi) == 1L && !is.na(oi) && file.exists(oi)) {
+          o <- normalizePath(oi, winslash = "/", mustWork = FALSE)
+          if (!identical(o, p) && identical(gsub("[ <>()|\\\\:&;#?*']", "-", basename(o)), basename(p))) p <- o
+        }
+        break
+      }
+    }
+  }
+  p
+}
+
+# The source path relative to the root. Quarto knits a temporary copy
+# (`doc.rmarkdown`) beside the source; under Quarto the source is the `.qmd`
+# of the same name when there is one. Under rmarkdown the input is the
+# author's own file.
+state_source <- function(s, root) {
+  p <- state_input(s)
+  if (nzchar(Sys.getenv("QUARTO_EXECUTE_INFO", ""))) {
+    q <- sub("\\.rmarkdown$", ".qmd", p, ignore.case = TRUE)
+    if (!identical(q, p) && file.exists(q)) p <- q
+  }
   pre <- paste0(sub("/+$", "", root), "/")
-  if (startsWith(p, pre)) substring(p, nchar(pre) + 1L) else basename(p)
+  enc2utf8(if (startsWith(p, pre)) substring(p, nchar(pre) + 1L) else basename(p))
 }
 
 # The collection file in use: WEFT_COLLECT, or the open .weft/failures.jsonl of
