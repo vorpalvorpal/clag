@@ -48,6 +48,7 @@ default_config <- function() {
     formatters = list(),
     severity = character(),
     unit_form = "auto",
+    decisions = "github",
     units = list()
   )
 }
@@ -96,6 +97,12 @@ read_config <- function(dir, front = list(), doc = NULL) {
   if (has_file && "draft" %in% names(front)) {
     weft_abort(paste0(
       "`draft` is a project setting: set it in _weft.yml, not in a ",
+      "document's `weft:` front matter (rule 9.1.4)."
+    ), "weft_config_error")
+  }
+  if (has_file && "decisions" %in% names(front)) {
+    weft_abort(paste0(
+      "`decisions` is a project setting: set it in _weft.yml, not in a ",
       "document's `weft:` front matter (rule 9.1.4)."
     ), "weft_config_error")
   }
@@ -188,6 +195,7 @@ validate_config <- function(cfg) {
                        if (is.character(uf) && length(uf) == 1L && !is.na(uf)) paste0("`", uf, "`") else "something else"),
                "weft_config_error")
   }
+  decisions_route(cfg$decisions)
   prop <- function(nm, open = TRUE) {
     v <- cfg[[nm]]
     if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||

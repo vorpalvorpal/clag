@@ -168,11 +168,12 @@ test_that("2c vale C13: a file written earlier by dict_vale() but out of date is
 })
 
 test_that("2c vale C13: with no avoid anywhere and weft's own file present, it says, removes it and returns the path (step 1)", {
+  plain <- readLines(testthat::test_path("_dict", "dict.yml"))   # before the directory changes
   dir <- vale_proj()
   suppressMessages(dict_vale())
   p <- abs_path(dir)
   expect_true(file.exists(p))
-  writeLines(readLines(testthat::test_path("_dict", "dict.yml")), file.path(dir, "dict.yml"))
+  writeLines(plain, file.path(dir, "dict.yml"))
   r <- c2_says(dict_vale())
   expect_identical(r$msgs, c(
     sprintf("weft will remove %s: dict.yml has no avoid: spellings now.", p),

@@ -109,11 +109,12 @@ test_that("2c glossary: why is never shown, and a local dictionary is accepted (
 })
 
 test_that("2c glossary: it writes nothing (P10)", {
+  d <- fx_dict()   # read before the working directory changes
   dir <- c2_proj(list(dict.yml = c2_fixture_lines()))
   withr::local_dir(dir)
   before <- c2_tree(dir)
   dict_glossary()
-  dict_glossary(fx_dict())
+  dict_glossary(d)
   expect_identical(c2_tree(dir), before)
 })
 

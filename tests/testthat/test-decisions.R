@@ -45,7 +45,7 @@ test_that("2c setting: each of the four written forms is accepted by read_config
 
 test_that("2c setting: anything else is a weft_config_error naming the value and the four forms (9.1.8)", {
   withr::local_envvar(WEFT_DRAFT = NA)
-  for (v in c("github:example", "github:", "github:a/b/c", "github:ex_ample/proj",
+  for (v in c("github:example", "'github:'", "github:a/b/c", "github:ex_ample/proj",
               "decisions/*.md", "1", "'a b'", "'github '", "''")) {
     e <- c2_err(cfg_of(cfg_dir(paste0("decisions: ", v))))
     c2_expect_cond(e, "weft_config_error")

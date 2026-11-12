@@ -1,0 +1,25 @@
+# yaml-language-server: $schema=_weft/dict.schema.json
+#
+# The project dictionary: the values this project chose, each with its
+# definition. Prose and code read an entry as dict$key. Every entry has a
+# value, a type and a definition; the types are number, quantity, year,
+# date, string, labels and breaks. See ?weft::dict_file for every field.
+#
+# A unit the units package does not know (sites, PSU) is registered when
+# this file is read; give it a name under `units:` in _weft.yml.
+#
+# Two examples follow. Remove the "# " before an entry's lines to use it.
+#
+# core_len:
+#   value: 50
+#   type: quantity
+#   unit: cm
+#   display: m            # read in cm, shown in m: dict$core_len is 0.5 m
+#   definition: "Length of each sediment core."
+#   decision: 12          # the issue where the length was chosen
+#
+# study_area:
+#   value: "Northern catchment"
+#   type: string
+#   definition: "Name used for the study region."
+#   avoid: ["northern catchment", "North catchment"]   # see dict_vale()

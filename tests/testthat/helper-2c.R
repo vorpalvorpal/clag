@@ -109,7 +109,7 @@ c2_fetch <- function(answers) {
   tokens <- list()
   f <- function(url, token) {
     calls <<- c(calls, url)
-    tokens[[length(tokens) + 1L]] <<- token
+    tokens <<- c(tokens, list(token))   # list(NULL) keeps a NULL token
     key <- sub(C2_API, "", url, fixed = TRUE)
     a <- if (startsWith(url, C2_API)) answers[[key]] else NULL
     if (is.null(a)) {

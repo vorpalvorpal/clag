@@ -3,7 +3,8 @@
 # Contract: dev/design-2.md section 2.
 
 DICT_TYPES <- c("number", "quantity", "year", "date", "string", "labels", "breaks")
-DICT_FIELDS <- c("value", "type", "definition", "unit", "display", "decision", "why")
+DICT_FIELDS <- c("value", "type", "definition", "unit", "display", "decision", "why",
+                 "term", "avoid")
 
 # YAML words such as `yes` and `no` stay text (D6). A whole number is read
 # as a decimal, whatever its size (a double), and an octal or hex integer
@@ -223,6 +224,24 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   rows <- vector("list", length(raw))
   registered <- character()
   installed <- character()
+  # `avoid` is read once more with `true` and `false` marked and every list
+  # kept as a list: YAML reads them as booleans, which weft reads as text
+  # elsewhere (4.2.5), and a list of one string as that string
+  raw2 <- NULL
+  avoid_raw <- function(i) {
+    if (scope != "project" || is.null(prep)) return(NULL)
+    if (is.null(raw2)) {
+      h <- list(seq = function(x) structure(as.list(x), class = "weft_seq"),
+                "bool#yes" = mark_bool, "bool#no" = mark_bool)
+      raw2 <<- tryCatch(yaml::yaml.load(paste(prep$lines, collapse = "\n"), handlers = h,
+                                        eval.expr = FALSE), error = function(e) list())
+      if (length(raw2) != length(raw)) raw2 <<- list()
+    }
+    e2 <- raw2[[i]]
+    if (is.list(e2) && "avoid" %in% names(e2)) e2[["avoid"]] else NULL
+  }
+  canon <- rep(NA_character_, length(raw))
+  tprob <- rep(FALSE, length(raw))
   for (i in seq_along(raw)) {
     key <- keys[i]
     line <- key_line[i]
@@ -290,6 +309,51 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     } else if (!str1(e[["why"]])) {
       p("`why` must be a string that is not blank", "4.3.3")
     } else why <- e[["why"]]
+    # `term` and `avoid` (rules 4.7.3, 4.7.4)
+    trm <- NA_character_
+    if (!is.null(e[["term"]])) {
+      if (str1(e[["term"]])) trm <- e[["term"]]
+      else { p("`term` must be a string that is not blank", "4.7.3"); tprob[i] <- TRUE }
+    }
+    avd <- character()
+    if (!is.null(e[["avoid"]])) {
+      a <- avoid_raw(i) %||% e[["avoid"]]
+      if (scope != "project") {
+        p("`avoid` is for dict.yml; a chapter's own entries write no Vale rules", "4.7.4")
+        tprob[i] <- TRUE
+      } else {
+        avd <- avoid_items(a)
+        if (!is.null(avd)) avd <- trimws(avd)
+        if (any(!nzchar(avd))) avd <- NULL
+      }
+      if (is.null(avd)) {
+        p("`avoid` must be a string, or a list of strings, none blank", "4.7.4")
+        tprob[i] <- TRUE
+        avd <- character()
+      } else if (scope == "project") {
+        if (is.na(trm) && !(type_ok && type == "string")) {
+          p("`avoid` needs a `term`: the spelling the avoided ones are replaced by", "4.7.4")
+          tprob[i] <- TRUE
+        } else {
+          cn <- if (!is.na(trm)) trm else e[["value"]]
+          if (is.character(cn) && length(cn) == 1L && !is.na(cn)) {
+            for (v in unique(avd[avd == cn])) {
+              p(sprintf("`avoid` lists `%s`, which is the entry's own spelling", v), "4.7.4")
+              tprob[i] <- TRUE
+            }
+          }
+          for (v in unique(avd[duplicated(avd)])) {
+            p(sprintf("`avoid` lists `%s` twice", v), "4.7.4")
+            tprob[i] <- TRUE
+          }
+        }
+      }
+    }
+    if (!tprob[i]) {
+      canon[i] <- if (!is.na(trm)) trm else
+        if (type_ok && type == "string" && is.character(e[["value"]]) && length(e[["value"]]) == 1L)
+          e[["value"]] else NA_character_
+    }
     if (is.null(e[["value"]]) && !"value" %in% names(e)) p("`value` is missing", "4.2.1")
     else if (is.null(e[["value"]])) p("`value` is empty", "4.2.1")
     if (type_ok && !is.null(e[["value"]])) {
@@ -328,25 +392,74 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     str_or_na <- function(x) if (str1(x)) x else NA_character_
     rows[[i]] <- list(key = key, type = if (type_ok) type else NA_character_,
                       definition = str_or_na(e[["definition"]]), unit = unit,
-                      display = disp, decision = dec, why = why, line = as.integer(line))
+                      display = disp, decision = dec, why = why, line = as.integer(line),
+                      term = trm, avoid = avd)
+  }
+  # the spellings against each other (rule 4.7.4); only entries whose own
+  # `term` and `avoid` had no problem take part
+  if (scope == "project") {
+    ok <- vapply(rows, function(r) !is.null(r), NA) & !tprob
+    seen <- list()
+    for (i in which(ok)) {
+      for (v in rows[[i]]$avoid) {
+        earlier <- names(seen)[vapply(seen, function(k) v %in% k, NA)]
+        if (length(earlier) && !identical(earlier[1L], keys[i])) {
+          prob(sprintf("`avoid` lists `%s`, which `%s` also lists", v, earlier[1L]), "4.7.4",
+               keys[i], key_line[i])
+          next
+        }
+        for (j in which(ok & !is.na(canon))) {
+          if (identical(v, canon[j]) && j == i) next
+          if (word_in(v, canon[j])) {
+            prob(sprintf("`avoid` lists `%s`, which is part of the spelling `%s` of `%s`; Vale would flag that spelling",
+                         v, canon[j], keys[j]), "4.7.4", keys[i], key_line[i])
+            break
+          }
+        }
+      }
+      seen[[keys[i]]] <- rows[[i]]$avoid
+    }
   }
   if (length(problems)) {
     # a read that reports problems installs no unit (ruling 6)
     for (tok in unique(installed)) try(units::remove_unit(tok, tok), silent = TRUE)
     problems <- problems[order(ifelse(is.na(at), 0L, at))]
     dict_abort(paste0(sprintf("weft: %s: %d problem(s) in the dictionary", file, length(problems)),
-                      "\n", paste0("  ", problems, collapse = "\n")))
+                      "\n", paste(problems, collapse = "\n")))
   }
   col <- function(f, type) vapply(rows, function(r) r[[f]], type)
   entries <- data.frame(
     key = col("key", ""), type = col("type", ""), definition = col("definition", ""),
     unit = col("unit", ""), decision = col("decision", ""), why = col("why", ""),
-    line = col("line", 1L), display = col("display", ""), stringsAsFactors = FALSE)
+    line = col("line", 1L), display = col("display", ""), term = col("term", ""),
+    stringsAsFactors = FALSE)
+  entries$avoid <- lapply(rows, function(r) r$avoid)
   rownames(entries) <- NULL
   names(values) <- keys
   structure(values, class = "weft_dict", file = file, scope = scope,
             entries = entries, registered = unique(registered),
             local_keys = character())
+}
+
+mark_bool <- function(x) if (tolower(x) %in% c("true", "false")) paste0("\001", x) else x
+
+# The strings of an `avoid` as the second reading gives it, or NULL when it
+# is not a string or a non-empty list of strings.
+avoid_items <- function(a) {
+  one <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && !startsWith(x, "\001")
+  if (one(a)) return(a)
+  if (is.list(a) && length(a) && (inherits(a, "weft_seq") || is.null(names(a))) &&
+      all(vapply(a, one, NA))) {
+    return(unlist(a, use.names = FALSE))
+  }
+  NULL
+}
+
+# Whether `v` occurs in `canon` as whole words: not touching a letter, digit
+# or underscore on either side.
+word_in <- function(v, canon) {
+  esc <- gsub("([\\x21-\\x2f\\x3a-\\x40\\x5b-\\x60\\x7b-\\x7e])", "\\\\\\1", v, perl = TRUE)
+  grepl(paste0("(?<![[:alnum:]_])", esc, "(?![[:alnum:]_])"), canon, perl = TRUE)
 }
 
 NONDECIMAL <- paste0("is a whole number written with a leading zero, or in hex or octal; ",
@@ -700,6 +813,17 @@ print.weft_dict <- function(x, ...) {
 #'   not resolved when the file is read.
 #' * `why`: a string that is not blank, for a `dict_local` entry only, where
 #'   it is required.
+#' * `term`: a string that is not blank, on any type: the words a reader knows
+#'   the entry by. [dict_glossary()] heads the entry with it and [dict_vale()]
+#'   keeps it as the entry's spelling (rule 4.7.3).
+#' * `avoid`: one string, or a non-empty list of strings, none blank, in
+#'   `dict.yml` only (rule 4.7.4). They are spellings [dict_vale()] replaces by
+#'   the entry's canonical spelling: its `term`, or, for a `string` entry with
+#'   no `term`, its value; any other entry needs a `term`. A spelling that is
+#'   the entry's own, is listed twice, is listed by another entry, or is found
+#'   as whole words inside any entry's canonical spelling is a problem. The
+#'   `entries` columns `term` and `avoid` hold `NA` and `character(0)` where
+#'   absent.
 #'
 #' A key is a valid R name (`make.names(key) == key`) that is not reserved
 #' (`..1` and `...` are refused) and is not `file`. A whole number written

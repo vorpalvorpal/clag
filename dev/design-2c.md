@@ -1196,3 +1196,18 @@ Built as recommended until answered.
 - With no pointers, a resolver that cannot be found is not looked for:
   zero rows, no error.
 - The test-writer's other readings (its items 3 to 11) are accepted.
+
+## Rulings on the implementer's report
+
+- **Four tests had faulty fixtures and are edited:** an unquoted
+  `github:` that YAML refuses before weft reads it; a recording `fetch`
+  that dropped a `NULL` token, so the "no token" checks passed on
+  nothing; and two tests that read a fixture by a relative path after
+  changing directory. No expectation changed.
+- `read_dict()`'s problem lines are no longer indented. Accepted.
+- A problem in an entry's own `term` or `avoid` leaves that entry out of
+  the checks across entries, so one mistake is reported once. Accepted.
+- A `decisions` value that is no route is an error even with no
+  pointers. Accepted.
+- The other choices (comparing the schema byte for byte, `.` as no
+  folder, the knit's dictionary only in a weft knit) are accepted.

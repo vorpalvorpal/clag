@@ -17,6 +17,7 @@ Imports:
     units,
     yaml
 Suggests:
+    curl,
     jsonlite,
     pkgload,
     quarto,

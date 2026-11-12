@@ -115,7 +115,7 @@ resolve_string <- function(s, x, ctx) {
 
 # The functions inline code calls by name (`claim()`, `plural()`, `fmt_*()`).
 inline_function_names <- function() {
-  c("claim", "plural", "glue_vec", "u",
+  c("claim", "plural", "glue_vec", "u", "dict_glossary",
     grep("^fmt_", getNamespaceExports(asNamespace("weft")), value = TRUE))
 }
 

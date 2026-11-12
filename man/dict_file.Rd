@@ -30,6 +30,17 @@ converts back. The \code{entries} column \code{display} is \code{NA} where absen
 not resolved when the file is read.
 \item \code{why}: a string that is not blank, for a \code{dict_local} entry only, where
 it is required.
+\item \code{term}: a string that is not blank, on any type: the words a reader knows
+the entry by. \code{\link[=dict_glossary]{dict_glossary()}} heads the entry with it and \code{\link[=dict_vale]{dict_vale()}}
+keeps it as the entry's spelling (rule 4.7.3).
+\item \code{avoid}: one string, or a non-empty list of strings, none blank, in
+\code{dict.yml} only (rule 4.7.4). They are spellings \code{\link[=dict_vale]{dict_vale()}} replaces by
+the entry's canonical spelling: its \code{term}, or, for a \code{string} entry with
+no \code{term}, its value; any other entry needs a \code{term}. A spelling that is
+the entry's own, is listed twice, is listed by another entry, or is found
+as whole words inside any entry's canonical spelling is a problem. The
+\code{entries} columns \code{term} and \code{avoid} hold \code{NA} and \code{character(0)} where
+absent.
 }
 
 A key is a valid R name (\code{make.names(key) == key}) that is not reserved
