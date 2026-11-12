@@ -68,6 +68,13 @@ converts_by_inversion <- function(from, to) {
 #' it was read as and what to write; under `unit_defaults: si` it is read as the
 #' `units` package reads it (rule 4.4.20).
 #'
+#' `u(NA, mm)` is a missing quantity and `u(logical(0), mm)` an empty one; `TRUE` and
+#' `FALSE` are refused. Inside a compound unit each token is kept as typed and prints as typed
+#' (`mm/hr` prints `mm/hr`, rule 4.4.20). `grade` is refused like `mt`: the `units` package reads it
+#' as an angle; name a project unit in `units:` instead. A bare quantity in prose (`` `r u(3, mm)` ``
+#' with no class) prints as stock knitr prints it and raises a `weft_unit_warning`; add `{.num}` or
+#' `{.nounit}`. The same warning is raised when the prose after a printed quantity types its unit again.
+#'
 #' @param value A numeric vector or a `units` value.
 #' @param unit A unit expression, written as it is, or a string.
 #' @return A `units` value.
@@ -83,6 +90,8 @@ u <- function(value, unit) {
   txt <- if (is.character(ex) && length(ex) == 1L && !is.na(ex)) ex else
     paste(deparse(ex, width.cutoff = 500L), collapse = " ")
   if (!nzchar(trimws(txt))) unit_abort("u(): the unit is blank; write u(35, m).")
+  # a missing logical (`NA`, `logical(0)`) is a missing or empty quantity; TRUE and FALSE are refused (2i I2)
+  if (is.logical(value) && !is.object(value) && all(is.na(value))) value <- as.numeric(value)
   if (!(inherits(value, "units") || (is.numeric(value) && !is.object(value)))) {
     unit_abort(sprintf("u(): the value must be a number or a units value, not a %s.",
                        class(value)[1L]))
@@ -315,6 +324,12 @@ convert_unit <- function(x, unit, classes = character(), keys = list(), cfg = cu
                         lad$written, rungs[same[1L]], rungs[same[2L]], rungs[same[2L]]))
   }
   i <- ladder_pick(lapply(outs, as.numeric), classes, keys, cfg)
+  # a lone zero takes the rung of the unit it is held in, when that is on the ladder (2i I9)
+  if (length(x) == 1L && isTRUE(as.numeric(x) == 0)) {
+    held <- unit_whole_id(attr(x, "units"))
+    on <- vapply(rungs, function(r) identical(tryCatch(unit_whole_id(unit_symbolic(r)), error = function(e) NA_character_), held), NA)
+    i <- if (any(on)) which(on)[1L] else 1L
+  }
   if (!is.null(on_pick)) on_pick(rungs[i], outs[[i]], rungs)
   outs[[i]]
 }
@@ -418,4 +433,41 @@ unclass_text <- function(x) {
   out <- as.character(unclass(x))
   names(out) <- nm
   out
+}
+
+# ---- the unit typed again, and a bare quantity (2i I3, I4) -----------------------------------------
+
+# The message of a bare quantity (rule 4.4.10, decision 58): `label` is the construct as written.
+bare_quantity_message <- function(label, v) {
+  sprintf(paste0("weft: %s is a quantity (%s) and its unit is not printed. Add `{.num}` to print it ",
+                 "with its unit, or `{.nounit}` to say the unit is not wanted (rule 4.4.10)."),
+          label, as.character(v)[1L])
+}
+
+# Whether `v` is a quantity that holds a unit.
+is_unit_quantity <- function(v) inherits(v, "units") && unit_present(attr(v, "units"))
+
+# The message when the prose `following` a printed quantity `rec` (a `weft_text` that carries its
+# unit) types the unit again, as its symbol or its name, or NULL (decision 59). Only the next word
+# after white space counts; nothing is removed.
+typed_unit_message <- function(rec, following, cfg) {
+  suf <- attr(rec, "unit_suffix")
+  un <- attr(rec, "units")
+  if (is.null(un) || !length(suf) || !nzchar(suf[length(suf)]) || is.na(following)) return(NULL)
+  m <- regmatches(following, regexec("^[ \t\n ]+([^ \t\n ]+)", following))[[1L]]
+  if (length(m) < 2L) return(NULL)
+  word <- sub("[.,;:!?)”’]+$", "", m[2L])
+  if (!nzchar(word)) return(NULL)
+  shown <- gsub("^[ \t\n ]+|[ \t\n ]+$", "", suf[length(suf)])
+  shown <- gsub("\\\\", "", shown)
+  lang <- current_lang()
+  nms <- unlist(lapply(c(FALSE, TRUE), function(pl) {
+    tryCatch(unit_name_text(un, pl, cfg, lang), error = function(e) NULL)
+  }))
+  sym <- tryCatch(unit_symbol_text(un, TRUE, cfg, lang), error = function(e) NULL)
+  hit <- identical(word, shown) || (length(sym) && identical(word, gsub("\\\\", "", sym))) ||
+    tolower(word) %in% tolower(c(nms, shown))
+  if (!hit) return(NULL)
+  sprintf(paste0("weft: the unit is printed (\"%s\") and the text after it types it again (\"%s %s\"); ",
+                 "delete the word you typed (rule 4.4.10)."), shown, shown, word)
 }

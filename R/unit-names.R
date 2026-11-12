@@ -374,12 +374,14 @@ symbol_needs_name <- function(un, lang) {
 }
 
 # The symbol of one token: list(text, raw) or list(name = TRUE).
-tok_symbol <- function(tok, cfg) {
+# `keep` is TRUE for a token inside a compound: it prints as typed (`mm/hr`, 4.4.20; 2i I7).
+tok_symbol <- function(tok, cfg, keep = FALSE) {
   r <- tok_resolve(tok)
   E <- unit_proj(cfg, paste0(r$id, "/"))
   if (is.character(E$symbol)) return(list(text = E$symbol, raw = TRUE))
   if (identical(E$symbol, FALSE)) return(list(name = TRUE))
   if (!r$known) return(list(text = tok))
+  if (keep && is.na(r$pre)) return(list(text = tok))
   db <- ud_db()
   S <- SHIPPED_UNITS[[db$id[r$row]]] %||% list()
   # a unit with no symbol prints its name, but a prefix makes the abbreviation one (`Myr`)
@@ -428,8 +430,9 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
   s <- gsub("\\^-", "^\u2212", s, perl = TRUE)
   s <- gsub("*", "\u00b7", s, fixed = TRUE)
   us <- lang_is_us(lang)
+  keep <- length(c(f$num, f$den)) > 1L
   for (tok in toks) {
-    sy <- tok_symbol(tok, cfg)
+    sy <- tok_symbol(tok, cfg, keep)
     txt <- if (isTRUE(sy$name)) {
       symbol_needs_name(un, lang)
       tn <- tok_name(tok, cfg, us)
@@ -456,7 +459,8 @@ unit_prints_name <- function(un, cfg) {
   if (is.character(W$symbol)) return(FALSE)
   toks <- unique(c(un$numerator, un$denominator))
   toks <- toks[toks != "1" & !grepl("^[0-9]", toks)]
-  length(toks) > 0L && all(vapply(toks, function(t) isTRUE(tok_symbol(t, cfg)$name), NA))
+  keep <- length(toks) > 1L
+  length(toks) > 0L && all(vapply(toks, function(t) isTRUE(tok_symbol(t, cfg, keep)$name), NA))
 }
 
 # Whether a unit is printed before its number (4.4.22): the token alone, power 1, whose row says

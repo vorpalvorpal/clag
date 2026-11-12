@@ -94,9 +94,13 @@ join_pieces <- function(gaps, outs, gov, pos = FALSE) {
       acc <- paste0(acc, o)
       next
     }
-    rest <- gaps[i + 1L]
-    nxt <- if (nzchar(rest)) rest else if (i < n) outs[i + 1L] else ""
-    post <- if (!nzchar(nxt) || (i == n && grepl("^[ \t]*$", rest)) ||
+    # a chain (1.5.20): spans with nothing between them are one; look past the empty ones
+    # to the first piece that prints, or to the text after the chain
+    last <- i
+    while (last < n && !nzchar(gaps[last + 1L]) && gov[last + 1L] && !nzchar(outs[last + 1L])) last <- last + 1L
+    rest <- gaps[last + 1L]
+    nxt <- if (nzchar(rest)) rest else if (last < n) outs[last + 1L] else ""
+    post <- if (!nzchar(nxt) || (last == n && grepl("^[ \t]*$", rest)) ||
                 grepl("^[ \t]*\n[ \t]*\n", rest)) {
       "end"
     } else if (grepl("^[ \n]", nxt)) {
@@ -107,7 +111,7 @@ join_pieces <- function(gaps, outs, gov, pos = FALSE) {
     start <- grepl("^\\s*$", acc) || grepl("\n[ \t]*\n[ \t]*$", acc) ||
       grepl("(^|\n)[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|:)[ \t]+)+$", acc)
     if (start) {
-      if (post == "space" && nzchar(rest)) gaps[i + 1L] <- substring(rest, 2L)
+      if (post == "space" && nzchar(rest)) gaps[last + 1L] <- substring(rest, 2L)
     } else if (post != "other" && grepl("[ \n]$", acc)) {
       acc <- substr(acc, 1L, nchar(acc) - 1L)
     }
@@ -154,9 +158,12 @@ run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
   on.exit(weft_env$inline <- old, add = TRUE)
   if (!live) {
     # outside a knit (strict): nothing is collected and no condition is hidden
+    weft_env$bare_aux <- NULL
     out <- tryCatch(list(ok = TRUE, value = in_knit_dir(run())),
                     error = function(e) list(ok = FALSE, error = e))
     out$claim_failed <- FALSE
+    out$quantity <- weft_env$bare_aux$value
+    weft_env$bare_aux <- NULL
     return(out)
   }
   src <- sprintf("%s:%d", file, line)
@@ -182,6 +189,7 @@ run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
     })
   out$claim_failed <- isTRUE(weft_env$inline$failed)
   out$aux <- weft_env$bare_aux
+  out$quantity <- weft_env$bare_aux$value
   weft_env$bare_aux <- NULL
   out
 }
@@ -368,6 +376,23 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       invisible(NULL)
     }
+  }
+
+  # a unit warning (2i I3, I4): a `weft_unit_warning` outside a knit, a warned check in one
+  unit_note <- function(msg, file, line, expr) {
+    if (strict) {
+      rlang::warn(msg, class = c("weft_unit_warning", "weft_warning"))
+    } else {
+      add_warning(s, "unit warning", file = file, line = line, expr = expr, detail = msg,
+                  chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)
+    }
+    invisible(NULL)
+  }
+  # the printed records of the value constructs, for the unit typed after one (I4)
+  L_rec <- list()
+  typed_after <- function(rec, following, file, line, expr) {
+    msg <- typed_unit_message(rec, following, cfg)
+    if (!is.null(msg)) unit_note(msg, file, line, expr)
   }
 
   # the label of a record made inside a governed span: its governor expression
@@ -591,6 +616,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       cur <- it$end + 1L
     }
     gaps[length(items) + 1L] <- substr(text, cur, b)
+    for (i in seq_along(items)) {
+      it <- items[[i]]
+      rec <- if (it$type == "row") L_rec[[as.character(it$k)]]
+      if (!is.null(rec)) typed_after(rec, gaps[i + 1L], R$file[it$k], R$line[it$k], source_label(it$k))
+    }
     res <- join_pieces(gaps, outs, vapply(items, governed, NA), pos = top)
     if (top) {
       top_pos <<- attr(res, "pos")
@@ -620,6 +650,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     idf <- data.frame(start = vapply(items, function(it) it$start, 0L),
                       end = vapply(items, function(it) it$end, 0L))
     tmpl <- arm_template_range(S, r$a, r$b, idf)
+    if (!is.null(record) && length(attr(record, "unit_suffix"))) {
+      after <- regmatches(tmpl, regexec("\ue001([^\ue001\ue002]*)", tmpl))[[1L]]
+      if (length(after) == 2L) typed_after(record, after[2L], R$file[k], R$line[k], source_label(k))
+    }
     fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA))
   }
 
@@ -647,6 +681,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!is.null(ev$aux)) {
       bare_aux$raw <<- ledger_raw(ev$aux$value)
       bare_aux$unit <<- ledger_unit(ev$aux$value)
+    }
+    if (is_unit_quantity(ev$quantity) && !ev$claim_failed) {
+      unit_note(bare_quantity_message(label, ev$quantity), li$file, li$line, label)
     }
     if (ev$claim_failed) {
       bare_aux$failed <<- "failed claim"
@@ -678,6 +715,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         rr <- apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
                                on_zero = zero_note(k, label), on_pick = pick_note(k))
         L_rel[k] <<- ledger_rel(rr)
+        if (length(attr(rr, "unit_suffix"))) L_rec[[as.character(k)]] <<- rr
         paste(as.character(rr), collapse = "")
       } else {
         apply_text_classes(stock_print(v), setdiff(cc$own, attr(v, "text_classes")), symbol = isTRUE(attr(v, "is_symbol")))

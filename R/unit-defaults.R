@@ -52,6 +52,8 @@ unit_own_symbol <- function(tok) {
 unit_symbolic <- function(txt) {
   x <- with_kept_names(units::as_units(txt))
   un <- attr(x, "units")
+  # inside a compound a token is kept as typed (`mm/hr` is not `mm/h`, 4.4.20)
+  if (length(unique(setdiff(c(un$numerator, un$denominator), "1"))) > 1L) return(un)
   un$numerator <- vapply(un$numerator, unit_own_symbol, "", USE.NAMES = FALSE)
   un$denominator <- vapply(un$denominator, unit_own_symbol, "", USE.NAMES = FALSE)
   un
@@ -123,7 +125,8 @@ UNIT_MISREAD_LIST <- c(
   ka = "a kiloare (`k` + `a`)",
   gal = "the galileo, a unit of acceleration",
   mt = "a millitonne (`m` + `t`), which is 1 kg",
-  kt = "a knot, a unit of speed, not a kilotonne")
+  kt = "a knot, a unit of speed, not a kilotonne",
+  grade = "an angle, the gon (a hundredth of a right angle)")
 
 unit_token_refusal <- function(tok, ctx) {
   mk <- function(body) list(body = body, text = paste0(body, " (rule 4.4.20)."))
@@ -134,7 +137,9 @@ unit_token_refusal <- function(tok, ctx) {
   si <- " To take that reading, set `unit_defaults: si` in _weft.yml"
   if (identical(ctx$mode, "weft")) {
     if (tok %in% names(UNIT_MISREAD_LIST)) {
-      advice <- if (tok == "mt") "Write `t` for a tonne, or `Mt` for a megatonne." else
+      advice <- if (tok == "grade") paste0("For a grade or a score, define a unit of your own in `units:` in _weft.yml ",
+                                           "under another key (for example `zzgrade: {name: grade}`).") else
+        if (tok == "mt") "Write `t` for a tonne, or `Mt` for a megatonne." else
         if (tok == "kt") paste0("Write `knot` for the knot, or define a unit of your own for the kilotonne in `units:` ",
                                 "(for example `ktonne: {is: 1000 t}`).") else
         sprintf(paste0("weft's default table defines it, and `%s: false` in `units:` removed that row; ",
@@ -580,7 +585,7 @@ units_table_rows <- function(tbl, where) {
 
 # The entries (key, id and the fields that print) of the rows `rows` of one table, with the
 # problems of each key. Keys without `is` register the tokens the database lacks (4.4.7).
-units_entries <- function(rows, where, installed) {
+units_entries <- function(rows, where, installed, project = FALSE) {
   problems <- character()
   prob <- function(key, what) {
     problems <<- c(problems, sprintf("%s: units: `%s`: %s (rule 9.1.7)", where, key, what))
@@ -613,6 +618,11 @@ units_entries <- function(rows, where, installed) {
     }
     if (!is.null(un) && length(problems) == n0) {
       ent <- c(list(key = key, id = unit_whole_id(un)), row[intersect(names(row), UNIT_ENTRY_FIELDS)])
+      # a unit of the project's own with a name and no symbol has no symbol (2i I5): it prints by
+      # name. A unit weft or the units package already knows keeps its symbol.
+      if (project && !is.null(ent$name) && is.null(ent$symbol) && grepl(UNIT_TOKEN_RE, key) &&
+          is.null(row$is) && !isTRUE(tok_resolve_db(key)$known) &&
+          !(key %in% vapply(unit_default_rows(), function(d) d$key, ""))) ent$symbol <- FALSE
       dup <- vapply(entries, function(x) identical(x$id, ent$id), NA)
       if (any(dup)) {
         prob(key, sprintf("is the same unit as `%s`; give it one entry", entries[[which(dup)[1L]]]$key))
@@ -774,7 +784,7 @@ read_units_tables <- function(tabs, mode) {
     sy <- e_def$entries[[i]]$symbol
     if (is.character(sy)) e_def$entries[[i]]$symbol <- gsub(" ", "\u00a0", sy, fixed = TRUE)
   }
-  e_t <- lapply(1:2, function(t) units_entries(tb[[t]]$rows, wheres[t], installed))
+  e_t <- lapply(1:2, function(t) units_entries(tb[[t]]$rows, wheres[t], installed, project = TRUE))
   for (t in 1:2) probs[[t]] <- c(probs[[t]], e_t[[t]]$problems)
   if (length(probs[[1L]]) || length(probs[[2L]])) fail(installed$tok)
   # a document's entry for a unit replaces the project's

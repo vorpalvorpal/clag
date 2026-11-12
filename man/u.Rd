@@ -47,6 +47,13 @@ reads as a prefix and another unit that a report does not mean (\code{mt} as a
 millitonne, \code{kt} as a knot, \code{kph} as a kilophot) is a \code{weft_unit_error} whose message says what
 it was read as and what to write; under \code{unit_defaults: si} it is read as the
 \code{units} package reads it (rule 4.4.20).
+
+\code{u(NA, mm)} is a missing quantity and \code{u(logical(0), mm)} an empty one; \code{TRUE} and
+\code{FALSE} are refused. Inside a compound unit each token is kept as typed and prints as typed
+(\code{mm/hr} prints \code{mm/hr}, rule 4.4.20). \code{grade} is refused like \code{mt}: the \code{units} package reads it
+as an angle; name a project unit in \verb{units:} instead. A bare quantity in prose (\code{`r u(3, mm)`}
+with no class) prints as stock knitr prints it and raises a \code{weft_unit_warning}; add \code{{.num}} or
+\code{{.nounit}}. The same warning is raised when the prose after a printed quantity types its unit again.
 }
 \examples{
 u(35, m)

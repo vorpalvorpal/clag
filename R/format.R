@@ -712,6 +712,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   is_year <- inherits(value, "weft_year")
   if (length(ncls)) {
     cls <- ncls[1]
+    if (!is.null(un) && cls == ".pct" &&
+        identical(tryCatch(unit_symbol_text(un, TRUE, cfg, current_lang()), error = function(e) NULL), "%")) {
+      value_error(paste0("`.pct` on a quantity in per cent: the unit already prints \"%\", so drop `.pct` ",
+                         "and write the quantity with `.num` (rule 4.4.8)."))
+    }
     if (!is.null(un) && cls %in% c(".pct", ".p", ".date")) {
       value_error(sprintf(paste0("`%s` cannot format a quantity in %s: give it a number ",
                                  "with no unit (rule 4.4.8)."), cls, as.character(un)))
