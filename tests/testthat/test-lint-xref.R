@@ -343,9 +343,13 @@ test_that("3d L33 anchor-unused: bookdown anchors fig:, tab:, eq: under .Rmd", {
   expect_none(xr(list("a.Rmd" = used), "anchor-unused"))
 })
 
-test_that("3d L33 anchor-unused: tier 2 is not listed at the default tier", {
+test_that("3d L33 anchor-unused: tier 2 is off by default, but a rule named in rules runs (ruling 9)", {
   root <- lint_proj(list("a.qmd" = fig_chunk("fig-depth")))
-  expect_none(lints(root, rules = "anchor-unused"))
+  expect_none(lints(root))
+  expect_identical(nrow(lints(root, rules = "anchor-unused")), 1L)
+  x <- lints(root, rules = "anchor-unused", tier = 1)
+  expect_none(x)
+  expect_match(paste(attr(x, "notes"), collapse = " "), "anchor-unused", fixed = TRUE)
   expect_identical(nrow(lints(root, rules = "anchor-unused", tier = 2)), 1L)
 })
 

@@ -49,9 +49,13 @@ test_that("3b L20: claim words and no value give the other message", {
   expect_identical(x$sentence, "The largest site rose.")
 })
 
-test_that("3b L20: tier 2 means the default tier of lints() does not list it", {
+test_that("3b L20: tier 2 is off by default, but a rule named in rules runs (ruling 9)", {
   root <- lint_proj(list("a.qmd" = "All sites rose."))
-  expect_identical(nrow(lints(root, rules = "claim-word")), 0L)
+  expect_identical(nrow(lints(root)), 0L)
+  expect_identical(lints(root, rules = "claim-word")$text, "all, rose")
+  x <- lints(root, rules = "claim-word", tier = 1)
+  expect_identical(nrow(x), 0L)
+  expect_match(paste(attr(x, "notes"), collapse = " "), "claim-word", fixed = TRUE)
   expect_identical(lints(root, rules = "claim-word", tier = 2)$text, "all, rose")
   expect_identical(lints(root, rules = "claim-word", tier = 1:2)$text, "all, rose")
 })

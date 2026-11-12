@@ -96,7 +96,8 @@ test_that("3b L18: several fences and several spans give one finding each", {
   f <- c("```", "x", "```")
   x <- bs(c("[a |", f, "b]{n=\"k\"}", "", "[d |", f, "e]{if=\"ok\"}"))
   expect_identical(x$text, c("```", "```"))
-  expect_identical(x$line, c(2L, 6L))
+  # lines: 1 "[a |", 2-4 fence, 5 "b]{..}", 6 blank, 7 "[d |", 8-10 fence, 11 "e]{..}"
+  expect_identical(x$line, c(2L, 8L))
 })
 
 test_that("3b L18: a marker inside a fenced block is not a finding", {

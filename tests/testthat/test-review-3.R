@@ -315,16 +315,21 @@ test_that("review-3 #11: the --- under such a paragraph is not blanked from the 
 
 # ---- #12: classes on code spans --------------------------------------------------------------------------------------------
 
-test_that("review-3 #12: a highlighting class on a code span is not a one-edit name", {
-  for (line in c("A `int x`{.cpp} here.", "A `x`{.end} here.", "A `x`{.python} here.")) {
+test_that("review-3 #12: a highlighting class on a code span is never a name finding", {
+  # cpp/cap, gap/cap, elm/em, nim/num, go/no and xul/ul are highlighting languages one edit from a weft class
+  for (line in c("A `int x`{.cpp} here.", "A `x`{.gap} here.", "A `x`{.elm} here.", "A `x`{.nim} here.",
+                 "A `x`{.go} here.", "A `x`{.xul} here.", "A `x`{.python} here.")) {
     expect_identical(nrow(lint_one(line, rules = "name")), 0L, info = line)
   }
 })
 
-test_that("review-3 #12: a class one edit from a weft class is flagged only with a governor or key", {
-  expect_identical(nrow(lint_one("A `r x`{.nun} here.", rules = "name")), 0L)
-  x <- lint_one("A `r x`{.nun n=\"k\"} here.", rules = "name")
-  expect_identical(x$text, ".nun")
+test_that("review-3 #12: any other class one edit from a weft class is flagged on a code span, with or without a governor", {
+  x <- lint_one("A `r x`{.nmu} here.", rules = "name")
+  expect_identical(x$text, ".nmu")
+  x <- lint_one("A `x`{.nmu} here.", rules = "name")
+  expect_identical(x$text, ".nmu")
+  x <- lint_one("A `r x`{.nmu n=\"k\"} here.", rules = "name")
+  expect_identical(x$text, ".nmu")
 })
 
 # ---- #13: punctuation of two messages ------------------------------------------------------------------------------------------
@@ -555,4 +560,34 @@ test_that("review-3 S3: the same code span outside a comment is still a finding"
                 rules = "xref-code", tier = 2)
   expect_identical(nrow(x), 1L)
   expect_identical(x$line, 3L)
+})
+
+# ---- extra: a paragraph over 10 KB ----------------------------------------------------------------
+
+r3_long_sentences <- function() {
+  s <- paste0("Site ", seq_len(400), " was sampled.")
+  s[100] <- "The largest value was always 4321 here."
+  s
+}
+
+test_that("review-3 extra: a single paragraph over 10 KB lints without error and finds the numeral and claim word", {
+  for (lines in list(paste(r3_long_sentences(), collapse = " "),
+                     strsplit(paste(r3_long_sentences(), collapse = " "), "(?<=\\.) (?=Site 1[0-9]0 )", perl = TRUE)[[1]])) {
+    expect_gt(sum(nchar(lines, "bytes")), 10000L)
+    root <- lint_proj(list("a.qmd" = lines))
+    x <- expect_no_error(lints(root, tier = 1:2))
+    expect_true("claim-word" %in% x$rule)
+    expect_true("numeral" %in% x$rule)
+    expect_true(any(grepl("always", x$text[x$rule == "claim-word"], fixed = TRUE)))
+    expect_true(any(grepl("4321", x$text[x$rule == "numeral"], fixed = TRUE)))
+  }
+})
+
+test_that("review-3 extra: a 12 KB line inside a pipe table row and inside a list item lints without error", {
+  long <- paste(rep("word", 2400), collapse = " ")
+  expect_gt(nchar(long), 10000L)
+  tbl <- c("| a | b |", "|---|---|", paste0("| ", long, " | 2 |"))
+  expect_no_error(lints(lint_proj(list("a.qmd" = tbl)), tier = 1:2))
+  lst <- c("- first", paste0("- ", long), "- third")
+  expect_no_error(lints(lint_proj(list("a.qmd" = lst)), tier = 1:2))
 })
