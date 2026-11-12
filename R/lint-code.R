@@ -683,6 +683,22 @@ osa_dist <- function(a, b) {
   d[nx + 1L, ny + 1L]
 }
 
+# Pandoc's highlighting languages, lower case, from `quarto pandoc --list-highlight-languages`
+# (Pandoc 3.10, as Quarto 1.11.9 ships it).
+PANDOC_HIGHLIGHT_LANGS <- strsplit(paste(
+  "abc actionscript ada agda apache asn1 asp ats awk bash bibtex boo c changelog clojure cmake coffee",
+  "coldfusion comments commonlisp cpp crystal cs css curry d dart debiancontrol default diff djangotemplate",
+  "dockerfile dosbat dot doxygen doxygenlua dtd eiffel elixir elm email erlang fasm fortranfixed fortranfree",
+  "fsharp gap gcc gdscript gleam glsl gnuassembler go gpr graphql groovy hamlet haskell haxe html idris ini",
+  "isocpp j java javadoc javascript javascriptreact json jsp julia kotlin latex lex lilypond literatecurry",
+  "literatehaskell llvm lua m4 makefile mandoc markdown mathematica matlab maxima mediawiki metafont mips",
+  "modelines modula2 modula3 monobasic mustache nasm nim nix noweb objectivec objectivecpp ocaml octave odin",
+  "opencl orgmode pascal perl php pike postscript povray powershell prolog protobuf pure purebasic",
+  "purescript python qml r racket raku relaxng relaxngcompact rest rhtml roff ruby rust sass scala scheme",
+  "sci scss sed sgml sml spdxcomments sql sqlmysql sqlpostgresql stan stata swift systemverilog tcl tcsh",
+  "terraform texinfo tlaplus toml typescript typst verilog vhdl xml xorg xslt xul yacc yaml zig zsh pandoc"),
+  " ", fixed = TRUE)[[1L]]
+
 lint_name <- function(src, ctx) {
   cfg <- src$cfg
   reg <- cfg$formatters %||% list()
@@ -726,10 +742,8 @@ lint_name <- function(src, ctx) {
       end <- pos + nchar(nm) - 1
       if (!known) {
         near <- nearest(nm, is_class)
-        # on a code span a class is "one edit" from weft's only when a governor or key is there too:
-        # `{.cpp}` is a highlighting language, not a typo (review 3, finding 12)
-        if (is_class && identical(it$kind, "code") && !any(tk$type == "key") && !is.na(near) &&
-            tolower(sub("^\\.", "", nm)) != tolower(sub("^\\.", "", near))) next
+        # a Pandoc highlighting language on a code span is never flagged (`{.cpp}`)
+        if (is_class && identical(it$kind, "code") && tolower(sub("^\\.", "", nm)) %in% PANDOC_HIGHLIGHT_LANGS) next
         if (!construct && is.na(near)) next
         msg <- if (!is.na(near)) {
           sprintf("`%s` is not a name weft knows; it is one edit from `%s` (rule 5.3.3).", nm, near)

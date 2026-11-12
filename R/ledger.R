@@ -659,7 +659,8 @@ sentence_starts_of <- function(m, lang) {
 sentence_cache <- new.env(parent = emptyenv())
 
 sentence_cuts <- function(para, keep, lang) {
-  cacheable <- !grepl("^[", para, fixed = TRUE)
+  # an environment key is a name, limited to 10000 bytes: a long paragraph is not kept
+  cacheable <- !grepl("^[", para, fixed = TRUE) && nchar(para, "bytes") < 4000L
   if (cacheable) {
     key <- paste(lang, para, sep = "\r\001")
     hit <- sentence_cache[[key]]
