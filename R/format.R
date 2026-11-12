@@ -96,6 +96,11 @@ group_int <- function(digits, mark) {
 
 is_whole <- function(v) abs(v - round(v)) < 1e-9
 
+# Whether a quantity's number is whole (the 1e-9 snap of 1.4.13 does not apply to a quantity: a number
+# below 1e-9 is not zero, and goes through the zero rule of 4.4.13). Noise around a nonzero whole number
+# still snaps.
+is_whole_q <- function(v) v == 0 | (round(v) != 0 & abs(v - round(v)) < 1e-9)
+
 # Round half away from zero on the decimal number as written (the double is
 # first read to 15 significant digits, so 0.15 is 0.15 and not 0.1499...).
 round_half_away <- function(x, nd) {
@@ -115,7 +120,7 @@ round_half_away <- function(x, nd) {
 
 # One number printed by rule 1.4.13: returns text, the number as printed and
 # whether decimals show.
-print_one <- function(v, digits, sigfig, cfg) {
+print_one <- function(v, digits, sigfig, cfg, quantity = FALSE) {
   if (!is.null(sigfig)) {
     s <- if (v == 0) 0 else round_half_away(v, sigfig - 1L - floor(log10(abs(v))))
     nd <- if (s == 0) sigfig - 1L else max(sigfig - 1L - floor(log10(abs(s))), 0L)
@@ -123,7 +128,7 @@ print_one <- function(v, digits, sigfig, cfg) {
     nd <- as.integer(digits)
     s <- round_half_away(v, nd)
   } else {
-    nd <- if (is_whole(v)) 0L else as.integer(cfg$digits)
+    nd <- if ((if (quantity) is_whole_q(v) else is_whole(v))) 0L else as.integer(cfg$digits)
     s <- round_half_away(v, nd)
   }
   str <- sprintf(paste0("%.", nd, "f"), abs(s))
@@ -155,7 +160,8 @@ key_number <- function(keys, name) {
 # one that would print as zero prints as written (stage 1i). The result
 # carries `zero` when a number that is not zero printed as zero under default
 # digits: the elements, the first value and what printed.
-format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE) {
+format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE, quantity = FALSE) {
+  whole <- if (quantity) is_whole_q else is_whole
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
   if (!is.null(sigfig) && sigfig < 1) {
@@ -167,15 +173,15 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE)
   if (is.null(bound)) bound <- rep(FALSE, length(value))
   default <- is.null(digits) && is.null(sigfig) && class %in% c(".num", ".pct")
   # `.range` prints both ends to the default decimals; that is not a `digits` given
-  if (range && default && !all(is_whole(value[is.finite(value)]))) digits <- cfg$digits
+  if (range && default && !all(whole(value[is.finite(value)]))) digits <- cfg$digits
   hit <- rep(FALSE, length(value))
   shown <- rep("", length(value))
   one <- function(i) {
     v <- value[i]
     if (class == ".sci") return(sci_one(v, digits, sigfig, cfg))
     sv <- if (class == ".pct" && isTRUE(cfg$pct_proportion)) v * 100 else v
-    p <- print_one(sv, digits, sigfig, cfg)
-    if (default && p$number == 0 && sv != 0 && !is_whole(sv)) {
+    p <- print_one(sv, digits, sigfig, cfg, quantity)
+    if (default && p$number == 0 && sv != 0 && !whole(sv)) {
       if (bound[i]) {
         nd <- 0L
         while (nd < 15L && abs(sv - round(sv, nd)) > 1e-12 * max(1, abs(sv))) nd <- nd + 1L
@@ -486,7 +492,22 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # `unit` converts a quantity before anything else (4.4.14)
   # a ladder of units (4.4.23) picks one by the value
   ladder <- NULL
+  if (!is.null(keys$unit) && inherits(value, "weft_text") && !is.null(attr(value, "units"))) {
+    # a formatter's text keeps its quantity (4.4.4): `unit` acts on it as on the quantity itself
+    num <- attr(value, "raw")
+    if (!is.numeric(num) || anyNA(num)) num <- attr(value, "number")
+    if (is.numeric(num) && !anyNA(num) && length(num) == length(value)) {
+      q <- units::set_units(as.numeric(num), attr(value, "units"), mode = "standard")
+      if (!is.null(names(value))) names(q) <- names(value)
+      value <- q
+    }
+  }
   if (!is.null(keys$unit)) {
+    if (".sci" %in% classes && is.null(ladder_split(keys$unit)$problem) && length(ladder_split(keys$unit)$rungs) > 1L) {
+      value_error(sprintf(paste0("`.sci` cannot go with a ladder of units (`unit = %s`): scientific notation has no ",
+                                 "window of 1 up to 1,000 to pick a rung by. Name one unit (rule 4.4.23)."),
+                          ladder_split(keys$unit)$written))
+    }
     value <- convert_unit(value, keys$unit, classes, keys, cfg, function(rung, v, rungs) {
       if (length(rungs) > 1L) ladder <<- list(rungs = rungs, picked = rung)
       if (!is.null(on_pick)) on_pick(rung, v, length(rungs) > 1L)
@@ -502,6 +523,9 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   text_q <- FALSE
   ratio <- FALSE
   keep_case <- isTRUE(attr(value, "is_symbol"))
+  was_symbol <- keep_case
+  orig_text <- if (inherits(value, "weft_text")) value else NULL
+  prior_tc <- attr(value, "text_classes")
   in_spelled <- NULL
   if (inherits(value, "units")) {
     if (unit_present(attr(value, "units"))) un <- attr(value, "units") else ratio <- TRUE
@@ -605,11 +629,13 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       text[nz] <- paste0(mark, text[nz], mark)
       text
     }
-    if (".a" %in% classes) text <- add_article(text, cfg$minus)
-    if (".cap" %in% classes && !keep_case) text <- capitalise(text)
-    if (".em" %in% classes) text <- wrap(text, "*")
-    if (".strong" %in% classes) text <- wrap(text, "**")
-    for (nm in proj("text")) {
+    # a class a text already carries is applied once (4.4.8)
+    cl <- setdiff(classes, prior_tc)
+    if (".a" %in% cl) text <- add_article(text, cfg$minus)
+    if (".cap" %in% cl && !keep_case) text <- capitalise(text)
+    if (".em" %in% cl) text <- wrap(text, "*")
+    if (".strong" %in% cl) text <- wrap(text, "**")
+    for (nm in intersect(proj("text"), cl)) {
       text <- as.character(apply_project(reg[[nm]], text, NULL))
     }
     text
@@ -641,14 +667,18 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   base_form <- cfg$unit_form %||% "auto"
   form_in_force <- if (is.null(explicit)) base_form else explicit
   keep_forms <- text_q && is.null(explicit) && !length(ncls) && !length(wording_cls) && !length(spell_cls)
-  if (!is.null(un)) {
+  # only text classes on a quantity's text: the unit stays where it is, inside any markup (4.4.8)
+  pass_text <- keep_forms && !governor && !length(c(intersect(classes, COLLAPSE_CLASSES), proj("collapse"))) &&
+    is.null(trunc)
+  if (length(ncls)) prior_tc <- NULL
+  judge_unit <- function(un1, rung = FALSE) {
     if (keep_forms) {
       if (any(tforms == "name", na.rm = TRUE) && !lang_is_english(lang)) {
         construct_error(sprintf("A unit's name is English words, and the document's `lang` is `%s` (rule 1.6.8).", lang))
       }
     } else {
       # a unit with no symbol prints its name in every form (9.1.7), so no error
-      if (form_in_force == "symbol" && length(spell_cls) && !unit_prints_name(un, cfg)) {
+      if (form_in_force == "symbol" && length(spell_cls) && !unit_prints_name(un1, cfg)) {
         value_error(sprintf(paste0(
           "`%s` cannot print a quantity under `unit_form: symbol` (set in %s): a spelled number takes the ",
           "unit's name, and \"%s m\" is not written. Use `.uname` to print the name, `.nounit` to print ",
@@ -661,8 +691,19 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                                        "`unit_form = \"name\"` is not available (rule 1.6.8)."), lang))
       }
       if (form_in_force == "name" || (form_in_force == "auto" && length(spell_cls))) {
-        invisible(unit_name_text(un, TRUE, cfg, lang))
+        invisible(unit_name_text(un1, TRUE, cfg, lang))
+      } else if (rung && form_in_force != "none") {
+        # a rung that is not picked prints in the symbol form if it is: its symbol, or the name of a unit
+        # with none, must print, whichever rung the data pick (4.4.23)
+        invisible(unit_symbol_text(un1, TRUE, cfg, lang))
       }
+    }
+  }
+  if (!is.null(un)) {
+    judge_unit(un)
+    # every rung of a ladder is judged as the picked one is, so that no error comes and goes with the data (4.4.23)
+    if (!is.null(ladder)) {
+      for (rg in ladder$rungs) judge_unit(unit_symbolic(rg), rung = TRUE)
     }
   }
   rec <- NULL
@@ -705,7 +746,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         rec <- format_p(value, cfg)
       } else {
         bound <- if (!is.null(clamp_rel) && length(clamp_rel) == length(value)) clamp_rel != "="
-        rec <- format_numbers(value, cls, keys, cfg, bound, range = ".range" %in% classes && cls == ".num")
+        rec <- format_numbers(value, cls, keys, cfg, bound, range = ".range" %in% classes && cls == ".num",
+                              quantity = !is.null(un))
         # a value a formatter already warned about is not warned about twice
         zero <- attr(rec, "zero")
         if (was_warned && is.null(clamp_rel)) zero <- NULL
@@ -719,10 +761,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       }
     }
   } else if (inherits(value, "weft_text")) {
-    rec <- value
+    rec <- if (pass_text) orig_text else value
   } else if (is.numeric(value)) {
     # `.range` prints both ends to the same number of decimals (1.4.4)
-    rec <- format_numbers(value, ".num", keys, cfg, range = ".range" %in% classes)
+    rec <- format_numbers(value, ".num", keys, cfg, range = ".range" %in% classes, quantity = !is.null(un))
     zero <- attr(rec, "zero")
     attr(rec, "zero") <- NULL
   } else {
@@ -836,10 +878,12 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   elem_pre <- vapply(seq_len(n_el), function(i) prefix_of(forms[i], !is_one[i], spelled[i]), "")
   add_unit <- function(txt) {
+    if (pass_text) return(txt)
     if (length(txt) == length(elem_suffix)) paste0(elem_pre, txt, elem_suffix) else txt
   }
   out_forms <- forms
   out_suffix <- if (unit_pre) elem_pre else elem_suffix
+  if (pass_text && length(attr(orig_text, "unit_suffix")) == n_el) out_suffix <- attr(orig_text, "unit_suffix")
 
   collapsed <- FALSE
   if (governor) {
@@ -971,6 +1015,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
+  if (!governor) {
+    tc <- union(prior_tc, intersect(classes, c(".a", ".cap", ".em", ".strong", proj("text"))))
+    if (length(tc)) attr(out, "text_classes") <- tc
+    if (was_symbol) attr(out, "is_symbol") <- TRUE
+  }
   if (!collapsed && !is.null(nms) && length(nms) == length(text)) names(out) <- nms
   out
 }
@@ -1027,7 +1076,9 @@ apply_project <- function(spec, x, number_source) {
 #'   picked: one that does not convert, is refused or is the size of another is
 #'   a `weft_value_error`, and an empty or repeated unit is a
 #'   `weft_construct_error`. A ladder of one unit is that unit. The `units`
-#'   attribute holds the unit picked.
+#'   attribute holds the unit picked. `unit` also converts a formatter's text
+#'   that carries a quantity, as it converts the quantity itself. `.sci` with
+#'   a ladder of more than one unit is a `weft_value_error`.
 #' @param unit_form How a quantity's unit prints (rule 3.4.8): `NULL` (the
 #'   setting `unit_form` in force: `"auto"` unless `_weft.yml` or the document
 #'   says otherwise, and for a `weft_text` input given a collapse class alone,
@@ -1050,7 +1101,8 @@ apply_project <- function(spec, x, number_source) {
 #' `weft_value_error`.
 #'
 #' A number whose absolute value (for `fmt_pct()`, the percentage's) is below
-#' 1e-9 is zero and prints "0". Any other number prints to the default
+#' 1e-9 is zero and prints "0"; the quantity of a unit is not snapped, and a
+#' small one goes through the rule below as any other number does. Any other number prints to the default
 #' digits, however small: `fmt_num(0.04)` is "0.0" and `fmt_pct(0.0004)` is
 #' "0.0%", never "-0.0". When neither `digits` nor `sigfig` is given (a
 #' project default `digits` does not count) and `fmt_num()` or `fmt_pct()`

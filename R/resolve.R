@@ -675,7 +675,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
         L_rel[k] <<- ledger_rel(rr)
         paste(as.character(rr), collapse = "")
       } else {
-        apply_text_classes(stock_print(v), cc$own, symbol = isTRUE(attr(v, "is_symbol")))
+        apply_text_classes(stock_print(v), setdiff(cc$own, attr(v, "text_classes")), symbol = isTRUE(attr(v, "is_symbol")))
       }
     }, error = function(e) e)
     if (inherits(res, "error")) return(fail_from_error(k, res, label))

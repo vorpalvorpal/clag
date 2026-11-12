@@ -45,7 +45,8 @@ no value. White space in a definition and in a string value becomes one
 space (a blank line in a definition starts a paragraph, indented four spaces
 so that Pandoc keeps it in the same definition); markdown is kept as
 written. \code{why} is never shown. The string ends with a blank line, so text
-after the chunk is not read as part of the last definition.
+after the chunk is not read as part of the last definition; a chunk adds an HTML comment after it, since knitr drops
+trailing blank lines.
 }
 \examples{
 f <- tempfile(fileext = ".yml")

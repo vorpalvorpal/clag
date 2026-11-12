@@ -213,7 +213,8 @@ tool_dict <- function(dict, fn, knit = FALSE) {
 #' space (a blank line in a definition starts a paragraph, indented four spaces
 #' so that Pandoc keeps it in the same definition); markdown is kept as
 #' written. `why` is never shown. The string ends with a blank line, so text
-#' after the chunk is not read as part of the last definition.
+#' after the chunk is not read as part of the last definition; a chunk adds an HTML comment after it, since knitr drops
+#' trailing blank lines.
 #'
 #' @param dict A dictionary, as [read_dict()] returns, or `NULL`. `NULL` in a
 #'   knit is the knit's project dictionary; outside a knit it reads `dict.yml`
@@ -263,7 +264,8 @@ dict_glossary <- function(dict = NULL, values = TRUE, sort = TRUE) {
     if (values && e$type[i] %in% c("number", "quantity", "year", "date", "string")) {
       dec <- if (is.null(decs)) NA_integer_ else unname(decs[e$key[i]])
       heads[i] <- paste0(heads[i], " (", glossary_value(vals[[e$key[i]]], e$type[i], one_line, dec,
-                                                         converted = !is.na(e$display[i])), ")")
+                                                         converted = !is.na(e$display[i]),
+                                                         unit = e$unit[i]), ")")
     }
   }
   ord <- if (sort) order(tolower(head_text), e$key, method = "radix") else seq_len(n)
@@ -275,15 +277,31 @@ dict_glossary <- function(dict = NULL, values = TRUE, sort = TRUE) {
     paste0(":   ", paste(paras, collapse = "\n\n    "))
   }, "", USE.NAMES = FALSE)
   body <- paste0(heads[ord], "\n", def[ord])
-  knitr::asis_output(paste0("\n", paste(body, collapse = "\n\n"), "\n\n"))
+  out <- knitr::asis_output(paste0("\n", paste(body, collapse = "\n\n"), "\n\n"))
+  class(out) <- c("weft_glossary", class(out))
+  out
+}
+
+# knitr trims the trailing blank lines of a chunk's output, so that the text after the chunk would be
+# read as part of the last definition: a comment on the last line ends the definition list.
+#' @exportS3Method knitr::knit_print
+knit_print.weft_glossary <- function(x, ...) {
+  knitr::asis_output(paste0(as.character(x), "<!-- -->"))
 }
 
 # The value of an entry as the glossary prints it: with the decimals it was
 # written with, or, when `display:` converted it, as fmt_num() prints it.
-glossary_value <- function(v, type, one_line, dec = NA_integer_, converted = FALSE) {
+glossary_value <- function(v, type, one_line, dec = NA_integer_, converted = FALSE, unit = NA_character_) {
   if (type == "string") return(one_line(v))
   if (type == "date") return(as.character(fmt_date(v)))
-  if (converted) return(as.character(fmt_num(v)))
+  if (converted) {
+    # a display unit that prints the value as zero: the entry's own unit, with no warning (4.7.1)
+    zeroed <- FALSE
+    txt <- as.character(apply_formatters(v, ".num", on_zero = function(msg) zeroed <<- TRUE))
+    if (!zeroed) return(txt)
+    if (!is.na(unit)) v <- u_make(v, unit)
+    converted <- FALSE
+  }
   if (type == "year") return(as.character(fmt_num(v, digits = 0L)))
   if (is.na(dec)) {
     num <- if (type == "quantity") as.numeric(units::drop_units(v)) else as.numeric(v)

@@ -8,7 +8,7 @@ d2_need()
 # ---- #1: a render started inside a chunk -------------------------------------------------------
 
 d2r_nested <- function(inner_setup) d2_memo(paste0("nested-", inner_setup), function() {
-  inner <- c(if (inner_setup) c("```{r setup, include=FALSE}", "weft::weft_setup()", "```", ""), "Inner `r 2+2`.")
+  inner <- c(if (inner_setup) c("```{r isetup, include=FALSE}", "weft::weft_setup()", "```", ""), "Inner `r 2+2`.")
   doc <- c("## Out", "", "```{r ow}", "warning('outer warn before')", "```", "", "Before `r k0`.", "",
            "```{r nest, include=FALSE}",
            "rmarkdown::render('inner.Rmd', rmarkdown::md_document(), quiet = TRUE, envir = new.env())",

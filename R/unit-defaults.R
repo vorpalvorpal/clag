@@ -97,6 +97,17 @@ unit_twin_problem <- function(from, to, to_txt) {
                      to_txt, as.character(from), g[[ff[1L]]], g[[tt[1L]]]))
     }
   }
+  # a frequency or an activity and an angle per time: the units package reads a hertz as a radian
+  # per second, so the conversion would multiply by 2 pi (4.4.14)
+  angle <- c("rpm", "rad", "\u00b0", "'", "\"", "circle", "grad")
+  freq <- c("Hz", "Bq")
+  if ((length(intersect(f, freq)) && length(intersect(t, angle))) ||
+      (length(intersect(t, freq)) && length(intersect(f, angle)))) {
+    return(sprintf(paste0("`%s`: the quantity is in `%s`, and the units package reads a hertz or a becquerel as a ",
+                          "radian per second; a frequency or an activity and an angle per time measure different ",
+                          "things, so weft does not convert one to the other"),
+                   to_txt, as.character(from)))
+  }
   NULL
 }
 
@@ -111,7 +122,8 @@ UNIT_MISREAD_LIST <- c(
   Ma = "a megaare (`M` + `a`)",
   ka = "a kiloare (`k` + `a`)",
   gal = "the galileo, a unit of acceleration",
-  mt = "a millitonne (`m` + `t`), which is 1 kg")
+  mt = "a millitonne (`m` + `t`), which is 1 kg",
+  kt = "a knot, a unit of speed, not a kilotonne")
 
 unit_token_refusal <- function(tok, ctx) {
   mk <- function(body) list(body = body, text = paste0(body, " (rule 4.4.20)."))
@@ -123,6 +135,8 @@ unit_token_refusal <- function(tok, ctx) {
   if (identical(ctx$mode, "weft")) {
     if (tok %in% names(UNIT_MISREAD_LIST)) {
       advice <- if (tok == "mt") "Write `t` for a tonne, or `Mt` for a megatonne." else
+        if (tok == "kt") paste0("Write `knot` for the knot, or define a unit of your own for the kilotonne in `units:` ",
+                                "(for example `ktonne: {is: 1000 t}`).") else
         sprintf(paste0("weft's default table defines it, and `%s: false` in `units:` removed that row; ",
                        "define it there with `is:` (see unit_defaults())."), tok)
       return(mk(sprintf("`%s` is read by the units package as %s. %s%s", tok, UNIT_MISREAD_LIST[[tok]], advice, si)))
@@ -331,6 +345,11 @@ ud_install_problem <- function(def, err, toks, dflt) {
       return(sprintf("`is` gives the same unit as `%s`%s; give it one row", m[2L],
                      if (m[2L] %in% dflt) " (weft's default table)" else ""))
     }
+    if (grepl("^[ ]*[-+]?[0-9.]", def)) {
+      # the definition already has its number: a factor cannot be given before it
+      return(sprintf(paste0("`is` `%s` is the unit the units package already writes `%s`, and it keeps one symbol ",
+                            "for a unit; use `%s`"), def, m[2L], m[2L]))
+    }
     return(sprintf(paste0("`is` `%s` is the unit the units package already writes `%s`, and it keeps one symbol ",
                           "for a unit; give a factor (`2 %s`), or use `%s`"), def, m[2L], def, m[2L]))
   }
@@ -361,13 +380,20 @@ ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
       removed <- TRUE
     }
   }
-  err <- tryCatch({
+  # A definition that is exactly a unit with a non-ASCII symbol already (`1 degree`, `1 ohm`) is
+  # refused by the units package, which maps the new symbol before it fails. Taking that symbol
+  # out again frees the symbol of the unit that was already there, and the database reads it as
+  # garbage from then on (`degree` prints as bytes). So the refusal is made here, nothing mapped.
+  own <- if (identical(def, "base")) "" else
+    tryCatch(units:::R_ut_get_symbol(units:::R_ut_parse(def)), error = function(e) "")
+  early <- length(own) == 1L && !is.na(own) && nzchar(own) && any(utf8ToInt(enc2utf8(own)) > 127L)
+  err <- if (early) sprintf("Unit already maps to \"%s\"", own) else tryCatch({
     if (identical(def, "base")) units::install_unit(tok) else units::install_unit(tok, def)
     NULL
   }, error = function(e) conditionMessage(e))
   if (!is.null(err)) {
     # what install_unit() mapped before it failed goes again
-    try(units::remove_unit(symbol = tok), silent = TRUE)
+    if (!early) try(units::remove_unit(symbol = tok), silent = TRUE)
     if (removed) ud_restore_removed(tok)
     return(list(problem = ud_install_problem(def, sub("\n.*$", "", err), toks, dflt)))
   }

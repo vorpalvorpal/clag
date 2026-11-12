@@ -308,9 +308,15 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
         p(sprintf("`display` is only for a quantity, and this is a %s", type), "4.2.7")
       } else if (is.character(dv) && length(dv) >= 1L && (length(dv) > 1L || any(grepl("|", dv, fixed = TRUE)))) {
         # `display:` takes one unit; a ladder (4.4.23) is written in a `unit` key at the use (decision 53)
-        p(sprintf(paste0("`display` `%s`: `display` takes one unit, and this is a ladder; write the ladder in a ",
-                         "`unit` key where the value is printed, such as `unit=\"%s\"`"),
-                  paste(dv, collapse = "|"), paste(trimws(dv), collapse = "|")), "4.2.7")
+        lad <- ladder_split(dv)
+        if (is.null(lad$problem) && length(lad$rungs) > 1L) {
+          p(sprintf(paste0("`display` `%s`: `display` takes one unit, and this is a ladder; write the ladder in a ",
+                           "`unit` key where the value is printed, such as `unit=\"%s\"`"),
+                    lad$written, paste(lad$rungs, collapse = "|")), "4.2.7")
+        } else {
+          p(sprintf("`display` `%s` is not a unit: `display` takes one unit (a ladder is written in a `unit` key where the value is printed)",
+                    lad$written), "4.2.7")
+        }
       } else if (is.character(dv) && length(dv) == 1L && str1(dv)) {
         disp <- trimws(dv)
       } else {

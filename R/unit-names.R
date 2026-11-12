@@ -294,6 +294,11 @@ tok_name <- function(tok, cfg, us) {
     if (!is.na(r$pre)) {
       p <- db$pf$name[r$pre]
       if (!us && p == "deka") p <- "deca"
+      if (grepl("[ _-]", sg) && us && !is.null(S$us) && !is.null(S$name) && !grepl("[ _-]", S$name)) {
+        # a prefix joins a one-word name only: en-US "metric ton" takes the default name ("megatonne")
+        sg <- S$name
+        if (!given) pl <- if (identical(S$plural, "same")) sg else S$plural %||% english_plural(sg)
+      }
       sg <- paste0(p, sg)
       if (!given) pl <- paste0(p, pl)
     }
@@ -341,9 +346,8 @@ unit_name_text <- function(un, plural, cfg, lang) {
   }
   if (!length(un$numerator) && length(f$den)) {
     neg <- paste(vapply(f$den, function(g) paste0(g$tok, "^-", g$pow), ""), collapse = "*")
-    no_name_error(un, sprintf(paste0("it is written with a negative power, which has no name (write it as a ",
-                                     "quotient, `%s`, for example `u(3, \"%s\")`)"), whole, whole),
-                  whole, shown = neg)
+    no_name_error(un, "it is written with a negative power, which has no name; name the whole unit instead",
+                  neg, shown = neg)
   }
   # a number among the factors: the whole unit needs an entry, keyed as written
   nums <- c(f$num, f$den)
@@ -381,8 +385,10 @@ tok_symbol <- function(tok, cfg) {
   # a unit with no symbol prints its name, but a prefix makes the abbreviation one (`Myr`)
   if (identical(S$symbol, FALSE) && is.na(r$pre)) return(list(name = TRUE))
   if (r$kind == "symbol") return(list(text = tok))
+  # a row whose `symbol` is `false` has no symbol to prefix: a prefixed token typed as a name prints by name
+  if (identical(S$symbol, FALSE)) return(list(name = TRUE))
   sym <- S$symbol %||% db$v$symbol[r$row]
-  if (!nzchar(sym)) return(list(name = TRUE))
+  if (!is.character(sym) || is.na(sym) || !nzchar(sym)) return(list(name = TRUE))
   list(text = paste0(if (!is.na(r$pre)) db$pf$symbol[r$pre] else "", sym))
 }
 
@@ -416,7 +422,7 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
   swap <- function(v) as.character(ifelse(v %in% names(ph), ph[v], v))
   un2$numerator <- swap(un$numerator)
   un2$denominator <- swap(un$denominator)
-  s <- as.character(un2, neg_power = !length(un$numerator))
+  s <- as.character(un2, neg_power = !any(un$numerator != "1") && !length(nums))
   s <- md_escape(s)
   s <- gsub("\\\\\\^(-?)([0-9]+)", "^\\1\\2^", s, perl = TRUE)
   s <- gsub("\\^-", "^\u2212", s, perl = TRUE)
@@ -562,7 +568,7 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
   } else {
     if (!is.null(unit)) x <- convert_unit(x, unit, ".num", list(), cfg)
     if (length(x) == 1L && is.finite(as.numeric(x))) {
-      p <- print_one(as.numeric(x), NULL, NULL, cfg)
+      p <- print_one(as.numeric(x), NULL, NULL, cfg, TRUE)
       plural <- !(p$number == 1 && !p$decimals)
     }
   }

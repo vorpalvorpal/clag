@@ -40,11 +40,11 @@ project's own unit is registered when the dictionary that names it is read
 
 A unit is kept as written: \code{u(2, Sv)} holds \code{Sv}, not the \code{Gy} the \code{units}
 package substitutes, and weft refuses to convert between units the database
-defines alike (\code{Sv}, \code{Gy} and \code{rem}; \code{Bq}, \code{Hz} and \code{Ci}; \code{VA} and \code{W}), in \code{of_n()}, \code{about()} and a
+defines alike (\code{Sv}, \code{Gy} and \code{rem}; \code{Bq}, \code{Hz} and \code{Ci}; \code{VA} and \code{W}; and \code{Hz} or \code{Bq} and an angle per time such as \code{rpm}), in \code{of_n()}, \code{about()} and a
 \code{claim()} comparison as in a conversion; arithmetic is left to \code{units}. Under
 \code{unit_defaults: weft} (the default in \verb{_weft.yml}) a unit the \code{units} package
 reads as a prefix and another unit that a report does not mean (\code{mt} as a
-millitonne, \code{kph} as a kilophot) is a \code{weft_unit_error} whose message says what
+millitonne, \code{kt} as a knot, \code{kph} as a kilophot) is a \code{weft_unit_error} whose message says what
 it was read as and what to write; under \code{unit_defaults: si} it is read as the
 \code{units} package reads it (rule 4.4.20).
 }

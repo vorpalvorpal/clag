@@ -228,11 +228,11 @@ test_that("review 2x #5: the `lang` rule is checked on every rung, so a value ne
 
 test_that("review 2x #5: a rung of a unit with no name and no symbol is an error for every value (ruling 5)", {
   h2_restore()
-  yml <- c("units:", "  sites:", "    is: base", "    name: site", "    symbol: false")
-  for (v in c("u(5, sites)", "u(3000, sites)")) {
-    e <- f2_err(r2x_cx(v, '.word unit="sites|ksites"'), yml)
+  yml <- c("units:", "  zzsites:", "    is: base", "    name: site", "    symbol: false")
+  for (v in c("u(5, zzsites)", "u(3000, zzsites)")) {
+    e <- f2_err(r2x_cx(v, '.word unit="zzsites|kzzsites"'), yml)
     f2_has_class(e, "weft_value_error")
-    f2_msg_has(e, "ksites")
+    f2_msg_has(e, "kzzsites")
   }
 })
 

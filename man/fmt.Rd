@@ -101,7 +101,9 @@ the author's preference. Every unit on the ladder is checked, whichever is
 picked: one that does not convert, is refused or is the size of another is
 a \code{weft_value_error}, and an empty or repeated unit is a
 \code{weft_construct_error}. A ladder of one unit is that unit. The \code{units}
-attribute holds the unit picked.}
+attribute holds the unit picked. \code{unit} also converts a formatter's text
+that carries a quantity, as it converts the quantity itself. \code{.sci} with
+a ladder of more than one unit is a \code{weft_value_error}.}
 
 \item{unit_form}{How a quantity's unit prints (rule 3.4.8): \code{NULL} (the
 setting \code{unit_form} in force: \code{"auto"} unless \verb{_weft.yml} or the document
@@ -145,7 +147,8 @@ stops with an error of class \code{weft_no_value}. A value a class cannot take
 \code{weft_value_error}.
 
 A number whose absolute value (for \code{fmt_pct()}, the percentage's) is below
-1e-9 is zero and prints "0". Any other number prints to the default
+1e-9 is zero and prints "0"; the quantity of a unit is not snapped, and a
+small one goes through the rule below as any other number does. Any other number prints to the default
 digits, however small: \code{fmt_num(0.04)} is "0.0" and \code{fmt_pct(0.0004)} is
 "0.0\%", never "-0.0". When neither \code{digits} nor \code{sigfig} is given (a
 project default \code{digits} does not count) and \code{fmt_num()} or \code{fmt_pct()}

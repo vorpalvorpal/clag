@@ -60,11 +60,11 @@ converts_by_inversion <- function(from, to) {
 #'
 #' A unit is kept as written: `u(2, Sv)` holds `Sv`, not the `Gy` the `units`
 #' package substitutes, and weft refuses to convert between units the database
-#' defines alike (`Sv`, `Gy` and `rem`; `Bq`, `Hz` and `Ci`; `VA` and `W`), in `of_n()`, `about()` and a
+#' defines alike (`Sv`, `Gy` and `rem`; `Bq`, `Hz` and `Ci`; `VA` and `W`; and `Hz` or `Bq` and an angle per time such as `rpm`), in `of_n()`, `about()` and a
 #' `claim()` comparison as in a conversion; arithmetic is left to `units`. Under
 #' `unit_defaults: weft` (the default in `_weft.yml`) a unit the `units` package
 #' reads as a prefix and another unit that a report does not mean (`mt` as a
-#' millitonne, `kph` as a kilophot) is a `weft_unit_error` whose message says what
+#' millitonne, `kt` as a knot, `kph` as a kilophot) is a `weft_unit_error` whose message says what
 #' it was read as and what to write; under `unit_defaults: si` it is read as the
 #' `units` package reads it (rule 4.4.20).
 #'
@@ -244,7 +244,7 @@ ladder_pick <- function(nums, classes, keys, cfg) {
   fin <- is.finite(nums[[1L]])
   if (!any(fin)) return(1L)
   range <- ".range" %in% classes
-  shown <- lapply(nums, function(v) abs(attr(format_numbers(v[fin], ".num", keys, cfg, range = range), "number")))
+  shown <- lapply(nums, function(v) abs(attr(format_numbers(v[fin], ".num", keys, cfg, range = range, quantity = TRUE), "number")))
   ok <- rep(TRUE, length(nums))
   if (any(c(".word", ".count") %in% classes)) {
     whole <- vapply(shown, function(a) all(!is.na(a) & a == round(a)), NA)
@@ -378,7 +378,15 @@ strip_unit <- function(x) {
 `[.weft_text` <- function(x, i) {
   uf <- attr(x, "unit_form")
   ut <- attr(x, "unit")
-  if (is.null(ut) && is.null(uf)) return(unclass_text(x)[i])
+  if (is.null(ut) && is.null(uf)) {
+    out <- unclass_text(x)[i]
+    # a unit's symbol keeps its case, and a text keeps the classes it has had, through `[` (4.4.8)
+    if (isTRUE(attr(x, "is_symbol")) || !is.null(attr(x, "text_classes"))) {
+      out <- structure(out, class = c("weft_text", "character"))
+      for (a in c("is_symbol", "text_classes")) attr(out, a) <- attr(x, a)
+    }
+    return(out)
+  }
   num <- attr(x, "number")
   new <- unclass_text(x)[i]
   at <- function(a) if (length(a) == length(x)) a[i] else NULL
@@ -388,6 +396,19 @@ strip_unit <- function(x) {
   attr(out, "unit_form") <- at(uf)
   attr(out, "unit_suffix") <- at(attr(x, "unit_suffix"))
   attr(out, "unit_before") <- at(attr(x, "unit_before"))
+  for (a in c("is_symbol", "text_classes")) attr(out, a) <- attr(x, a)
+  out
+}
+
+# `c()` of texts of a unit's symbol keeps the symbol's case (4.4.8); any other `c()` gives the plain
+# character vector it always did.
+#' @export
+c.weft_text <- function(...) {
+  args <- list(...)
+  out <- unlist(lapply(args, function(a) if (inherits(a, "weft_text")) unclass_text(a) else a), use.names = TRUE)
+  if (length(args) && all(vapply(args, function(a) inherits(a, "weft_text") && isTRUE(attr(a, "is_symbol")), NA))) {
+    out <- structure(as.character(out), class = c("weft_text", "character"), is_symbol = TRUE)
+  }
   out
 }
 
