@@ -163,10 +163,36 @@ recall_check <- function(findings, source, rules = NULL, commit = NULL, window =
     sel <- if (is.null(rule)) rep(TRUE, nrow(found)) else found$rule == rule
     unique(paste(found$file[sel & !is.na(fsent)], fsent[sel & !is.na(fsent)]))
   }
+  # a flag outside every sentence (a chunk header or option, a caption) is credited by its lines: the
+  # lines of the finding, widened to the whole chunk when it sits in a chunk (review 3, S1)
+  cov_lo <- cov_hi <- integer()
+  cov_file <- cov_rule <- character()
+  for (k in which(is.na(fsent))) {
+    sr <- srcs[[found$file[k]]]
+    lo <- found$line[k]
+    hi <- found$end_line[k]
+    ch <- sr$chunks
+    if (!is.null(ch) && nrow(ch)) {
+      at <- which(ch$open <= lo & ch$close >= lo)
+      if (length(at)) {
+        lo <- ch$open[at[1L]]
+        hi <- max(hi, ch$close[at[1L]])
+      }
+    }
+    cov_lo <- c(cov_lo, lo)
+    cov_hi <- c(cov_hi, hi)
+    cov_file <- c(cov_file, found$file[k])
+    cov_rule <- c(cov_rule, found$rule[k])
+  }
   reproduced_by <- function(i, rule) {
     u <- unit[[i]]
     if (is.null(u)) return(FALSE)
-    any(paste(u$file, u$idx) %in% held(rule))
+    if (any(paste(u$file, u$idx) %in% held(rule))) return(TRUE)
+    if (!length(cov_lo)) return(FALSE)
+    s <- sent[[u$file[1L]]]
+    lo <- min(s$line[u$idx])
+    hi <- max(s$end_line[u$idx])
+    any(cov_file == u$file[1L] & (is.null(rule) | cov_rule %in% rule) & cov_lo <= hi & cov_hi >= lo)
   }
   rules_of <- lapply(frule, function(r) if (is.na(r)) NA_character_ else {
     v <- trimws(strsplit(r, ";", fixed = TRUE)[[1L]])

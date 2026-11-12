@@ -84,7 +84,7 @@ numeral_scan <- function(src, prose, cfg) {
   st <- W$s[k] + f0 - 1L
   en <- W$s[k] + lastm - 1L
   ex <- numeral_exempt_mask(src)[st]
-  if (isTRUE(cfg$numeral_years)) ex <- ex | grepl("^[12][0-9]{3}$", txt)
+  if (isTRUE(cfg$numeral_years)) ex <- ex | grepl("^[12][0-9]{3}(?:[-\u2013](?:[0-9]{2}|[12][0-9]{3}))?(?:s|[\u0027\u2019]s)?$", txt, perl = TRUE)
   list(words = W, num = data.frame(k = k, start = st, end = en, text = txt, exempt = ex,
                                    stringsAsFactors = FALSE))
 }

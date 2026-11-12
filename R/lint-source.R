@@ -529,6 +529,14 @@ mask_prose <- function(S) {
   # indented code
   wl <- S$lines
   blk <- !grepl("[^ \t]", wl) | nonbody
+  # a line that continues an HTML comment is the comment's, whatever its indentation (review 3, S3)
+  gc <- gmatch("<!--[\\s\\S]*?-->", work)
+  if (length(gc$s)) {
+    for (q in seq_along(gc$s)) {
+      lc <- findInterval(c(gc$s[q], gc$e[q]), ls)
+      if (lc[2L] > lc[1L]) blk[(lc[1L] + 1L):lc[2L]] <- TRUE
+    }
+  }
   indent4 <- grepl("^( {4,}|\t)", wl) & !blk
   marker <- grepl("^[ \t]*([-*+]|[0-9]{1,9}[.)])[ \t]+[^ \t]", wl) & !nonbody
   col0 <- grepl("^[^ \t]", wl) & !nonbody
