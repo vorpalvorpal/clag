@@ -13,7 +13,6 @@ inst_file <- function(...) {
   p
 }
 
-read_lines_utf8 <- function(p) readLines(p, warn = FALSE, encoding = "UTF-8")
 
 # lines written with a newline after each, on every platform (a shell script
 # must not get CRLF)

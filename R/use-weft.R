@@ -338,7 +338,7 @@ doc_files <- function(root) {
 }
 
 # the front-matter lines of a document (character() when it has none)
-doc_front <- function(lines) {
+use_doc_front <- function(lines) {
   if (!length(lines) || !grepl("^---\\s*$", lines[1L])) return(character())
   cl <- which(grepl("^(---|\\.\\.\\.)\\s*$", lines[-1L])) + 1L
   if (!length(cl)) return(character())
@@ -348,7 +348,7 @@ doc_front <- function(lines) {
 # does a .qmd need `engine: knitr` (the rule of use_setup(): no engine: or
 # jupyter: key, and not another engine's chunks alone)
 qmd_lacks_engine <- function(lines) {
-  fm <- doc_front(lines)
+  fm <- use_doc_front(lines)
   if (any(grepl("^(engine|jupyter)\\s*:", fm))) return(FALSE)
   body <- if (length(fm)) lines[-seq_len(length(fm) + 2L)] else lines
   chunks <- sub("^\\s*`{3,}\\s*\\{\\s*([A-Za-z0-9_]+).*$", "\\1",
@@ -364,7 +364,7 @@ status_activation <- function(root) {
   docs <- doc_files(root)
   texts <- lapply(file.path(root, docs), function(p) tryCatch(read_lines_utf8(p), error = function(e) character()))
   front <- length(docs) > 0L &&
-    all(vapply(texts, function(x) any(grepl("weft::weft_setup", doc_front(x), fixed = TRUE)), NA))
+    all(vapply(texts, function(x) any(grepl("weft::weft_setup", use_doc_front(x), fixed = TRUE)), NA))
   if (!rprofile && !front) {
     return(list(state = "missing", detail = "no .Rprofile line and no front-matter route"))
   }

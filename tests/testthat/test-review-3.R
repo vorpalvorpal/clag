@@ -565,7 +565,7 @@ test_that("review-3 S3: the same code span outside a comment is still a finding"
 # ---- extra: a paragraph over 10 KB ----------------------------------------------------------------
 
 r3_long_sentences <- function() {
-  s <- paste0("Site ", seq_len(400), " was sampled.")
+  s <- paste0("Site ", seq_len(600), " was sampled.")
   s[100] <- "The largest value was always 4321 here."
   s
 }
