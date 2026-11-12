@@ -321,3 +321,14 @@ and are entries 30 to 37 under "Made".
     rule's warning names a unit that would show the value. For Robin:
     a ladder the author approves (`unit="mm|m|km"`, weft picks the
     first giving 1 up to 1,000), not built.
+52. **Package 2h, the unit ladder (Robin approved, 12 November 2026;
+    completes decision 51).** `unit="mm|m|km"`, a vector for `unit =`,
+    or a list in `display:` names the units the author approves; weft
+    prints in the first that gives a number from 1 up to 1,000 as
+    printed, one unit for a whole vector. Contract and decisions L1 to
+    L18 in `dev/design-2h.md`. The one with most reach: a ladder in
+    `display:` is applied once, when the dictionary is read, so a value
+    computed from the entry stays in the unit the entry's own value
+    picked (an attribute carrying the ladder is lost by `c()`, `mean()`
+    and subsetting). Its questions Q1 to Q4 are built as recommended
+    and are for Robin.
