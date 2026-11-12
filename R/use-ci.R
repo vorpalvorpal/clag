@@ -6,7 +6,7 @@
 #' is the only place GitHub reads workflows from, even when the weft project is
 #' a subfolder (the workflow then checks that folder). On each pull request it
 #' runs `weft::verify(static = TRUE)` from the merge base. The workflow installs
-#' weft from `github::vorpalvorpal/clag`.
+#' weft from `github::vorpalvorpal/weft`.
 #'
 #' It says what it will write before it writes anything. The file carries a
 #' `weft-file` line with the weft version and a hash of its other lines: a file

@@ -472,7 +472,7 @@ or the working tree (verify). Findings are `lints(tier = 1)` minus rule
             use-public-rspm: true
         - uses: r-lib/actions/setup-r-dependencies@v2
           with:
-            packages: github::vorpalvorpal/clag
+            packages: github::vorpalvorpal/weft
         - name: weft static checks
           env:
             BASE_SHA: ${{ github.event.pull_request.base.sha }}
@@ -707,7 +707,7 @@ Built as chosen until answered.
   `verify_skip`, `weft_version`; the trailer stays `Weft-Removed`. Reverse:
   renames before release.
 - **F3 — `use_ci()` writes at the repository's top (H23)** even when the
-  project is a subfolder, and installs weft from `github::vorpalvorpal/clag`
+  project is a subfolder, and installs weft from `github::vorpalvorpal/weft`
   until it is on CRAN. Alternative: print the file. Reverse: G33.
 - **F4 — Agent conventions go in `AGENTS.md` plus a Claude skill (H25).**
   Alternative: `CLAUDE.md`. Reverse: a `file` argument.

@@ -8,8 +8,8 @@ Description: Lets a manuscript's prose carry computed values, and wording
     manuscripts. Every construct is markdown that 'knitr', 'Pandoc' and
     'Quarto' already accept.
 License: MIT + file LICENSE
-URL: https://github.com/vorpalvorpal/clag
-BugReports: https://github.com/vorpalvorpal/clag/issues
+URL: https://github.com/vorpalvorpal/weft
+BugReports: https://github.com/vorpalvorpal/weft/issues
 Imports:
     cli,
     jsonlite,

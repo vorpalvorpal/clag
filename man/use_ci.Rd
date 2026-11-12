@@ -19,7 +19,7 @@ Writes \code{.github/workflows/weft.yml} at the top of the git repository, which
 is the only place GitHub reads workflows from, even when the weft project is
 a subfolder (the workflow then checks that folder). On each pull request it
 runs \code{weft::verify(static = TRUE)} from the merge base. The workflow installs
-weft from \code{github::vorpalvorpal/clag}.
+weft from \code{github::vorpalvorpal/weft}.
 }
 \details{
 It says what it will write before it writes anything. The file carries a

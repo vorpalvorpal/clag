@@ -36,14 +36,14 @@ test_that("4b G40: the marker is line 1 and its hash is the md5 of the other lin
   expect_identical(m$hash, cli::hash_md5(paste(x[-1], collapse = "\n")))
 })
 
-test_that("4b G33: the workflow is ASCII, has no placeholder left, and installs weft from github::vorpalvorpal/clag (F3)", {
+test_that("4b G33: the workflow is ASCII, has no placeholder left, and installs weft from github::vorpalvorpal/weft (F3)", {
   dir <- h4_repo()
   h4_ci(dir)
   raw <- readBin(wf(dir), "raw", file.size(wf(dir)))
   expect_true(all(raw < as.raw(128)))
   x <- readLines(wf(dir))
   expect_false(any(grepl("@[A-Z]+@", x)))
-  expect_true(any(grepl("packages: github::vorpalvorpal/clag", x, fixed = TRUE)))
+  expect_true(any(grepl("packages: github::vorpalvorpal/weft", x, fixed = TRUE)))
 })
 
 test_that("4b G33: a project in a subfolder: the file is written at the repository's top with that folder as @PATH@, and nothing in the subfolder", {

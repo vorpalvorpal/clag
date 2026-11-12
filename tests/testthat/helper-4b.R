@@ -321,7 +321,7 @@ jobs:
           use-public-rspm: true
       - uses: r-lib/actions/setup-r-dependencies@v2
         with:
-          packages: github::vorpalvorpal/clag
+          packages: github::vorpalvorpal/weft
       - name: weft static checks
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}

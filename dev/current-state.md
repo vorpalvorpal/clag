@@ -104,7 +104,16 @@ first, then `dev/build-log.md`.
      This lifts the build prompt's "do not publish a website" for the
      documentation only. Check the repository's visibility first
      (`gh repo view --json visibility`): if it is private, a Pages
-     site would be public, so say so and choose with care;
+     site would be public, so say so and choose with care. DONE
+     ALREADY: the repository is PUBLIC and was renamed on Robin's
+     word ("Rename the repo as well") from `vorpalvorpal/clag` to
+     `vorpalvorpal/weft`; `origin` points there. The local folder
+     stays `/Users/rjs/dev/clag` (session paths depend on it).
+     ALSO from Robin: "include speed optimisations and the test suite
+     in the code review. Speed optimisations should only be taken
+     when they are real and they don't degrade code quality." So the
+     survey covers `R/`, `inst/` and `tests/`; a speed change needs a
+     before and after measurement and must not make the code worse;
   7. closing report.
   Lesson: a helper defined twice in `R/` silently replaces the first
   (it broke `lints()` once); check with
