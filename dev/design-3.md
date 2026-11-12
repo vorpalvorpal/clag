@@ -800,3 +800,22 @@ The test-writer met these gaps; each reading below is now the contract.
 14. **L10.** Captions in an `eval: false` chunk are read; `weft_str()`,
     `lookup()` and `brk()` strings in one are not.
 15. The helper file is `tests/testthat/helper-3.R`.
+
+## Readings fixed when the 3d tests were written
+
+1. `col` of a finding whose text starts with a sigil (`@fig-x`, `@key`,
+   `#id`) is the column of the sigil.
+2. For a list under `bibliography:`, a missing file is reported on the
+   item's line.
+3. In `anchor-twice` the first definition is the first in sorted path
+   order, then by line; an anchor in a `.md` file counts as a definition.
+4. `![](d.png)` gives exactly one finding, about alt text.
+5. An image inside a `#fig-` div takes its label, caption and alt text
+   from the div and gives no finding of its own.
+6. `engine: knitr` in `_quarto.yml` does not satisfy the `engine` rule;
+   an `.Rmd` is never flagged by it.
+7. In `file-link` the text is the target as written, without a quoted
+   title; `file#x` checks the file part only.
+8. `tar-name` belongs to 3c.
+9. An unlabelled chunk with `eval: false` is not flagged by
+   `chunk-label`.
