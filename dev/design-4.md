@@ -831,3 +831,25 @@ Every example in §2 is a case. Fixtures are written by the tests. Skips:
   version line; never prompts under `rlang_interactive = TRUE`.
   `test-status.R`: each part's states, `next` per missing step, nothing
   written.
+
+## Readings fixed when the 4d tests were written
+
+1. `use_setup()` returns, invisibly, the paths it wrote (a character
+   vector, empty on a run that changes nothing).
+2. Appended to an existing `.Rprofile`: the comment line and the
+   activation line. The line that sources `~/.Rprofile` is written only
+   into a new file.
+3. `route = "front-matter"` is allowed on a project that already has the
+   `.Rprofile` lines; a document is still set up once.
+4. A folder inside a Quarto project writes the `.Rprofile` at the project
+   root. A path that does not exist, or a file that is not a document,
+   is a `weft_tool_error`.
+5. An edit that cannot be made safely (flow-style `knitr:` or
+   `pandoc_args`, a YAML anchor, a different `weft:` under `opts_knit`)
+   is a `weft_tool_error` that prints the lines to add by hand, and
+   nothing is written.
+6. `recorded_version()` is internal; it gives `NA` for an absent,
+   commented-out, `null` or empty value, and keeps the spelling written.
+   `use_setup()` leaves an existing `weft_version` line alone.
+7. A test's child process must leave `R_PROFILE_USER` unset: R reads the
+   project `.Rprofile` only then.
