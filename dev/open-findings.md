@@ -258,3 +258,8 @@ code; the cost of `weft_setup()`.
   review #12 is fixed for rows of `units:`; a token registered for a
   dictionary entry's unit (`R/dict.R`, near the registration of
   dictionary units) is still not removed when another project is read.
+- **The `units:::` calls** work round a bug in `units::install_unit()`
+  reported as r-quantities/units#448, with a fix proposed in PR #447.
+  Once a release carries the fix, the early refusal in `ud_install_one()`
+  and both `:::` calls can be removed (and `units (>= that version)`
+  required).

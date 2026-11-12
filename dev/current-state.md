@@ -38,15 +38,14 @@ first, then `dev/build-log.md`.
   default; 4.4.20 a compound prints names as typed; 4.4.7 a dictionary's
   units go with the project root; `dict_unmark()` exported) - fold into
   the next spec-editor run.
-- **GitHub issues for r-quantities/units**: two drafts shown to Robin
-  (export `ud_get_symbol()`/`ud_parse()`; a failed `install_unit()`
-  leaves the symbol mapped and `remove_unit()` strips the old unit's
-  symbol). Robin chose the bug report only. units updated to 1.0.1 from
-  CRAN; `brew install udunits` done at Robin's request; the patch (11
-  lines in `src/udunits.cpp` plus a test) is built and tested in the
-  scratchpad (`unitsfix/`, diff `unitsfix/units-install-fix.diff`):
-  units' suite 118 tests, 0 failing with it. NOT posted: wait for
-  Robin's explicit go-ahead on the final draft.
+- **units upstream**: bug posted as r-quantities/units#448 with the fix
+  as PR #447 (branch `refuse-install-before-mapping` on the fork
+  vorpalvorpal/units; scratch clone in the scratchpad `unitsfix/src`).
+  Watch for the maintainers' CI and replies; act on them only with
+  Robin's say. When the fix is released, weft's `units:::` workaround in
+  `ud_install_one()` (`R/unit-defaults.R`) can go, with its check note.
+  Installed units is CRAN 1.0.1; Homebrew `udunits` 2.2.28 was installed
+  for the test build.
 - **Stage 0 inputs are ready** under `dev/trials/stage0/` (git-ignored):
   `audit-summary.md`, `findings.csv` (866 findings; 419 carry a quoted
   claim, 278 of those found verbatim in the sources), `pre/` (sources at
