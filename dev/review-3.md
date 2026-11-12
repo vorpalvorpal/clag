@@ -299,8 +299,13 @@ these readings:
 - 9: a rule named in `rules` is run whatever its tier, when `tier` is
   not given. With `tier` given and a named rule outside it, a note says
   so.
-- 12: the one-edit check does not flag a class on a code span unless a
-  weft class is at distance one and the span has a governor or key.
+- 12 (revised after the first fix): on a code span, a class that is a
+  Pandoc highlighting language (`pandoc --list-highlight-languages`,
+  shipped as a fixed list) is never flagged. Any other class one edit
+  from a weft class is flagged as before, on a code span too: the
+  first ruling, which asked for a governor or key, would have let a
+  mistyped `.num` on an inline value through, and six design tests
+  rightly pin that.
 
 Design questions:
 
