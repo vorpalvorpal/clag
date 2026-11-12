@@ -15,6 +15,7 @@ Imports:
     jsonlite,
     knitr (>= 1.51),
     rlang,
+    stringi,
     units,
     yaml
 Suggests:

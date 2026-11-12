@@ -699,3 +699,20 @@ construct's text. Block markers are not part of it: a list marker
 Left as ICU gives them: "U.S. E.P.A." is cut after "U.S."; "9 a.m.
 Rain" is cut; a Unicode ellipsis before a capital is not a boundary.
 `stringi` joins Imports.
+
+### Rulings on the build of the D12 ruling
+
+- A masked span is filled as a capital then lower-case letters, because
+  ICU does not end a sentence after an all-capital word.
+- Block markers are blanked in the masked copy and the end of each is a
+  forced sentence start, so list items stay apart. A table row's `|` is
+  left to the table-cell rule.
+- Brackets "close later" when any `]` follows the boundary in the
+  block.
+- Abbreviations are matched without regard to case, except `Dr`, `St`,
+  `No`, `Nos` and `Vol`.
+- An unknown `lang` falls back to `en`.
+- The test that proved the locale with "M. Dupont" was a test fault
+  (an initial is kept in any language); it now uses `janv.`, which
+  ICU keeps whole in French and cuts after in English.
+- Cost: about 0.9 ms an entry, twice the old rule.

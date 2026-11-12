@@ -28,7 +28,7 @@ json_esc_cp <- function(cp) {
 # A JSON string: UTF-8 as itself, with the characters D3 names escaped.
 json_str <- function(x) {
   x <- enc2utf8(as.character(x)[1L])
-  if (!validUTF8(x)) x <- iconv(x, "UTF-8", "UTF-8", sub = "�")
+  if (!validUTF8(x)) x <- iconv(x, "UTF-8", "UTF-8", sub = "\ufffd")
   cps <- utf8ToInt(x)
   if (!length(cps)) return("\"\"")
   ch <- intToUtf8(cps, multiple = TRUE)
@@ -502,15 +502,137 @@ ledger_sentence <- function(out, a, b, whole = FALSE, front = FALSE) {
   gsub("(<<weft: [^,>]+), line [0-9?]+>>", "\\1>>", ledger_sentence_at(out, a, b, whole, front))
 }
 
-# Whether the full stop (or `?`, `!`) at `pos` of `txt` ends a sentence; `after`
-# is the position just past it and its closing marks. A full stop after an
-# abbreviation, or before a lower-case letter or a digit, does not (D12).
-sentence_ends_at <- function(txt, pos, after) {
-  if (substr(txt, pos, pos) != ".") return(TRUE)
-  before <- substr(txt, max(1L, pos - 12L), pos - 1L)
-  if (grepl("(^|[^[:alnum:].])(e\\.g|i\\.e|cf|al|Mr|Mrs|Ms|Dr|Fig|approx|vs)$", before, ignore.case = TRUE)) return(FALSE)
-  rest <- sub("^[ \t\n]+", "", substr(txt, after, nchar(txt)))
-  !(nzchar(rest) && grepl("^[[:lower:][:digit:]]", rest))
+# Block markers at the start of a line: a heading's `#`, a list marker, a block
+# quote's `>`, a footnote definition's `[^1]:`.
+sentence_marker_re <- paste0(
+  "(?m)^[ \\t]*(?:(?:>[ \\t]*)|(?:(?:#{1,6}|[-*+]|[0-9]+[.)]|\\([A-Za-z]{1,2}\\)|\\([0-9]{1,2}\\)",
+  "|\\[\\^[^\\]\\s]+\\]:)[ \\t]+))+")
+
+# Replace every match of `pattern` in `x` by `fill`, one character for each
+# character matched, so that the length of `x` does not change. The fill "A"
+# makes a word, "Aaa...": ICU does not end a sentence after an all-capital word.
+mask_fill <- function(x, pattern, fill) {
+  m <- gregexpr(pattern, x, perl = TRUE)[[1L]]
+  if (m[1L] < 0L) return(x)
+  ml <- attr(m, "match.length")
+  ch <- strsplit(x, "", fixed = TRUE)[[1L]]
+  for (k in which(ml > 0L)) {
+    ch[m[k]:(m[k] + ml[k] - 1L)] <- if (fill == "A") c("A", rep("a", ml[k] - 1L)) else fill
+  }
+  paste(ch, collapse = "")
+}
+
+# The top-level inline footnotes `^[...]` of `x`: a data frame of the position
+# of the `^` and of the closing `]`.
+inline_footnotes <- function(x) {
+  st <- gregexpr("^[", x, fixed = TRUE)[[1L]]
+  if (st[1L] < 0L) return(NULL)
+  ch <- strsplit(x, "", fixed = TRUE)[[1L]]
+  n <- length(ch)
+  from <- integer()
+  to <- integer()
+  last <- 0L
+  for (s0 in st) {
+    if (s0 <= last) next
+    depth <- 0L
+    j <- s0 + 1L
+    while (j <= n) {
+      if (ch[j] == "[") depth <- depth + 1L
+      else if (ch[j] == "]") {
+        depth <- depth - 1L
+        if (depth == 0L) break
+      }
+      j <- j + 1L
+    }
+    if (j <= n) {
+      from <- c(from, s0)
+      to <- c(to, j)
+      last <- j
+    }
+  }
+  if (length(from)) data.frame(from = from, to = to) else NULL
+}
+
+# A copy of the block `x` of exactly the same number of characters, in which
+# what is not prose is replaced so that its punctuation cannot end a sentence
+# (D12, decision 57): inline code, math, link and image targets, raw HTML,
+# attribute blocks, shortcodes, citations, cross-references and inline
+# footnotes become letters; emphasis markers and footnote references become
+# closing brackets, so that a boundary falls after them; block markers and line
+# ends become spaces. `keep` is the position of the construct's text: when it
+# lies inside an inline footnote, the footnote's text is the block, and the
+# result carries its extent as the attribute "window".
+mask_nonprose <- function(x, keep = NULL) {
+  n <- nchar(x)
+  y <- mask_fill(x, sentence_marker_re, " ")
+  y <- mask_fill(y, "(?m)^[ \\t]*:{3,}.*$", " ")
+  y <- mask_fill(y, "\\{\\{<.*?>\\}\\}", "A")
+  y <- mask_fill(y, "(?<=[\\])`])\\{[^{}\\n]*\\}", "A")
+  y <- mask_fill(y, "(?s)(`+)(?!`).*?(?<!`)\\1(?!`)", "A")
+  y <- mask_fill(y, "(?<![\\\\$])\\$(?![\\s$])[^$\\n]+?(?<![\\s\\\\])\\$(?![0-9])", "A")
+  y <- mask_fill(y, "(?s)\\\\\\(.*?\\\\\\)", "A")
+  y <- mask_fill(y, "(?<!<)</?[A-Za-z][^<>]*>", "A")
+  y <- mask_fill(y, "\\[\\^[^\\]\\s]+\\]", ")")
+  y <- mask_fill(y, "\\[[^\\[\\]]*(?<![[:alnum:]])-?@[[:alnum:]_][^\\[\\]]*\\]", "A")
+  y <- mask_fill(y, "(?<![[:alnum:]_])-?@[[:alnum:]_](?:[[:alnum:]_:.#$%&+?<>~/-]*[[:alnum:]_])?", "A")
+  y <- mask_fill(y, "\\\\@ref\\([^)]*\\)", "A")
+  y <- mask_fill(y, "(?<=\\])(?:\\([^)\\n]*\\)|\\[[^\\]\\n]*\\])", "A")
+  window <- NULL
+  fn <- inline_footnotes(y)
+  if (!is.null(fn)) {
+    for (i in seq_len(nrow(fn))) {
+      f <- fn$from[i]
+      t <- fn$to[i]
+      ch <- strsplit(y, "", fixed = TRUE)[[1L]]
+      if (!is.null(keep) && keep[1L] > f && keep[2L] < t) {
+        ch[c(f, f + 1L, t)] <- " "
+        window <- c(f + 2L, t - 1L)
+      } else {
+        ch[f:t] <- c("A", rep("a", t - f))
+      }
+      y <- paste(ch, collapse = "")
+    }
+  }
+  y <- mask_fill(y, "\\*+", ")")
+  y <- mask_fill(y, "~~", ")")
+  y <- mask_fill(y, "(?<![[:alnum:]])_+(?=[^\\s_])|(?<=[^\\s_])_+(?![[:alnum:]])", ")")
+  y <- mask_fill(y, "[\\n\\t\\r]", " ")
+  stopifnot(nchar(y) == n)
+  attr(y, "window") <- window
+  y
+}
+
+sentence_abbr_any <- "(?<![[:alnum:].])(?i:e\\.g|i\\.e|cf|ca|viz|vs|et al)\\.$"
+sentence_abbr_en <- paste0("(?<![[:alnum:].])(?:Dr|St|No|Nos|Vol)\\.$|",
+                           "(?<![[:alnum:].])(?i:approx|est|incl|excl)\\.$")
+
+# The positions at which a sentence of the masked block `m` starts, after the
+# first: ICU's boundaries (the locale is the document's `lang`), less those
+# dropped by weft's rules (D12, decision 57).
+sentence_starts_of <- function(m, lang) {
+  l <- if (is.null(lang) || is.na(lang) || !nzchar(lang)) "en" else gsub("-", "_", lang)
+  loc <- tryCatch(
+    suppressWarnings(stringi::stri_locate_all_boundaries(m, type = "sentence", locale = paste0(l, "@ss=standard"))[[1L]]),
+    error = function(e)
+      stringi::stri_locate_all_boundaries(m, type = "sentence", locale = "en@ss=standard")[[1L]])
+  p <- loc[, 1L]
+  p <- p[p > 1L & !is.na(p)]
+  if (!length(p)) return(integer())
+  ch <- strsplit(m, "", fixed = TRUE)[[1L]]
+  depth <- cumsum((ch == "[") - (ch == "]"))
+  closes <- which(ch == "]")
+  english <- lang_is_english(lang)
+  keep <- vapply(p, function(q) {
+    prev <- sub("[[:space:])]+$", "", substr(m, 1L, q - 1L))
+    nxt <- sub("^[[:space:]]+", "", substr(m, q, nchar(m)))
+    if (grepl("^[[:lower:][:digit:]]", nxt)) return(FALSE)
+    if (depth[q - 1L] > 0L && length(closes) && max(closes) >= q) return(FALSE)
+    if (grepl("(?<![[:alpha:]])[[:upper:]]\\.$", prev, perl = TRUE)) return(FALSE)
+    if (grepl(sentence_abbr_any, prev, perl = TRUE)) return(FALSE)
+    if (english && grepl(sentence_abbr_en, prev, perl = TRUE)) return(FALSE)
+    TRUE
+  }, NA)
+  p[keep]
 }
 
 ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
@@ -560,31 +682,21 @@ ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
     hs <- ls + attr(regexpr("^[ \t]{0,3}#{1,6}[ \t]+", line), "match.length")
     return(sentence_cut_around(para, a2, b2, hs, le))
   }
-  # start: after the end of the previous sentence, or the marker of a list item
-  pre <- substr(para, 1L, a2 - 1L)
-  st <- 1L
-  m <- gregexpr("[.?!][]\"')*_~]*[ \t\n]+", pre, perl = TRUE)[[1L]]
-  if (m[1L] > 0L) {
-    ml <- attr(m, "match.length")
-    real <- vapply(seq_along(m), function(k) sentence_ends_at(para, m[k], m[k] + ml[k]), NA)
-    if (any(real)) st <- max((m + ml)[real])
+  # the sentence: between the cuts that ICU, less weft's rules, leaves (D12)
+  m <- mask_nonprose(para, c(a2, b2))
+  win <- attr(m, "window") %||% c(1L, nchar(para))
+  cuts <- sentence_starts_of(m, current_lang())
+  mk <- gregexpr(sentence_marker_re, para, perl = TRUE)[[1L]]
+  if (mk[1L] > 0L) {
+    ml <- attr(mk, "match.length")
+    own <- !grepl("^[ \t>]*$", substring(para, mk, mk + ml - 1L))
+    cuts <- c(cuts, (mk + ml)[own | mk == 1L])
   }
-  m <- gregexpr("(^|\n)[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|\\[\\^[^]]+\\]:)[ \t]+)", pre, perl = TRUE)[[1L]]
-  if (m[1L] > 0L) st <- max(st, max(m + attr(m, "match.length")))
-  # end: the end of the sentence, or of the list item
-  post <- substr(para, b2 + 1L, nchar(para))
-  en <- nchar(para)
-  m <- gregexpr("[.?!][]\"')*_~]*(?=[ \t\n]|$)", post, perl = TRUE)[[1L]]
-  if (m[1L] > 0L) {
-    ml <- attr(m, "match.length")
-    real <- vapply(seq_along(m), function(k) sentence_ends_at(para, b2 + m[k], b2 + m[k] + ml[k]), NA)
-    if (any(real)) {
-      k <- which(real)[1L]
-      en <- b2 + m[k] + ml[k] - 1L
-    }
-  }
-  m <- regexpr("\n(?=[ \t]*([-*+]|[0-9]+[.)])[ \t])", post, perl = TRUE)
-  if (m > 0L && b2 + m - 1L < en) en <- b2 + m - 1L
+  fence <- gregexpr("(?m)^[ \t]*:{3,}.*$", para, perl = TRUE)[[1L]]
+  if (fence[1L] > 0L) cuts <- c(cuts, fence + attr(fence, "match.length"))
+  st <- max(c(win[1L], cuts[cuts <= a2 & cuts >= win[1L]]))
+  after <- cuts[cuts > b2 & cuts <= win[2L]]
+  en <- if (length(after)) min(after) - 1L else win[2L]
   sentence_cut_around(para, a2, b2, st, en)
 }
 
@@ -599,7 +711,7 @@ sentence_cut_around <- function(txt, a, b, st, en) {
   if (nchar(full) <= 400L) return(full)
   pre <- sub("^ +", "", pre)
   post <- sub(" +$", "", post)
-  dots <- "…"
+  dots <- "\u2026"
   if (nchar(pre) > 200L) {
     n <- nchar(pre)
     tl <- substr(pre, n - 199L, n)
@@ -621,7 +733,7 @@ sentence_cut_around <- function(txt, a, b, st, en) {
 collapse_ws_keep <- function(x) gsub("[ \t\r\n]+", " ", x)
 
 sentence_cut <- function(x) {
-  if (nchar(x) <= 400L) x else paste0(substr(x, 1L, 399L), "…")
+  if (nchar(x) <= 400L) x else paste0(substr(x, 1L, 399L), "\u2026")
 }
 
 # ---- the output name (D2) ------------------------------------------------------
@@ -682,7 +794,7 @@ ledger_entries <- function(s) {
 }
 
 cap_text <- function(x) {
-  if (nchar(x) > 1000L) paste0(substr(x, 1L, 999L), "…") else x
+  if (nchar(x) > 1000L) paste0(substr(x, 1L, 999L), "\u2026") else x
 }
 
 # The lines of the condition log (D15, D16): one per distinct key, the text

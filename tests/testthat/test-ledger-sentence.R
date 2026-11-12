@@ -60,22 +60,22 @@ test_that("2d D12 (stringi): two values in one sentence carry the identical sent
 })
 
 d2s_fr_doc <- c(
-  "Intro. M. Dupont a vu `r n1` sites.", "",
+  "Intro. Il a plu en janv. Wombat est sec `r n1`.", "",
   "Intro. Il a mesuré (env. `r n2` mm) hier.", "",
   "Intro. Voir p. ex. la fig. `r n3`.")
 d2s_fr_vars <- "n1 <- 1; n2 <- 2; n3 <- 3"
 
 test_that("2d D12 (stringi): with `lang: fr` the French abbreviations do not end a sentence", {
   res <- d2_render(d2s_fr_doc, front = "lang: fr", code = d2s_fr_vars)
-  expect_identical(d2s_sentence(res, "n1"), "M. Dupont a vu 1 sites.")
+  expect_identical(d2s_sentence(res, "n1"), "Il a plu en janv. Wombat est sec 1.")
   expect_identical(d2s_sentence(res, "n2"), "Il a mesuré (env. 2 mm) hier.")
   expect_identical(d2s_sentence(res, "n3"), "Voir p. ex. la fig. 3.")
 })
 
-test_that("2d D12 (stringi): the same French text under `lang: en` splits after `M.`, so the locale is passed", {
+test_that("2d D12 (stringi): the same French text under `lang: en` splits after `janv.`, so the locale is passed", {
   for (front in list("lang: en", NULL)) {
     res <- d2_render(d2s_fr_doc, front = front, code = d2s_fr_vars)
-    expect_identical(d2s_sentence(res, "n1"), "Dupont a vu 1 sites.")
+    expect_identical(d2s_sentence(res, "n1"), "Wombat est sec 1.")   # ICU en does not know `janv.`; fr does
   }
 })
 
