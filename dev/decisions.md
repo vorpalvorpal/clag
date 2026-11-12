@@ -310,3 +310,14 @@ and are entries 30 to 37 under "Made".
     project adds to it. A setting chooses between weft's defaults and
     the `units` package's own strict reading. Contract:
     `dev/design-2g.md`.
+51. **Whether weft picks the unit to print in.** No: with no `unit` key
+    and no `display:` a quantity prints in the unit it is held in.
+    Alternative: scale to the "best" SI prefix. Rejected because the
+    unit would change with the data from one day's report to the next
+    and within a table, because the right unit is a convention of the
+    field (rain in mm, a concentration in its limit's unit), because a
+    compound unit has no single best scaling, and because the arm
+    chosen follows the number as printed. Built instead: the zero
+    rule's warning names a unit that would show the value. For Robin:
+    a ladder the author approves (`unit="mm|m|km"`, weft picks the
+    first giving 1 up to 1,000), not built.

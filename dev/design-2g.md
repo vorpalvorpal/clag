@@ -482,3 +482,49 @@ Built as recommended until answered.
   Myr"); the plain unit prints its name ("years"). Accepted.
 - A refusal is a `weft_unit_error` from `u()` and a `weft_value_error`
   from the `unit` key. Accepted.
+
+## Rulings on the review of 2g (`dev/review-2g.md`)
+
+Findings 1 to 18 are accepted as the reviewer states them, with these
+particulars. Where a ruling differs from the contract above, the ruling
+wins.
+
+- **1.** A row whose install fails leaves nothing behind: what
+  `units::install_unit()` half-installed is removed, and a failed
+  configuration read ends with the database as it was before the read.
+- **2, e.** A project key may take `is:` (a definition or `base`) only
+  when the `units` package does not already read it, asked of `units`
+  itself and so without regard to letter case; the misread list and the
+  default table's keys are the exceptions. `Bags: {is: base}` and
+  `km: {is: 1 mi}` are problems that say what `units` reads the key as.
+- **3.** A project `name:` with no `plural:` over a default row takes
+  the English plural of the new name, never the default's plural.
+- **4, f.** `weft_str()` outside a knit raises a configuration error as
+  a knit does; it never prints with half a configuration.
+- **6, h.** A unit someone else installed that conflicts with a default
+  row disables that row only, with a warning naming it; every other
+  unit works. weft checks the tokens it installed again at each read.
+- **7, g.** What a plain `units` user sees after weft's first use is
+  stated in 4.4.21 (`Myr` prints as `Ma`, `gallon` as `gal`,
+  `nautical_mile` as `nmi`; the galileo cannot be written). It follows
+  from redefining a symbol and is not worked around.
+- **8.** An `is:` that names a unit weft installed is read.
+- **a.** `Ci` joins the twins of `Bq` and `Hz`, and `rem` those of `Sv`
+  and `Gy`; a project unit defined as a twin is a twin; `of_n()`,
+  `about()` and a claim that compare twins are the twin value error.
+- **b.** A negative number with a unit written before it prints the
+  unit, the space, then the sign ("pH −0.4").
+- **c.** `.no` on a unit written before the number is a value error;
+  a spelled number keeps its space ("pH seven"); `space: false` governs
+  the symbol form only, for a unit before the number as for one after
+  (this removes the exception recorded at the build).
+- **d.** A document row still replaces the project row whole (2f, U21);
+  when that drops a definition, the problem names the document and the
+  field. Left otherwise.
+- **k.** `VA` is named "volt-ampere" and `Bd` "baud" (plural "baud").
+- **i, j.** Left; in `dev/open-findings.md`. j is stated in 4.4.21.
+- **Added: the zero rule's advice.** When a quantity that is not zero
+  prints "0.0" (4.4.13), the warned check says how to show it: `digits`
+  or `sigfig`, and, for a unit that is one SI token, the prefixed unit
+  that would print a number from 1 up to 1,000 (`unit="mm"`). weft does
+  not rescale by itself (decision 51).

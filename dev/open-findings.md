@@ -199,3 +199,10 @@ So a later review does not raise them again without a new argument.
 - The generated Vale rule's header says `dict.yml` whatever the dictionary
   file is called; a rule generated from another dictionary is replaced
   without a word.
+
+## From the review of 2g
+
+- A `u()` refusal inside a knit is filed as a "no value" failure, not as a
+  unit error.
+- A quantity made under one `unit_defaults` mode and printed under the other
+  is wrong in both directions.
