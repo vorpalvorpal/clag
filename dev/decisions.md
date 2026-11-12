@@ -352,3 +352,15 @@ and are entries 30 to 37 under "Made".
     or failing any the largest number below 1. Cost: 940 m under
     `mm|km` prints "940,000 mm", not "0.9 km". Reverse: `ladder_pick()`
     in `R/units.R`.
+55. **Package 2d, the ledger and the condition log (Robin delegated the
+    file formats, R5).** Contract D1 to D30 and choices G1 to G24, each
+    with its alternatives, in `dev/design-2d.md`. Those with most
+    reach: the files are JSON lines under `_weft/ledger/<source>/`, not
+    the spec's `generated/ledger/` (Quarto ignores `_` folders; weft's
+    committed files are already in `_weft/`); each entry stores its
+    sentence as printed, so `changes()` needs no render, at the cost
+    that rewording a sentence changes the line of every value in it;
+    the key adds the file and takes its section from weft's own anchor
+    of the source heading; arms are stored by role; `jsonlite` moves to
+    Imports; `git` is called, when present, to report new conditions.
+    Questions Q1 to Q5 are for Robin; built as recommended.
