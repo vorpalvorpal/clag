@@ -1211,3 +1211,52 @@ Built as recommended until answered.
   pointers. Accepted.
 - The other choices (comparing the schema byte for byte, `.` as no
   folder, the knit's dictionary only in a weft knit) are accepted.
+
+## Rulings on the review of 2c (`dev/review-2c.md`)
+
+Findings 1 to 16 are accepted as the reviewer states them, with these
+particulars. Where a ruling differs from the contract above, the ruling
+wins.
+
+- **1, M.** `use_dictionary()` and `dict_vale()` never write through a
+  symbolic link: a target, or the `_weft` or style folder, that is a
+  link is a `weft_tool_error` before anything is written.
+- **2, 11.** "Wrote:" is printed, and a path returned, only for a file
+  that was written; a write that fails, and a target that is a folder,
+  are a `weft_tool_error` naming the path.
+- **3, B.** An `avoid` spelling that starts or ends with a character
+  that is not a letter or digit is a `read_dict()` problem (4.7.4): Vale
+  could never match it.
+- **4, 14.** The project root is never read as part of a glob pattern,
+  and the glob and function routes do not reach outside the project.
+- **5, J.** The glossary ends with a blank line, so text after its chunk
+  stays out of it; a definition with a blank line keeps its paragraphs,
+  indented as Pandoc needs.
+- **6, I.** A `term` that holds a line break, or starts with a markdown
+  block marker, is a `read_dict()` problem; surrounding white space is
+  trimmed.
+- **7, F.** A `decision` written `012`, `"#12"` or with more digits than
+  an issue number can have is never changed silently: `#12` is read as
+  12; the others are rows that do not resolve, with the reason.
+- **8.** The schema accepts everything `read_dict()` reads, except E1
+  and E2: where they differ beyond those, the schema is loosened.
+- **9.** `dict_vale()` removes weft's rule file only when the dictionary
+  it was given is the project's own (`dict = NULL`); given another
+  dictionary with no spellings it writes nothing and removes nothing.
+- **10.** A `fetch` that throws or returns something malformed is a row
+  "could not check: ...", and the rows after it are not attempted.
+- **12.** A remote's repository name takes letters, digits, `.`, `_` and
+  `-` only; `ssh.github.com` with a port and any letter case of
+  `github.com` are read as GitHub.
+- **D.** An answer of 410 (issues are off, as in a fork) is "could not
+  check", never "does not resolve".
+- **E.** The git remote is used only when the repository's top level is
+  the project root or inside it.
+- **G, H.** Outside a knit the glossary reads the project's `_weft.yml`.
+  A value prints with the decimals it was written with ("0.50"); a
+  value converted by `display:` prints as `fmt_num()` prints it.
+- **L.** `use_dictionary()` prints the schema line to use when the
+  file's own points somewhere else.
+- **A.** Whether Vale honours the order of a `swap` map is not checked
+  here (Vale is not installed); in `dev/open-findings.md`.
+- **C, K.** Left; in `dev/open-findings.md`. K belongs to `verify()`.

@@ -177,3 +177,12 @@ So a later review does not raise them again without a new argument.
   print.
 - The refusal message for a misread unit ends "so weft cannot print it
   truthfully" after the advice; reword.
+
+## From the review of 2c
+
+- Whether Vale honours the order of the `swap` map (longest spelling first)
+  is unverified; Vale was not installed for the review.
+- The `avoid` checks cover the kept spellings only, not other text weft
+  prints (string values, `labels`, `breaks` phrases, `dict_local` terms).
+- A `decisions` setting in front matter is not used by `check_decisions()`;
+  for `verify()` in stage 5.
