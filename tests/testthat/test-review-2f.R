@@ -493,5 +493,5 @@ test_that("review 2f #f: a failed read of the configuration clears the units: ta
   bad <- f2_proj(c("units:", "  zzfb: [oops"))
   expect_false(is.null(f2_cond(weft:::read_config(bad))))
   e <- f2_cond(r2_nm(2, "zzfa"))
-  f2_has_class(e, "weft_value_error")                          # nothing from A leaks into B's console work
+  f2_has_class(e, "weft_unit_error")                           # nothing from A leaks: its unit is gone (closing review #12)
 })
