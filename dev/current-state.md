@@ -33,7 +33,21 @@ first, then `dev/build-log.md`.
 
 ## In progress
 
-- (nothing yet; updated below as work starts)
+- **W1 to W4** (decision 63): tests committed b81a422 (14 tests, 7
+  failing); a sonnet implementer is making them pass in the main tree
+  (uncommitted edits in `R/`, `man/`, `NAMESPACE` are its). Then commit
+  "Build the items decided under delegation (decision 63)".
+- **Stage 0 inputs are ready** under `dev/trials/stage0/` (git-ignored):
+  `audit-summary.md`, `findings.csv` (866 findings; 419 carry a quoted
+  claim, 278 of those found verbatim in the sources), `pre/` (sources at
+  the pre-remediation commit 5c72119 of the manuscript project, 46
+  files). 42% of findings came from the rendered PDF and no source lint
+  can reach them. Expected flag-recall of all lints together: 25 to 35%.
+  Run `recall_check()` on these once stage 3 is built; a lint with no
+  reproduced finding, or flagging nearly everything, goes back to design.
+- **Stage 3 design**: an opus agent is writing `dev/design-3.md` (work
+  packages with non-overlapping files). Next: commit it, then test-writers
+  per package, 3a (shared pieces) first.
 
 ## Queue
 
