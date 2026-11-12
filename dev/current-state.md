@@ -41,9 +41,12 @@ first, then `dev/build-log.md`.
 - **GitHub issues for r-quantities/units**: two drafts shown to Robin
   (export `ud_get_symbol()`/`ud_parse()`; a failed `install_unit()`
   leaves the symbol mapped and `remove_unit()` strips the old unit's
-  symbol). NOT posted: wait for Robin's go-ahead and answers (both or
-  one; keep the PR offer?). Installing units from GitHub was blocked by
-  the permission system; do not retry.
+  symbol). Robin chose the bug report only. units updated to 1.0.1 from
+  CRAN; `brew install udunits` done at Robin's request; the patch (11
+  lines in `src/udunits.cpp` plus a test) is built and tested in the
+  scratchpad (`unitsfix/`, diff `unitsfix/units-install-fix.diff`):
+  units' suite 118 tests, 0 failing with it. NOT posted: wait for
+  Robin's explicit go-ahead on the final draft.
 - **Stage 0 inputs are ready** under `dev/trials/stage0/` (git-ignored):
   `audit-summary.md`, `findings.csv` (866 findings; 419 carry a quoted
   claim, 278 of those found verbatim in the sources), `pre/` (sources at
