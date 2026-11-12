@@ -650,3 +650,52 @@ Questions:
   cached chunk, so only `weft_str()` rows are stored and replayed.
 - Two renders of one output at the same moment were not run by the
   reviewer either; filed in `dev/open-findings.md`.
+
+## Ruling on D12: sentences by `stringi` (decision 57)
+
+Replaces D12's boundary rule and ruling B's abbreviation list. The rest
+of D12 stands (a table cell, a caption, a front-matter field and a
+`weft_str()` string are each one sentence; white space made one space;
+markdown kept; the cut at 400 characters).
+
+The sentence is cut from the block of knitted markdown that holds the
+construct's text. Block markers are not part of it: a list marker
+(`-`, `1.`, `(a)`), a block-quote `>`, a heading's `#`, a line block's
+`|`, a footnote definition's `[^1]:`, a div fence `:::`.
+
+1. **Masking.** Boundaries are found on a copy of the block, of the
+   same length, in which what is not prose is replaced so that its
+   punctuation cannot end a sentence. Measured: ICU otherwise cuts
+   inside `` `x.y(). Z` ``, `$p < 0.05. Q$`, a link's text and target,
+   an inline footnote, an attribute block and an HTML tag.
+   - Replaced by letters: inline code; inline math (`$…$`, `\(…\)`);
+     the target of a link or image (`](…)`, `][ref]`), an autolink;
+     a raw HTML tag; an attribute block (`{…}` after `]`, `)` or a
+     code span); a shortcode (`{{< … >}}`); a citation (`[@key, p. 4;
+     @other]`, `@key`, `-@key`) and a cross-reference (`@fig-x`,
+     `\@ref(fig:x)`), keys with full stops included; an inline
+     footnote (`^[…]`), unless the construct is inside it, when the
+     footnote's text is the block.
+   - Replaced by closing brackets, so that a boundary falls after
+     them: emphasis and strike-out markers (`*`, `**`, `_`, `~~`) and
+     a footnote reference (`[^1]`). So "**Note.** The value was 5."
+     is cut after `**`, and "…was 7.2.[^1] Then" after `[^1]`.
+2. **ICU.** `stringi::stri_locate_all_boundaries(type = "sentence")`
+   on the masked copy, locale the document's `lang` (`en` when unset,
+   `en-AU` passed as `en_AU`) with `@ss=standard`.
+3. **Boundaries dropped** after ICU:
+   - before a lower-case letter or a digit;
+   - inside square brackets that close later in the block (a link's or
+     a span's text);
+   - after a single capital letter and its full stop (initials:
+     "J. R. Smith", "E. Coli");
+   - after one of weft's abbreviations, as a whole word: in any
+     language `e.g.`, `i.e.`, `cf.`, `ca.`, `viz.`, `vs.`, `et al.`;
+     in English also `Dr.`, `St.`, `No.`, `Nos.`, `Vol.`, `approx.`,
+     `est.`, `incl.`, `excl.`. Not `etc.`, which often ends a
+     sentence; not `Fig.`, `Eq.`, `Tab.`, `Ch.`, `Sec.`, which a
+     cross-reference writes in a Quarto document.
+
+Left as ICU gives them: "U.S. E.P.A." is cut after "U.S."; "9 a.m.
+Rain" is cut; a Unicode ellipsis before a capital is not a boundary.
+`stringi` joins Imports.
