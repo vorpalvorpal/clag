@@ -114,8 +114,9 @@ test_that("review closing #2: scanning a report with a child= that cannot be eva
   e1_dict(d)
   e1_put(d, list("report.Rmd" = RMD_COMPUTED, "part.Rmd" = "The a is `r dict$a`."))
   withr::local_dir(d)
-  out <- capture.output(msg <- capture.output(
-    res <- weft::tar_dict_deps(list(tarchetypes::tar_render(report, "report.Rmd"))), type = "message"))
+  # tar_render() itself prints the failed evaluation of the option; only weft's scan is captured
+  utils::capture.output(tg <- suppressMessages(tarchetypes::tar_render(report, "report.Rmd")), type = "message")
+  out <- capture.output(msg <- capture.output(res <- weft::tar_dict_deps(list(tg)), type = "message"))
   expect_identical(out, character())
   expect_identical(msg, character())
   expect_true("report" %in% e1_names(res))

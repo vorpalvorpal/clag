@@ -254,3 +254,7 @@ code; the cost of `weft_setup()`.
   function is exported but is plumbing; an update to `targets` could
   make the check silently stop firing (the error from `targets` about
   duplicated names would then be what the author sees).
+- **Units a dictionary registers stay for the session.** Closing
+  review #12 is fixed for rows of `units:`; a token registered for a
+  dictionary entry's unit (`R/dict.R`, near the registration of
+  dictionary units) is still not removed when another project is read.
