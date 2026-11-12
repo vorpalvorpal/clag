@@ -392,7 +392,9 @@ test_that("4c G25, 8.3.2: after a pass the backup is gone and _freeze holds the 
   expect_verify_passed(fx$r)
   expect_false(dir.exists(v4_backup_dir(root)))
   expect_true(all(file.exists(file.path(root, "_freeze", c("a", "b"), "execute-results", "html.json"))))
-  expect_identical(sort(names(fx$freeze_after)), sort(names(fx$freeze_before)))
+  # G25 step 4: a pass deletes the backup and keeps the fresh _freeze; only the execute-results entries are promised
+  er <- function(s) sort(grep("/execute-results/", names(s), fixed = TRUE, value = TRUE))
+  expect_identical(er(fx$freeze_after), er(fx$freeze_before))
 })
 
 test_that("4c G25, G30: the stamps carry the run id verify() made, the same for both documents, and not the earlier render's", {

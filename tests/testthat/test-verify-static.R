@@ -335,7 +335,7 @@ test_that("4c G24, H5: a tar-name finding fails verify() though HEAD held it", {
   skip_if_not_installed("targets")
   skip_on_cran()
   v4_env()
-  doc <- c("---", "title: T", "---", "", "```{r}", "x <- tar_read(fitt)", "```")
+  doc <- c("---", "title: T", "---", "", "```{r tarlabel}", "x <- tar_read(fitt)", "```")
   p <- v4_proj(list("a.qmd" = doc), git = TRUE)
   c3_store(p$root, c("fit", "dat"))
   # the store is a build product: not committed, but read from the work tree by verify()
@@ -540,14 +540,19 @@ test_that("4c G3: a static run writes nothing outside the project and moves noth
   g_write(p$root, "ch2.qmd", g_num_doc("37%"))
   outside <- v4_outside_snap(p$top, p$root)
   git <- g_git_snapshot(p$top)
-  tmp <- list.files(tempdir(), recursive = TRUE, all.files = TRUE, include.dirs = TRUE)
+  # the gate cache <git dir>/weft/cache is written by design (G14), and the temp repository is under tempdir()
+  ls_tmp <- function() {
+    x <- list.files(tempdir(), recursive = TRUE, all.files = TRUE, include.dirs = TRUE)
+    x[!grepl("(^|/)\\.git/weft(/|$)", x)]
+  }
+  tmp <- ls_tmp()
   r <- v4_verify(p$root, static = TRUE)
   expect_verify_failed(r)
   expect_identical(v4_outside_snap(p$top, p$root), outside)
   # git is only read: no ref moved, nothing staged (the cache folder .git/weft is left out of the snapshot)
   expect_identical(g_git_snapshot(p$top), git)
   # temporary folders are removed before it returns
-  expect_identical(list.files(tempdir(), recursive = TRUE, all.files = TRUE, include.dirs = TRUE), tmp)
+  expect_identical(ls_tmp(), tmp)
 })
 
 # ---- Rscript (G27, H17) -------------------------------------------------------------------------------
