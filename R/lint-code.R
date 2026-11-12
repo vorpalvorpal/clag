@@ -75,7 +75,7 @@ pd_tree <- function(text) {
   n <- nrow(pd)
   ix <- match(pd$parent, pd$id)
   kids <- split(seq_len(n), factor(ix, levels = seq_len(n)))
-  list(pd = pd, kids = kids, roots = which(is.na(ix) & pd$token == "expr"), lines = lines, n = n)
+  list(pd = pd, kids = kids, par = ix, roots = which(is.na(ix) & pd$token == "expr"), lines = lines, n = n)
 }
 
 node_text <- function(t, i) {
@@ -103,8 +103,20 @@ all_exprs <- function(t) {
   unlist(lapply(t$roots, function(r) subtree(t, r)), use.names = FALSE)
 }
 
+# The left side of the pipe (`|>` or `%>%`) that node i is the right side of, or NA.
+pipe_lhs <- function(t, i) {
+  p <- t$par[i]
+  if (is.na(p)) return(NA_integer_)
+  pk <- t$kids[[p]]
+  m <- match(i, pk)
+  if (is.na(m) || m < 3L || length(pk) != 3L) return(NA_integer_)
+  tk <- t$pd$token[pk[2L]]
+  if (tk == "PIPE" || (tk == "SPECIAL" && identical(t$pd$text[pk[2L]], "%>%"))) pk[1L] else NA_integer_
+}
+
 # A call node: its function's name and package, the node of the name and the arguments
-# (node and name). NULL when i is not a call.
+# (node and name). NULL when i is not a call. The right side of a pipe is read as the call it
+# makes: the piped value is its first argument.
 call_info <- function(t, i) {
   tk <- t$pd$token
   if (tk[i] != "expr") return(NULL)
@@ -123,6 +135,8 @@ call_info <- function(t, i) {
     fpos <- fk[3L]
   }
   args <- list()
+  lhs <- pipe_lhs(t, i)
+  if (!is.na(lhs)) args[[1L]] <- list(node = lhs, name = NA_character_, piped = TRUE)
   nm <- NA_character_
   rest <- k[-(1:2)]
   for (j in seq_along(rest)) {
@@ -302,6 +316,15 @@ lc_find <- function(src, s, e, rule, text, message, hint = NA_character_, contex
   finding_at(src, s, e, rule = rule, text = text, message = message, hint = hint, context = context)
 }
 
+# Findings from records (s, e, text, message, hint, context) kept in a list, built in one call:
+# a finding costs a data frame each when built one at a time (review 3, finding 10).
+lc_find_all <- function(src, rule, recs) {
+  if (!length(recs)) return(new_findings())
+  g <- function(f) vapply(recs, function(r) r[[f]], "")
+  finding_at(src, vapply(recs, function(r) r$s, 1), vapply(recs, function(r) r$e, 1), rule = rule,
+             text = g("text"), message = g("message"), hint = g("hint"), context = g("context"))
+}
+
 lc_pieces <- function(src, kinds) {
   Filter(function(p) p$kind %in% kinds && !is.null(p$tree), code_pieces(src))
 }
@@ -324,15 +347,15 @@ lint_literal_value <- function(src, ctx) {
 # ---- inert-check (L23) ---------------------------------------------------------------------
 
 lint_inert_check <- function(src, ctx) {
-  out <- list()
+  recs <- list()
   for (p in code_pieces(src)) {
     t <- p$tree
     if (is.null(t)) next
     if (p$kind == "if" && !has_var(t, t$roots[1L])) {
-      out[[length(out) + 1L]] <- lc_find(
-        src, p$off, p$off + nchar(p$text) - 1, "inert-check", p$text,
-        sprintf("The condition `%s` has no variable, so it always takes the same arm (rule 3.1.6).", p$text),
-        "Make the condition depend on a value, or write the arm without a guard.", p$context)
+      recs[[length(recs) + 1L]] <- list(
+        s = p$off, e = p$off + nchar(p$text) - 1, text = p$text,
+        message = sprintf("The condition `%s` has no variable, so it always takes the same arm (rule 3.1.6).", p$text),
+        hint = "Make the condition depend on a value, or write the arm without a guard.", context = p$context)
     }
     for (i in all_exprs(t)) {
       ci <- call_info(t, i)
@@ -343,14 +366,14 @@ lint_inert_check <- function(src, ctx) {
         if (has_var(t, a$node)) next
         sp <- piece_span(p, a$node)
         tx <- node_text(t, a$node)
-        out[[length(out) + 1L]] <- lc_find(
-          src, sp[1L], sp[2L], "inert-check", tx,
-          sprintf("The check `%s` has no variable, so it can never fail (rule 3.1.6).", tx),
-          "Test the value with `.`, for example `. > 0`.", p$context)
+        recs[[length(recs) + 1L]] <- list(
+          s = sp[1L], e = sp[2L], text = tx,
+          message = sprintf("The check `%s` has no variable, so it can never fail (rule 3.1.6).", tx),
+          hint = "Test the value with `.`, for example `. > 0`.", context = p$context)
       }
     }
   }
-  bind_findings(out)
+  lc_find_all(src, "inert-check", recs)
 }
 
 # ---- value-constant and value-format (L24, L25) ---------------------------------------------------
@@ -394,7 +417,7 @@ value_constants <- function(p) {
 }
 
 lint_value_constant <- function(src, ctx) {
-  out <- list()
+  recs <- list()
   for (p in lc_pieces(src, c("value", "bare"))) {
     if (tree_literal(p$tree)) next
     d <- p$tree$pd
@@ -402,13 +425,13 @@ lint_value_constant <- function(src, ctx) {
       s <- p$line_off[d$line1[f$from]] + d$col1[f$from] - 1
       e <- p$line_off[d$line2[f$to]] + d$col2[f$to] - 1
       tx <- substr(src$text, s, e)
-      out[[length(out) + 1L]] <- lc_find(
-        src, s, e, "value-constant", tx,
-        sprintf("The constant `%s` is typed inside a value (rule 5.6.2).", tx),
-        "Put the constant in the dictionary or a named variable.", p$context)
+      recs[[length(recs) + 1L]] <- list(
+        s = s, e = e, text = tx,
+        message = sprintf("The constant `%s` is typed inside a value (rule 5.6.2).", tx),
+        hint = "Put the constant in the dictionary or a named variable.", context = p$context)
     }
   }
-  bind_findings(out)
+  lc_find_all(src, "value-constant", recs)
 }
 
 lint_value_format <- function(src, ctx) {
@@ -421,6 +444,10 @@ lint_value_format <- function(src, ctx) {
         k <- t$kids[[i]]
         if (length(k) == 3L && t$pd$token[k[1L]] == "'('" && t$pd$token[k[3L]] == "')'") {
           i <- k[2L]
+          next
+        }
+        if (!is.na(pipe_lhs(t, k[3L] %||% NA_integer_))) {   # look through a pipe to the call it ends in
+          i <- k[3L]
           next
         }
         ci <- call_info(t, i)
@@ -697,6 +724,9 @@ lint_name <- function(src, ctx) {
       end <- pos + nchar(nm) - 1
       if (!known) {
         near <- nearest(nm, is_class)
+        # on a code span a class is "one edit" from weft's only when a governor or key is there too:
+        # `{.cpp}` is a highlighting language, not a typo (review 3, finding 12)
+        if (is_class && identical(it$kind, "code") && !any(tk$type == "key") && !is.na(near)) next
         if (!construct && is.na(near)) next
         msg <- if (!is.na(near)) {
           sprintf("`%s` is not a name weft knows; it is one edit from `%s` (rule 5.3.3).", nm, near)
@@ -1039,7 +1069,8 @@ lint_dict_key <- function(src, ctx) {
       msg <- sprintf("`dict$%s` is read, but the project has no dict.yml (rule 5.8.6).", r$key)
       hint <- "Add dict.yml at the project root, or define the key under `weft: dict_local:`."
     } else if (!(r$key %in% dk$keys)) {
-      msg <- sprintf("`dict$%s` is not a key of dict.yml.%s (rule 5.8.6).", r$key, did_you_mean(r$key, dk$keys))
+      sug <- did_you_mean(r$key, dk$keys)
+      msg <- sprintf("`dict$%s` is not a key of dict.yml%s (rule 5.8.6).", r$key, if (nzchar(sug)) paste0(".", sug) else "")
       hint <- "Add the key to dict.yml, or correct the name."
     }
     if (is.null(msg)) next

@@ -12,7 +12,17 @@ lint_abort <- function(message) weft_abort(message, "weft_lint_error")
 
 # ---- the rule table ------------------------------------------------------------------
 
+# built once per session: findings are made by the thousand, each asking for the table
 lint_rule_table <- function() {
+  hit <- weft_env$lint_rule_table
+  if (is.null(hit)) {
+    hit <- lint_rule_table_build()
+    weft_env$lint_rule_table <- hit
+  }
+  hit
+}
+
+lint_rule_table_build <- function() {
   r <- function(id, spec, tier, scope, what) {
     data.frame(id = id, spec = spec, tier = as.integer(tier), scope = scope, what = what,
                stringsAsFactors = FALSE)
@@ -118,8 +128,10 @@ finding_at <- function(src, start, end = start, rule, text, message, hint = NA_c
 bind_findings <- function(parts, notes = character()) {
   parts <- Filter(function(p) !is.null(p) && nrow(p) > 0L, parts)
   if (!length(parts)) return(new_findings(notes = notes))
-  out <- do.call(rbind, lapply(parts, function(p) as.data.frame(unclass(p), stringsAsFactors = FALSE)))
-  out <- out[, FINDING_COLS, drop = FALSE]
+  # column by column: `rbind` of thousands of small frames is the slow part
+  cols <- lapply(FINDING_COLS, function(cn) unlist(lapply(parts, function(p) unclass(p)[[cn]]), use.names = FALSE))
+  names(cols) <- FINDING_COLS
+  out <- as.data.frame(cols, stringsAsFactors = FALSE, optional = TRUE)
   structure(out, class = c("weft_findings", "data.frame"), notes = as.character(notes))
 }
 
@@ -336,6 +348,7 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
 #'   `notes`.
 #' @export
 lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("weft", "pandoc")) {
+  tier_given <- !missing(tier)
   if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path) || !file.exists(path)) {
     lint_abort("`path` must be one existing file or folder (rule 5.1.1).")
   }
@@ -352,8 +365,20 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
     bad <- setdiff(rules, tab$id)
     if (length(bad)) {
       lint_abort(paste0("Unknown rule", if (length(bad) > 1L) "s" else "", ": ",
-                        paste0("`", bad, "`", vapply(bad, function(b) did_you_mean(b, tab$id), ""), collapse = "; "),
+                        paste0("`", bad, "`", vapply(bad, function(b) {
+                          d <- did_you_mean(b, tab$id)
+                          if (nzchar(d)) paste0(";", d) else ""
+                        }, ""), collapse = "; "),
                         " (rule 5.1.1)."))
+    }
+  }
+  # a rule named in `rules` runs whatever its tier when `tier` is not given (review 3, finding 9)
+  skipped <- character()
+  if (!is.null(rules)) {
+    if (!tier_given) {
+      tier <- sort(unique(tab$tier[tab$id %in% rules]))
+    } else {
+      skipped <- rules[!rules %in% tab$id[tab$tier %in% tier]]
     }
   }
   if (reader == "pandoc") {
@@ -390,6 +415,10 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   if (!is.null(files_rel)) report <- intersect(report, files_rel)
   sel <- tab[tab$tier %in% tier & (is.null(rules) | tab$id %in% rules), , drop = FALSE]
   ctx <- new_lint_ctx(root, all_files, md_files, report, tier, rules, reader)
+  if (length(skipped)) {
+    ctx$note(sprintf("Not run, because its tier is not in `tier`: %s (rule 5.1.2).",
+                     paste0("`", skipped, "`", collapse = ", ")))
+  }
   parts <- list()
   for (rel in report) {
     src <- ctx$source(rel)

@@ -1003,14 +1003,14 @@ lint_table_caption <- function(src, ctx) {
     l1 <- src_line_of(src, tb$end[i])
     if (nrow(td) && any(td$open < l0 & td$close > l1)) next
     isblank <- function(l) !nzchar(dl_trim(lines[l]))
-    cap_re <- "^[ \t]{0,3}(?::|Table:)[ \t]+\\S"
+    cap_re <- "^[ \t]{0,3}(?::|[Tt]able:)[ \t]+\\S"
     has_cap <- FALSE
     j <- l1 + 1L
     while (j <= nl && isblank(j)) j <- j + 1L
     if (j <= nl && j - l1 <= 2L && grepl(cap_re, lines[j], perl = TRUE)) has_cap <- TRUE
     j <- l0 - 1L
     while (j >= 1L && isblank(j)) j <- j - 1L
-    if (!has_cap && j >= 1L && l0 - j <= 2L && grepl("^[ \t]{0,3}(?:Table:)[ \t]+\\S", lines[j], perl = TRUE)) has_cap <- TRUE
+    if (!has_cap && j >= 1L && l0 - j <= 2L && grepl(cap_re, lines[j], perl = TRUE)) has_cap <- TRUE
     if (!has_cap) add(tb$start[i], dl_trim(lines[l0]), dl_trim(lines[l0]))
   }
   # chunks labelled tbl-

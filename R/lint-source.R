@@ -450,7 +450,7 @@ XREF_PREFIX <- "(?i:fig|tbl|lst|sec|eq|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)"
 KEY_BODY <- "[[:alnum:]_:.#$%&+?<>~/-]*[[:alnum:]_]"
 
 P3_PATTERN <- paste0(
-  "(?<cb>\\[[^\\[\\]]*(?<![[:alnum:]])-?@[[:alnum:]_][^\\[\\]]*\\])",
+  "(?<cb>\\[[^\\[\\]]*(?<![[:alnum:]])-?@[[:alnum:]_][^\\[\\]]*\\](?!\\{))",
   "|(?<xr2>\\\\@ref\\([^)\\n]*\\))",
   "|(?<xa>\\(\\\\#(?:fig|tab|eq):[^)\\n]*\\))",
   "|(?<cbr>(?<![[:alnum:]_])-?@\\{[^}\\n]*\\})",
@@ -689,7 +689,12 @@ mask_prose <- function(S) {
   tdelim <- which(grepl("\\|", wl) & grepl("^[ \t]*\\|?[ \t]*:?-+:?[ \t]*(\\|[ \t]*:?-+:?[ \t]*)*\\|?[ \t]*$", wl))
   grid <- which(grepl("^[ \t]*\\+[-=:+]+\\+[ \t]*$", wl))
   rule <- which(grepl("^ {0,3}(?:(?:\\*[ \t]*){3,}|(?:-[ \t]*){3,}|(?:_[ \t]*){3,})$", wl, perl = TRUE))
-  setx <- which(grepl("^ {0,3}(?:=+|-+)[ \t]*$", wl) & prev_nb)
+  # a setext underline sits under a one-line paragraph; under two lines or more Pandoc reads the
+  # dashes as the end of the paragraph (review 3, finding 11)
+  under <- grepl("^ {0,3}(?:=+|-+)[ \t]*$", wl) & prev_nb
+  prev2_nb <- c(FALSE, FALSE, !wb)[seq_len(nl)]
+  setx <- which(under & !prev2_nb)
+  rule <- setdiff(rule, which(under & prev2_nb))
   S$structural <- sort(unique(c(tdelim, grid, rule, setx)))
   S$tdelim <- tdelim
   S$setext <- setx
