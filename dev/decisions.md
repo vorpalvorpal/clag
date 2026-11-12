@@ -379,3 +379,17 @@ and are entries 30 to 37 under "Made".
     dictionary entries and source files a chapter reads; upstream
     conditions run `tar_network()` once per project render. Questions
     E1 to E5 are for Robin; built as chosen.
+57. **Sentences are split by `stringi` (Robin asked for a package,
+    12 November 2026).** The sentence stored in a ledger entry was cut
+    by weft's own rule and an abbreviation list. Tried here (ICU 71.1):
+    `stri_split_boundaries(type = "sentence")` with the locale keyword
+    `@ss=standard`, which turns on ICU's abbreviation suppressions for
+    the language, kept "Mr. Smith", "Jan. 2024", "et al.", "e.g." and
+    the French "M. Dupont", "p. ex." whole. Alternatives: `tokenizers`
+    (built on `stringi`, adds `Rcpp`, no suppressions); `corpus` (own
+    lists, not tried); weft's list (ours to maintain, English only).
+    Chosen: `stringi` in Imports, the document's `lang` as the locale,
+    and one rule on top (no boundary before a lower-case letter or a
+    digit). Cost: a hard dependency, and a machine with another ICU
+    could cut a sentence elsewhere, which would change a ledger line
+    but never what counts as changed. Reverse: `R/ledger.R`.
