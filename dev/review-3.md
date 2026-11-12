@@ -307,6 +307,11 @@ Design questions:
 1. `block-start` fires only at a marker that Pandoc's `markdown` reader
    really cuts a paragraph at. The test-writer checks each marker with
    `quarto pandoc` and pins what it finds; the others give no finding.
+   Found with Pandoc as Quarto 1.11.9 ships it: only a closed backtick
+   fence, a lone line of `-` or `=` (a setext underline) and a
+   definition line (`:` and spaces) cut a paragraph. `#`, `>`, a list
+   marker, `:::`, `~~~`, `$$`, a pipe-table line and an unclosed fence
+   do not, so the review's own list is narrowed.
 2. Anchors are collected from documents in folders that start with `_`
    (not `_site`, `_book`, `_freeze`, `_extensions`), so `xref` sees
    included files. No finding is reported in those files.
