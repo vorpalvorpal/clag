@@ -140,7 +140,9 @@ test_that("4c G25, G29: verify(files =) renders the named documents only: `quart
   fq2 <- v4_fake_quarto(body = v4_sh_stamp("a.qmd"))   # sub/c.qmd holds no construct: no stamp needed
   r2 <- v4_verify(p$root, files = c("a.qmd", "sub/c.qmd"))
   expect_verify_passed(r2)
-  expect_identical(v4_log(fq2, "args"), c("render", "a.qmd", "sub/c.qmd"))
+  # review-4 #4: several files are rendered one `quarto render <file>` at a time (Quarto renders the first
+  # of `render a b` and hands the second to Pandoc)
+  expect_identical(v4_log(fq2, "renders"), c("render a.qmd", "render sub/c.qmd"))
 })
 
 test_that("4c G25: QUARTO_PATH names the quarto that is run (it comes first)", {

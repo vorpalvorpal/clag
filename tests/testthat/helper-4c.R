@@ -221,14 +221,35 @@ v4_sh_freeze <- function(stem, text = "NEW") {
 # the call saw `_freeze`), `manifest` (the backup's manifest, as the call saw it) and `backup` (the folders
 # in .weft/freeze-backup, ls). `body` (lines of sh) runs after that; `status` is the exit status. Returns
 # list(path, log). POSIX only.
+#
+# `quarto inspect ...` is answered, not logged in `calls` or `args` (it is appended to `inspects`, one line
+# per call) and always exits 0: it prints the JSON of a project's render list, `files.input`, as absolute
+# paths. `inspect` (relative paths) is the list it names; NULL: every .qmd, .Rmd and .rmd under the working
+# directory whose path holds no component starting with `_` or `.`. Every other call is also appended to
+# `renders`, one line each (`render a.qmd`).
 v4_fake_quarto <- function(body = character(), status = 0L, observe = character(), out = character(),
-                           env = parent.frame()) {
+                           inspect = NULL, env = parent.frame()) {
   skip_on_os("windows")
   log <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
   bin <- normalizePath(withr::local_tempdir(.local_envir = env), winslash = "/")
   script <- c(
     "#!/bin/sh",
     sprintf("LOG='%s'", log),
+    "if [ \"$1\" = inspect ]; then",
+    "  echo \"$*\" >> \"$LOG/inspects\"",
+    if (is.null(inspect)) {
+      "  LIST=$(find . -type f \\( -name '*.qmd' -o -name '*.Rmd' -o -name '*.rmd' \\) | sed 's|^\\./||' | grep -v '^[_.]' | grep -v '/[_.]' | sort)"
+    } else {
+      sprintf("  LIST='%s'", paste(inspect, collapse = " "))
+    },
+    "  here=$(pwd -P)",
+    "  printf '{\"dir\":\"%s\",\"engines\":[\"knitr\"],\"config\":{},\"files\":{\"input\":[' \"$here\"",
+    "  sep=''",
+    "  for f in $LIST; do printf '%s\"%s/%s\"' \"$sep\" \"$here\" \"$f\"; sep=','; done",
+    "  printf '],\"resources\":[],\"config\":[]}}\\n'",
+    "  exit 0",
+    "fi",
+    "echo \"$*\" >> \"$LOG/renders\"",
     "echo call >> \"$LOG/calls\"",
     "pwd > \"$LOG/cwd\"",
     "for a in \"$@\"; do echo \"$a\"; done > \"$LOG/args\"",
