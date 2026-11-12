@@ -842,3 +842,64 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
 - **2d tests that compare the whole header line** are amended when
   2e-1 is built: a set-up render's header always carries `dict`,
   `files` and `targets` after the four fixed fields.
+
+## Rulings on the review of 2e-2 (`dev/review-2e2.md`)
+
+Findings 1 to 14 are accepted, with these particulars:
+
+- **1 (C5 amended).** A ledger whose source is gone is a rename
+  candidate along with one that exists only at `since`. A pair is
+  accepted when its content matches as C5 says and either the two
+  output names are equal or each output name is its own source's base
+  name. A paired ledger is compared entry by entry, with `file` mapped
+  from the old source to the new.
+- **2, 4, 5.** Every `*.jsonl` under `_weft/ledger/` is found on both
+  sides whatever its name: non-ASCII, in a dot-folder, or holding `"`
+  or `\` (git is asked with `-z`).
+- **3 (C7 amended).** Within a group of entries with the same file,
+  section, kind and expression whose counts differ between the sides,
+  the occurrences are lined up by their sentences (longest common
+  subsequence) before falling back to `occ`; so deleting one of three
+  identical expressions reports that one as removed.
+- **6.** The order-of-magnitude test has a tolerance (`>= 1 - 1e-9`).
+- **7 (2d D8 amended).** The ledger entry gains a field `unit` after
+  `raw`: the unit `raw` is in, as `units::deparse_unit()` writes it,
+  `null` for a plain number (additive; the version stays 1). A
+  dictionary threshold that is a quantity is converted to that unit
+  before the comparison; when either side has no unit or they do not
+  convert, there is no crossing reason for that key.
+- **8.** The entry's own text is removed from its sentence as a whole
+  word before the claim words are looked for.
+- **9 (P14 amended).** An entry's hash is of its JSON with names sorted
+  byte by byte at every level, so reordering an entry's fields changes
+  nothing.
+- **10.** Every listed entry of a stale ledger carries
+  `(not re-rendered)`.
+- **11.** A store that exists but cannot be read is a note (`the store
+  <store> could not be read; the pipeline was not checked`), not
+  stale.
+- **12.** The "Not re-rendered" and "New conditions" lines name the
+  output when it is not the source's base name.
+- **13.** A ledger that is unreadable on one side prints a count, as a
+  new or deleted one does.
+- **14.** `files` accepts a leading `./`.
+
+Questions:
+
+- **A.** When a section anchor exists only at `since` and another only
+  now in the same file, removed and added entries with equal kind,
+  expression and occurrence are paired and reported as changed, marked
+  `(section renamed from #<old>)`.
+- **B.** "crosses 1.0" is strict: the value was on one side of 1 and is
+  on the other. Starting or ending at exactly 1 is not a crossing.
+  "crosses 0" is as defined.
+- **C.** When `_weft/ledger/` is ignored by git, one note under
+  "Ledgers" says so (`git check-ignore -q`, read-only, joins C2's
+  list).
+- **D.** A ledger whose source is gone keeps that note only; the third
+  state is not computed for it.
+- **E, F.** Stated in C9 and T26: the interim claim words are English
+  only and the list is broad; stage 3's lexicon replaces it.
+- **G.** Nothing now.
+
+The implementer's calls on the layout stand, as the reviewer agrees.
