@@ -585,8 +585,11 @@ fell [sharply | ]{if="f"}.          →   fell.
 
 "A space" is one space character, or one line break inside a paragraph. A tab
 is not a space. Only one space is removed, the one before the span, however
-many there are. Two empty spans in a row each remove the space before them. An
-empty span inside an arm is judged against its own arm's text. A span that
+many there are. A run of governed spans with nothing between them is one
+**chain**. The space before the chain is kept when any span of the chain prints,
+and so is the space after it; a chain in which nothing prints is treated as one
+empty span. `A: [x|]{if="FALSE"}[q|]{if="FALSE"}[y|]{if="TRUE"}.` prints
+"A: y.". An empty span inside an arm is judged against its own arm's text. A span that
 prints something changes nothing around it, and a value that prints an empty
 string is not a span.
 
@@ -1140,6 +1143,12 @@ only. Under a ladder (4.4.23) the advice is the ladder with that unit put first
 Outside a knit, `fmt_num(0.04)` returns "0.0" and signals a `warning()` of
 class `weft_zero_warning`. `weft_str()` outside a knit signals the same
 warning and returns the text.
+
+**2.6.12** A unit warning (4.4.10, 4.4.24) is a warned check of kind "unit
+warning", recorded as 2.6.10 records one: it is reported at the end of the
+knit, fails nothing, and is in `last_knit()$warnings`. It is not a `warning()`
+of R, and the condition log does not record it. Outside a knit the same
+conditions signal a `weft_unit_warning`.
 
 ### 2.7 Positions
 
@@ -1720,7 +1729,9 @@ the first parse of a unit in a session registers weft's default units (4.4.21).
 A unit the units database does not know, a unit the value does not convert to, a
 unit with a power that is not a whole number (`m^0.5`), a value that is not
 a number and a missing unit are each an error of class `weft_unit_error`.
-So is a unit that 4.4.20 refuses.
+So is a unit that 4.4.20 refuses. A missing logical is a number here: `u(NA,
+mm)` is a missing quantity and `u(logical(0), mm)` an empty one. `TRUE` and
+`FALSE` are refused.
 
 **4.4.7** When it reads the dictionary, weft registers every unit symbol the
 units database does not know, with `units::install_unit()`. `PSU`, `NTU` and
@@ -1757,7 +1768,12 @@ as a symbol prints as typed (`ug`). A unit with no symbol prints its name, in
 the plural in a numerator and the singular in a denominator ("10 years",
 "5 kg/year"); a prefixed unit of such a row prints its symbol, as typed
 ("3,000 Myr"). A row of `units:` whose `symbol` is `false` has no symbol in any
-form: a prefixed token of it prints by name where a name is allowed, and is a
+form, and so has a row that gives a `name` and no `symbol` for a unit the project
+defines: a unit that neither weft's default table nor the `units` database knows,
+or one the row defines with `is:`. Such a unit prints by name in every form ("1
+site", "12 sites"). A row that gives a `name` to a unit weft or the database
+already knows (`m`, `NTU`, `PSU`) keeps that unit's symbol, and a row with
+neither a name nor a symbol prints its key. For a unit with no symbol: a prefixed token of it prints by name where a name is allowed, and is a
 value error that says it has no symbol where it is not. A `symbol:` in `units:` (9.1.7) replaces its unit's text, whole
 or one factor, as written.
 
@@ -1780,7 +1796,8 @@ each, and the same class applied twice applies once.
 
 `.pct`, `.p` and `.date` given a quantity that has a unit are a value error:
 dropping the unit would be the silent error of 4.4.5. A quantity with no unit
-left is a plain number to them.
+left is a plain number to them. For `.pct` on a quantity in per cent the message
+says that the unit already prints "%", so `.pct` is to be dropped.
 
 **4.4.2** The unit follows the number, in the form that goes with it. A number
 in digits takes the unit's symbol ("5 m"). A number a wording class has
@@ -1832,7 +1849,12 @@ conversion by `unit` (4.4.14), in the rung a ladder
 picked (4.4.23).
 
 **4.4.10** A bare value with no attribute block prints as stock knitr prints
-it (1.3.1): the number, without the unit.
+it (1.3.1): the number, without the unit. When the value is a quantity with a
+unit, the construct raises one unit warning (2.6.12; class `weft_unit_warning`
+outside a knit) saying that the value is a quantity whose unit is not printed,
+and that `{.num}` prints it and `{.nounit}` says the unit is not wanted. A
+quantity with `{.nounit}` alone prints the number as weft formats it, with no
+warning.
 
 **4.4.11** `units` is a dependency of weft (`Imports`), so `u()` is always
 available. Its system requirement is the udunits-2 library. The CRAN
@@ -2041,7 +2063,9 @@ written are `Sv`, `Bq`, `Bd`, `VA`, `Mg`, `ut`, `sievert`, `becquerel`,
 `Bq` and `Bd` as the hertz, `VA` as the watt, `Mg` as the tonne and `ut` as the
 gram, and a number would print with a unit the author did not write. weft sets
 no option of `units` for this, and changes no entry of its database. This
-holds in both modes of 4.4.21.
+holds in both modes of 4.4.21. In a compound unit every token prints as the
+author typed it: `mm/hr` prints "mm/hr", not "mm/h", and `mm/day` and `ha/yr`
+print as typed.
 
 A token that `units` reads as a prefix and another unit, or as another unit, can
 only be told from the one the author meant by a list, because the reading is a
@@ -2059,6 +2083,8 @@ valid one. weft cannot detect a misreading in general; it knows a list. Under
   the units database has no `kn`;
 - a prefix on the phot or the are, other than `ha`, is refused (`kph`, `Ga`,
   `ca`): the author means "per hour" or "a billion years";
+- `grade` is refused: `units` reads an angle, the gon, and the author means a
+  grade of something. The advice names a project unit (9.1.7);
 - a token that a row in force defines, the project's or the document's, is never
   refused.
 
@@ -2273,7 +2299,8 @@ non-finite elements are not tested.
   second loses them. Among rungs that print 1,000 or more, the one with the
   smallest number; if there is none, among rungs that print below 1, the one with
   the largest number; ties go to the earlier rung. All of this is measured on the
-  number as printed. Zero takes the first rung. With `mm|km`, every length from 1 m
+  number as printed. A lone zero takes the rung of the unit the quantity is held in when that unit
+  is on the ladder, else the first rung. With `mm|km`, every length from 1 m
   up to the one that prints "1.0 km" prints in mm: 149 m is "149,000 mm", 940 m is
   "940,000 mm" and 960 m is "1.0 km". A number too small for every rung takes the
   smallest unit and one too large the largest.
@@ -2313,13 +2340,13 @@ non-finite elements are not tested.
 | 1 m / 1000 m | `{L}` | "1 m" / "1 km" |
 | 999.96 m / 0.99996 m | `{L}` | "1.0 km" / "1.0 m" |
 | 0.0004 m / 5,000,000 m | `{L}` | "0.4 mm" / "5,000 km" |
-| 0 m / −1500 m | `{L}` | "0 mm" / "−1.5 km" |
+| 0 m / −1500 m | `{L}` | "0 m" / "−1.5 km" |
 | 5 m | `{unit="mm\|km"}`, a gap | "5,000 mm" |
 | 150 cm | `{unit="m"}`, a ladder of one | "1.5 m" |
 | 0.002 mg/L / 5 mg/L | `{unit="ug/L\|mg/L"}` | "2 ug/L" / "5 mg/L" |
 | 2500 m | `{.uname L}` | "2.5 kilometres" |
 | 3000 m | `{.word unit="m\|km"}` | "three kilometres" |
-| 0 m | `{.no unit="mm\|m"}` | "no millimetres" |
+| 0 m | `{.no unit="mm\|m"}` | "no metres" |
 | 1234.5 m | `{unit="m\|km" digits="2"}` | "1.23 km" |
 | 1000 m / 999 m | `[# was \| # were]{n="x" L}` | "1 km was" / "999 m were" |
 | 1500 m and 2500 m | `[none \| # was \| # were]{list="x" unit="m\|km"}` | "1.5 and 2.5 km were" |
@@ -2362,6 +2389,12 @@ m)` under `unit="m|km"` the result is "0.0 m" and a warned check whose advice is
   forms (4.4.14, 4.4.23). A rung
   that fails the checks above, and two rungs of one size, are value errors that
   name the ladder and the rung, in a knit a collected failure (5.3.2).
+
+**4.4.24** When a construct prints a quantity with its unit and the prose
+straight after it, after white space, is that unit again, as its symbol or as
+its name in the singular or the plural, the knit raises one unit warning (2.6.12)
+naming the word ("5 days days"). The same holds when an arm types the unit after
+`#`. Nothing is removed, and the text printed is unchanged.
 
 ### 4.5 Decision pointers
 
@@ -2448,8 +2481,8 @@ functions bound in a closure's own environment, and for a call `g()` the
 **4.6.3** A changed value re-runs exactly the targets that read it. A changed
 definition, a new key or a reorder re-runs no consumer.
 
-**4.6.4** An unknown key errors when the pipeline is defined, before anything
-runs. The error names the nearest key as 4.1.2 does.
+**4.6.4** An unknown key is a `weft_pipeline_error` when the pipeline is defined,
+before anything runs. The error names the nearest key as 4.1.2 does.
 
 **4.6.5** A `.qmd` rendered by `tar_quarto()`, and a source rendered by
 `tar_render()`, is scanned for `dict$key` the same way: chunk code, inline R and
@@ -2462,16 +2495,18 @@ depth.
 dictionary.
 
 **4.6.7** `tar_dict()` attaches the dictionary as `dict` on the search path. A
-`dict` object in the pipeline's environment is an error, because `targets` would
-track it. So is a second `tar_dict()` call, or a target of the author's named
-`dict_file`, `dict_values` or `dict_<key>`: a pipeline has one dictionary. A
+`dict` object in the pipeline's environment is a `weft_pipeline_error`, because
+`targets` would track it. So is a second `tar_dict()` call, or a target of the
+author's named `dict_file`, `dict_values` or `dict_<key>`: a pipeline has one
+dictionary. A
 `crew` worker does not see the attached `dict`.
 
 **4.6.8** The attached `dict` checks its own dependency. While a target runs, a
 read of key `k` requires `dict_k` among that target's dependencies, and a read of
 the whole dictionary requires every `dict_<key>`. Otherwise it is a
 `weft_pipeline_error` naming the target and the key, and saying to pass the
-target through `tar_dict_deps()`. A target left out of `tar_dict_deps()`, or a
+target through `tar_dict_deps()`. A read outside a running target checks
+nothing. A target left out of `tar_dict_deps()`, or a
 read the walker cannot see, stops the first make and never gives a stale number.
 
 ### 4.7 Generated from the dictionary
@@ -3012,7 +3047,8 @@ document rendered with different `params` to different outputs keeps a ledger
 for each, and a render that overwrites an output overwrites its ledger. The
 ledger is committed. It is written when the knit reaches the end of the
 document and its output is written: in draft mode, with each failed construct
-marked; not by a render that stops on its failures.
+marked; not by a render that stops on its failures, and not with `ledger: false`
+(9.1.9), which also leaves the condition log unwritten.
 
 **7.1.4** An entry is keyed on its `#id` where it has one, with the id's
 occurrence. Otherwise it is keyed on five things: the file the construct is
@@ -3079,14 +3115,19 @@ differs now.
 chapter reads, the dictionary entries its code reads and its source files. All
 three are objects, always present, with names sorted. They are found in a
 top-level knit of a set-up project, from the code of every chunk that runs
-(children and cached chunks included) and of every entry, with the functions it
-calls followed. The header's files are the source, every file an entry is
+(children and cached chunks included, and the chunk that calls `weft_setup()`)
+and of every entry, with the functions it calls followed. The header's files are the source, every file an entry is
 written in, every child, and every file a literal `source()` or `sys.source()`
-names. A target is read by `tar_read()` and `tar_load()` with a literal name,
-and is recorded under the store it is read from: a literal `store`, else the
-knit's configured store. A `store` that is not a literal is evaluated at the end
-of the knit; when it cannot be, the read is recorded under the default store and
-the knit warns once. A target's hash is the `data` hash in `tar_meta()`; a
+names. A target is read by `tar_read()`, `tar_read_raw()`, `tar_load()` and
+`tar_load_raw()` with a literal name (a symbol or a string), and is recorded
+under the store it is read from: a literal `store`, else the knit's configured
+store. A function of the author's, in the knit's environment, whose body passes
+one of its own arguments as the name to one of these four is a reader: a call of
+it with a literal name is a read of that target, from the store its body gives,
+evaluated as follows. A `store` that is not a literal is evaluated at the end
+of the knit, in the knit's environment; when it gives one string, that is the
+store. When it cannot be evaluated, the read is recorded under the default store
+and the knit raises one `weft_ledger_warning` naming the read. A target's hash is the `data` hash in `tar_meta()`; a
 dictionary entry's is of its JSON with names sorted at every level, so reordering
 its fields changes nothing; a file's is of its bytes with line ends made `\n`. A
 hash of what cannot be read is `null`. The condition log's header holds none of
@@ -3126,8 +3167,9 @@ are lined up by their sentences before the occurrence index is used, so deleting
 one of three identical expressions reports that one as removed.
 
 **7.3.4** Structural changes come first: a governed span choosing a
-different arm, a sign flip, crossing zero, crossing 1.0, crossing a
-dictionary threshold, and an order-of-magnitude change. A change can have
+different arm, a sign flip, crossing zero, crossing 1.0 (for an entry whose
+`unit` is null on both sides, a ratio or a count, and not for a quantity),
+crossing a dictionary threshold, and an order-of-magnitude change. A change can have
 several, and they are shown in that order. They are judged from the raw values.
 A sign flip is two non-zero values of opposite sign; crossing zero is exactly one
 of the two being zero; crossing 1.0 is strict, the value being on one side of 1
@@ -3142,7 +3184,8 @@ rounding. The rest follow, ranked (tier 3): a change to a value next to a claim
 word, that is, in the same sentence, ranks above one that is not. The entry's
 own text is removed from the sentence, as a whole word, before the claim words
 are looked for. Until stage 3 supplies its lexicon the claim words are an
-interim list: English only, and broad.
+interim list: English only, and broad. The number words (`one` to `twelve`,
+`first`, `second`, `third`) are not on it.
 
 **7.3.5** It also lists the entries added and removed, each with its
 sentence; the new conditions (7.4.4); and the tier-2 findings on material
@@ -3167,6 +3210,16 @@ that cannot be read, on either side, is a note, and prints a count as a new or
 deleted ledger does. When `_weft/ledger/` is ignored by git, one note says so. A ledger whose source is gone carries that note
 only: its third state is not computed.
 
+**7.3.9** `print()` of what `changes()` returns shows a header line, then the
+ledgers not re-rendered, the structural changes, the other changes ranked, the
+entries added, the entries removed, the new conditions and the ledgers whose
+status is not a comparison. A ledger that is new, deleted or unreadable is
+listed there with a count of its entries, an unreadable one too. An entry whose
+text is `""`, an arm that prints nothing, shows `(prints nothing)` as its text,
+and never a neighbouring sentence. `print(x, brief = TRUE)` shows the header line, the
+structural changes, the ledgers not re-rendered and the new conditions, and
+nothing else.
+
 ### 7.4 Conditions
 
 **7.4.1** The condition log is machine-written and committed. It sits beside
@@ -3182,7 +3235,10 @@ the ledger, one file for each ledger file. It has four sources:
   a target is not seen (§15). It joins a target's warnings into one text, which
   is one line, and a branch's condition is logged under its pattern. Finding the
   targets upstream runs the pipeline's script once per project render, and the
-  edges are kept while the store's `meta` file is as it was. A script that cannot
+  edges are kept, keyed on the store's `meta` file (its size and modification
+  time) and the script's path, not on the run, so a render of one file reuses
+  them. They are found for every store a chapter reads, and a store whose script
+  cannot be found is one warning. A script that cannot
   be run is one warning, and the targets read are still logged.
 
 **7.4.2** A **severity list** of patterns decides which conditions fail the
@@ -3328,6 +3384,7 @@ rule 8), and its message names `_weft.yml`.
 | `unit_form`: whether a quantity's unit prints as its symbol or its name | 4.4.15 |
 | `unit_defaults`: whether weft's default units are used (`weft`) or the `units` package's readings (`si`) | 4.4.21 |
 | `units`: a unit's name, plural, symbol, space, meaning (`is`) and side of the number (`before`) | 9.1.7 |
+| `ledger`: whether the ledger and the condition log are written | 7.1.3, 9.1.9 |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
 | `decisions` (project only where `_weft.yml` exists): where `decision:` pointers resolve | 4.5.3, 9.1.4, 9.1.8 |
 | project formatters: class name, function, stage | 1.4.8 |
@@ -3356,6 +3413,7 @@ pct_proportion: true
 count_threshold: 10
 word_limit: 100
 draft: false
+ledger: true           # false turns the ledger and the condition log off (9.1.9)
 unit_form: auto        # auto, symbol or name (4.4.15)
 unit_defaults: weft    # weft or si (4.4.21)
 units: {}              # 9.1.7
@@ -3365,7 +3423,7 @@ severity: []           # 7.4.2, added to the shipped patterns
 ```
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
-`false`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
+`false`, and so is `ledger`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
 when the configuration is read (9.1.3); for `unit_form` it is a
 `weft_config_error`. `unit_defaults` is `weft` or `si`, and may be set in a
 document's `weft:` as well; any other value is a `weft_config_error`:
@@ -3404,7 +3462,9 @@ units:
 written; a name always has its space (4.4.8).
 `name` and `plural` are non-empty strings (`plural` alone re-plurals the name
 weft finds, 4.4.17), `symbol` is a non-empty string or `false`, and `space` is
-`true` or `false`. A `name` with no `plural` takes the English rule (4.4.16), over a default row as
+`true` or `false`. A row of a unit the project defines that gives `name` and no
+`symbol` has no symbol, as `symbol: false` has (4.4.8); `symbol: false` is
+needed only to take the symbol from a unit weft or the database already knows. A `name` with no `plural` takes the English rule (4.4.16), over a default row as
 well: the plural of the new name, never the default's.
 The text of an entry is markdown, printed as written (4.4.8). When the
 configuration is read (9.1.3), before the dictionary, each key's unparseable
@@ -3500,6 +3560,12 @@ offers `github`, so a typo is not read as a function. A function that cannot be
 found is a `weft_config_error`: "Cannot find the decisions function `<fun>` (rule
 9.1.8)."
 
+**9.1.9** `ledger` is `true` (the default in a set-up project) or `false`. With
+`ledger: false` in `_weft.yml` or in a document's `weft:` front matter, the
+ledger and the condition log are not written (7.1.3), so a project can keep
+`units:` rows in `_weft.yml` without a ledger. The front matter overrides the
+project file in either direction.
+
 ### 9.2 Activation
 
 **9.2.8** A `.qmd` is a weft document when it has two things: `engine: knitr`
@@ -3566,7 +3632,8 @@ says what it will write before it writes it.
 freeze stamps (2.9.2) and the failure files are written only in a project
 that has been set up with `use_weft()`. Whatever creates the folder `.weft/`
 also writes `.weft/.gitignore` holding `*`, so that its files are not committed
-by accident.
+by accident; the `pre-render` script of `use_quarto()` is one of them. With
+`ledger: false` (9.1.9) neither the ledger nor the condition log is written.
 
 **9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
 the CI workflow template, the dictionary schema and the starter dictionary, the
@@ -5543,7 +5610,14 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   one added (7.1.8). `changes()` lists structural changes before the rest,
   and `changes(since = )` compares with the named commit. A new condition is
   an added line and fails nothing (7.4.4); a message whose number changed
-  keeps its line (7.4.6).
+  keeps its line (7.4.6). A ratio crossing 1.0 is a reason and a quantity doing
+  so is not; the number words are no claim words; an arm that prints nothing
+  shows `(prints nothing)`; `print(x, brief = TRUE)` (7.3.9); `ledger: false`
+  in the project file and in front matter, each overriding the other (9.1.9).
+  The header's reads: the setup chunk, a reader function of the author's, a
+  literal `source()` path, a non-literal `store` and the warning when it cannot
+  be evaluated (7.2.2); the upstream cache keyed on the store's `meta` file and
+  the script (7.4.1).
 - **`arms()` and `rehearse()`.** `arms()` lists every arm of every governed
   span in a fixture, nested ones under their arm, with no R run.
   `rehearse()` over three cases reports the arm each span chose in each, the
@@ -5554,7 +5628,10 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   a bare number errors. A quantity prints its unit after a no-break space
   under each number class, once after a collapse, with every number under
   `.pairs`, and as the unit's name after a spelled number or "no". `#` carries it by the same rules. A bare value
-  prints the number alone. A dictionary that names `PSU` or `sites` reads,
+  prints the number alone, and warns (4.4.10); a unit typed again after its
+  value warns (4.4.24); a project unit with a name and no symbol prints by name;
+  `mm/hr` prints as typed (4.4.20); a lone zero on a ladder (4.4.23); a chain of
+  governed spans (1.5.20). A dictionary that names `PSU` or `sites` reads,
   and so does one with a compound unit such as "CFU/100 mL".
 - **Unit names and forms.** Each shipped name, both spellings, the database's
   names with `_` as a space, prefixes by symbol and by name, the same-unit

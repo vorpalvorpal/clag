@@ -243,3 +243,14 @@ as removed; a weft failure hidden by `tar_quarto()`; a variable key
 reading every entry; what `dict_seed()` cannot see; no range type, no
 per-chapter glossary, one `space:` per unit; thresholds used only in
 code; the cost of `weft_setup()`.
+
+- **A unit name inside a compound (2i I7).** Every token of a compound
+  prints as typed, so `kilometre/hr` would print the name beside a
+  symbol, while a lone token typed as a name prints its symbol (4.4.8,
+  4.4.20). Which rule wins inside a compound is not ruled and not
+  tested.
+- **A second `tar_dict()` in a plain `_targets.R`** is found by looking
+  for the `targets::tar_callr_inner_try` frame on the stack. That
+  function is exported but is plumbing; an update to `targets` could
+  make the check silently stop firing (the error from `targets` about
+  duplicated names would then be what the author sees).
