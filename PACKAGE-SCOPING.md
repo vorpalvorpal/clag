@@ -121,7 +121,8 @@ and `key=value` pairs, in any order.
 uses single quotes: `{if="tier == 'sev'"}`.
 
 **1.2.3** In the block of a weft construct, a single-quoted value, or a `"` or
-a `\` inside any value, is a construct error (§5.3). The message says to bind
+a `\` inside any value, is a construct error (§5.3), except `\|` in the value of
+`unit`, which is read as `|` (4.4.23). The message says to bind
 the expression to a name in a chunk.
 
 **1.2.9** A `"` inside a double-quoted value ends the value early, and what is
@@ -268,7 +269,7 @@ text class or `trunc` with one of them is a construct error too.
 |---|---|---|
 | `digits` | number | decimal places |
 | `sigfig` | number | significant figures |
-| `unit` | number | the unit a quantity is printed in (4.4.14) |
+| `unit` | number | the unit, or the ladder of units, a quantity is printed in (4.4.14, 4.4.23) |
 | `sep` | collapse | the text between items |
 | `last` | collapse | the text before the final item |
 | `trunc` | collapse | the number of items shown before "and N others" |
@@ -505,7 +506,8 @@ site[s | | s]{n="k"}             an empty "one" arm: "sites", "site", "sites"
 ```
 
 **1.5.13** Inside a pipe-table cell the arm separator must be written `\|`.
-An unescaped one is a construct error.
+An unescaped one is a construct error. So must the `|` of a ladder in `unit`
+(4.4.23), in a value or in a span: `` `r x`{unit="mm\|m\|km"} ``.
 
 **1.5.14** A `|` or a `#` inside math, a code span, a link target or raw
 content within an arm is neither a separator nor a placeholder.
@@ -1126,6 +1128,13 @@ number below 1e-9 is zero (1.4.13) and is never warned about.
 0.04 printed as 0.0: add sigfig to show it, or digits to confirm it
 ```
 
+When the value is a quantity in one SI unit that takes a prefix (`m`, `g`, `L`,
+`Hz`, `Pa` and the like), and a prefixed unit would print it as a number from 1
+up to 1,000, the message adds it: "... or digits to confirm it; or show it in a
+prefixed unit, such as unit = "mm"". A compound unit gets `digits` and `sigfig`
+only. Under a ladder (4.4.23) the advice is the ladder with that unit put first
+(4.4.13). weft does not rescale by itself.
+
 Outside a knit, `fmt_num(0.04)` returns "0.0" and signals a `warning()` of
 class `weft_zero_warning`. `weft_str()` outside a knit signals the same
 warning and returns the text.
@@ -1330,12 +1339,14 @@ function carries the record forward.
 the list formatters, is exported.
 
 **3.4.4** A formatter function given a `units` value prints its unit as the
-class does (4.4.8), and takes `unit =` as the key does (4.4.14). The `weft_text`
+class does (4.4.8), and takes `unit =` as the key does (4.4.14), and a ladder (4.4.23) as a string
+(`"mm|m|km"`) or as a character vector (`c("mm", "m", "km")`). The `weft_text`
 it returns carries the unit as the attribute `unit` whenever a unit is in its
 text, in either form: it holds the unit's markdown text as printed for a plural
 number (`m`, `years`). Two attributes go with it. `unit_form` is as long as the
 text and holds `"symbol"`, `"name"` or `NA` for each element, and `units` holds
-the unit as `units::units()` gives it after conversion. A text with no unit
+the unit as `units::units()` gives it after conversion, in the rung a ladder
+picked. A text with no unit
 carries none of the three. A fourth attribute, `unit_before`, is present only
 when some element has its unit written before the number (4.4.22): it is as long
 as the text and holds `TRUE` where the unit is before the number, `FALSE` where
@@ -1379,7 +1390,13 @@ a heading. It is exported and attached (2.1.8). It returns a `weft_text` of
 length one with no record and no unit attributes, so `fmt_cap()` works on it.
 `x` is a quantity of any length (an `NA` is allowed, and no number is printed)
 or one string, read as `u()` reads a unit. `unit` converts first, as it does
-for the key (4.4.14). `auto` and `symbol` print the symbol text and `name` the
+for the key (4.4.14). With a ladder (4.4.23) and a quantity, it picks as `.num`
+would print `x`, one number or the vector rule, and prints that rung, in the
+plural unless `x` has length one and prints "1": `fmt_unit(u(1500, m), unit =
+"m|km")` is "km", with `unit_form = "name"` "kilometres", and `u(1000, m)` gives
+"kilometre". A quantity with nothing to test (length zero, all `NA`) takes the
+first rung. A ladder of more than one rung with a string is a
+`weft_value_error`: a string has no number to pick by. `auto` and `symbol` print the symbol text and `name` the
 name: `fmt_unit(u(5, mg/L))` is "mg/L", and with `unit_form = "name"` it is
 "milligrams per litre". `"none"` is a `weft_construct_error`. The name is plural
 unless `x` has length one and its number prints "1" under `.num`, and a string
@@ -1446,7 +1463,9 @@ option reaches: `ggplot2::labs()`, a `gt` footnote or column label,
 
 **3.6.3** A string given to `weft_str()` is prose wherever it is called from.
 During a knit, a failed check in it is collected as one in a paragraph is
-(2.4.1). Outside a knit it stops at once.
+(2.4.1). Outside a knit it stops at once. It reads the configuration as a knit
+does: a configuration error is raised, and it never prints with half a
+configuration.
 
 ### 3.7 `arms()` and `rehearse()`
 
@@ -1484,7 +1503,10 @@ its data some other way renders the same data in every case (§15).
 knit: `failures`, `warnings` (a data frame with the columns of `failures`,
 and no rows when there are none), `constructs`, `sentence_starts` and the
 others its help page lists. Before any knit it returns `NULL`. `rehearse()`
-returns the same records for each case.
+returns the same records for each case. `constructs` has a column
+`unit_picked`: for a construct with a `unit` key, the unit it printed in, as
+written in the ladder (`"km"`), and `NA` for a construct with no `unit`
+(4.4.23).
 
 ---
 
@@ -1543,8 +1565,8 @@ salinity_res:
 
 **4.2.1** An entry has a `value`, a `type` and a `definition`. `decision` is
 optional, and so are `term` (any type, 4.7.3) and `avoid` (4.7.4). `unit` is required for `type: quantity` and an error on any other
-type. `display` is optional on a `type: quantity` entry (4.2.7) and an error on
-any other type. A field that is not named here is an error; the problem lists
+type. `display`, a unit or a ladder of units, is optional on a `type: quantity` entry
+(4.2.7) and an error on any other type. A field that is not named here is an error; the problem lists
 the nine fields: `value`, `type`, `definition`, `unit`, `display`, `decision`,
 `why`, `term` and `avoid`.
 
@@ -1618,12 +1640,29 @@ reach_len:
 `dict$reach_len` is 2 km. `.num` prints "2 km", `.uname` "2 kilometres", and
 `{unit="m"}` "2,000 m". Arithmetic, checks, `#`, `units::drop_units()` and the
 pipeline all see km. The `display` unit is registered as `unit` is (4.4.7).
+
+`display:` may be a ladder (4.4.23), written `display: m|km` or as a list,
+`display: [m, km]`. The entry's own value is converted, when the dictionary is
+read, to the unit the ladder picks for it, tested as `.num` prints it under
+weft's default digits (1) whatever `_weft.yml` sets, so that `read_dict()` in a
+pipeline and a knit agree. An entry of 2000 m with `display: m|km` is 2 km, and
+one of 900 m is 900 m. `dict$x` is held in that unit for arithmetic, checks,
+`#`, `units::drop_units()`, the glossary and the pipeline, as with a single
+`display:`. The ladder does not travel: a value computed from the entry
+(`dict$x * 3`) stays in the unit the entry's own value picked, and a ladder on
+it is written as `unit=` at the use. A `unit` at the use wins over `display:`
+(4.4.15): its ladder picks from the value in whatever unit the dictionary gave
+it.
+
 These are problems of the dictionary (4.2.6): `display` on another type, one
 that does not parse, one that `unit` does not convert to, and one that `units`
-reaches only by inverting the value (4.4.14). The `entries`
+reaches only by inverting the value (4.4.14), each judged for every rung of a
+ladder, and for a ladder an empty or repeated rung, two rungs of the same size
+(4.4.23), a list item that holds `|`, and a `display` that is neither a string
+nor a list of strings. The `entries`
 attribute of the dictionary holds a `display` column, `NA` where an entry has
-none, then a `term` column (`NA` where absent) and an `avoid` column (a list
-column, `character(0)` where absent), and `print()` shows the display unit. An entry holds no form setting:
+none and the rungs joined by `|` (`"m|km"`) where it has a ladder, then a `term` column (`NA` where absent) and an `avoid` column (a list
+column, `character(0)` where absent), and `print()` shows the unit the entry is held in. An entry holds no form setting:
 the form is the reader's choice (4.4.15).
 
 ### 4.3 Local entries
@@ -1780,7 +1819,8 @@ alone writes `.nounit` (1.4.19), or gives the number alone with
 
 **4.4.9** A quantity that governs a span contributes its number. Selection
 sees the number as it prints, as for any governor (1.5.9), after any
-conversion by `unit` (4.4.14).
+conversion by `unit` (4.4.14), in the rung a ladder
+picked (4.4.23).
 
 **4.4.10** A bare value with no attribute block prints as stock knitr prints
 it (1.3.1): the number, without the unit.
@@ -1797,25 +1837,44 @@ a value error: weft prints one unit for one vector.
 **4.4.13** A quantity that prints as zero under the default digits prints "0.0"
 and its unit, and records the warned check, as a number does (1.4.13):
 `u(0.04, m)` under `.uname` prints "0.0 metres". A
-missing element is the "no value" failure, as for a number.
+missing element is the "no value" failure, as for a number. The warned check
+says how to show the value: `digits` or `sigfig` and, when the unit is one SI
+unit that takes a prefix, the prefixed unit that would print a number from 1 up
+to 1,000 (`unit = "mm"` for 0.04 m). For a compound unit it names `digits` and
+`sigfig` only. weft does not pick the unit itself, except from a ladder the
+author wrote (4.4.23).
+
+Under a ladder a quantity prints "0.0" only when every rung prints zero, since
+a rung that shows a number other than zero is nearer; the rung is then the
+first. When the first rung is one SI unit that takes a prefix, the advice is the
+ladder with the prefixed unit that would print from 1 up to 1,000 put first:
+`unit="mm|m|km"` for 0.04 m under `unit="m|km"`. For a compound first rung, and
+for a vector of which the picked rung prints only some elements as zero
+(`u(c(0.0001, 500), m)` under `m|km` prints "0.0 and 500 m"), it names `digits`
+and `sigfig` only. `digits` or `sigfig` silences the check as before.
 
 **4.4.14** The key `unit="m"` on a value construct or a governed span, and the
 argument `unit =` of the number-stage formatter functions, give the unit to
-print in. The quantity is converted before anything else, so the number, the
+print in, or a ladder of units, `unit="mm|m|km"` (4.4.23), to pick it from. The quantity is converted before anything else, so the number, the
 unit printed and the arm chosen are all in that unit: a value of 150 cm with
 `unit="m"` prints "1.5 m", and `[# is | # are]{n="x" unit="m"}` with `x` of
 100 cm prints "1 m is". A unit the quantity cannot be converted to, and
-`unit` on a value that is not a quantity, are value errors. So is a unit that
+`unit` on a value that is not a quantity, are value errors, for every rung of a
+ladder. So is a unit that
 `units` reaches only by inverting the value: `unit="1/m"` on a length and
 `unit="Hz"` on a time are refused, and an author who wants the reciprocal writes
 it in the expression. A conversion between two quotients is allowed:
 `L/(100*km)` to `km/L`. A conversion from one of the twin units to another is a
-value error: the `units` package defines the sievert and the gray alike, the
-becquerel, the baud and the hertz alike, and the volt-ampere and the watt alike,
-though each group measures different things. `u(2, Sv)` with `unit="Gy"` and
+value error: the `units` package defines the sievert, the gray and the rem
+alike, the becquerel, the curie, the baud and the hertz alike, and the
+volt-ampere and the watt alike, though each group measures different things. A
+unit that a project defines as a twin is one too. `u(2, Sv)` with `unit="Gy"` and
 `u(2, Bq/L)` with `unit="Hz/L"` are refused, with any prefix and alone or in a
 compound. A conversion within one of them (`mSv` to `Sv`) and to the SI
-definition (`Sv` to `J/kg`) is allowed. `display:` (4.2.7) follows the same
+definition (`Sv` to `J/kg`) is allowed. `of_n()`, `about()` and `claim()` given
+a comparison of twins raise the same error; a `claim()` raises it, and it is not
+a failed check. Arithmetic between twins is the `units` package's own, so a
+ratio of two of them is a plain number. `display:` (4.2.7) follows the same
 rule, and is a problem of the dictionary.
 
 **4.4.15** A unit prints in one of two forms: its **symbol** ("5 m") or its
@@ -1823,7 +1882,7 @@ rule, and is a problem of the dictionary.
 use first (`.uname`, `.usym`, `.nounit`, or `unit_form =` on a function), then
 the document (`weft: unit_form:`), then the project (`unit_form:` in
 `_weft.yml`), then `auto`. The unit shown follows an order of its own: `unit=`
-at the use (4.4.14), then the dictionary's `display:` (4.2.7), then the
+at the use, one unit or a ladder (4.4.14, 4.4.23), then the dictionary's `display:` (4.2.7), then the
 value's own unit. What the form in force prints:
 
 | Form in force | A number in digits | A number a wording class has spelled, or "no" |
@@ -1915,6 +1974,8 @@ the other, with the prefix "deca" for "deka". The shipped table is in full:
 | `′`, `″` | | | | | off |
 | `%` | per cent | percent | as the singular | | off |
 | `Hz`, `lx`, `S` | | | as the singular | | |
+| `VA` | volt-ampere | | | | |
+| `Bd` | baud | | as the singular | | |
 | `knot`, `calorie`, `horsepower`, `ton`, `gallon`, `Btu` | knot, calorie, horsepower, ton, gallon, Btu | | | | |
 | `degF`, `degC` | degree Fahrenheit, degree Celsius | | | `°F`, `°C` | |
 | `mmHg` | millimetre of mercury | millimeter of mercury | | `mmHg` | |
@@ -2047,7 +2108,9 @@ The first six rows **redefine**: the `units` package already reads the key (as a
 prefix and a unit, or as another unit), and the row gives it the meaning a report
 intends. `gal` is the US gallon, as `units` has it. The other rows name or
 register a unit and change no reading. `MPN` has no name, so a wording class on
-it is the error of 4.4.19. The table is of what a report is likely to write; a
+it is the error of 4.4.19. The symbol of the two `/100 mL` rows holds a no-break
+space between `100` and `mL`, so that the unit stays on one line, and arithmetic
+on such a quantity never prints a mangled unit. The table is of what a report is likely to write; a
 project adds the rest under `units:`.
 
 `unit_defaults:` sets one of two modes, in `_weft.yml` or a document's `weft:`:
@@ -2084,25 +2147,36 @@ their own. A quantity holds only its token: `u(7.2, pH)` made under `weft` and
 printed under `si` prints picohenries. Registrations of a unit of weft's own
 that redefines nothing (`NTU`, `PSU`, `CFU`, `MPN`, and the tokens of 4.4.7) are
 not undone during the session; `false` removes only their names. A read that
-fails leaves the session as if no configuration had been read: mode `weft` and
-the default rows only. When the package is unloaded, what it installed is
+fails removes every token installed since it began and returns the session to
+mode `weft` with the default rows only; it does not restore an earlier
+project's. When the package is unloaded, what it installed is
 removed (the base registrations apart) and `gal` is restored.
 
 *A unit installed by someone else.* When `units` already maps a token that a row
 defines, weft accepts it if it reads as the row says: a row with `is:` and a
 unit expression converts with a factor of 1, within 1e-9; a `base` row's token
-does not convert to the database's reading. Otherwise the call is a
-`weft_unit_error` that names the token, says that it was installed in the
+does not convert to the database's reading. Otherwise that row, and only that
+row, is disabled: the configuration read gives a warning of class
+`weft_unit_warning` that names the token, says that it was installed in the
 session and not by weft, and says to remove it with `units::remove_unit()` or to
-set `unit_defaults: si`. weft never removes what it did not install.
+set `unit_defaults: si`; every other unit works; and using the disabled token is
+a `weft_unit_error` with the same words. weft checks the tokens it installed
+again at each read. weft never removes what it did not install.
+
+*What a plain `units` user sees.* From weft's first use in a session, the
+redefining rows change what the `units` package itself prints: `Myr` prints as
+`Ma`, `gallon` as `gal` and `nautical_mile` as `nmi`, and the galileo, whose
+symbol is `gal`, cannot be written. This follows from redefining a symbol, and
+weft does not work around it.
 
 **4.4.22** A unit that a row writes with `before: true` is written before the
 number, joined to it by the space: `u(7.2, pH)` prints "pH 7.2" (the space is
 U+00A0). The unit is written before the number only when the unit printed is
 that token alone, with a power of 1: in a compound it follows, as for any unit
-("0.2 pH/h"). `space: false` removes the space, in the symbol and in the name
-form alike: "pH7.2". This is the one case in which `space:` governs a name
-(4.4.8).
+("0.2 pH/h"). `space: false` removes the space before the symbol: "pH7.2". It governs the
+symbol only, for a unit before the number as for one after, and a name keeps its
+space (4.4.8). A negative number prints the unit, the space, then the sign: "pH
+−0.4".
 
 - A collapse (`.and`, `.or`, `.range`, `trunc`, `glue_vec()`) writes the unit
   once, before the first item printed, in the form 4.4.3 gives: `.range` on
@@ -2113,10 +2187,132 @@ form alike: "pH7.2". This is the one case in which `space:` governs a name
   7.2 were", and with a value of 1 "pH 1 was". A text class wraps the unit and
   the number together: `.strong` prints `**pH 7.2**`. `.nounit` prints the
   number, "7.2"; `.word` on `u(7, pH)` prints "pH seven". `fmt_unit()` prints
-  "pH".
+  "pH". `.no` on a unit written before the number is a value error; a spelled
+  number keeps the space ("pH seven").
 - `.cap` leaves a text whose unit is written before the number as it is.
 - The printed record (1.4.11) holds the number. The `weft_text` attribute
   `unit_before` records the side (3.4.4).
+
+**4.4.23** A **ladder** is the set of units the author approves for a quantity. weft
+picks from it the unit to print in, by the value. It is written `unit="mm|m|km"`
+on a value or a governed span, as `unit =` of a formatter function and as
+`display:` in the dictionary (4.2.7). weft never picks a unit the author did not
+name (4.4.14).
+
+*Writing a ladder.*
+
+- A ladder is one string of rungs separated by `|`. White space around a rung is
+  trimmed (`"mm | m | km"` is the same) and white space inside a rung is kept
+  (`"CFU/100 mL|CFU/L"`). Each rung is read as `u()` reads a unit, under the
+  `unit_defaults` mode and the `units:` rows in force. A ladder of one rung is
+  `unit="m"`, unchanged in every respect.
+- Where a language has lists the ladder may be one: a YAML sequence in `display:`
+  (`display: [mm, m, km]`), a character vector for `unit =` (`unit = c("mm", "m",
+  "km")`). Each item is one rung and holds no `|`. A one-item list is the rung.
+- In a pipe-table cell the separator is written `\|` (1.5.13): `` `r x`{unit="mm\|m\|km"} ``.
+  weft reads `\|` as `|` in `unit`, in a table or not, and in no other value; a
+  `\` elsewhere stays the error of 1.2.3. An unescaped `|` in `unit` in a
+  pipe-table cell is a construct error. The `|` of a ladder does not change a
+  span's arm count.
+- The order is the author's preference, not sorted. Ascending (`mm|m|km`) is the
+  usual form, and weft does not require it: `u(0.05, m)` prints "50 mm" under
+  `mm|cm|m` and "5 cm" under `cm|mm|m`.
+- Every rung is checked against the quantity, whichever rung is picked, so that
+  an error does not come and go with the data. A rung that does not parse, is
+  refused (4.4.20), does not convert, converts only by inversion, or is a twin of
+  the quantity's unit (4.4.14) is a value error that names the rung: `unit="mm|kg"`
+  on a length, `unit="m|1/m"`, and `unit="mSv|Sv|Gy"` on a sievert, though `Sv`
+  would be picked. An empty rung (`mm||km`, `m|`) and a rung written twice
+  (`m|km|m`) are construct errors. Two rungs of one size (`m|metre`, `L|dm^3`,
+  `mg/L|g/m^3`; the factor is 1 within 1e-9) are a value error, since the later
+  could never be picked.
+- Compound units, the default table's units, project units and a unit written
+  before the number are rungs like any other. The picked rung prints exactly as
+  `unit="<rung>"` would: its symbol as typed (`ug/L`), name, plural, space and
+  place (4.4.22).
+
+*Picking the rung.* For each rung the quantity is converted and its numbers are
+printed as the use's classes and keys would print them (`digits`, `sigfig`,
+`.range`'s shared decimals), before any wording class. What is tested is the
+absolute value of each number **as printed**, so that 999.96 m is never printed
+"1,000.0 m". A number **fits** a rung when 1 ≤ |n| < 1,000. Missing and
+non-finite elements are not tested.
+
+- **One number** takes the first rung, in the ladder's order, where it fits. If
+  none fits it takes the rung whose number is nearest the window, measured as a
+  ratio (|n| below 1 is 1/|n| away, |n| of 1,000 or more is |n|/1,000 away), ties
+  to the earlier rung. Zero is infinitely far in every rung and takes the first.
+  With an ascending ladder a number too small for every rung takes the smallest
+  unit, and one too large the largest.
+- **A vector** takes one rung for all its elements: the rung where the most of its
+  tested numbers fit, ties to the earlier rung. If no rung has a fit, the rung
+  its largest absolute value takes alone, by the one-number rule. This holds
+  under `.and`, `.or`, `.range`, `.pairs`, the list classes, `trunc`, an
+  uncollapsed vector, `glue_vec()` and the `#` of a `list` span, and every
+  element counts, those `trunc` hides too. A vector with nothing to test (length
+  zero, all `NA`) takes the first rung.
+- A negative number is judged by its magnitude, and so is a `sign` governor.
+- The rung depends only on the value's own numbers, the ladder and the use's
+  classes and keys: the same value with the same ladder prints in the same rung
+  in every call, chunk and session. A value whose numbers change may print in
+  another rung.
+- Everything after the pick happens in the picked rung: the printed record, the
+  arm chosen (4.4.9), `#`, names and plurals (4.4.16), the attributes `unit`,
+  `unit_form` and `units` (3.4.4), and the zero rule (4.4.13).
+- `last_knit()$constructs` has a column `unit_picked`: for a construct with a
+  `unit` key, the rung it printed in, as written in the ladder; `NA` for a
+  construct with no `unit` (3.7.5). The ledger holds nothing of it.
+
+*Examples.* With `L` for `unit="mm|m|km"`, and `.num`:
+
+| Value | Construct or call | Prints |
+|---|---|---|
+| 1500 m / 250 m / 0.25 m | `{L}` | "1.5 km" / "250 m" / "250 mm" |
+| 1 m / 1000 m | `{L}` | "1 m" / "1 km" |
+| 999.96 m / 0.99996 m | `{L}` | "1.0 km" / "1.0 m" |
+| 0.0004 m / 5,000,000 m | `{L}` | "0.4 mm" / "5,000 km" |
+| 0 m / −1500 m | `{L}` | "0 mm" / "−1.5 km" |
+| 5 m | `{unit="mm\|km"}`, a gap | "5,000 mm" |
+| 150 cm | `{unit="m"}`, a ladder of one | "1.5 m" |
+| 0.002 mg/L / 5 mg/L | `{unit="ug/L\|mg/L"}` | "2 ug/L" / "5 mg/L" |
+| 2500 m | `{.uname L}` | "2.5 kilometres" |
+| 3000 m | `{.word unit="m\|km"}` | "three kilometres" |
+| 0 m | `{.no unit="mm\|m"}` | "no millimetres" |
+| 1234.5 m | `{unit="m\|km" digits="2"}` | "1.23 km" |
+| 1000 m / 999 m | `[# was \| # were]{n="x" L}` | "1 km was" / "999 m were" |
+| 1500 m and 2500 m | `[none \| # was \| # were]{list="x" unit="m\|km"}` | "1.5 and 2.5 km were" |
+| 3, 50, 800, 2500 m | `{.and unit="m\|km"}` | "3, 50, 800 and 2,500 m" |
+| 500 m and 2000 m | `{.and unit="km\|m"}`, a tie | "0.5 and 2 km" |
+| 0.5 m and 2 m | `{.range L}` | "500–2,000 mm" |
+| 0.4 km and 2 km | `{.pairs unit="m\|km"}` | "a (400 m) and b (2,000 m)" |
+
+In the source the `|` of a ladder is not escaped outside a pipe-table cell; the
+`\|` in the table is this table's own syntax. `u(1500, m)` with `unit =
+c("mm", "m", "km")` and with `unit="mm | m | km"` prints "1.5 km". With `u(0.04,
+m)` under `unit="m|km"` the result is "0.0 m" and a warned check whose advice is
+`unit="mm|m|km"` (4.4.13).
+
+*With other rules.*
+
+- **Back-references.** An `#id` on a construct with a ladder records the quantity
+  converted to its picked rung, and a referring span prints what the value
+  printed: with no formatter of its own it uses the record (1.7.8), and formatting
+  afresh it starts from the quantity in that rung, so `.uname` or `digits` keeps
+  the unit. A `unit` on the referring span converts again, by one unit or by a
+  ladder that picks afresh: after `` `r x`{#d unit="m|km"} `` with 1500 m,
+  `[#]{n="#d"}` prints "1.5 km", `{n="#d" .uname}` "1.5 kilometres" and
+  `{n="#d" unit="m"}` "1,500 m". `n="."` inherits the governor as printed, in the
+  picked rung.
+- **`display:`** is read as 4.2.7 says: picked once, when the dictionary is read.
+- **`unit_form`, `.uname`, `.usym`, `.nounit`** act on the picked rung.
+  **`unit_defaults: si`** reads the rungs in the mode in force, so `mph` on a
+  ladder is a milliphot under `si` and does not convert from km/h.
+- **Errors.** An empty or repeated rung is a construct error that names the
+  ladder and says to separate units with `|`, as in `unit="mm|m|km"` (rule
+  4.4.23). A list item holding `|`, or an `NA` or blank item, is a construct error
+  that says a ladder is one string with `|` or a vector of single units. A rung
+  that fails the checks above, and two rungs of one size, are value errors that
+  name the ladder and the rung, in a knit a collected failure (5.3.2).
 
 ### 4.5 Decision pointers
 
@@ -2140,8 +2336,9 @@ checked once per call, and rows that share one share the result.
   <repo>` names) resolves it, open or closed. A pointer that is not a whole
   number from 1 does not resolve, and no request is made. A pointer written
   `#12` is read as 12. One written with a leading zero, in hex or in octal, or
-  with more digits than an issue number can have, is kept as it was written
-  and does not resolve; its detail says why. The repository is checked before
+  with more than ten digits, or as a number above 2,147,483,647 (the most an
+  issue number can be), is kept as it was written and does not resolve; its
+  detail says why. The repository is checked before
   any issue. The `origin` is used only when the top level of its git repository
   is the project root or a folder inside it. `GITHUB_PAT`, else `GITHUB_TOKEN`,
   is sent as the token when set, and is never printed. A repository's remote may
@@ -2216,7 +2413,8 @@ glossary as Pandoc markdown, a string that knitr prints as markdown with no
 (P10). `dict` is a dictionary, or `NULL`: in a knit, the knit's project
 dictionary; outside a knit, `dict.yml` at the project root, with the root's
 `_weft.yml` in force, so that the preview at the console prints as the knit
-does. No dictionary to read, and a `dict` that is not one, are errors of class
+does. A `_weft.yml` that cannot be read leaves the preview on the defaults, so
+that a bad file does not stop it. No dictionary to read, and a `dict` that is not one, are errors of class
 `weft_tool_error`, and so is a `values` or `sort` that is not `TRUE` or `FALSE`.
 A `dict_local` is accepted and treated alike; `why` is never shown (4.3.3).
 
@@ -2235,7 +2433,8 @@ core length (0.5 m)
 - The value is the value as stipulated, printed with the configuration in force:
   the marks, the minus sign, `thousands_from`, the unit form and the `units:`
   table. It keeps the decimals it was written with: `value: 0.50` prints
-  "0.50". A quantity that `display:` converts prints as `fmt_num()` prints it.
+  "0.50". The decimals a value was written with are held in the attribute
+  `decimals` of the dictionary. A quantity that `display:` converts prints as `fmt_num()` prints it.
   A date prints through `fmt_date()` and a string as written.
 - The definition and a string value have each run of white space, newlines
   included, made one space; the markdown is printed as written. A definition
@@ -2252,7 +2451,8 @@ is the entry's canonical spelling; the keys are written longest first, then in
 radix order, and the rule matches case-sensitively, so an author lists a case
 variant as a spelling of its own. `dict` is as for `dict_glossary()`, and a
 dictionary with problems raises its `weft_dict_error` and writes nothing. `path`
-is relative to the project root, ends `.yml` and has a style folder above the
+is relative to the project root, and one that climbs out of it is a
+`weft_tool_error` (an absolute `path` outside the project is allowed); it ends `.yml` and has a style folder above the
 file (`styles/Weft/Terms.yml`); `level` is `suggestion`, `warning` or `error`.
 Either wrong is a `weft_tool_error`. The first lines of the file say that
 `dict_vale()` generated it from the dictionary file and that it is not to be
@@ -2276,7 +2476,8 @@ file, `dict_vale()` writes nothing and removes nothing.
 
 **4.7.3** `term:` is optional on an entry of any type, in `dict.yml` and in
 `dict_local`: the words a reader knows the entry by. It is a string that is not
-blank, with surrounding white space trimmed. A `term` that holds a line break,
+blank, with surrounding white space trimmed and the white space inside it kept;
+`*emph* term` is allowed. A `term` that holds a line break,
 or starts with a markdown block marker (`#`, `>`, `-`, `*`, `:`, or a number
 and a point), is a problem of the dictionary (4.2.6): `read_dict()` reports it.
 The glossary heads the entry with it, and it is the canonical spelling that
@@ -2392,7 +2593,8 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 - more than one of `n`, `if`, `sign`, `list`, `cite` in one block; any of
   them on a value (1.1.5, 1.3.3)
 - a code span that opens with `r` and a line break (5.3.4)
-- a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9)
+- a single-quoted value, or a `"` or `\` inside a value (1.2.3, 1.2.9), but
+  for `\|` in `unit`
 - a key written twice in one block, in any letter case (1.2.10)
 - an `#id` on a text span (1.1.9)
 - an inline expression, or the value of `n`, `if`, `sign` or `list`, that
@@ -2421,6 +2623,8 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 - a weft key on a link (`[a](u){if="x"}`), or an attribute block on inline R
   inside a link target
 - an unescaped arm separator in a pipe-table cell (1.5.13)
+- an empty or repeated rung in `unit`; an unescaped `|` in `unit` in a pipe-table
+  cell (1.5.13, 4.4.23)
 - `n="."` outside an `n`, `list` or `sign` span (1.7.2)
 - a duplicate id; a back-reference to an id that is unknown or defined later
   (1.7.5, 1.7.10)
@@ -2432,15 +2636,17 @@ running R. The gate fails on one, and a render stops at one (2.6.5).
 - a construct in `title` in a book or a website (1.10.11)
 - an attribute block inside math (5.2.6)
 
-**5.3.2** Nine errors need the value and are found only at knit time: a
+**5.3.2** Ten errors need the value and are found only at knit time: a
 governor of the wrong type (1.5.1, 1.5.11), `.a` on text that is not a number
 (1.4.5), `.range` on a value that is not of length 2 or with its first end above its
 second, a wording class on a
 number that is not whole and non-negative (1.4.12), a `sign` governor that
 prints as a bound (1.5.17), a name that may print for a unit that has none
 (4.4.19), the form `symbol` with a number a wording class has spelled (4.4.15),
-a unit class on a value with no unit (1.4.19), and a unit with no symbol that
-would print by its name under a `lang` whose words are not shipped (1.6.8). They
+a unit class on a value with no unit (1.4.19), a unit with no symbol that
+would print by its name under a `lang` whose words are not shipped (1.6.8), and
+a unit or a rung that the quantity cannot be converted to, or two rungs of the
+same size (4.4.14, 4.4.23). They
 are not construct errors, and none of them
 stops the render. Each is a collected failure with a marker (2.6.8, 2.6.9),
 and the render fails at the end with all of them listed, as it does for
@@ -2994,11 +3200,12 @@ units:
   NTU: false               # removes the default row; NTU stays registered
 ```
 
-`space` governs the symbol only; a name always has its space (4.4.8), except
-beside a unit written before the number (4.4.22).
+`space` governs the symbol only, on whichever side of the number the unit is
+written; a name always has its space (4.4.8).
 `name` and `plural` are non-empty strings (`plural` alone re-plurals the name
 weft finds, 4.4.17), `symbol` is a non-empty string or `false`, and `space` is
-`true` or `false`. A `name` with no `plural` takes the English rule (4.4.16).
+`true` or `false`. A `name` with no `plural` takes the English rule (4.4.16), over a default row as
+well: the plural of the new name, never the default's.
 The text of an entry is markdown, printed as written (4.4.8). When the
 configuration is read (9.1.3), before the dictionary, each key's unparseable
 tokens are registered as 4.4.7 says and the table is checked. Every problem is
@@ -3009,15 +3216,17 @@ is not a mapping; a key that does not parse, parses only with a warning, or has
 a power that is not whole; two keys for one unit; an entry that is not a mapping,
 or is empty; an unknown field, which is named; a field of the wrong type; a key that is a
 number, cancels to nothing (`m/m`) or holds no unit; and `symbol: false` on a
-unit with no name; an `is` that is not one of the forms below, or that the
+unit with no name; an `is` that is not one of the forms below (`2 m 3`), or that the
 `units` package cannot read, or that 4.4.20 refuses; a key with `is` that is more
 than one token or ends in a digit; an `is` that redefines a unit of the database
 or gives the same unit as another row; a `before` that is not `true` or `false`;
 and `false` for a key the default table has no row for. The unknown-field line
 lists the six fields. A read with problems registers nothing of the project's
-(4.4.7).
+(4.4.7), and a row whose install fails leaves nothing behind: what
+`units::install_unit()` half-installed is removed.
 A document's `weft: units:` is checked alike, naming the document, and its
-entry for a unit replaces the project's entry for that unit whole; the other
+entry for a unit replaces the project's entry for that unit whole, and when that
+drops a definition the problem names the document and the field; the other
 units merge (9.1.1). Over a row of weft's default table (4.4.21), the project's
 or the document's row merges field by field. After the read `u(3, sites)` works with no dictionary. Outside
 a knit the `units:` table of the last configuration read is used, and
@@ -3033,11 +3242,16 @@ document's, each in file order), so a forward or a circular reference is a
 problem. A key with `is` is one token: no space, no digit first, none of
 `* / ^ ( ) . +` or `-`, and no digit last (`units` reads a trailing digit as a
 power). Without `is` a key only names a unit. Two rows with the same `is` text
-are the same unit, and a problem. `is` on a key that the database holds as the
-symbol or name of a row of its own (not as a prefix and a unit) is a problem
-(`m: {is: ft}`, `ppt: {is: 0.001}`), because it would rewrite every unit derived
-from it; the exceptions are a token on the misread list of 4.4.20 and a key of
-the default table (`gal`, `mt`, `pH`).
+are the same unit, and a problem. A key takes `is` only when the `units`
+package does not already read it, asked of `units` itself and so without regard
+to letter case. `is` on a key that `units` reads, as a unit of its own or as a
+prefix and a unit, is a problem that says what `units` reads the key as
+(`m: {is: ft}`, `ppt: {is: 0.001}`, `km: {is: 1 mi}`, `Bags: {is: base}`),
+because it would rewrite every unit derived from it; the exceptions are a token
+on the misread list of 4.4.20 and a key of the default table (`gal`, `mt`,
+`pH`). An `is` that names a unit weft installed is read against it; where its
+definition is exactly that unit (`is: 1 zzr`) and `units` cannot hold two symbols
+for one unit, the problem is the "same unit" one, naming the other key.
 
 `before` is `true` or `false` (the default) and puts the unit before the number
 (4.4.22).
@@ -3611,7 +3825,9 @@ cannot hold it, and the author writes ordinary spacing outside the span.
 **1.5.13** The render is not the problem: the hooks resolve the span before
 Pandoc sees the table. But the source is also read by Pandoc's
 position-tracking reader (the lints) and by the visual editor, and their
-pipe-table parsers split a row on every unescaped `|` before any span exists.
+pipe-table parsers split a row on every unescaped `|` before any span exists, and
+they split one inside a span's attribute block too, so a ladder's `|` is written
+`\|` there, which Pandoc reads back as `|`.
 
 **1.5.16** An arm written for a case that did not happen may not be
 computable in the case that did.
@@ -3933,7 +4149,11 @@ when `vctrs` is loaded, so weft does not depend on it.
 the reader expects, as 4.4.14 says. `display:` converts when the dictionary is
 read, not when it is printed, because `units` keeps an attribute through
 `x * 2` but drops it in `c()`, `x[1]`, `mean()` and `y + x`, so a display unit
-kept as an attribute would be lost in the pipeline. The cost is that the
+kept as an attribute would be lost in the pipeline. A ladder in `display:` is
+picked at read for the same reason: an attribute carrying it survives `x * y` onto
+the wrong dimension (a length ladder on an area) and is lost in `c()` and
+`mean()`, so the pipeline would see a unit that depended on how a value was
+computed. The cost is that the
 pipeline sees the display unit, so adding `display:` changes the value a
 target reads, and the readers of that target re-run.
 
@@ -4036,6 +4256,20 @@ weft's to remove.
 report uses. The unit goes once before the first item of a collapse, as the unit
 goes once after the last item in 4.4.3: "pH 6.5–8.5". In a compound the pH is
 not the token alone, so the unit follows ("0.2 pH/h").
+
+**4.4.23** weft does not choose a unit by itself, because the unit would change
+with the data from one day's report to the next and within a table, and because
+the right unit is a convention of the field: rain in mm, a concentration in the
+unit of its limit. A ladder is the set the author approves, so the choice stays
+the author's and weft only applies it to the value. The number is tested as it
+prints because the arm chosen follows the printed number (1.5.9), and 999.96 m
+would otherwise print "1,000.0 m" and be in the wrong rung. A vector takes the
+rung where most of its numbers fit because the largest value would print the
+small elements as "0.0" ("0.0, 0.1, 0.8 and 2.5 km"). Every rung is checked so
+that an error does not come and go with the data, as in 4.4.19. The order is the
+author's because overlapping rungs (`mm|cm|m`) need one. The `|` is written
+`\|` in a pipe-table cell for the reason given at 1.5.13, and `display:` picks
+once at read for the reason given at 4.2.7.
 
 **4.4.19** An error that waited for a number that prints a word would arrive
 months after the document was written, on the day the count fell below the
@@ -5133,6 +5367,24 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   between quotients allowed, by `unit=` and `display:`; each unit `u()` and
   `read_dict()` refuse, alone and in a compound, with the message; each `units:`
   key problem; the table kept outside a knit cleared by a failed read.
+- **Unit ladder.** Every example of 4.4.23 through `weft_str()` and the
+  functions: the window's edges with and without `digits`; zero, negatives, a
+  gap, the order, the fallback both ways; the vector rule (a tie, no fit, `NA`,
+  length zero, `trunc`) under every collapse class and uncollapsed; `#` in `n`,
+  `sign` and `list` spans and `n="."`; back-references; names and plurals; the
+  unit classes and `unit_form`; the zero rule, its advice and `digits` silencing
+  it; mode `si`; the attributes `unit`, `unit_form` and `units`; `unit_picked`;
+  the same value twice in a document and across two knits; every error from a
+  construct and from a function, with the rung named; a ladder of one on the
+  rows of `unit=` above; `fmt_unit()` with a ladder and with a string. The
+  scanner, with no R run: an empty and a repeated rung; `\|` read as `|` in a
+  pipe-table cell and an unescaped `|` there an error, in a value and in a span;
+  `\|` outside a table accepted; `\` elsewhere in `unit` and in any other key
+  still an error; a `|` in `unit` leaving a span's arm count alone. `display:`
+  as a string and as a list: 2000 m and 900 m picking `km` and `m`, arithmetic
+  keeping the held unit, the `display` column and `print()`, every new problem in
+  one error with the old ones, `unit=` over a ladder, `dict_local`, a `_weft.yml`
+  `digits: 3` not changing the pick, and the glossary printing the held unit.
 - **Default units.** Every example of 4.4.20 to 4.4.22 in each mode: the token
   kept as written, by `units::deparse_unit()`, through `u()`, `read_dict()`,
   `display:` and `unit=`; the twin conversions refused and the conversions
@@ -5141,15 +5393,23 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   nothing); each redefining row, `ppm` and `ppb`, `NTU`, `PSU`, `CFU`, `MPN`
   and the two `/100 mL` rows; mode `weft`, `si` and `weft` again in one session,
   each knit right and outside a knit after each, a failed read returning to
-  `weft`, a second read and a second `u()` changing nothing; a project row over
+  `weft` and removing what it installed (also a row whose install fails), a second read and a second `u()` changing nothing; a project row over
   a default, per field, a document's over a project's, `false`, a project's
   `is` in each of its forms, in file order and by a forward reference; each
   new `units:` problem in one error with the others; each refusal in `u()`,
   `unit=` and `read_dict()`, alone and in a compound, with its message; a unit
-  installed by someone else, accepted and refused. A unit written before the
+  installed by someone else, accepted, or disabled with a `weft_unit_warning`
+  while every other unit works and using it a `weft_unit_error`, checked again at
+  each read. `Ci` and `rem` among the twins, a project unit defined as a twin,
+  and `of_n()`, `about()` and `claim()` over twins. `is:` on a key that `units`
+  already reads, in any letter case (`km`, `Bags`) and on one weft installed
+  (`is: 1 zzr`); a `name` with no `plural` over a default row; a document's row
+  that drops a definition; the names of `VA` and `Bd`; the no-break space in
+  `CFU/100 mL`; `weft_str()` outside a knit with a bad configuration. A unit written before the
   number in each collapse class, `trunc`, `.pairs`, the list classes, `#` in
-  `n`, `sign` and `list` spans, `.nounit`, `.strong`, `.cap`, `space: false` and
-  a compound, and the attribute `unit_before` through a chain. Three tests need a
+  `n`, `sign` and `list` spans, `.nounit`, `.strong`, `.cap`, `space: false` (the
+  symbol only, before the unit as after it) and a compound, a negative number,
+  `.no` as a value error, and the attribute `unit_before` through a chain. Three tests need a
   fresh R session: loading weft leaves `pH` a picohenry until the first unit is
   read, a `pH` installed before weft's first use is accepted, and an `mph`
   installed as another unit is the `weft_unit_error`.
@@ -5168,9 +5428,11 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   where text is wanted and a definition of only a no-break space. The glossary
   exactly, with `values` and `sort` off, an empty dictionary, a `dict_local`, a
   project with and without `dict.yml`, the `_weft.yml` in force outside a knit,
-  a value written `0.50`, a `display` conversion, a term and a definition with a
+  a value written `0.50` and the attribute `decimals`, a `_weft.yml` that cannot
+  be read, a `display` conversion, a term and a definition with a
   blank line, a paragraph below the chunk, and a render under rmarkdown.
-  `dict_vale()`: the rule exactly, the messages, a second run, `.vale.ini` with
+  `dict_vale()`: the rule exactly, the messages, a relative `path` that climbs out
+  and an absolute one outside the project, a second run, `.vale.ini` with
   the style listed, with `Weft-old`, and absent, an authored file at `path`, a
   dictionary with no `avoid` and the file present, removed only for the
   project's own dictionary, a `dict_local`, a bad `level` and `path`, a link, a
@@ -5183,7 +5445,7 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   network: no pointers and no call, every status of 4.5.4 and its detail, the
   token reaching `fetch` and appearing in no detail, `GITHUB_PAT` over
   `GITHUB_TOKEN`, no call after a refusal, a `fetch` that throws or returns
-  something malformed, a 410, `#12`, `012`, `0x1F` and a pointer of 11 digits,
+  something malformed, a 410, `#12`, `012`, `0x1F` and a pointer of 11 digits and the numbers 2147483647 and 2147483648,
   `resolved` `NA` exactly when the detail starts `could not check: `. The
   remote of a temporary repository in each form `parse_github_remote()` takes,
   one outside the project, none, and another host; `github_fetch()` with
