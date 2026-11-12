@@ -980,3 +980,13 @@ Questions:
   a target of the author's named `dict_file`, `dict_values` or
   `dict_<key>`, is a `weft_pipeline_error` from weft.
 - **F.** No separate warnings; the guard covers them.
+
+### Added to the 2e-1 review fixes from the trial (`dev/design-2i.md`)
+
+- **I15.** The code of the chunk that calls `weft_setup()` is walked
+  for reads like any other chunk's.
+- **I16.** A function in the knit's environment whose body passes one
+  of its own arguments as the name to `tar_read()`, `tar_read_raw()`,
+  `tar_load()` or `tar_load_raw()` is a reader: a call of it with a
+  literal name is a read of that target, from the store its body
+  gives.

@@ -234,3 +234,12 @@ So a later review does not raise them again without a new argument.
   written after the fix and not run against the code before it; the
   four degree tests that failed in a whole-suite run are the evidence
   that it failed.
+
+## From the stage 2 trial (Report 4 of `dev/field-notes.md`)
+
+Listed under "Not built" in `dev/design-2i.md`: quantity against bare
+number errors outside `claim()`; constructs of an unchosen arm listed
+as removed; a weft failure hidden by `tar_quarto()`; a variable key
+reading every entry; what `dict_seed()` cannot see; no range type, no
+per-chapter glossary, one `space:` per unit; thresholds used only in
+code; the cost of `weft_setup()`.

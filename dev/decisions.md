@@ -393,3 +393,19 @@ and are entries 30 to 37 under "Made".
     digit). Cost: a hard dependency, and a machine with another ICU
     could cut a sentence elsewhere, which would change a ledger line
     but never what counts as changed. Reverse: `R/ledger.R`.
+58. **A bare quantity warns (rule 4.4.10 kept, with a warning).** In
+    the stage 2 trial the natural edit, deleting a typed unit and
+    leaving the value bare, printed a number with no unit in six
+    places and nothing said so. Alternatives: print the unit (changes
+    what stock knitr prints for a bare value, against the rule that a
+    bare value is knitr's); leave it. Chosen: keep the output, raise a
+    `weft_unit_warning`; `{.nounit}` says the bare number is meant.
+    For Robin: printing the unit may be the better end state.
+59. **A unit typed again after its value warns.** "5 days days" came
+    from four converted spans. Alternative: remove the repeated word
+    (weft would be editing the author's prose). Chosen: a warning.
+60. **A `units:` row with a name and no symbol has no symbol.** Count
+    nouns ("site") otherwise print the key after digits and never
+    take a plural. Alternative: keep the key as the default symbol.
+61. **`ledger: false`** separates the ledger from the existence of
+    `_weft.yml`.
