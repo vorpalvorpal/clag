@@ -65,7 +65,12 @@ first, then `dev/build-log.md`.
   are writing the 3b, 3c and 3d tests (helpers `helper-3b.R` etc.).
   When 3a reports: commit it, hand its registry interface (in its
   report) to the 3b/3c/3d implementers, launch those in worktrees.
-  The stage 4 designer (opus) is writing `dev/design-4.md`.
+  3a was also sent design-4's G4 (reader hook `lint_read()`, `files`
+  scope, `project_only_settings()`).
+- **Stage 4**: `dev/design-4.md` is the contract (decision 65). Packages
+  4a gate and 4d activation (`use_setup()`, `.Rprofile`) first, in
+  parallel; then 4b installers and 4c `verify()` in parallel. None edits
+  `R/lint*.R`. Start 4a/4d test-writers once stage 3's 3a has merged.
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.

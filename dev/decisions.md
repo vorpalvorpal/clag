@@ -476,3 +476,24 @@ alternative and how to reverse it. In one line each:
 - **R5** tier 1 is wider than the spec in three places (`p<0.05` and
   `n=12` are typed numbers; `{n="3"}` is a literal value; a constant
   two-arm `if` cannot fail).
+
+## 65. Stage 4 is built to `dev/design-4.md` (13 Nov)
+
+The designer's choices H1 to H30 and the six marked for Robin are
+adopted under delegation; the note gives each alternative and how to
+reverse it.
+
+- **F1** the commit hook fails the commit when R or weft cannot be
+  found, and says how to bypass. A gate that passes when it cannot run
+  is no gate. Alternative: pass with a warning.
+- **F2** names: `gate()`; keys `strict`, `verify_skip`, `weft_version`;
+  the trailer `Weft-Removed`.
+- **F3** `use_ci()` writes at the top of the repository even when the
+  project is a subfolder (GitHub reads workflows nowhere else), and
+  installs weft from its GitHub repository until it is on CRAN.
+- **F4** agent conventions go in an `AGENTS.md` block and a Claude
+  skill. Alternative: `CLAUDE.md`.
+- **F5** a new project `.Rprofile` sources `~/.Rprofile`, since R reads
+  only one of the two.
+- **F6** the first commit of a repository is the baseline: its findings
+  are not compared with anything.
