@@ -263,3 +263,20 @@ code; the cost of `weft_setup()`.
   Once a release carries the fix, the early refusal in `ud_install_one()`
   and both `:::` calls can be removed (and `units (>= that version)`
   required).
+- **An amended commit's trailer** (H8) is judged against the commit
+  being amended, not its parent, so the final commit can carry
+  `Weft-Removed: 1` while removing three constructs from its parent.
+  The `commit-msg` hook is not told that a commit is an amend.
+- **Files that `use_quarto()` installs** (the filter, the extension,
+  `_weft/pre-render.R`, `post-render.R`) carry no edit marker and are
+  replaced whenever they differ from the shipped ones, so an author's
+  edit to them is lost without a message.
+- **Every folder holding `_weft.yml` is a project** (G7), test fixtures
+  in an R package repository included. A fixture that holds findings on
+  purpose is judged by the gate.
+- **`reader = "pandoc"` reads `commonmark_x`**, while Quarto renders
+  with Pandoc's `markdown`. The own reader is the default.
+- **Lint limits met in stage 0**: a label word joined to another by a
+  hyphen (`SIGNAL-SF 2`) is not exempt from `numeral`; `table-caption`
+  flags a table whose caption a helper function supplies; a paragraph
+  of 4,000 bytes or more is not held in the sentence cache.
