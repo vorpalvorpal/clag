@@ -823,3 +823,22 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
   message, with its line number.
 - The helper's hashes are checked against 2e-1's `file_hash()` and
   `dict_entry_hashes()` by a test that skips until 2e-1 is built.
+
+## Rulings on the 2e-1 test-writer's report
+
+- **P17**: the internal check is `has_targets()`, which calls
+  `requireNamespace("targets", quietly = TRUE)`; every part of 2e asks
+  through it.
+- **P9, "followed once"**: each function is walked once (a visited
+  set), so a chain of helpers is followed to its end and recursion
+  terminates.
+- **P14**: `file_hash()` gives `NA_character_` for a file that cannot
+  be read, written `null`; a hash that is `null` in the header is
+  `NA_character_` in `last_knit()$reads`.
+- **P13**: the three fields go in the ledger's header only; the
+  condition log's header is unchanged.
+- **P15**: the error-line test uses `error = "null"`; the design's
+  `"continue"` leaves the reader unable to run.
+- **2d tests that compare the whole header line** are amended when
+  2e-1 is built: a set-up render's header always carries `dict`,
+  `files` and `targets` after the four fixed fields.
