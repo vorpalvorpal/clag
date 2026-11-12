@@ -110,7 +110,7 @@ test_that("review 2b #2: a wording class that turns # into a word takes the unit
 test_that("review 2b #3: plural() keeps a unit with regex characters, once and intact (4.4.4 reversed)", {
   d <- rd()
   got <- as.character(plural(fmt_num(d$coliform_limit), "# count", "# counts"))
-  expect_equal(got, paste0("150", NBSP, "CFU/100 mL counts"))
+  expect_equal(got, paste0("150", NBSP, "CFU/100", NBSP, "mL counts"))
   expect_equal(as.character(plural(fmt_num(u(5, m)), "# a", "# b")), paste0("5", M, " b"))   # control
 })
 

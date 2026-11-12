@@ -40,6 +40,8 @@ plural_of_name <- function(nm) {
 # `us` is the en-US spelling; `plural` "same" is the name itself; `symbol` FALSE
 # is no symbol; `space` FALSE is no space before the symbol.
 SHIPPED_UNITS <- list(
+  VA = list(name = "volt-ampere"),
+  Bd = list(name = "baud", plural = "same"),
   m = list(name = "metre", us = "meter"),
   L = list(name = "litre", us = "liter"),
   t = list(name = "tonne", us = "metric ton"),
@@ -398,9 +400,17 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
   }
   f <- unit_factors(un)
   toks <- unique(c(un$numerator, un$denominator))
-  # a number stays as it is: the units package joins it to the next factor with no sign
-  toks <- toks[toks != "1" & !grepl("^[0-9]", toks)]
-  ph <- stats::setNames(vapply(seq_along(toks), function(i) intToUtf8(0xE100L + i), ""), toks)
+  toks <- toks[toks != "1"]
+  # a number is written with a no-break space after it (`CFU/100 mL`); the units package would
+  # join it to the next factor with no sign (`100d`)
+  nums <- toks[grepl("^[0-9.]", toks)]
+  toks <- setdiff(toks, nums)
+  if (length(f$den) && all(grepl("^[0-9.]", vapply(f$den, function(g) g$tok, "")))) {
+    value_error(sprintf(paste0("The unit `%s` holds a number (`%s`) with no unit to go with it, which prints as a ",
+                               "mangled unit. Convert the quantity to a unit without it (rule 4.4.21)."),
+                        as.character(un), f$den[[1L]]$tok))
+  }
+  ph <- stats::setNames(vapply(seq_along(c(toks, nums)), function(i) intToUtf8(0xE100L + i), ""), c(toks, nums))
   last_num <- if (length(f$num)) f$num[[length(f$num)]]$tok else NA_character_
   un2 <- un
   swap <- function(v) as.character(ifelse(v %in% names(ph), ph[v], v))
@@ -423,6 +433,12 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
       if (plural && identical(tok, last_num)) tn$pl else tn$sg
     } else if (isTRUE(sy$raw)) sy$text else md_escape(sy$text)
     s <- gsub(ph[[tok]], txt, s, fixed = TRUE)
+  }
+  for (n in nums) s <- gsub(ph[[n]], paste0(n, "\u00a0"), s, fixed = TRUE)
+  if (length(nums)) {
+    s <- gsub("\u00a0(?=[\u00b7)/^]|$)", "", s, perl = TRUE)
+    # one unit after the number needs no brackets: `CFU/100 mL`
+    s <- gsub("/\\(([0-9.]+\u00a0[^()\u00b7]+)\\)", "/\\1", s, perl = TRUE)
   }
   s
 }
@@ -530,7 +546,7 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
       value_error("fmt_unit() takes one string that names a unit, or a quantity.")
     }
     if (!nzchar(trimws(x))) unit_abort("fmt_unit(): the unit is blank; write fmt_unit(\"m\").")
-    x <- u_make(1, x)
+    x <- u_make(1, x, "fmt_unit")
     if (!is.null(unit)) x <- convert_unit(x, unit)
   } else if (!inherits(x, "units")) {
     value_error(sprintf("fmt_unit() needs a quantity (see u()) or a string that names a unit; the value is of class %s.",

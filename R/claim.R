@@ -61,12 +61,15 @@ claim <- function(x, ..., level = c("fail", "warn")) {
   value <- x
   env <- new.env(parent = parent.frame())
   assign(".", value, envir = env)
+  # a comparison of two quantities in twin units (Sv and Gy) is a value error, not a failed check (4.4.14)
+  for (op in c(">", "<", ">=", "<=", "==", "!=")) assign(op, twin_safe_compare(op), envir = env)
   bad <- integer()
   errs <- character()
   lens <- integer()
   hints <- character()
   for (k in seq_along(checks)) {
     res <- tryCatch(eval(checks[[k]], env), error = function(e) e)
+    if (inherits(res, "weft_unit_twin")) stop(res)
     if (inherits(res, "error")) {
       # a check that raises an error is a failed check (2.6.1)
       bad <- c(bad, k)
@@ -98,6 +101,21 @@ claim <- function(x, ..., level = c("fail", "warn")) {
     ), level)
   }
   value
+}
+
+# The comparison `op`, which refuses two quantities in units the units package defines alike.
+twin_safe_compare <- function(op) {
+  f <- get(op, envir = baseenv(), mode = "function")
+  function(e1, e2) {
+    if (inherits(e1, "units") && inherits(e2, "units")) {
+      tw <- unit_twin_problem(attr(e2, "units"), attr(e1, "units"), as.character(attr(e1, "units")))
+      if (!is.null(tw)) {
+        rlang::abort(paste0(tw, " (rule 4.4.14)."), class = c("weft_unit_twin", "weft_value_error", "weft_error"),
+                     call = NULL)
+      }
+    }
+    f(e1, e2)
+  }
 }
 
 # The text of each check. The check as written when the source is kept

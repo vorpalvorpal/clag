@@ -60,7 +60,8 @@ converts_by_inversion <- function(from, to) {
 #'
 #' A unit is kept as written: `u(2, Sv)` holds `Sv`, not the `Gy` the `units`
 #' package substitutes, and weft refuses to convert between units the database
-#' defines alike (`Sv` and `Gy`, `Bq` and `Hz`, `VA` and `W`). Under
+#' defines alike (`Sv`, `Gy` and `rem`; `Bq`, `Hz` and `Ci`; `VA` and `W`), in `of_n()`, `about()` and a
+#' `claim()` comparison as in a conversion; arithmetic is left to `units`. Under
 #' `unit_defaults: weft` (the default in `_weft.yml`) a unit the `units` package
 #' reads as a prefix and another unit that a report does not mean (`mt` as a
 #' millitonne, `kph` as a kilophot) is a `weft_unit_error` whose message says what
@@ -86,28 +87,28 @@ u <- function(value, unit) {
     unit_abort(sprintf("u(): the value must be a number or a units value, not a %s.",
                        class(value)[1L]))
   }
-  u_make(value, txt)
+  u_make(value, txt, "u")
 }
 
 # The `units` value for `value` in the unit written `txt` (what u() makes).
-u_make <- function(value, txt) {
+u_make <- function(value, txt, fn = "u") {
   bad <- unit_refusal(txt)
-  if (!is.null(bad)) unit_abort(sprintf("u(): %s", bad$text))
+  if (!is.null(bad)) unit_abort(sprintf("%s(): %s", fn, bad$text))
   parsed <- unit_parse_problem(txt)
   if (!is.null(parsed)) {
     unit_abort(sprintf(paste0(
-      "u(): `%s` is not a unit the units database knows. A project's own unit is ",
+      "%s(): `%s` is not a unit the units database knows. A project's own unit is ",
       "registered when the dictionary that names it is read (rule 4.4.7), or with ",
-      "units::install_unit(). The units package says: %s"), txt, parsed))
+      "units::install_unit(). The units package says: %s"), fn, txt, parsed))
   }
   to <- tryCatch(unit_symbolic(txt),
-                 error = function(e) unit_abort(sprintf("u(): %s", sub("\n.*$", "", conditionMessage(e)))))
+                 error = function(e) unit_abort(sprintf("%s(): %s", fn, sub("\n.*$", "", conditionMessage(e)))))
   if (inherits(value, "units")) {
     tw <- unit_twin_problem(attr(value, "units"), to, txt)
-    if (!is.null(tw)) unit_abort(sprintf("u(): %s (rule 4.4.14).", tw))
+    if (!is.null(tw)) unit_abort(sprintf("%s(): %s (rule 4.4.14).", fn, tw))
   }
   tryCatch(units::set_units(value, to, mode = "standard"),
-           error = function(e) unit_abort(sprintf("u(): %s", sub("\n.*$", "", conditionMessage(e)))))
+           error = function(e) unit_abort(sprintf("%s(): %s", fn, sub("\n.*$", "", conditionMessage(e)))))
 }
 
 # ---- printing (2b) --------------------------------------------------------
@@ -182,6 +183,8 @@ convert_unit <- function(x, unit) {
 # when they do not convert (3.5.7). Anything else passes unchanged.
 match_units <- function(a, b, fn) {
   if (inherits(a, "units") && inherits(b, "units")) {
+    tw <- unit_twin_problem(attr(b, "units"), attr(a, "units"), as.character(attr(a, "units")))
+    if (!is.null(tw)) value_error(paste0(tw, " (rule 4.4.14)."))
     b <- tryCatch(units::set_units(b, attr(a, "units"), mode = "standard"),
                   error = function(e) value_error(sprintf(
                     "%s(): the two quantities are in units that do not convert to each other (%s and %s).",

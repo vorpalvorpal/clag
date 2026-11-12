@@ -189,8 +189,9 @@ test_that("review 2g #7: after weft's first use units shows the redefined symbol
 # ---- 8: an is: that names a unit weft installed -----------------------------------------------------------------------
 
 test_that("review 2g #8: an is: naming a unit weft installed is read, and converts (9.1.7, ruling 8)", {
-  g2_cfg(c("units:", "  zzg8r:", "    is: 1 m", "  zzg8q:", "    is: 1 zzg8r"))
-  expect_equal(g2_cv(u(10, zzg8q), "m"), f2("10~m"))
+  e <- g2_cfg_err(c("units:", "  zzg8r:", "    is: 1 m", "  zzg8q:", "    is: 1 zzg8r"))   # exactly another row's unit
+  f2_has_class(e, "weft_config_error")
+  f2_msg_has(e, "`zzg8q`", "`zzg8r`", "same unit")
   g2_cfg(c("units:", "  zzg8r:", "    is: 1 m", "  zzg8q:", "    is: 2 zzg8r"))     # control: a factor was always read
   expect_equal(g2_cv(u(10, zzg8q), "m"), f2("20~m"))
 })
@@ -413,7 +414,7 @@ test_that("review 2g #a: a project unit defined as a twin is a twin (4.4.14, rul
 test_that("review 2g #a: of_n(), about() and a claim that compare twins are the twin value error (4.4.14, ruling a)", {
   g2_cfg(NULL)
   f2_has_class(f2_cond(of_n(u(2, Sv), u(4, Gy), "dose", "doses")), "weft_value_error")
-  f2_has_class(f2_cond(about(u(1, Sv) / u(2, Gy))), "weft_value_error")
+  # about(u(1, Sv) / u(2, Gy)) is not asserted: units cancels the twins before weft sees them (arithmetic is left to units, G2)
   f2_has_class(f2_cond(claim(u(2, Sv), . > u(1, Gy))), "weft_value_error")
   # control: the same unit compares
   expect_no_error(of_n(u(2, Sv), u(4, Sv), "dose", "doses"))

@@ -14,7 +14,8 @@
 #' text with the chunk that holds the call (rule 2.6.8). Outside a knit, and
 #' in a knit where `weft_setup()` was not called, the first failure stops at
 #' once, with the class of the failure (`weft_claim_failed`, `weft_no_value`,
-#' `weft_value_error`, `weft_construct_error`).
+#' `weft_value_error`, `weft_construct_error`). A `_weft.yml` with an error is a
+#' `weft_config_error` outside a knit as in one.
 #'
 #' Block-only constructs do not apply; each element is read as inline markup.
 #' Bare inline R in a string is evaluated as knitr evaluates it (rule 1.1.8).
@@ -71,7 +72,8 @@ string_state <- function() {
   s <- new_state()
   s$live <- FALSE
   cfg <- weft_env$config
-  if (is.null(cfg)) cfg <- tryCatch(read_config(getwd(), list()), error = function(e) default_config())
+  # a configuration with an error is an error here as in a knit (9.1)
+  if (is.null(cfg)) cfg <- read_config(getwd(), list())
   s$config <- cfg
   s
 }

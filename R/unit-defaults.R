@@ -16,6 +16,9 @@ ud_state$installed <- list()
 ud_state$removed <- list()
 ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
 ud_state$default_entries <- NULL
+# `disabled`: the default tokens someone else installed as another unit, each with the text that
+# says so; their rows are off until the token is removed.
+ud_state$disabled <- character()
 
 UNIT_TOKEN_RE <- "^[^[:space:][:digit:]*/^().+-][^[:space:]*/^().+-]*$"
 
@@ -34,7 +37,11 @@ unit_own_symbol <- function(tok) {
   if (tok == "1" || grepl("^[0-9.]", tok) || tok %in% ud_state$ctx$own) return(tok)
   hit <- un_cache$sym[[tok]]
   if (!is.null(hit)) return(hit)
-  s <- tryCatch(suppressWarnings(attr(units::as_units(tok), "units")$numerator), error = function(e) tok)
+  # the session's `auto_convert_names_to_symbols` must not change what weft stores
+  old <- units::units_options("auto_convert_names_to_symbols")
+  units::units_options(auto_convert_names_to_symbols = TRUE)
+  s <- tryCatch(suppressWarnings(attr(units::as_units(tok), "units")$numerator), error = function(e) tok,
+                finally = units::units_options(auto_convert_names_to_symbols = old))
   out <- if (length(s) == 1L && !is.na(s) && nzchar(s) && s != tok &&
              identical(tok_resolve_db(tok)$id, tok_resolve_db(s)$id)) s else tok
   un_cache$sym[[tok]] <- out
@@ -57,20 +64,26 @@ u_set <- function(value, txt) units::set_units(value, unit_symbolic(txt), mode =
 
 # The units the database defines alike, by the id of their rows.
 UNIT_TWINS <- list(
-  c(Sv = "sievert", Gy = "gray"),
-  c(Bq = "becquerel", Bd = "baud", Hz = "hertz"),
+  c(Sv = "sievert", Gy = "gray", rem = "rem"),
+  c(Bq = "becquerel", Bd = "baud", Hz = "hertz", Ci = "curie"),
   c(VA = "volt-ampere", W = "watt"))
 
 # The text of the refusal of a conversion from `from` to `to` (symbolic units) between twins,
 # without its rule, or NULL.
 unit_twin_problem <- function(from, to, to_txt) {
+  # a project unit defined as one token (`is: 1 Sv`) is that token's twin
+  twin_id <- function(t, depth = 0L) {
+    r <- tok_resolve(t)
+    if (r$known && !is.na(r$row)) return(ud_db()$id[r$row])
+    d <- ud_state$ctx$defs[[t]]
+    if (is.null(d) || depth > 3L) return(NA_character_)
+    d <- sub("^[0-9.]+([eE][-+]?[0-9]+)?[[:space:]]+", "", d)
+    if (grepl(UNIT_TOKEN_RE, d)) twin_id(d, depth + 1L) else NA_character_
+  }
   ids <- function(un) {
     toks <- unique(c(un$numerator, un$denominator))
     toks <- toks[toks != "1"]
-    id <- vapply(toks, function(t) {
-      r <- tok_resolve(t)
-      if (r$known && !is.na(r$row)) ud_db()$id[r$row] else NA_character_
-    }, "")
+    id <- vapply(toks, twin_id, "")
     id[!is.na(id)]
   }
   f <- ids(from)
@@ -101,8 +114,11 @@ UNIT_MISREAD_LIST <- c(
   mt = "a millitonne (`m` + `t`), which is 1 kg")
 
 unit_token_refusal <- function(tok, ctx) {
-  if (tok %in% ctx$own) return(NULL)
   mk <- function(body) list(body = body, text = paste0(body, " (rule 4.4.20)."))
+  if (tok %in% names(ctx$disabled)) {
+    return(list(body = ctx$disabled[[tok]], text = paste0(ctx$disabled[[tok]], " (rule 4.4.21).")))
+  }
+  if (tok %in% ctx$own) return(NULL)
   si <- " To take that reading, set `unit_defaults: si` in _weft.yml"
   if (identical(ctx$mode, "weft")) {
     if (tok %in% names(UNIT_MISREAD_LIST)) {
@@ -116,9 +132,12 @@ unit_token_refusal <- function(tok, ctx) {
       db <- ud_db()
       p <- db$pf$symbol[r$pre]
       what <- if (db$id[r$row] == "ph") "phot" else "are"
-      return(mk(sprintf(paste0("`%s` is read by the units package as a %s%s (`%s` + `%s`). Write the unit you ",
-                               "mean (`km/h` for kilometres per hour, `Gyr` for a billion years).%s"),
-                        tok, db$pf$name[r$pre], what, p, r$core, si)))
+      advice <- if (what == "phot") "Write the unit you mean (`km/h` for kilometres per hour)." else
+        if (p == "G") "Write the unit you mean (`Gyr` for a billion years)." else
+        if (tok == "daa") "" else "Write the unit you mean (`m^2` for square metres, `ha` for hectares)."
+      return(mk(sprintf("`%s` is read by the units package as a %s%s (`%s` + `%s`). %s%s",
+                        tok, db$pf$name[r$pre], what, p, r$core, if (nzchar(advice)) paste0(advice, " ") else "",
+                        substring(si, 2L))))
     }
   }
   if (length(ctx$dflt)) {
@@ -214,11 +233,68 @@ unit_defaults <- function() {
 
 # ---- the units database (4.4.21) --------------------------------------------------------------------
 
-ud_conflict <- function(tok, def, default) {
-  unit_abort(sprintf(paste0(
-    "`%s` was installed in this session, not by weft, as a unit that is not `%s`, which %s defines it as. ",
-    "Remove it with units::remove_unit(\"%s\"), or set `unit_defaults: si` (rule 4.4.21)."),
-    tok, def, if (default) "weft's default table" else "`units:`", tok))
+# The text that says a default token is not weft's: someone else installed it as another unit, so
+# its row of the default table is off.
+ud_conflict <- function(tok, def, redef) {
+  sprintf(paste0(
+    "`%s` was installed in this session, not by weft, as a unit that is not `%s`, which weft's default ",
+    "table defines it as. Remove it with units::remove_unit(\"%s\")%s"),
+    tok, def, tok, if (redef) ", or set `unit_defaults: si`" else "")
+}
+
+# What the units package reads the key `tok` as, for a problem.
+ud_reading_text <- function(tok) {
+  db <- ud_db()
+  mine <- names(ud_state$installed)
+  for (j in seq_along(db$pre_tok)) {
+    p <- db$pre_tok[j]
+    if (db$pre_kind[j] != "symbol" || nchar(tok) <= nchar(p) || !startsWith(tok, p)) next
+    rest <- substring(tok, nchar(p) + 1L)
+    if (rest %in% mine) {
+      return(sprintf("is read by the units package as the prefix `%s` (%s) on `%s`, a row above; choose another key",
+                     p, db$pf$name[db$pre_idx[j]], rest))
+    }
+  }
+  r <- tok_resolve_db(tok)
+  if (r$known && is.na(r$pre)) {
+    return(sprintf("`is` cannot redefine `%s`, a unit of the units database; choose another key", tok))
+  }
+  what <- if (r$known && !is.na(r$pre)) {
+    sprintf("the prefix `%s` (%s) on `%s`", db$pf$symbol[r$pre], db$pf$name[r$pre], r$core)
+  } else if (r$known && identical(r$kind, "name")) {
+    sprintf("the name of the unit `%s`", r$id)
+  } else if (r$known) {
+    sprintf("the unit `%s` of its database", r$id)
+  } else {
+    old <- units::units_options("auto_convert_names_to_symbols")
+    units::units_options(auto_convert_names_to_symbols = TRUE)
+    sym <- tryCatch(suppressWarnings(units::deparse_unit(units::as_units(tok))), error = function(e) tok,
+                    finally = units::units_options(auto_convert_names_to_symbols = old))
+    if (!identical(sym, tok)) sprintf("`%s`, in another letter case", sym) else "a unit that is already installed"
+  }
+  sprintf("is read by the units package as %s, and `is` cannot define a key it already reads; choose another key", what)
+}
+
+# Whether `tok` is a base unit: it converts to none of the units a definition could give it.
+ud_is_base_token <- function(tok) {
+  for (to in c("1", "m", "kg", "s", "A", "K", "mol", "cd", "m^2", "m^3", "m/s", "N", "J", "W", "Pa", "C", "V", "Hz")) {
+    if (isTRUE(tryCatch(units::ud_are_convertible(tok, to), error = function(e) FALSE))) return(FALSE)
+  }
+  TRUE
+}
+
+# Whether `tok` is in the database as the definition `def` says ("base" or text).
+ud_reads_as <- function(tok, def) {
+  if (identical(def, "base")) return(ud_is_base_token(tok))
+  f <- tryCatch(as.numeric(units::ud_convert(1, tok, def)), error = function(e) NA_real_)
+  isTRUE(abs(f - 1) <= 1e-9)
+}
+
+# Whether the units package still reads `tok`, installed by weft as `rec`, as weft installed it.
+ud_still <- function(tok, rec) {
+  if (!is.null(unit_parse_problem(tok))) return(FALSE)
+  if (identical(rec$def, "base")) return(!(isTRUE(rec$redef) && ud_is_pristine(tok)))
+  ud_reads_as(tok, rec$def)
 }
 
 # Whether the units package still reads `tok` as its own database does (a prefix and a unit, or
@@ -246,16 +322,35 @@ ud_restore_removed <- function(tok) {
   ud_state$removed[[tok]] <- NULL
 }
 
+# The problem for a definition the units package refused. It maps one symbol to a unit, so a
+# definition that is exactly the unit another symbol has is the "same unit" problem.
+ud_install_problem <- function(def, err, toks, dflt) {
+  m <- regmatches(err, regexec("Unit already maps to \"([^\"]*)\"", err))[[1L]]
+  if (length(m) == 2L) {
+    if (m[2L] %in% toks) {
+      return(sprintf("`is` gives the same unit as `%s`%s; give it one row", m[2L],
+                     if (m[2L] %in% dflt) " (weft's default table)" else ""))
+    }
+    return(sprintf(paste0("`is` `%s` is the unit the units package already writes `%s`, and it keeps one symbol ",
+                          "for a unit; give a factor (`2 %s`), or use `%s`"), def, m[2L], def, m[2L]))
+  }
+  sprintf("`is` `%s` is not a unit the units package can read: %s", def, err)
+}
+
 # Install one token. NULL when it is in the database as the row says (installed now, or by
-# someone else as the row reads); list(error) when the units package refuses the definition.
-ud_install_one <- function(tok, def, redef, default) {
+# someone else as the row reads); list(problem) when the row cannot be installed; list(disabled)
+# when someone else installed a default token as another unit. A token that fails to install
+# leaves nothing behind.
+ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
   removed <- FALSE
-  if (is.null(unit_parse_problem(tok))) {
+  exists <- is.null(unit_parse_problem(tok))
+  if (exists && !default && !misread) return(list(problem = ud_reading_text(tok)))
+  if (exists) {
     if (!(redef && ud_is_pristine(tok))) {
-      if (identical(def, "base")) return(NULL)
-      f <- tryCatch(as.numeric(units::ud_convert(1, tok, def)), error = function(e) NA_real_)
-      if (isTRUE(abs(f - 1) <= 1e-9)) return(NULL)
-      ud_conflict(tok, def, default)
+      if (ud_reads_as(tok, def)) return(NULL)
+      if (default) return(list(disabled = ud_conflict(tok, def, redef)))
+      return(list(problem = sprintf("`%s` is installed in this session, not by weft, as a unit that is not `%s`",
+                                    tok, def)))
     }
     r <- tok_resolve_db(tok)
     if (is.na(r$pre) && is.null(ud_state$removed[[tok]])) {
@@ -271,24 +366,33 @@ ud_install_one <- function(tok, def, redef, default) {
     NULL
   }, error = function(e) conditionMessage(e))
   if (!is.null(err)) {
+    # what install_unit() mapped before it failed goes again
+    try(units::remove_unit(symbol = tok), silent = TRUE)
     if (removed) ud_restore_removed(tok)
-    return(list(error = sub("\n.*$", "", err)))
+    return(list(problem = ud_install_problem(def, sub("\n.*$", "", err), toks, dflt)))
   }
   ud_state$installed[[tok]] <- list(def = def, redef = redef)
   NULL
 }
 
-# Bring the database to the tokens `W` (each list(tok, def, redef, default)) in file order: undo
-# what is no longer wanted or has changed, install the rest. A named list of the definitions the
-# units package refused. Base registrations are not undone, unless they redefine a reading.
+# Bring the database to the tokens `W` (each list(tok, def, redef, default, misread)) in file
+# order: undo what is no longer wanted or has changed or has been changed by someone else,
+# install the rest. list(problems, disabled): the problems of the rows the units package refused,
+# by token, and the default tokens that someone else installed as another unit, by token. Base
+# registrations are not undone, unless they redefine a reading.
 ud_sync <- function(W) {
   toks <- vapply(W, function(w) w$tok, "")
   defs <- vapply(W, function(w) w$def, "")
+  dflt <- toks[vapply(W, function(w) isTRUE(w$default), NA)]
   inst <- ud_state$installed
   for (tok in rev(names(inst))) {
     i <- match(tok, toks)
     rec <- inst[[tok]]
-    if (!is.na(i) && identical(defs[i], rec$def)) next
+    if (!is.na(i) && identical(defs[i], rec$def)) {
+      # someone may have removed it, or installed it again as another unit
+      if (!ud_still(tok, rec)) ud_state$installed[[tok]] <- NULL
+      next
+    }
     if (is.na(i) && identical(rec$def, "base") && !isTRUE(rec$redef)) next
     ud_uninstall(tok)
   }
@@ -296,6 +400,7 @@ ud_sync <- function(W) {
     if (!(tok %in% toks) && is.null(ud_state$installed[[tok]])) ud_restore_removed(tok)
   }
   problems <- list()
+  disabled <- list()
   for (w in W) {
     rec <- ud_state$installed[[w$tok]]
     if (!is.null(rec) && identical(rec$def, w$def)) next
@@ -308,12 +413,12 @@ ud_sync <- function(W) {
                     "exponent (`m2` is `m^2`), so it cannot be used in a definition or removed again")
       next
     }
-    r <- ud_install_one(w$tok, w$def, w$redef, w$default)
-    if (!is.null(r)) {
-      problems[[w$tok]] <- sprintf("`is` `%s` is not a unit the units package can read: %s", w$def, r$error)
-    }
+    r <- ud_install_one(w$tok, w$def, w$redef, w$default, isTRUE(w$misread), toks, dflt)
+    if (!is.null(r$problem)) problems[[w$tok]] <- r$problem
+    if (!is.null(r$disabled)) disabled[[w$tok]] <- r$disabled
   }
-  problems
+  un_cache$sym <- NULL
+  list(problems = problems, disabled = disabled)
 }
 
 # Unloading weft (4.4.21): what it installed goes, but the base registrations that redefine
@@ -367,10 +472,19 @@ units_is_text <- function(v) {
   s <- gsub("[[:space:]]+", " ", trimws(v))
   if (!nzchar(s) || grepl("^[-+]", s)) return(bad)
   if (identical(s, "base")) return(list(text = s))
-  if (grepl("^[0-9.]+([eE][-+]?[0-9]+)?$", s)) {
+  num_re <- "[0-9.]+([eE][-+]?[0-9]+)?"
+  if (grepl(paste0("^", num_re, "$"), s)) {
     x <- suppressWarnings(as.numeric(s))
     return(if (num(x)) list(text = s) else bad)
   }
+  # a unit, or a number, a space and a unit; a number inside the unit expression is no form
+  rest <- s
+  if (grepl(paste0("^", num_re, " "), s)) {
+    x <- suppressWarnings(as.numeric(sub(" .*$", "", s)))
+    if (!num(x)) return(bad)
+    rest <- sub("^[^ ]+ ", "", s)
+  } else if (grepl("^[0-9.]", s)) return(bad)
+  if (grepl("(^| )[0-9.]+([eE][-+]?[0-9]+)?( |$)", rest)) return(bad)
   list(text = s)
 }
 
@@ -391,7 +505,6 @@ units_table_rows <- function(tbl, where) {
     return(out)
   }
   str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
-  dkeys <- names(unit_default_rows())
   keys <- names(tbl)
   for (i in seq_along(tbl)) {
     key <- keys[i]
@@ -428,11 +541,6 @@ units_table_rows <- function(tbl, where) {
         } else e[["is"]] <- it$text
         if (!grepl(UNIT_TOKEN_RE, key)) {
           prob(key, "`is` defines one unit, so the key must be one token, with no space and none of * / ^ ( ) . + -")
-        } else {
-          r <- tok_resolve_db(key)
-          if (r$known && is.na(r$pre) && !(key %in% c(names(UNIT_MISREAD_LIST), dkeys))) {
-            prob(key, sprintf("`is` cannot redefine `%s`, a unit of the units database; choose another key", key))
-          }
         }
       }
     }
@@ -505,6 +613,11 @@ units_entries <- function(rows, where, installed) {
 read_units_tables <- function(tabs, mode) {
   ud_state$busy <- TRUE
   on.exit(ud_state$busy <- FALSE)
+  # a failed read ends with the database as before it: the tokens it installed go again
+  before <- names(ud_state$installed)
+  back <- function() {
+    for (tok in rev(setdiff(names(ud_state$installed), before))) ud_uninstall(tok)
+  }
   dflt <- unit_default_rows()
   tb <- lapply(tabs, function(t) units_table_rows(t$tbl, t$where))
   wheres <- vapply(tabs, function(t) t$where, "")
@@ -538,13 +651,23 @@ read_units_tables <- function(tabs, mode) {
       drop_default <- c(drop_default, k)
       next
     }
+    # the document's row replaces the project's whole, and so drops its `is`
+    if (!is.null(tp) && !tp$false && tp$t == 2L && is.null(tp$row$is) && !is.null(tb[[1L]]$rows[[k]]$is)) {
+      prob(2L, k, paste0("this row replaces the project's row for the unit whole, and the project's `is` (",
+                         tb[[1L]]$rows[[k]]$is, ") goes with it; give `is` here as well"))
+      tb[[1L]]$rows[[k]] <- NULL
+    }
     is <- tp$row$is %||% d$is
     if (is.null(is)) next
     if (!is.null(d) && !is.null(d$is)) dflt_own <- c(dflt_own, k)
     W[[length(W) + 1L]] <- list(tok = k, def = is, redef = isTRUE(tok_resolve_db(k)$known),
-                                default = is.null(tp$row$is), t = if (is.null(tp$row$is)) 0L else tp$t)
+                                default = is.null(tp$row$is), t = if (is.null(tp$row$is)) 0L else tp$t,
+                                misread = k %in% c(names(UNIT_MISREAD_LIST), names(dflt)) ||
+                                  (mode == "weft" && !is.null(unit_token_refusal(k, list(mode = "weft",
+                                     own = character(), dflt = character())))))
   }
-  ctx <- list(mode = mode, own = vapply(W, function(w) w$tok, ""), dflt = dflt_own)
+  ctx <- list(mode = mode, own = vapply(W, function(w) w$tok, ""), dflt = dflt_own,
+              defs = stats::setNames(lapply(W, function(w) w$def), vapply(W, function(w) w$tok, "")))
   # the rows that `is:` writes: one unit one row, and a unit weft can read
   seen <- list()
   keep <- rep(TRUE, length(W))
@@ -557,6 +680,7 @@ read_units_tables <- function(tabs, mode) {
           prob(w$t, w$tok, sprintf("`is` gives the same unit as `%s`%s; give it one row", prev$tok,
                                    if (prev$t == 0L) " (weft's default table)" else ""))
           keep[i] <- FALSE
+          tb[[w$t]]$rows[[w$tok]] <- NULL
         }
         next
       }
@@ -567,6 +691,7 @@ read_units_tables <- function(tabs, mode) {
       if (!is.null(ref)) {
         prob(w$t, w$tok, sprintf("`is` `%s`: %s", w$def, ref$body))
         keep[i] <- FALSE
+        tb[[w$t]]$rows[[w$tok]] <- NULL
       }
     }
 
@@ -577,6 +702,7 @@ read_units_tables <- function(tabs, mode) {
   fail <- function(extra = NULL) {
     inst <- unique(extra)
     for (tok in inst) try(units::remove_unit(tok, tok), silent = TRUE)
+    back()
     ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
     blocks <- character()
     for (t in 1:2) {
@@ -588,16 +714,25 @@ read_units_tables <- function(tabs, mode) {
     units_reset()
     weft_abort(paste(blocks, collapse = "\n"), "weft_config_error")
   }
-  synced <- tryCatch(ud_sync(Wk), error = function(e) { units_reset(); stop(e) })
-  for (tok in names(synced)) {
+  synced <- tryCatch(ud_sync(Wk), error = function(e) { back(); units_reset(); stop(e) })
+  for (tok in names(synced$problems)) {
     w <- Wk[[match(tok, vapply(Wk, function(x) x$tok, ""))]]
     if (w$t == 0L) {
+      back()
       units_reset()
-      unit_abort(sprintf("weft's default table: `%s`: %s", tok, synced[[tok]]))
+      unit_abort(sprintf("weft's default table: `%s`: %s", tok, synced$problems[[tok]]))
     }
-    prob(w$t, tok, synced[[tok]])
+    prob(w$t, tok, synced$problems[[tok]])
     tb[[w$t]]$rows[[tok]] <- NULL
   }
+  # a default token that someone else installed as another unit: its row is off, with a warning
+  dis <- unlist(synced$disabled)
+  for (tok in setdiff(names(dis), names(ud_state$disabled))) {
+    rlang::warn(paste0("weft: ", dis[[tok]], " (rule 4.4.21)."), class = "weft_unit_warning")
+  }
+  ud_state$disabled <- if (length(dis)) dis else character()
+  ud_state$ctx$disabled <- as.list(ud_state$disabled)
+  drop_default <- c(drop_default, names(dis))
   # the entries
   installed <- new.env(parent = emptyenv())
   installed$tok <- character()
@@ -607,6 +742,11 @@ read_units_tables <- function(tabs, mode) {
   if (length(e_def$problems)) {
     units_reset()
     unit_abort(paste(e_def$problems, collapse = "\n"))
+  }
+  # the space inside a default symbol (`CFU/100 mL`) is a no-break space: the unit stays on one line
+  for (i in seq_along(e_def$entries)) {
+    sy <- e_def$entries[[i]]$symbol
+    if (is.character(sy)) e_def$entries[[i]]$symbol <- gsub(" ", "\u00a0", sy, fixed = TRUE)
   }
   e_t <- lapply(1:2, function(t) units_entries(tb[[t]]$rows, wheres[t], installed))
   for (t in 1:2) probs[[t]] <- c(probs[[t]], e_t[[t]]$problems)
@@ -628,5 +768,7 @@ unit_entry <- function(cfg, id) {
   D <- list()
   for (e in cfg$units_default) if (identical(e$id, id)) { D <- e; break }
   for (f in names(E)) D[[f]] <- E[[f]]
+  # a new name over a default row has its own plural, not the default's
+  if (!is.null(E$name) && is.null(E$plural)) D$plural <- NULL
   D
 }

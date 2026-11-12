@@ -56,7 +56,7 @@ g2_row("`r u(40, CFU)`{.uname}", "40~colony-forming units")
 g2_row("`r u(40, MPN)`{.num}", "40~MPN")
 g2_row_err("`r u(40, MPN)`{.uname}", has = "MPN")
 g2_row("`r u(150, \"CFU/100 mL\")`{.num}", "150~CFU/100~mL")   # review 2g #11: no break inside the unit
-g2_row("`r u(150, \"MPN/100 mL\")`{.num}", "150~MPN/100 mL")
+g2_row("`r u(150, \"MPN/100 mL\")`{.num}", "150~MPN/100~mL")
 g2_row_err("`r u(150, \"CFU/100 mL\")`{.uname}")
 
 g2_row("`r u(2, Sv)`{.uname}", "2~sieverts")

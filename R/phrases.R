@@ -153,6 +153,13 @@ ABOUT_TARGETS <- list(
 about <- function(x, to = 1 / 2, tolerance = NULL) {
   check_english("about")
   x <- match_units(to, x, "about")   # `to` is the target, so `x` is converted to its unit
+  # a ratio of twins (Sv/Gy) is no ratio of one thing
+  if (inherits(x, "units")) {
+    un <- attr(x, "units")
+    sym <- function(v) structure(list(numerator = v, denominator = character()), class = "symbolic_units")
+    tw <- unit_twin_problem(sym(un$denominator), sym(un$numerator), as.character(sym(un$numerator)))
+    if (!is.null(tw)) value_error(paste0(tw, " (rule 4.4.14)."))
+  }
   x <- one_number(x, "about", "x")
   tolerance <- tolerance %||% current_config()$about_tolerance %||% 0.05
   to <- one_number(to, "about", "to")

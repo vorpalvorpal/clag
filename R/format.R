@@ -204,11 +204,31 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE)
 }
 
 # What a number that printed as zero says (stage 1i).
-zero_message <- function(z) {
+zero_message <- function(z, un = NULL) {
   n <- length(z$idx)
-  sprintf("%s printed as %s%s: add sigfig to show it, or digits to confirm it",
+  sprintf("%s printed as %s%s: add sigfig to show it, or digits to confirm it%s",
           paste0(z$value, if (endsWith(z$printed, "%")) "%" else ""), z$printed,
-          if (n > 1L) sprintf(" (%d values printed as zero)", n) else "")
+          if (n > 1L) sprintf(" (%d values printed as zero)", n) else "", zero_prefix_advice(z, un))
+}
+
+# The SI tokens that take a prefix, and the prefixes weft offers, for the zero rule's advice.
+ZERO_PREFIXABLE <- c("m", "g", "s", "A", "mol", "cd", "L", "Hz", "N", "Pa", "J", "W", "C", "V", "F", "S", "Wb",
+                     "T", "H", "lm", "lx", "Bq", "Gy", "Sv", "kat")
+ZERO_PREFIXES <- c(G = 1e9, M = 1e6, k = 1e3, m = 1e-3, "\u00b5" = 1e-6, n = 1e-9, p = 1e-12, f = 1e-15)
+
+# For a unit that is one SI token, ", or write the prefixed unit that prints from 1 up to 1,000
+# (`unit = \"mm\"`)"; weft does not rescale by itself (decision 51). Else "".
+zero_prefix_advice <- function(z, un) {
+  if (is.null(un) || length(un$numerator) != 1L || length(un$denominator) > 0L ||
+      !un$numerator %in% ZERO_PREFIXABLE) return("")
+  v <- suppressWarnings(abs(as.numeric(z$value)))
+  if (!is.finite(v) || v == 0) return("")
+  for (p in names(ZERO_PREFIXES)) {
+    x <- v / ZERO_PREFIXES[[p]] * 1
+    # the unit's own value is in the unit, so a smaller prefix gives a larger number
+    if (x >= 1 && x < 1000 && v < 1) return(sprintf("; or show it in a prefixed unit, such as unit = \"%s%s\"", p, un$numerator))
+  }
+  ""
 }
 
 sci_one <- function(v, digits, sigfig, cfg) {
@@ -711,6 +731,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (".no" %in% classes) {
     is_no <- !is.na(number) & number == 0 & !decimals & relation == "="
     if (!governor) is_no[zero$idx] <- TRUE   # a printed zero, "0.0" too (stage 1i)
+    # "pH no" has no reading: a unit written before the number cannot take `.no`
+    if (unit_pre && any(is_no & carry)) {
+      value_error("`.no` cannot go with a unit written before the number (\"pH no\" has no reading); use `.word` or a number (rule 4.4.22).")
+    }
     text[is_no] <- "no"
     spelled <- is_no
   }
@@ -783,16 +807,17 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   elem_suffix <- vapply(seq_len(n_el), function(i) suffix_of(forms[i], !is_one[i]), "")
   # what goes before a number whose unit is written first: the unit and the space
-  prefix_of <- function(form, plural) {
+  # `space: false` governs the symbol before a number; a name, or a spelled number, keeps its space
+  prefix_of <- function(form, plural, word = FALSE) {
     if (is.na(form) || !unit_pre) return("")
-    key <- paste("pre", form, plural)
+    key <- paste("pre", form, plural, word)
     if (!is.null(memo[[key]])) return(memo[[key]])
     txt <- if (form == "name") unit_name_text(un, plural, cfg, lang) else unit_symbol_text(un, plural, cfg, lang)
-    out <- paste0(txt, if (unit_space(un, cfg)) UNIT_SEP else "")
+    out <- paste0(txt, if (form == "name" || word || unit_space(un, cfg)) UNIT_SEP else "")
     memo[[key]] <- out
     out
   }
-  elem_pre <- vapply(seq_len(n_el), function(i) prefix_of(forms[i], !is_one[i]), "")
+  elem_pre <- vapply(seq_len(n_el), function(i) prefix_of(forms[i], !is_one[i], spelled[i]), "")
   add_unit <- function(txt) {
     if (length(txt) == length(elem_suffix)) paste0(elem_pre, txt, elem_suffix) else txt
   }
@@ -809,7 +834,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
       text <- collapse_range(text, number, cfg, raw)
       out_suffix <- suffix_of(lf, !one_printed)
-      out_pre <- prefix_of(lf, !one_printed)
+      out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
       out_forms <- lf
       text <- paste0(out_pre, text, out_suffix)
       if (unit_pre) out_suffix <- out_pre
@@ -839,7 +864,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
         text <- collapse_range(text, number, cfg, raw)
         out_suffix <- suffix_of(lf, !one_printed)
-        out_pre <- prefix_of(lf, !one_printed)
+        out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
         out_forms <- lf
         text <- paste0(out_pre, text, out_suffix)
         if (unit_pre) out_suffix <- out_pre
@@ -877,7 +902,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         out_suffix <- ""
         if (!is.null(un) && at >= 1L && !is.na(forms[uat])) {
           if (unit_pre) {
-            out_suffix <- prefix_of(forms[uat], !(at == 1L && is_one[1L]))
+            out_suffix <- prefix_of(forms[uat], !(at == 1L && is_one[1L]), spelled[uat])
             text[uat] <- paste0(out_suffix, text[uat])
           } else {
             out_suffix <- suffix_of(forms[uat], !(at == 1L && is_one[1L]))
@@ -915,7 +940,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     text <- text_stage(text)
   }
 
-  if (!governor && !is.null(zero)) on_zero(zero_message(zero))
+  if (!governor && !is.null(zero)) on_zero(zero_message(zero, un))
 
   out <- new_weft_text(text, number, decimals, relation, raw)
   if (!is.null(un)) {
@@ -1220,7 +1245,7 @@ glue_vec <- function(x, sep = ", ", last = " and ") {
   if (before) {
     # a unit written before its number goes once before the first item (4.4.22)
     suf <- paste0(if (form == "name") unit_name_text(un, !one, cfg, lang) else unit_symbol_text(un, !one, cfg, lang),
-                  if (unit_space(un, cfg)) UNIT_SEP else "")
+                  if (form == "name" || unit_space(un, cfg)) UNIT_SEP else "")
     x[1L] <- paste0(suf, x[1L])
   } else if (placed) {
     suf <- if (form == "name") {

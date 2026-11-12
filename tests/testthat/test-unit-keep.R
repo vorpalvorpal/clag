@@ -198,13 +198,14 @@ test_that("2g 4.4.20: the readings carry their prefix and unit as the contract w
 test_that("2g 4.4.20: a trap, a prefix on the phot or the are but ha, is refused under weft (kph, Ga, ca)", {
   g2_cfg(NULL)
   rd <- c(kph = "a kilophot (`k` + `ph`)", Ga = "a gigaare (`G` + `a`)", ca = "a centiare (`c` + `a`)")
+  advice <- c(kph = "km/h", Ga = "Gyr", ca = "m^2")      # review 2g #16: the advice fits the token
   for (tok in names(rd)) {
     e <- f2_cond(g2_u(5, tok))
     f2_has_class(e, "weft_unit_error")
-    f2_msg_has(e, "u(): ", paste0("`", tok, "` is read by the units package as ", rd[[tok]]),
-               "Write the unit you mean (`km/h` for kilometres per hour, `Gyr` for a billion years).",
+    f2_msg_has(e, "u(): ", paste0("`", tok, "` is read by the units package as ", rd[[tok]]), advice[[tok]],
                "To take that reading, set `unit_defaults: si` in _weft.yml (rule 4.4.20).")
   }
+  expect_false(grepl("km/h", f2_msg(f2_cond(g2_u(5, "ca"))), fixed = TRUE))
 })
 
 test_that("2g 4.4.20: control - ha, ordinary prefixed units and the intended spellings are accepted under weft", {

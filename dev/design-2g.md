@@ -541,3 +541,26 @@ wins.
   read".
 - **14.** An `is:` is `base`, a number, a unit, or a number and a unit;
   anything else (`2 m 3`) is the format problem.
+
+## Rulings on the fixer's report for the review of 2g
+
+- **Five tests are edited.** Two contradicted rulings 8 and 11 made
+  after they were written; one older test expected one advice for every
+  refused token, which finding 16 made particular to each; and
+  `about()` on a ratio of twins cannot be the twin error, because
+  `units` cancels the ratio to a plain number first (arithmetic between
+  twins is `units`' own, G2).
+- A default row that a foreign unit conflicts with is disabled with a
+  warning of class `weft_unit_warning`; using the disabled token is a
+  `weft_unit_error`. Accepted.
+- The traps of the `weft` mode (`Ga`, `kph`, `ca`) may be defined by a
+  project row, as the misread list and the default keys may. Accepted.
+- A failed read removes every token installed since it began and
+  returns to the default rows; it does not restore an earlier
+  project's. Accepted.
+- The zero rule's advice names a prefixed unit only for one bare SI
+  token from a fixed list. Accepted.
+- A unit whose denominator has lost its unit (`CFU/100`) is a value
+  error in the symbol form. Accepted.
+- `claim()` raises a comparison of twins as the twin error; it is not a
+  failed check. Accepted.

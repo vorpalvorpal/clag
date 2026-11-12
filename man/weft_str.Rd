@@ -25,7 +25,8 @@ error is collected as it is in prose (rules 2.4.1, 3.6.3) and marked in the
 text with the chunk that holds the call (rule 2.6.8). Outside a knit, and
 in a knit where \code{weft_setup()} was not called, the first failure stops at
 once, with the class of the failure (\code{weft_claim_failed}, \code{weft_no_value},
-\code{weft_value_error}, \code{weft_construct_error}).
+\code{weft_value_error}, \code{weft_construct_error}). A \verb{_weft.yml} with an error is a
+\code{weft_config_error} outside a knit as in one.
 
 Block-only constructs do not apply; each element is read as inline markup.
 Bare inline R in a string is evaluated as knitr evaluates it (rule 1.1.8).
