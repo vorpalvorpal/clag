@@ -54,26 +54,23 @@ first, then `dev/build-log.md`.
   can reach them. Expected flag-recall of all lints together: 25 to 35%.
   Run `recall_check()` on these once stage 3 is built; a lint with no
   reproduced finding, or flagging nearly everything, goes back to design.
-- **Stage 3**: `dev/design-3.md` is the contract (decision 64). Packages:
-  3a foundation (`R/lint.R`, `R/lint-source.R`, `R/recall.R`,
-  `inst/weft-claim-words.yml`; built first, alone), then 3b prose
-  (`R/lint-prose.R`, `R/lint-pandoc.R`), 3c code (`R/lint-code.R`), 3d
-  documents (`R/lint-doc.R`, tier-2 listing in `R/changes.R`) in parallel
-  worktrees. Progress: tests for all four packages are committed (3a
-  ac54095, 3b 4bd730f, 3c a4590a6, 3d 2420cba); readings fixed while
-  they were written are at the end of the design note. A sonnet
-  implementer is building 3a in the main tree (uncommitted `R/lint*.R`,
-  `R/recall.R`, `R/config.R`, `inst/weft-claim-words.yml` are its; it
-  was also sent design-4's G4 and the hygiene spec ids). When it
-  reports: commit 3a, hand its registry interface (in its report) to
-  three implementers for 3b/3c/3d in worktrees, cherry-pick each, run
-  stage 0 (`dev/trials/stage0/recall.R`), whole suite, opus review.
-- **Stage 4**: `dev/design-4.md` is the contract (decision 65). Packages
-  4a gate and 4d activation (`use_setup()`, `.Rprofile`) first, in
-  parallel; then 4b installers and 4c `verify()` in parallel. None edits
-  `R/lint*.R`. The 4d and 4a test-writers are running (files
-  `helper-4d.R`, `helper-4a.R` and the test files design-4 section 5
-  names); commit their tests when they report, build after 3a merges.
+- **Stage 3**: `dev/design-3.md` is the contract (decision 64). 3a is
+  built and on `main` (5940aeb; its 206 tests pass after test faults
+  were fixed). Implementers for 3b (`R/lint-prose.R`,
+  `R/lint-pandoc.R`), 3c (`R/lint-code.R`) and 3d (`R/lint-doc.R`,
+  tier-2 listing in `R/changes.R`) are running in worktrees; each
+  commits on its branch, the orchestrator cherry-picks onto `main`,
+  runs `devtools::document()`, removes the worktree. The rule registry
+  interface they were given is in the scratchpad `registry.md` (a rule
+  is a function `lint_<id>` found by name). Some `changes()` tests of 3d
+  need 3b's `claim-word`. After all three: stage 0
+  (`dev/trials/stage0/recall.R`), whole suite, opus review, fixes, spec.
+- **Stage 4**: `dev/design-4.md` is the contract (decision 65). 4d
+  (`use_setup()`, `.Rprofile` activation, `R/setup.R`) is built and on
+  `main` (3c0b255); its tests pass. 4a (gate) tests are committed
+  (19011f6) and wait for the stage 3 rules; then the 4a implementer,
+  then 4b installers and 4c `verify()` (test-writers, then
+  implementers, in parallel). Owed: `test-gate-edits.R`.
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
