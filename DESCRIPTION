@@ -19,6 +19,7 @@ Imports:
     units,
     yaml
 Suggests:
+    bit64,
     curl,
     pkgload,
     quarto,
