@@ -369,10 +369,33 @@ source_pieces <- function(lines, ls, chunks, chs, cfg_file, front_ff) {
     # header literals
     for (nm in names(ch$hdr$opts)) {
       if (!(nm %in% setdiff(CAPTION_OPTIONS, "tab.cap"))) next
-      if (is.null(ch$hdr$opts[[nm]]$literal)) next
-      pat <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE),
-                    "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')")
-      mm <- regexpr(pat, lines[ch$open], perl = TRUE)
+      if (is.null(ch$hdr$opts[[nm]]$literal)) {
+        ex <- tryCatch(parse(text = ch$hdr$opts[[nm]]$text, keep.source = FALSE)[[1L]],
+                       error = function(e) NULL)
+        okc <- is.call(ex) && identical(ex[[1L]], as.name("c")) && length(ex) > 1L &&
+          all(vapply(as.list(ex)[-1L], is.character, NA))
+        if (!isTRUE(okc)) next
+      }
+      qs <- "\"(?:[^\"\\\\]|\\\\.)*\"|'(?:[^'\\\\]|\\\\.)*'"
+      nmp <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE), "[ \t]*=[ \t]*")
+      hl <- lines[ch$open]
+      mm <- regexpr(paste0(nmp, "c[ \t]*\\("), hl, perl = TRUE)
+      if (mm > 0L) {
+        st <- mm + attr(mm, "match.length")
+        rest <- substring(hl, st)
+        sm <- gregexpr(qs, rest, perl = TRUE)[[1L]]
+        # stop at the closing paren that is outside any string
+        for (k in seq_along(sm)) {
+          if (sm[k] < 0L) break
+          pre <- substr(rest, 1L, sm[k] - 1L)
+          if (grepl(")", gsub(qs, "", pre, perl = TRUE), fixed = TRUE)) break
+          b <- st + sm[k] - 1L
+          e <- b + attr(sm, "match.length")[k] - 1L
+          if (e - b >= 2L) add("caption", nm, ls[ch$open] + b, ls[ch$open] + e - 2L)
+        }
+        next
+      }
+      mm <- regexpr(paste0(nmp, "(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')"), hl, perl = TRUE)
       if (mm > 0L) {
         cs <- attr(mm, "capture.start")
         cl <- attr(mm, "capture.length")
@@ -701,7 +724,7 @@ mask_prose <- function(S) {
     ok <- logical(length(numc$l))
     for (i in seq_along(numc$l)) {
       l <- numc$l[i]
-      ok[i] <- l == 1L || wb[l - 1L] || isitem[l - 1L] || ishead[l - 1L] || nonbody[l - 1L]
+      ok[i] <- !ishead[l] && (l == 1L || wb[l - 1L] || isitem[l - 1L] || ishead[l - 1L] || nonbody[l - 1L])
       if (ok[i]) isitem[l] <- TRUE
     }
     acc <- numc$l[ok]

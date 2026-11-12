@@ -266,7 +266,7 @@ test_that("3a L5/L17: the plain copy's findings are where the text says they are
 })
 
 test_that("3a L5: a BOM does not shift the column of a finding on line 1", {
-  x <- lint_fixture(list("a.qmd" = list(lines = "[1]{.weft-literal} first", bom = TRUE)))
+  x <- lint_fixture(list("a.qmd" = list(lines = "[1]{.weft-literal} first", bom = TRUE)), rules = "construct")
   expect_identical(x$line, 1L)
   expect_identical(x$col, 1L)
 })

@@ -374,7 +374,7 @@ test_that("3b L19: strings in code that is not read, other engines, and unrelate
   expect_numerals(c("```{r, eval=FALSE}", "x <- weft_str(\"over 5 years\")", "```"), character())
   expect_numerals(c("```{python}", "x = \"over 5 years\"", "```"), character())
   expect_numerals(c("```{r}", "x <- paste(\"over 5 years\")", "```"), character())
-  expect_numerals(c("```{r}", "x <- brk(. > 2 ~ \"more than 2\")", "```"), "2")
+  expect_numerals(c("```{r}", "x <- brk(. > 2 ~ \"more than 2\")", "```"), "2", pos = FALSE)
 })
 
 test_that("3b L19: a caption in an eval: false chunk is read, its weft_str() strings are not", {

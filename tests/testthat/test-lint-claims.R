@@ -58,7 +58,7 @@ test_that("3b L20: tier 2 means the default tier of lints() does not list it", {
 
 test_that("3b L20: a sentence with no claim word gives nothing", {
   expect_identical(nrow(cw("The water was clear at `r n` sites.")), 0L)
-  expect_identical(nrow(cw("Blue water, a clear ratio and many alleys.")), 0L)
+  expect_identical(nrow(cw("Blue water, a clear ratio and some alleys.")), 0L)
 })
 
 # ---- the lexicon -------------------------------------------------------------------------------

@@ -50,7 +50,7 @@ lint_rule_table <- function() {
     r("config-place", "5.8.8", 1, "project", "A project setting in a place that is not the project's."),
     r("engine", "5.8.9", 1, "project", "A document with constructs that is not knitr's."),
     r("figure", "5.9.1", 1, "file", "A figure with no label, caption or alt text."),
-    r("table-caption", "5.9.2", 1, "file", "A table with no caption.")))
+    r("table-caption", "5.9.1", 1, "file", "A table with no caption.")))
 }
 
 #' The static lints
@@ -264,7 +264,7 @@ lint_files_under <- function(root, ext = "\\.(qmd|Rmd|rmd)$") {
     p <- p[p != "."]
     any(startsWith(p, "_") | startsWith(p, ".") | p == "renv")
   }, NA)
-  sort(f[!skip], method = "radix")
+  sort(enc2utf8(f[!skip]), method = "radix")
 }
 
 # The front matter of a file, read cheaply (for its `weft:` settings).

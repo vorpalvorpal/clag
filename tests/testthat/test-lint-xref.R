@@ -33,7 +33,7 @@ test_that("3d L33 xref: @fig-depth with no anchor anywhere is a finding; a label
   expect_identical(r$spec, "5.7.1")
   expect_identical(r$file, "a.qmd")
   expect_identical(r$line, 3L)
-  expect_true(r$col %in% f3d_col(a, "@fig-depth") + 0:1)
+  expect_true(r$col %in% (f3d_col(a, "@fig-depth") + 0:1))
   # the figure is defined in another chapter
   expect_none(xr(list("a.qmd" = a, "b.qmd" = c("# Data {#sec-d}", "", fig_chunk("fig-depth")))), "xref")
 })

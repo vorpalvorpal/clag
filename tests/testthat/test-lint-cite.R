@@ -5,7 +5,7 @@ CITE_OFF <- 4L   # lines that cite_doc() puts before the body: "---", one front 
 BIBS <- list("refs.bib" = F3D_BIBTEX, "refs.json" = F3D_CSLJSON, "refs.yaml" = F3D_CSLYAML)
 
 # one document with `bibliography: refs.bib` and the three files beside it
-cite_doc <- function(body, rules, ext = "qmd", front = "bibliography: refs.bib", files = list(), ...) {
+cite_doc <- function(body, rules, ext = "qmd", front = "bibliography: [refs.bib, refs.json, refs.yaml]", files = list(), ...) {
   nm <- paste0("doc.", ext)
   f <- c(stats::setNames(list(f3d_doc(body, front)), nm), BIBS, files)
   f3d_run(f, rules, ...)

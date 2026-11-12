@@ -62,7 +62,7 @@ test_that("3a L5: file is relative to the root with / separators, also in subfol
 })
 
 test_that("3a L5: an empty result has the columns and types of a non-empty one", {
-  x <- lint_one(c("Plain prose with no constructs.", "", "More prose."))
+  x <- lint_one(c("Plain prose with plain constructs.", "", "Further prose."))
   expect_equal(nrow(x), 0L)
   expect_findings_shape(x)
   expect_identical(length(attr(x, "notes")), 0L)
@@ -168,7 +168,7 @@ test_that("3a L2/K17: the default tier is 1 (only tier-1 findings)", {
 
 test_that("3a L2: the same results under .qmd and .Rmd", {
   r <- f3_both(function(ext) {
-    x <- lint_one(c("Prose.", "", paste("A", F3_BAD_TWO, "b.")), ext = ext)
+    x <- lint_one(c("---", "engine: knitr", "---", "", "Prose.", "", paste("A", F3_BAD_TWO, "b.")), ext = ext)
     x[, setdiff(names(x), "file")]
   })
   expect_identical(unclass(r$qmd)[F3_COLS[-1]], unclass(r$Rmd)[F3_COLS[-1]])

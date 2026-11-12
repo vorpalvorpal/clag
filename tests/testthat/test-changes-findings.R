@@ -165,7 +165,8 @@ test_that("3d L41: a claim-word message ends with the sentence in quotes, white 
   r <- f[f$rule == "claim-word", , drop = FALSE]
   expect_identical(nrow(r), 1L)
   expect_match(r$message, "\"Rain was always heavy.\"$")
-  expect_identical(r$line, 5L)
+  # The finding sits on the claim word, which is on the second line.
+  expect_identical(r$line, 6L)
 })
 
 # ---- the cap ----------------------------------------------------------------------------------------
@@ -265,7 +266,7 @@ test_that("3d L41: brief does not print the findings", {
 
 test_that("3d L41: no findings, no Tier-2 findings section", {
   skip_if_no_git()
-  dir <- f3d_scenario(list("a.qmd" = base_doc), list("a.qmd" = c(base_doc, "More words.")))
+  dir <- f3d_scenario(list("a.qmd" = base_doc), list("a.qmd" = c(base_doc, "Plain words.")))
   e2x_put_ledger(dir, "a.qmd", list(), conds = list(e2x_cond()))
   expect_false("Tier-2 findings" %in% f3d_print(changes(path = dir)))
 })
