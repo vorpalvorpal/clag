@@ -326,27 +326,13 @@ edge_script <- c("library(targets)", "list(",
                  "  tar_target(up, {warning('upstream warned 3 times'); base + 1}),",
                  "  tar_target(fit, {warning('first 5'); warning('second'); up + 1}))")
 
-test_that("2e-1 P16: the edges are kept per run id in .weft/targets/network.rds and reused while the id matches", {
+test_that("2e-1 P16 (review #4/B): the edges are cached on the store, so a make refreshes them even under the same run id", {
   dir <- e1_plain_dir()
-  run <- function(id) e1_render(READ_FIT, dir, files = list(".weft/run" = id))
-  run("run-1")
-  expect_true(file.exists(file.path(dir, ".weft", "targets", "network.rds")))
-  run("run-1")
-  expect_true(file.exists(file.path(dir, ".weft", "targets", "network.rds")))
-  # the pipeline gains an edge (base -> up) and is rebuilt
-  writeLines(edge_script, file.path(dir, "_targets.R"))
-  e1_make(dir, plain = TRUE)
-  sources <- function(res) vapply(d2_pick(d2_conds(res), from = "target"), `[[`, "", "source")
-  # same run id: the old edges are used, so `base` is not upstream of anything
-  expect_false("base" %in% sources(run("run-1")))
-  # a new run id: the edges are read again
-  expect_true("base" %in% sources(run("run-2")))
-})
-
-test_that("2e-1 P16: an empty run id is never reused", {
-  dir <- e1_plain_dir()
-  run <- function() e1_render(READ_FIT, dir, files = list(".weft/run" = ""))
+  run <- function() e1_render(READ_FIT, dir, files = list(".weft/run" = "run-1"))
   run()
+  expect_true(file.exists(file.path(dir, ".weft", "targets", "network.rds")))
+  run()
+  # the pipeline gains an edge (base -> up) and is rebuilt
   writeLines(edge_script, file.path(dir, "_targets.R"))
   e1_make(dir, plain = TRUE)
   sources <- vapply(d2_pick(d2_conds(run()), from = "target"), `[[`, "", "source")

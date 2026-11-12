@@ -90,7 +90,7 @@ test_that("2e-1 P4: tar_read(dict_a) is the value the dictionary holds", {
 test_that("2e-1 P4: dict_file, dict_<key> and the keys are in the store", {
   s <- tar_seq()
   m <- withr::with_dir(s$dir, targets::tar_meta(fields = "type"))
-  expect_true(all(c("dict_file", "dict_a", "dict_b", "dict_c") %in% m$name))
+  expect_true(all(c("dict_file", "dict_values", "dict_a", "dict_b", "dict_c") %in% m$name))
 })
 
 test_that("2e-1 P5 (control): the same pipeline with a global dict runs under stock targets, which tracks the global", {

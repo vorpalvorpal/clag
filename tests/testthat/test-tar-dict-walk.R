@@ -168,14 +168,14 @@ test_that("2e-1 P9: names that are not literal are not recorded", {
 
 # ---- P2-P4: tar_dict() ----------------------------------------------------------------------
 
-test_that("2e-1 P4: tar_dict() returns a plain list of dict_file and one target per key, in file order", {
+test_that("2e-1 P4 (review #8): tar_dict() returns a plain list: dict_file, dict_values, then one target per key in file order", {
   skip_if_not_installed("targets")
   e1_local_dict()
   two_key_dir()
   out <- tar_dict("dict.yml")
   expect_identical(class(out), "list")
-  expect_length(out, 3L)
-  expect_identical(vapply(out, function(t) t$settings$name, ""), c("dict_file", "dict_a", "dict_b"))
+  expect_length(out, 4L)
+  expect_identical(vapply(out, function(t) t$settings$name, ""), c("dict_file", "dict_values", "dict_a", "dict_b"))
   expect_true(all(vapply(out, inherits, NA, "tar_target")))
 })
 
@@ -186,7 +186,7 @@ test_that("2e-1 P4: key targets follow the order of the file", {
   e1_dict(d, vals = list(b = 2, a = 1))
   withr::local_dir(d)
   expect_identical(vapply(tar_dict("dict.yml"), function(t) t$settings$name, ""),
-                   c("dict_file", "dict_b", "dict_a"))
+                   c("dict_file", "dict_values", "dict_b", "dict_a"))
 })
 
 test_that("2e-1 P4: dict_file is a file target for the path as given", {
@@ -199,15 +199,20 @@ test_that("2e-1 P4: dict_file is a file target for the path as given", {
   expect_true(grepl("dict.yml", paste(deparse(out[[1]]$command$expr), collapse = ""), fixed = TRUE))
 })
 
-test_that("2e-1 P4: each key target's command reads that key of the dictionary in dict_file", {
+test_that("2e-1 P4 (review #8): each key target's command reads that key of dict_values, not the file", {
   skip_if_not_installed("targets")
   e1_local_dict()
   two_key_dir()
   out <- tar_dict("dict.yml")
-  txt <- paste(deparse(out[[3]]$command$expr), collapse = "")
-  expect_true(grepl("read_dict", txt, fixed = TRUE))
-  expect_true(grepl("dict_file", txt, fixed = TRUE))
+  txt <- paste(deparse(out[[4]]$command$expr), collapse = "")
+  expect_true(grepl("dict_values", txt, fixed = TRUE))
+  expect_false(grepl("dict_file", txt, fixed = TRUE))
+  expect_false(grepl("read_dict", txt, fixed = TRUE))
   expect_true(grepl("\"b\"", txt, fixed = TRUE))
+  # and dict_values is the one that reads the file
+  vtxt <- paste(deparse(out[[2]]$command$expr), collapse = "")
+  expect_true(grepl("read_dict", vtxt, fixed = TRUE))
+  expect_true(grepl("dict_file", vtxt, fixed = TRUE))
 })
 
 test_that("2e-1 P3: the dictionary is attached as `dict` in `weft:dict` at position 2; a second call leaves one", {
@@ -233,15 +238,16 @@ test_that("2e-1 P3: a second call holds the new values", {
   expect_equal(get("dict", "weft:dict")$a, 7)
 })
 
-test_that("2e-1 P4: an empty dict.yml gives dict_file alone", {
+test_that("2e-1 P4: an empty dict.yml gives no dict_<key> target (dict_file first)", {
   skip_if_not_installed("targets")
   e1_local_dict()
   d <- withr::local_tempdir()
   writeLines("", file.path(d, "dict.yml"))
   withr::local_dir(d)
   out <- tar_dict("dict.yml")
-  expect_length(out, 1L)
-  expect_identical(out[[1]]$settings$name, "dict_file")
+  nm <- vapply(out, function(t) t$settings$name, "")
+  expect_identical(nm[[1]], "dict_file")
+  expect_length(setdiff(nm, c("dict_file", "dict_values")), 0L)
 })
 
 test_that("2e-1 P2: a bad dict.yml raises weft_dict_error as it is", {

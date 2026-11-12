@@ -157,3 +157,41 @@ e1_no_targets <- function(env = parent.frame()) {
   do.call(testthat::local_mocked_bindings, c(args, list(.package = "weft", .env = env)))
   invisible(TRUE)
 }
+
+# ---- additions for the review of 2e-1 ---------------------------------------------------------
+
+# the names built by the last make, dict_* included (branches replaced by their pattern)
+e1_built_all <- function() {
+  prog <- targets::tar_progress()
+  meta <- targets::tar_meta(fields = "parent")
+  done <- prog$name[prog$progress == "completed"]
+  parent <- meta$parent[match(done, meta$name)]
+  sort(unique(as.character(ifelse(!is.na(parent), parent, done))))
+}
+
+# a pipeline folder: dict.yml, _targets.R (`script` lines) and any other `files`
+e1_pipe <- function(script, vals = list(a = 1, b = 2), defs = list(a = "First."), files = NULL) {
+  d <- e1_tmp()
+  e1_dict(d, vals, defs)
+  writeLines(script, file.path(d, "_targets.R"))
+  if (length(files)) e1_put(d, files)
+  d
+}
+
+# tar_make() in callr; returns the error (or NULL) instead of stopping
+e1_try_make <- function(dir) {
+  lib <- e1_libpath()
+  withr::with_dir(dir, e1_err(targets::tar_make(callr_arguments = list(libpath = lib), reporter = "silent")))
+}
+
+# the plain pipeline of a document folder, built into a named store (relative to `dir`)
+e1_make_store <- function(dir, store) {
+  withr::local_dir(dir)
+  had <- ls(globalenv(), all.names = TRUE)
+  withr::defer({
+    targets::tar_option_reset()
+    rm(list = setdiff(ls(globalenv(), all.names = TRUE), had), envir = globalenv())
+  })
+  eval(bquote(targets::tar_make(callr_function = NULL, reporter = "silent", store = .(store))), envir = globalenv())
+  invisible(dir)
+}
