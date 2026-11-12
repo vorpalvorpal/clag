@@ -151,3 +151,9 @@ s3_register <- function(generic, class, method) {
 .onLoad <- function(libname, pkgname) {
   register_year_vctrs()
 }
+
+# Unloading weft takes out of the units database what weft installed, and puts back the
+# readings it replaced (rule 4.4.21).
+.onUnload <- function(libpath) {
+  try(ud_unload(), silent = TRUE)
+}

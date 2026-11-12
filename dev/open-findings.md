@@ -186,3 +186,10 @@ So a later review does not raise them again without a new argument.
   prints (string values, `labels`, `breaks` phrases, `dict_local` terms).
 - A `decisions` setting in front matter is not used by `check_decisions()`;
   for `verify()` in stage 5.
+
+## From the build of 2g
+
+- `space: false` on a unit written before the number also takes the
+  space off its name form ("pH7.2"), unlike a unit after the number.
+- Not tested: a default unit in `dict_local`, in a `list` span, and a
+  vector whose elements differ in `unit_before`.

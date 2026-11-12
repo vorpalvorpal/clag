@@ -1,0 +1,48 @@
+# weft's default units (rule 4.4.21). Each row is written as a row of
+# `units:` in _weft.yml is, and may be copied there. See unit_defaults().
+units:
+  # Read by the units package as a prefix and another unit, or another unit.
+  # Redefined under `unit_defaults: weft`; skipped under `si`.
+  pH:
+    is: base               # units: picohenry
+    name: pH
+    plural: pH
+    before: true           # "pH 7.2"
+  mph:
+    is: 1 mi/h             # units: milliphot
+    name: mile per hour
+  nmi:
+    is: 1852 m             # units: nanomile
+    name: nautical mile
+  Ma:
+    is: 1 Myr              # units: megaare
+    name: million years
+    plural: million years
+  ka:
+    is: 1 kyr              # units: kiloare
+    name: thousand years
+    plural: thousand years
+  gal:
+    is: 1 gallon           # units: the galileo; the US gallon, as units' `gallon`
+    name: gallon
+  # Names the units database lacks.
+  ppm:
+    name: part per million
+  ppb:
+    name: part per billion
+  # Units the database lacks, each a unit of its own.
+  NTU:
+    is: base
+    name: nephelometric turbidity unit
+  PSU:
+    is: base
+    name: practical salinity unit
+  CFU:
+    is: base
+    name: colony-forming unit
+  MPN:
+    is: base
+  CFU/100 mL:
+    symbol: CFU/100 mL     # units writes "CFU/(100mL)"
+  MPN/100 mL:
+    symbol: MPN/100 mL

@@ -66,10 +66,10 @@ test_that("2g 9.1.7: is: a number alone is a dimensionless unit", {
 })
 
 test_that("2g 9.1.7: is: a number and a unit, and a unit alone", {
-  g2_cfg(c("units:", "  zzg2sp:", "    is: 2 km/h", "  zzg2mh:", "    is: mi/h"))
+  g2_cfg(c("units:", "  zzg2sp:", "    is: 2 km/h", "  zzg2mh:", "    is: km/d"))
   expect_equal(g2_cv(g2_u(3, "zzg2sp"), "km/h"), f2("6~km/h"))
-  expect_equal(g2_cv(g2_u(3, "zzg2mh"), "mi/h"), f2("3~mi/h"))
-  expect_equal(g2_factor("zzg2mh", "km/h"), 1.609344, tolerance = 1e-9)
+  expect_equal(g2_cv(g2_u(3, "zzg2mh"), "km/d"), f2("3~km/d"))
+  expect_equal(g2_factor("zzg2mh", "km/h"), 1 / 24, tolerance = 1e-9)
 })
 
 test_that("2g 9.1.7: is: an optional number, so 1 mi/h and mi/h are one unit (spacing and a fractional number)", {
@@ -78,9 +78,15 @@ test_that("2g 9.1.7: is: an optional number, so 1 mi/h and mi/h are one unit (sp
 })
 
 test_that("2g 9.1.7: is: is read against units installed before it, in file order, defaults first", {
-  g2_cfg(c("units:", "  zzg2o2:", "    is: base", "  zzg2o1:", "    is: 2 zzg2o2", "  zzg2o3:", "    is: 3 NTU"))
-  expect_equal(g2_cv(g2_u(1, "zzg2o1"), "zzg2o2"), f2("2~zzg2o2"))
-  expect_equal(g2_cv(g2_u(1, "zzg2o3"), "NTU"), f2("3~NTU"))
+  g2_cfg(c("units:", "  zzgbtwo:", "    is: base", "  zzgbone:", "    is: 2 zzgbtwo", "  zzgbthree:", "    is: 3 NTU"))
+  expect_equal(g2_cv(g2_u(1, "zzgbone"), "zzgbtwo"), f2("2~zzgbtwo"))
+  expect_equal(g2_cv(g2_u(1, "zzgbthree"), "NTU"), f2("3~NTU"))
+})
+
+test_that("2g 9.1.7: a key defined with is: may not end in a digit", {
+  e <- units_err(c("  zzg2dg1:", "    is: base"))
+  f2_has_class(e, "weft_config_error")
+  f2_msg_has(e, "`zzg2dg1`", "digit", "(rule 9.1.7)")
 })
 
 test_that("2g 9.1.7: a forward reference is a problem on the row that makes it", {
@@ -161,7 +167,7 @@ test_that("2g 9.1.7: a prefix on a default row with is: in force is a problem in
 # ---- before: and the unknown-field line ---------------------------------------------------------------------------------
 
 test_that("2g 9.1.7: before must be true or false", {
-  for (bad in c("maybe", "1", "\"yes\"", "[true]")) {
+  for (bad in c("maybe", "1", "\"yes\"")) {
     e <- units_err(c("  zzg2bf:", "    is: base", paste0("    before: ", bad)))
     f2_has_class(e, "weft_config_error")
     f2_msg_has(e, "`zzg2bf`", "`before` must be true or false", "(rule 9.1.7)")
@@ -217,8 +223,8 @@ test_that("2g 9.1.7: a project row merges per field over the default row (space 
 })
 
 test_that("2g 9.1.7: a project name over a default row's keeps the default's other fields", {
-  g2_cfg(c("units:", "  mph:", "    name: mile an hour"))
-  expect_equal(g2_nm(u(60, mph)), f2("60~miles an hour"))
+  g2_cfg(c("units:", "  mph:", "    name: mile per hr"))
+  expect_equal(g2_nm(u(60, mph)), f2("60~miles per hr"))
   expect_equal(g2_cv(u(60, mph), "km/h"), f2("96.6~km/h"))
 })
 

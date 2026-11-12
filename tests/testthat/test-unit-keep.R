@@ -21,7 +21,7 @@ test_that("2g 4.4.20: the same tokens, and mt, are stored as written under si", 
   for (tok in c("Sv", "Bq", "Bd", "VA", "Mg", "ut", "sievert", "becquerel", "mt")) {
     expect_equal(dep(g2_u(2, tok)), tok, label = paste("deparse_unit of", tok))
   }
-  expect_equal(dep(g2_u(1, "mt/d")), "mt/d")
+  expect_equal(dep(g2_u(1, "mt/d")), "mt d-1")     # deparse_unit writes a quotient with negative powers
 })
 
 test_that("2g 4.4.20: gallon, nautical_mile and Myr are stored as written", {
@@ -156,7 +156,7 @@ test_that("2g G2: control - within a member and to the SI definition converts, a
   expect_equal(g2_cv(g2_u(2, "Sv"), "J/kg"), f2("2~J/kg"))
   expect_equal(g2_cv(g2_u(2, "Gy"), "J/kg"), f2("2~J/kg"))
   expect_equal(g2_cv(g2_u(5, "km"), "m"), f2("5,000~m"))
-  expect_equal(g2_cv(g2_u(2, "Hz"), "kHz"), f2("0.002~kHz"))
+  expect_equal(f2_tx(fmt_num(g2_u(2, "Hz"), unit = "kHz", digits = 3)), f2("0.002~kHz"))
 })
 
 # ---- refusals under weft: u() -------------------------------------------------------------------------------------------------

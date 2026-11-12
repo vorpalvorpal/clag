@@ -137,9 +137,18 @@ ud_core <- function(tok, db) {
   NULL
 }
 
-# How weft reads one token (4.4.16 steps 2 to 5): list(known, id, row, pre, kind).
-# `id` is the same for two tokens that are one unit.
+# How weft reads one token (4.4.17): a token a row with `is:` defines in the configuration in
+# force is a unit of its own, never split into a prefix; any other as the database reads it.
 tok_resolve <- function(tok) {
+  if (tok %in% ud_state$ctx$own) {
+    return(list(known = FALSE, id = tok, row = NA_integer_, pre = NA_integer_, core = tok, kind = "own"))
+  }
+  tok_resolve_db(tok)
+}
+
+# How the units database reads one token (4.4.16 steps 2 to 5): list(known, id, row, pre, kind).
+# `id` is the same for two tokens that are one unit.
+tok_resolve_db <- function(tok) {
   hit <- un_cache$res[[tok]]
   if (!is.null(hit)) return(hit)
   db <- ud_db()
@@ -201,13 +210,10 @@ unit_whole_id <- function(un) {
   paste0(paste(ids(un$numerator), collapse = "*"), "/", paste(ids(un$denominator), collapse = "*"))
 }
 
-unit_key_parse <- function(key) attr(units::set_units(1, key, mode = "standard"), "units")
+unit_key_parse <- function(key) unit_symbolic(key)
 
 # The entry of the `units:` table for the unit with this id, or an empty list.
-unit_proj <- function(cfg, id) {
-  for (e in cfg$units) if (identical(e$id, id)) return(e)
-  list()
-}
+unit_proj <- function(cfg, id) unit_entry(cfg, id)
 
 # The unit as a key would write it, for a message.
 unit_key_text <- function(un) {
@@ -370,7 +376,8 @@ tok_symbol <- function(tok, cfg) {
   if (!r$known) return(list(text = tok))
   db <- ud_db()
   S <- SHIPPED_UNITS[[db$id[r$row]]] %||% list()
-  if (identical(S$symbol, FALSE)) return(list(name = TRUE))
+  # a unit with no symbol prints its name, but a prefix makes the abbreviation one (`Myr`)
+  if (identical(S$symbol, FALSE) && is.na(r$pre)) return(list(name = TRUE))
   if (r$kind == "symbol") return(list(text = tok))
   sym <- S$symbol %||% db$v$symbol[r$row]
   if (!nzchar(sym)) return(list(name = TRUE))
@@ -428,6 +435,14 @@ unit_prints_name <- function(un, cfg) {
   toks <- unique(c(un$numerator, un$denominator))
   toks <- toks[toks != "1" & !grepl("^[0-9]", toks)]
   length(toks) > 0L && all(vapply(toks, function(t) isTRUE(tok_symbol(t, cfg)$name), NA))
+}
+
+# Whether a unit is printed before its number (4.4.22): the token alone, power 1, whose row says
+# `before: true`.
+unit_before <- function(un, cfg) {
+  f <- unit_factors(un)
+  length(f$num) == 1L && !length(f$den) && f$num[[1L]]$pow == 1L &&
+    isTRUE(unit_proj(cfg, unit_whole_id(un))$before)
 }
 
 # Whether a no-break space goes before the unit's symbol (4.4.8, U13). `space:`

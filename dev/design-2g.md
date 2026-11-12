@@ -458,3 +458,27 @@ Built as recommended until answered.
 - One more older assertion is superseded than the contract lists: the
   control of review 2f #13 (`CFU/L` now has a name) needs a factor with
   no name.
+
+## Rulings on the implementer's report
+
+- **Nine tests were faulty and are edited** (no rule changed): fixtures
+  the `units` library cannot accept (a second symbol for an equal unit,
+  a key ending in a digit used in a definition, a quotient that
+  `deparse_unit()` writes with negative powers); three wrong
+  expectations (the plural of a name with no " per ", a small number at
+  the default digits, a refusal in prose, which is the "no value"
+  failure there); and three plain test bugs.
+- **New problem (9.1.7).** A project row with `is:` whose key ends in a
+  digit is a problem: `units` reads a trailing digit as a power, and
+  cannot remove such a symbol again.
+- The default rows are held apart from the project's `units:` entries
+  and merged field by field when a unit is looked up. Accepted.
+- `space: false` governs a unit written before the number in its name
+  form too ("pH7.2"). Accepted; it differs from 4.4.8, where `space:`
+  governs the symbol only, and is in `dev/open-findings.md`.
+- `.cap` is not applied to a text whose unit is written before the
+  number. Accepted.
+- A prefixed unit of a row with no symbol prints its symbol ("3,000
+  Myr"); the plain unit prints its name ("years"). Accepted.
+- A refusal is a `weft_unit_error` from `u()` and a `weft_value_error`
+  from the `unit` key. Accepted.

@@ -118,7 +118,13 @@ g2_row("`r u(10, gal)`{.num unit=\"L\"}", "45.5~L", c("units:", "  gal:", "    i
        "weft, units: gal imperial")
 g2_row("`r u(10, gal)`{.uname}", "10~gallons", c("units:", "  gal:", "    is: 4.54609 L"),
        "weft, units: gal imperial")
-g2_row_err("`r u(7.2, pH)`{.num}", c("units:", "  pH: false"), class = "weft_unit_error")
+test_that("2g 4.4.21 table (weft): units: {pH: false} makes u(7.2, pH) a weft_unit_error", {
+  g2_cfg(c("units:", "  pH: false"))
+  f2_has_class(f2_cond(g2_u(7.2, "pH")), "weft_unit_error")
+  e <- f2_err("`r u(7.2, pH)`{.num}", c("units:", "  pH: false"))   # through weft_str() it is a failure, not a value
+  expect_false(is.null(e))
+  f2_msg_has(e, "`pH`", "picohenry")
+})
 g2_row("`r u(3, NTU)`{.uname}", "3~turbidity units",
        c("units:", "  NTU:", "    name: turbidity unit"), "weft, units: NTU name")
 
@@ -240,17 +246,16 @@ test_that("2g G9: two documents knit with weft_str() in different modes each see
 
 test_that("2g G9: a document's own unit_defaults: si applies to its knit, and the next knit is back to weft", {
   g2_restore()
-  res <- f2_render(c("`r u(7.2, pH)`{.uname}"), front = c("weft:", "  unit_defaults: si"),
-                   format = "knit")
-  expect_equal(f2_unesc(res$md), f2("7.2~picohenries"))
+  res <- f2_render(c("`r u(7.2, pH)`{.uname}"), front = c("weft:", "  unit_defaults: si"))
+  expect_equal(tail(f2_unesc(res$text), 1), f2("7.2~picohenries"))
   res2 <- f2_render(c("`r u(7.2, pH)`{.uname}"))
-  expect_equal(f2_unesc(res2$md), f2("pH~7.2"))
+  expect_equal(tail(f2_unesc(res2$text), 1), f2("pH~7.2"))
 })
 
 test_that("2g G9: a project's _weft.yml unit_defaults: si applies to a render", {
   g2_restore()
   res <- f2_render(c("`r u(60, mph)`{.uname}"), files = list("_weft.yml" = "unit_defaults: si"))
-  expect_equal(f2_unesc(res$md), f2("60~milliphots"))
+  expect_equal(tail(f2_unesc(res$text), 1), f2("60~milliphots"))
 })
 
 test_that("2g 4.4.21: a quantity holds only its token: pH made under weft and printed under si is picohenries", {

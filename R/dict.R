@@ -364,22 +364,30 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     if (type_ok && type == "quantity" && !is.na(unit) && length(problems) == n0) {
       reg <- dict_register_unit(unit)
       installed <- c(installed, reg$installed)
-      if (!is.null(reg$error)) {
+      if (!is.null(reg$refusal)) {
+        p(sprintf("`unit` `%s`: %s", unit, reg$refusal), "4.4.20")
+      } else if (!is.null(reg$error)) {
         p(sprintf("`unit` `%s` is not a unit the units package can read: %s", unit, strip_rule(reg$error)), "4.4.7")
       } else {
         registered <- c(registered, reg$needed)
-        values[i] <- list(units::set_units(values[[i]], unit, mode = "standard"))
+        values[i] <- list(u_set(values[[i]], unit))
         # the value is read in `unit` and converted to `display` (4.2.7)
         if (!is.na(disp)) {
           dreg <- dict_register_unit(disp)
           installed <- c(installed, dreg$installed)
-          if (!is.null(dreg$error)) {
+          if (!is.null(dreg$refusal)) {
+            p(sprintf("`display` `%s`: %s", disp, dreg$refusal), "4.4.20")
+          } else if (!is.null(dreg$error)) {
             p(sprintf("`display` `%s` is not a unit the units package can read: %s", disp, strip_rule(dreg$error)), "4.2.7")
           } else {
             registered <- c(registered, dreg$needed)
-            conv <- tryCatch(units::set_units(values[[i]], disp, mode = "standard"),
-                             error = function(e) NULL)
-            if (is.null(conv)) {
+            to <- tryCatch(unit_symbolic(disp), error = function(e) NULL)
+            twin <- if (!is.null(to)) unit_twin_problem(attr(values[[i]], "units"), to, disp)
+            conv <- if (is.null(to) || !is.null(twin)) NULL else
+              tryCatch(units::set_units(values[[i]], to, mode = "standard"), error = function(e) NULL)
+            if (!is.null(twin)) {
+              p(twin, "4.4.14")
+            } else if (is.null(conv)) {
               p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", disp, unit), "4.2.7")
             } else if (converts_by_inversion(values[[i]], conv)) {
               p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
@@ -591,10 +599,12 @@ ud_shipped <- function(tok) {
 # installed): `installed` are the tokens this call installed, `needed` those
 # `udunits` does not ship, whoever installed them (ruling 6, 7, e).
 dict_register_unit <- function(unit) {
-  bad <- unit_misread(unit)
-  if (!is.null(bad)) return(list(error = bad, installed = character()))
-  toks <- unique(unlist(regmatches(unit, gregexpr("[^[:space:][:digit:]*/^().+-]+", unit))))
-  needed <- toks[!vapply(toks, ud_shipped, NA)]
+  bad <- unit_refusal(unit)
+  if (!is.null(bad)) return(list(refusal = bad$body, installed = character()))
+  # a token has no digit first and no operator; a digit after letters belongs to it (`zzg2cs`),
+  # or is its exponent (`m2`)
+  toks <- unique(unlist(regmatches(unit, gregexpr("[^[:space:][:digit:]*/^().+-][^[:space:]*/^().+-]*", unit))))
+  needed <- toks[!vapply(toks, function(t) ud_shipped(t) || ud_shipped(sub("[0-9]+$", "", t)), NA)]
   installed <- character()
   for (tok in needed) {
     if (is.null(unit_parse_problem(tok))) next

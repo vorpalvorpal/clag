@@ -490,6 +490,9 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                         if (ratio) "this value has no unit left (a ratio)"
                         else sprintf("this value is not a quantity (class `%s`)", class(value)[1L])))
   }
+  # a unit written before its number (4.4.22); `.cap` never changes a symbol
+  unit_pre <- !is.null(un) && unit_before(un, cfg)
+  if (unit_pre) keep_case <- TRUE
   nms <- names(value)
 
   if (!is.null(keys$none)) {
@@ -767,7 +770,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # what follows a number: the no-break space and the unit, in `form`, for a
   # plural number or not
   suffix_of <- function(form, plural) {
-    if (is.na(form)) return("")
+    if (is.na(form) || unit_pre) return("")
     key <- paste(form, plural)
     if (!is.null(memo[[key]])) return(memo[[key]])
     out <- if (form == "name") {
@@ -779,11 +782,22 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     out
   }
   elem_suffix <- vapply(seq_len(n_el), function(i) suffix_of(forms[i], !is_one[i]), "")
+  # what goes before a number whose unit is written first: the unit and the space
+  prefix_of <- function(form, plural) {
+    if (is.na(form) || !unit_pre) return("")
+    key <- paste("pre", form, plural)
+    if (!is.null(memo[[key]])) return(memo[[key]])
+    txt <- if (form == "name") unit_name_text(un, plural, cfg, lang) else unit_symbol_text(un, plural, cfg, lang)
+    out <- paste0(txt, if (unit_space(un, cfg)) UNIT_SEP else "")
+    memo[[key]] <- out
+    out
+  }
+  elem_pre <- vapply(seq_len(n_el), function(i) prefix_of(forms[i], !is_one[i]), "")
   add_unit <- function(txt) {
-    if (length(txt) == length(elem_suffix)) paste0(txt, elem_suffix) else txt
+    if (length(txt) == length(elem_suffix)) paste0(elem_pre, txt, elem_suffix) else txt
   }
   out_forms <- forms
-  out_suffix <- elem_suffix
+  out_suffix <- if (unit_pre) elem_pre else elem_suffix
 
   collapsed <- FALSE
   if (governor) {
@@ -795,8 +809,10 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
       text <- collapse_range(text, number, cfg, raw)
       out_suffix <- suffix_of(lf, !one_printed)
+      out_pre <- prefix_of(lf, !one_printed)
       out_forms <- lf
-      text <- paste0(text, out_suffix)
+      text <- paste0(out_pre, text, out_suffix)
+      if (unit_pre) out_suffix <- out_pre
       placed <- !is.na(lf)
       number <- if (one_printed) 1 else NA_real_
       decimals <- FALSE
@@ -817,20 +833,22 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL))
         text <- text[1]
         out_forms <- forms[n_el]
-        out_suffix <- elem_suffix[n_el]
+        out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
       } else if (cl == ".range") {
         lf <- forms[n_el]
         one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
         text <- collapse_range(text, number, cfg, raw)
         out_suffix <- suffix_of(lf, !one_printed)
+        out_pre <- prefix_of(lf, !one_printed)
         out_forms <- lf
-        text <- paste0(text, out_suffix)
+        text <- paste0(out_pre, text, out_suffix)
+        if (unit_pre) out_suffix <- out_pre
         placed <- !is.na(lf)
       } else if (cl %in% c(".pairs", ".dl")) {
         placed <- any(!is.na(forms))
         text <- add_unit(text)
         out_forms <- forms[n_el]
-        out_suffix <- elem_suffix[n_el]
+        out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
         if (is.null(nms) || anyNA(nms) || any(!nzchar(nms))) {
           value_error(sprintf("`%s` needs a named vector; this one has no names.", cl))
         }
@@ -845,7 +863,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         placed <- any(!is.na(forms))
         text <- add_unit(text)
         out_forms <- forms[n_el]
-        out_suffix <- elem_suffix[n_el]
+        out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
         text <- collapse_list(cl, text, nms)
       } else {
         sep <- keys$sep %||% ", "
@@ -853,11 +871,18 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         # the unit once, after the last number printed, in that item's form; the
         # name is singular only when exactly one number prints and it is 1 (4.4.15)
         at <- if (!is.null(trunc) && length(text) > trunc) trunc else length(text)
-        out_forms <- if (at >= 1L) forms[at] else NA_character_
+        # a unit written before its number goes once before the first item printed (4.4.22)
+        uat <- if (unit_pre) 1L else at
+        out_forms <- if (at >= 1L) forms[uat] else NA_character_
         out_suffix <- ""
-        if (!is.null(un) && at >= 1L && !is.na(forms[at])) {
-          out_suffix <- suffix_of(forms[at], !(at == 1L && is_one[1L]))
-          text[at] <- paste0(text[at], out_suffix)
+        if (!is.null(un) && at >= 1L && !is.na(forms[uat])) {
+          if (unit_pre) {
+            out_suffix <- prefix_of(forms[uat], !(at == 1L && is_one[1L]))
+            text[uat] <- paste0(out_suffix, text[uat])
+          } else {
+            out_suffix <- suffix_of(forms[uat], !(at == 1L && is_one[1L]))
+            text[at] <- paste0(text[at], out_suffix)
+          }
           placed <- TRUE
         }
         text <- collapse_items(text, sep, last, trunc,
@@ -900,6 +925,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       attr(out, "unit") <- unit_symbol_text(un, TRUE, cfg, lang)
       attr(out, "units") <- un
       attr(out, "unit_suffix") <- out_suffix
+      attr(out, "unit_before") <- ifelse(is.na(out_forms), NA, unit_pre)
     }
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
@@ -1190,7 +1216,13 @@ glue_vec <- function(x, sep = ", ", last = " and ") {
   if (n == 0L || anyNA(x)) no_value_error("A collapse")
   placed <- !is.null(un) && !is.na(form)
   suf <- ""
-  if (placed) {
+  before <- placed && unit_before(un, cfg)
+  if (before) {
+    # a unit written before its number goes once before the first item (4.4.22)
+    suf <- paste0(if (form == "name") unit_name_text(un, !one, cfg, lang) else unit_symbol_text(un, !one, cfg, lang),
+                  if (unit_space(un, cfg)) UNIT_SEP else "")
+    x[1L] <- paste0(suf, x[1L])
+  } else if (placed) {
     suf <- if (form == "name") {
       paste0(UNIT_SEP, unit_name_text(un, !one, cfg, lang))
     } else {
@@ -1211,6 +1243,7 @@ glue_vec <- function(x, sep = ", ", last = " and ") {
     attr(out, "units") <- un
     attr(out, "unit_form") <- form
     attr(out, "unit_suffix") <- suf
+    attr(out, "unit_before") <- before
   }
   out
 }

@@ -28,13 +28,24 @@ weft cannot stop base R's \code{\%in\%}, \code{match()}, \code{cut()} and \code{
 from comparing one with a bare number, as they work on the bare numbers
 (rule 4.4.5 is kept by \code{claim()} and the comparison operators only).
 
-\code{u()} does not register units. A unit the \code{units} database does not know is
-a \code{weft_unit_error}; a project's own unit is registered when the
-dictionary that names it is read (rule 4.4.7), or with
-\code{\link[units:install_unit]{units::install_unit()}}. A unit that does not convert, a \code{value} that is
-not numeric and a missing \code{unit} are a \code{weft_unit_error} too, and so is a unit
-the units package reads as another (\code{Sv} as grays, \code{mph} as milli-phots): the
-message says what it was read as and what to write.
+\code{u()} registers no unit of its own. The first time weft parses or converts a unit
+in a session, and each time a configuration is read, it brings the \code{units}
+database to weft's default table (see \code{\link[=unit_defaults]{unit_defaults()}}: \code{pH}, \code{mph}, \code{nmi},
+\code{Ma}, \code{ka}, \code{gal}, \code{NTU}, \code{PSU}, \code{CFU}, \code{MPN}, and names for \code{ppm} and \code{ppb})
+and the project's \verb{units:} rows (rules 4.4.21, 9.1.7); loading weft changes
+nothing. A unit the \code{units} database does not know is a \code{weft_unit_error}; a
+project's own unit is registered when the dictionary that names it is read
+(rule 4.4.7), or with \code{\link[units:install_unit]{units::install_unit()}}. A unit that does not convert, a
+\code{value} that is not numeric and a missing \code{unit} are a \code{weft_unit_error} too.
+
+A unit is kept as written: \code{u(2, Sv)} holds \code{Sv}, not the \code{Gy} the \code{units}
+package substitutes, and weft refuses to convert between units the database
+defines alike (\code{Sv} and \code{Gy}, \code{Bq} and \code{Hz}, \code{VA} and \code{W}). Under
+\code{unit_defaults: weft} (the default in \verb{_weft.yml}) a unit the \code{units} package
+reads as a prefix and another unit that a report does not mean (\code{mt} as a
+millitonne, \code{kph} as a kilophot) is a \code{weft_unit_error} whose message says what
+it was read as and what to write; under \code{unit_defaults: si} it is read as the
+\code{units} package reads it (rule 4.4.20).
 }
 \examples{
 u(35, m)
