@@ -557,3 +557,22 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
 12. **`dev/design-2.md` §4, 2d** says `generated/ledger/`, and its open
     points (1)–(6) are answered here: (1) D10; (2) D2; (3) D12, G7; (4) D3–D15;
     (5) D30; (6) D16. Point to this note.
+
+## Rulings on the test-writer's report
+
+- **D8, a one-arm `if` that is false** is a failed claim, so D8's row
+  for a failed construct governs: in draft mode `text` is `null`, `arm`
+  is `null` and `failed` is `failed claim`. The Tests section's "false →
+  `arm` null and `text` `""`" was wrong; `""` is the text of a governed
+  span that chose an empty arm.
+- **D8, `rel` of a `list` span** is `null` (a collapsed vector has no
+  record).
+- **D10, a construct inside a heading** takes that heading's anchor.
+- **D19, one new condition** is worded `weft: 1 new condition since …`.
+- **D19, outside a repository with no log on disk yet**: there is no
+  earlier render to compare with, so no message. Inside a repository a
+  path not in `HEAD` is an empty log and every line is new, as D19
+  says.
+- **Not tested, accepted for this round**: D20's collection-file case,
+  D23, D25, a nested `render()`, and D26's no-permission case. The
+  reviewer is asked to try them.
