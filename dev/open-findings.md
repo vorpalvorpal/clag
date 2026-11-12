@@ -219,3 +219,18 @@ So a later review does not raise them again without a new argument.
 
 - **Two renders of one output at once** have not been run by a test or
   a reviewer; D25 rests on the rename being atomic.
+
+## From the fixes to the stage 2 fix-round review
+
+- **`units:::` internals.** `ud_install_one()` (`R/unit-defaults.R`)
+  reads `units:::R_ut_parse` and `units:::R_ut_get_symbol` to refuse a
+  project unit defined as a unit with a non-ASCII symbol before
+  `install_unit()` can damage the database. A package check notes the
+  `:::` calls, and a later `units` could rename them.
+- **`.cap` on a mixed vector.** `fmt_cap(c(fmt_unit(u(1, mL)), "abc"))`
+  still capitalises the symbol: `c()` of a symbol text and plain text
+  loses the flag.
+- The regression test for the damaged database (`review 2x #10`) was
+  written after the fix and not run against the code before it; the
+  four degree tests that failed in a whole-suite run are the evidence
+  that it failed.

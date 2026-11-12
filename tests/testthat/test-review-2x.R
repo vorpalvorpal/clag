@@ -486,3 +486,32 @@ test_that("review 2x f: control - .sci with one unit, or a ladder of one rung, p
   expect_equal(r2x_show(fmt_sci(u(1500, m), unit = "km ")), f2("1.5 \u00d7 10^0^~km"))
   expect_equal(r2x_show(fmt_sci(u(1200, m))), f2("1.2 \u00d7 10^3^~m"))
 })
+
+# ---- 10: a refused project unit with a non-ASCII base symbol leaves the database as it was (4.4.21) ---------------------------
+
+test_that("review 2x #10: a refused `is:` of exactly a non-ASCII-symbol unit leaves the units database unchanged (4.4.21)", {
+  h2_restore()
+  cases <- list(list(def = "1 degree", name = "degree", sym = "°", key = "zzxdeg"),
+                list(def = "1 ohm", name = "ohm", sym = "Ω", key = "zzxohm"),
+                list(def = "1 arcminute", name = "arcminute", sym = "′", key = "zzxarc"))
+  for (cs in cases) {
+    snap <- function() c(num = r2x_show(fmt_num(g2_u(5, cs$name))),
+                         word = r2x_show(fmt_num(g2_u(5, cs$name), unit_form = "name")),
+                         sym = r2x_show(fmt_num(g2_u(2, cs$sym))))
+    before <- snap()
+    expect_false(grepl("ERROR", before[["num"]]), label = paste(cs$name, before[["num"]]))
+    e <- g2_cfg_err(c("units:", paste0("  ", cs$key, ":"), paste0("    is: ", cs$def)))
+    expect_false(is.null(e), label = paste(cs$def, "is refused"))
+    expect_identical(snap(), before, label = paste("after the refused", cs$def))
+    expect_true(Encoding(snap()[["num"]]) != "bytes", label = "not raw bytes")
+    expect_true(inherits(f2_cond(g2_u(2, cs$key)), "weft_unit_error"), label = paste(cs$key, "is not a unit"))
+  }
+})
+
+test_that("review 2x #10: control - a project unit with an ASCII definition is accepted and the base units still print (4.4.21)", {
+  h2_restore()
+  before <- r2x_show(fmt_num(g2_u(5, "degree")))
+  expect_null(g2_cfg_err(c("units:", "  zzxlong:", "    is: 1000 m")))
+  expect_equal(r2x_show(fmt_num(u(2, zzxlong), unit = "m")), f2("2,000~m"))
+  expect_identical(r2x_show(fmt_num(g2_u(5, "degree"))), before)
+})
