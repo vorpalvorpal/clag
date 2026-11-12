@@ -424,3 +424,36 @@ is written only under `options(weft.units_cache = TRUE)`.
   package that writes outside the project without being asked is a
   choice for Robin, and the build was told to write only inside this
   repository. Turning it on by default is a one-line change.
+
+## 63. The items that waited on Robin, decided under delegation (13 Nov)
+
+Robin delegated these and asked for the alternatives and the reasons.
+
+- **Units cache on disk: on by default** (reverses the default of 62).
+  `options(weft.units_cache = FALSE)` turns it off. For: 0.45 s saved at
+  the start of every fresh session, which is every run of an unattended
+  report; the folder is R's own user cache folder; a bad or stale copy
+  falls back to a read. Against: a package writing outside the project
+  unasked. Alternative: keep it opt-in; refused, since nobody sets an
+  option they have not heard of. Alternative: ship the tables in the
+  package; refused, since they belong to the installed `units`. Reverse:
+  the default in `ud_tables()` in `R/unit-names.R`.
+- **`ledger: false` stops the upstream-conditions check too.** Kept.
+  Alternative: still fail a render on an upstream error; refused, since
+  it needs the background process the author turned off.
+- **A bare quantity warns** (58), an inline `claim()` on one included.
+  Kept.
+- **The repeated-unit warning skips `a`, `am`, `as`, `at`, `in`.** Kept.
+- **A second `tar_dict()` is found through a frame of `targets`.** Kept:
+  if the frame moves, `targets` still stops the make with its own error.
+- **`dict_unmark()` is exported**, marked internal, because generated
+  target commands call it by name. Alternative: put the function itself
+  in each command; refused, since it bloats every command and its hash.
+- **The `units:::` calls stay.** There is no exported route.
+- **A compound prints as typed, names included** (`kilometre/hr` prints
+  so). Alternative: turn names into symbols inside a compound; refused,
+  since `mm/day` is ruled to print as typed and `day` is a name, so the
+  rule would need a list of exceptions.
+- **Units a dictionary registers are removed with the project**, as
+  closing review 12 did for rows of `units:`.
+- **Decisions 53 to 61 stand.**
