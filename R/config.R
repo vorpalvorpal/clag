@@ -53,7 +53,13 @@ default_config <- function() {
     unit_form = "auto",
     unit_defaults = "weft",
     decisions = "github",
-    units = list()
+    units = list(),
+    label_words = list(),
+    numeral_years = FALSE,
+    claim_words = list(add = list(), drop = list()),
+    claim_cap = 20,
+    guard_words = 25,
+    expected_names = list()
   )
 }
 
@@ -115,17 +121,18 @@ read_config_ <- function(dir, front, doc) {
       weft_abort("The setting `ledger` must be TRUE or FALSE.", "weft_config_error")
     }
   }
-  if (has_file && "draft" %in% names(front)) {
-    weft_abort(paste0(
-      "`draft` is a project setting: set it in _weft.yml, not in a ",
-      "document's `weft:` front matter (rule 9.1.4)."
-    ), "weft_config_error")
+  if (has_file) {
+    for (nm in intersect(project_only_settings(), names(default_config()))) {
+      if (nm %in% names(front)) {
+        weft_abort(sprintf(paste0(
+          "`%s` is a project setting: set it in _weft.yml, not in a ",
+          "document's `weft:` front matter (rule 9.1.4)."), nm), "weft_config_error")
+      }
+    }
   }
-  if (has_file && "decisions" %in% names(front)) {
-    weft_abort(paste0(
-      "`decisions` is a project setting: set it in _weft.yml, not in a ",
-      "document's `weft:` front matter (rule 9.1.4)."
-    ), "weft_config_error")
+  if (has_file) {
+    raw <- tryCatch(yaml::read_yaml(file, handlers = list(seq = function(x) x)), error = function(e) NULL)
+    check_raw_scalars(raw)
   }
   # the `units:` tables are checked and merged apart (9.1.7)
   proj_units <- proj$units
@@ -152,6 +159,10 @@ read_config_ <- function(dir, front, doc) {
   if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) cfg$draft <- TRUE
   cfg
 }
+
+# The settings that belong to the project, not to a document (rule 9.1.4); the
+# `config-place` lint and read_config() both read this list.
+project_only_settings <- function() c("draft", "decisions", "verify_skip")
 
 # An unknown setting is kept, with a warning that names it (a misspelt
 # setting would otherwise do nothing).
@@ -227,6 +238,7 @@ validate_config <- function(cfg) {
                "weft_config_error")
   }
   decisions_route(cfg$decisions)
+  validate_lint_config(cfg)
   prop <- function(nm, open = TRUE) {
     v <- cfg[[nm]]
     if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
@@ -333,3 +345,63 @@ find_project_root <- function(path) {
 
 # A project "has been set up" (9.3.2) when its root holds `_weft.yml`.
 is_set_up <- function(root) file.exists(file.path(root, "_weft.yml"))
+
+# ---- the lint settings (rules 5.2.4, 5.5.4, 5.3.3, 3.1.9) ----------------------
+
+# Checks the keys of design-3 L8. `raw` (optional) is the same settings read
+# with sequences kept as lists, so that `[true]` is not taken for TRUE.
+validate_lint_config <- function(cfg, raw = NULL) {
+  bad <- function(nm, what, rule = NULL) {
+    weft_abort(sprintf("The setting `%s` must be %s%s.", nm, what,
+                       if (is.null(rule)) "" else paste0(" (rule ", rule, ")")),
+               "weft_config_error")
+  }
+  words <- function(v) {
+    if (is.null(v) || (is.list(v) && !length(v))) return(character())
+    if (is.list(v) && !is.null(names(v))) return(NULL)
+    u <- if (is.list(v)) {
+      if (any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(NULL)
+      unlist(v, use.names = FALSE)
+    } else v
+    if (!is.character(u) || anyNA(u) || any(!nzchar(u)) || any(grepl("[[:space:]]", u))) return(NULL)
+    u
+  }
+  if (is.null(words(cfg$label_words))) bad("label_words", "a list of words without spaces", "5.2.4")
+  nu <- cfg$numeral_years
+  if (!is.logical(nu) || length(nu) != 1L || is.na(nu) || is.list(raw[["numeral_years"]])) {
+    bad("numeral_years", "TRUE or FALSE", "5.2.4")
+  }
+  cw <- cfg$claim_words
+  cw_msg <- "a mapping with `add` and `drop`, each a list of words"
+  if (!is.list(cw) || is.null(names(cw)) || !all(names(cw) %in% c("add", "drop")) ||
+      is.null(words(cw$add)) || is.null(words(cw$drop))) bad("claim_words", cw_msg, "5.5.4")
+  for (nm in c("claim_cap", "guard_words")) {
+    v <- cfg[[nm]]
+    if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 1 || v != round(v) ||
+        is.list(raw[[nm]])) {
+      bad(nm, "a whole number from 1", if (nm == "claim_cap") "5.5.3" else "3.1.9")
+    }
+  }
+  en <- cfg$expected_names
+  ok <- is.null(en) || (is.list(en) && !length(en)) || (is.null(names(en)) && {
+    u <- if (is.list(en)) {
+      if (any(!vapply(en, function(e) is.character(e) && length(e) == 1L, NA))) NULL else unlist(en, use.names = FALSE)
+    } else en
+    is.character(u) && !anyNA(u) && all(grepl("^\\.?[^[:space:].]+$", u))
+  })
+  if (!ok) bad("expected_names", "a list of names, each `.class` or `key`", "5.3.3")
+  invisible(cfg)
+}
+
+# A scalar setting written as a one-item list (`[true]`) is not a scalar.
+check_raw_scalars <- function(raw) {
+  if (!is.list(raw)) return(invisible())
+  what <- c(numeral_years = "TRUE or FALSE", claim_cap = "a whole number from 1",
+            guard_words = "a whole number from 1")
+  for (nm in names(what)) {
+    if (is.list(raw[[nm]])) {
+      weft_abort(sprintf("The setting `%s` must be %s.", nm, what[[nm]]), "weft_config_error")
+    }
+  }
+  invisible()
+}

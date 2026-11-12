@@ -229,6 +229,9 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
     form[hit] <- ff$form[i]
   }
   rows$context <- "front-matter"
+  rows$fstart <- as.numeric(rows$start)
+  rows$fend <- as.numeric(rows$end)
+  rows$fblock <- as.numeric(rows$block_start)
   rows$chunk <- NA_character_
   rows$option <- field
   top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link"))
@@ -399,6 +402,39 @@ parse_option_block <- function(idx, text) {
   out
 }
 
+# ---- file offsets of a literal string ------------------------------------------
+
+# The file offset of each character of the value of a string literal whose
+# contents (as typed, escapes and all) begin at file offset `f0`: one entry per
+# character of the value.
+lit_offsets <- function(raw, f0) {
+  if (!nzchar(raw)) return(numeric())
+  if (!grepl("\\", raw, fixed = TRUE)) return(f0 + seq_len(nchar(raw)) - 1)
+  m <- gregexpr(paste0("(?s)\\\\(?:u\\{[0-9A-Fa-f]+\\}|u[0-9A-Fa-f]{1,4}|U\\{[0-9A-Fa-f]+\\}|",
+                       "U[0-9A-Fa-f]{1,8}|x[0-9A-Fa-f]{1,2}|[0-7]{1,3}|.)|[^\\\\]"), raw, perl = TRUE)[[1L]]
+  f0 + as.numeric(m) - 1
+}
+
+# Piece offsets `p` mapped through the table `off` (NA past its end).
+map_offsets <- function(p, off) {
+  out <- rep(NA_real_, length(p))
+  ok <- !is.na(p) & p >= 1 & p <= length(off)
+  out[ok] <- off[p[ok]]
+  out
+}
+
+# Line starts of `lines` (file offsets, lines joined by one line feed).
+line_starts <- function(lines) {
+  if (!length(lines)) return(numeric())
+  1 + c(0, cumsum(nchar(lines) + 1))[seq_along(lines)]
+}
+
+# The column (in characters) of a parse-data column, which counts bytes.
+parse_col_chars <- function(line, col) {
+  b <- nchar(strsplit(line, "")[[1L]], "bytes")
+  which(cumsum(b) >= col)[1L] %||% col
+}
+
 # ---- caption rows ------------------------------------------------------------
 
 # The executed chunks of a document, each with its label (knitr's
@@ -430,8 +466,10 @@ labelled_chunks <- function(lines) {
 
 # One chunk's caption rows, with their static errors.
 scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec, file,
-                                config) {
+                                config, dq = NULL) {
   rows <- list()
+  rem <- integer(length(lines))   # characters taken off the front of a line
+  ls <- line_starts(lines)
   keep <- rep(FALSE, length(lines))
   txt <- lines
   regions <- list()   # option, first, last, kind of region
@@ -447,14 +485,18 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
       for (it in o$items) {
         add_region(o$name, it$first, it$last, it$form, item = TRUE)
         if (it$form == "scalar") {
-          txt[it$first] <- sub("^[ \t]*#\\|[ ]?[ \t]*-", "", txt[it$first])
+          new <- sub("^[ \t]*#\\|[ ]?[ \t]*-", "", txt[it$first])
+          rem[it$first] <- rem[it$first] + nchar(txt[it$first]) - nchar(new)
+          txt[it$first] <- new
         }
       }
     } else {
       add_region(o$name, o$first, o$last, o$form)
       if (o$form != "block") {
         # the key is not part of the value
-        txt[o$first] <- sub("^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:", "", txt[o$first])
+        new <- sub("^[ \t]*#\\|[ ]?[A-Za-z0-9_.-]+[ \t]*:", "", txt[o$first])
+        rem[o$first] <- rem[o$first] + nchar(txt[o$first]) - nchar(new)
+        txt[o$first] <- new
       }
     }
   }
@@ -465,6 +507,17 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   if (length(regions)) {
     r <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config)
     if (nrow(r)) {
+      # file offsets: the text scanned is the lines less what `rem` took off
+      tstart <- c(1, cumsum(nchar(lines) - rem + 1))
+      shift <- cumsum(rem + (if (is.null(dq)) 0L else dq))
+      at <- function(p) {
+        L <- findInterval(p, tstart[seq_along(lines)])
+        L[L < 1L] <- 1L
+        ifelse(is.na(p), NA_real_, p + shift[L])
+      }
+      r$fstart <- at(r$start)
+      r$fend <- at(r$end)
+      r$fblock <- at(r$block_start)
       opt <- character(nrow(r))
       reg <- integer(nrow(r))
       for (i in seq_along(regions)) {
@@ -484,6 +537,22 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
     if (is.null(v)) next
     r <- scan_rows(v, file = file, first_line = ch$open, config = config)
     if (!nrow(r)) next
+    off <- rep(NA_real_, nchar(v))
+    pat <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE),
+                  "[ \t]*=[ \t]*(?:\"((?:[^\"\\\\]|\\\\.)*)\"|'((?:[^'\\\\]|\\\\.)*)')")
+    mm <- regexpr(pat, lines[ch$open], perl = TRUE)
+    if (mm > 0L) {
+      cs <- attr(mm, "capture.start")
+      cl <- attr(mm, "capture.length")
+      g <- if (cs[1L] > 0L) 1L else 2L
+      raw <- substr(lines[ch$open], cs[g], cs[g] + cl[g] - 1L)
+      f0 <- ls[ch$open] + cs[g] - 1 + (if (is.null(dq)) 0 else dq[ch$open])
+      o <- lit_offsets(raw, f0)
+      if (length(o) == nchar(v)) off <- o
+    }
+    r$fstart <- map_offsets(r$start, off)
+    r$fend <- map_offsets(r$end, off)
+    r$fblock <- map_offsets(r$block_start, off)
     r$line <- rep(ch$open, nrow(r))
     r$option <- rep(nm, nrow(r))
     r$region <- rep(0L, nrow(r))
@@ -547,7 +616,8 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
 
 # ---- weft_str() strings ------------------------------------------------------
 
-scan_chunk_strings <- function(lines, ch, first, label, file, config) {
+scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL) {
+  ls <- line_starts(lines)
   if (!identical(tolower(ch$engine), "r") || first >= ch$close) return(NULL)
   code <- lines[first:(ch$close - 1L)]
   if (!any(grepl("weft_str", code, fixed = TRUE))) return(NULL)
@@ -600,6 +670,17 @@ scan_chunk_strings <- function(lines, ch, first, label, file, config) {
       line <- first + consts$line1[q] - 1L
       r <- scan_rows(val, file = file, first_line = line, config = config)
       if (!nrow(r)) next
+      tok <- consts$text[q]
+      off <- rep(NA_real_, nchar(val))
+      if (grepl("^[\"']", tok)) {
+        cc <- parse_col_chars(lines[line], consts$col1[q])
+        raw <- substr(tok, 2L, nchar(tok) - 1L)
+        o <- lit_offsets(raw, ls[line] + cc + (if (is.null(dq)) 0 else dq[line]))
+        if (length(o) == nchar(val)) off <- o
+      }
+      r$fstart <- map_offsets(r$start, off)
+      r$fend <- map_offsets(r$end, off)
+      r$fblock <- map_offsets(r$block_start, off)
       rows[[length(rows) + 1L]] <- r
     }
   }
@@ -643,12 +724,14 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   caps <- list()
   strs <- list()
   doc_exec <- doc_execute(lines)
+  orig <- lines
   lines <- dequote_chunks(lines)
+  dq <- nchar(orig) - nchar(lines)
   for (ch in labelled_chunks(lines)) {
     caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
-                                                    ch$oi, doc_exec, file, config)
+                                                    ch$oi, doc_exec, file, config, dq)
     strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
-                                                   file, config)
+                                                   file, config, dq)
   }
   parts <- c(list(fm), caps, strs)
   bind_scan_rows(parts)
@@ -659,6 +742,9 @@ scan_document <- function(lines, file = NA_character_, config = NULL, project = 
   text <- paste(lines, collapse = "\n")
   prose <- scan_text(blank_front_matter(text), file = file, config = config)
   prose$context <- rep("prose", nrow(prose))
+  prose$fstart <- as.numeric(prose$start)
+  prose$fend <- as.numeric(prose$end)
+  prose$fblock <- as.numeric(prose$block_start)
   prose$chunk <- rep(NA_character_, nrow(prose))
   prose$option <- rep(NA_character_, nrow(prose))
   extra <- scan_extra_rows(lines, file, config, project)

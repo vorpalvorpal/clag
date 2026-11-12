@@ -1,0 +1,14 @@
+# The shipped English claim-word lexicon (design-3 L8a, rule 5.5.1). Lower case.
+number: [zero, one, two, three, four, five, six, seven, eight, nine, ten, eleven, twelve,
+  first, second, third, twenty, hundred, thousand, million, billion, half, twice, double,
+  doubled, triple, tripled, halved, quarter]
+quantifier: [all, every, each, none, "no", nothing, only, most, majority, minority, few,
+  fewer, several, many, both, neither, either, any, always, never, whole, entire, single,
+  sole, solely]
+extremum: [largest, smallest, highest, lowest, greatest, least, maximum, minimum, peak,
+  record, last, best, worst, fewest, top]
+direction: [rose, rise, rises, risen, rising, fell, fall, falls, fallen, falling, increase,
+  increased, increases, increasing, decrease, decreased, decreases, decreasing, declined,
+  decline, declines, declining, grew, grow, grows, growing, dropped, drop, drops, dropping,
+  reduced, significant, significantly, higher, lower, more, less, greater, smaller, larger,
+  above, below, exceeded, exceeds, exceed, exceeding, surpassed, steady, stable, unchanged]
