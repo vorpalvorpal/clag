@@ -38,7 +38,11 @@ ledger_state <- function(root, header) {
         }
         m <- tryCatch(suppressMessages(targets::tar_meta(fields = "data", store = sp)),
                       error = function(e) NULL)
-        nm <- if (is.null(m)) character() else as.character(m$name)
+        if (is.null(m) || !file.exists(file.path(sp, "meta", "meta"))) {
+          notes <- c(notes, sprintf("the store %s could not be read; the pipeline was not checked", store))
+          next
+        }
+        nm <- as.character(m$name)
         hs <- header_map(tg[[store]])
         for (t in names(hs)) {
           i <- match(t, nm)
@@ -105,10 +109,14 @@ claim_words <- function() {
     "smaller larger above below exceeded exceeds steady stable unchanged"), " ")[[1L]]
 }
 
-# The first claim word in a sentence once the entry's own text is removed once.
+# The first claim word in a sentence once the entry's own text is removed once, as
+# a whole word (so `ten` inside `Often` stays).
 sentence_claim <- function(sentence, text) {
   if (is.na(sentence) || !nzchar(sentence)) return(NA_character_)
-  if (!is.na(text) && nzchar(text)) sentence <- sub(text, "", sentence, fixed = TRUE)
+  if (!is.na(text) && nzchar(text)) {
+    esc <- gsub("([][\\\\^$.|?*+(){}])", "\\\\\\1", text)
+    sentence <- sub(paste0("(?<![[:alpha:]])", esc, "(?![[:alpha:]])"), "", sentence, perl = TRUE)
+  }
   tok <- strsplit(tolower(sentence), "[^[:alpha:]]+")[[1L]]
   hit <- tok[tok %in% claim_words()]
   if (length(hit)) hit[[1L]] else NA_character_
@@ -136,17 +144,40 @@ changes_abort <- function(msg) weft_abort(msg, "weft_changes_error")
 ledger_paths_now <- function(root) {
   d <- file.path(root, "_weft", "ledger")
   if (!dir.exists(d)) return(character())
-  f <- list.files(d, pattern = "\\.jsonl$", recursive = TRUE)
+  f <- list.files(d, pattern = "\\.jsonl$", recursive = TRUE, all.files = TRUE)
+  f <- enc2utf8(f)
   f <- f[!grepl("\\.conditions\\.jsonl$", f)]
   if (!length(f)) return(character())
   sort(paste0("_weft/ledger/", f), method = "radix")
 }
 
+# git's NUL-separated output, which system2() cannot return, read through a temporary
+# file outside the project.
+changes_git_z <- function(root, args) {
+  git <- git_path()
+  if (!nzchar(git)) return(NULL)
+  tmp <- tempfile()
+  on.exit(unlink(tmp), add = TRUE)
+  st <- suppressWarnings(tryCatch(
+    system2(git, c("-C", shQuote(root), args), stdout = tmp, stderr = FALSE),
+    error = function(e) 1L))
+  if (!identical(as.integer(st), 0L) || !file.exists(tmp)) return(NULL)
+  b <- readBin(tmp, "raw", file.size(tmp))
+  if (!length(b)) return(character())
+  z <- which(b == as.raw(0L))
+  start <- c(1L, z + 1L)
+  end <- c(z - 1L, length(b))
+  ok <- which(end >= start)
+  out <- vapply(ok, function(i) rawToChar(b[start[i]:end[i]]), "")
+  Encoding(out) <- "UTF-8"
+  out
+}
+
 ledger_paths_then <- function(root, commit) {
-  out <- changes_git(root, c("-c", "core.quotepath=false", "ls-tree", "-r", "--name-only", commit,
-                             "--", "_weft/ledger"))
+  out <- changes_git_z(root, c("-c", "core.quotepath=false", "ls-tree", "-r", "-z", "--name-only", commit,
+                               "--", "_weft/ledger"))
   if (is.null(out)) return(character())
-  f <- out[grepl("\\.jsonl$", out) & !grepl("\\.conditions\\.jsonl$", out)]
+  f <- enc2utf8(out[grepl("\\.jsonl$", out) & !grepl("\\.conditions\\.jsonl$", out)])
   sort(f, method = "radix")
 }
 
@@ -202,7 +233,9 @@ pair_renames <- function(only_then, only_now) {
   pairs <- list()
   used <- character()
   for (a in only_then) {
-    cand <- Filter(function(b) identical(b$output, a$output) && !b$path %in% used, only_now)
+    own <- function(z) identical(z$output, strip_ext(z$source))
+    cand <- Filter(function(b) (identical(b$output, a$output) || (own(a) && own(b))) &&
+                     !b$path %in% used, only_now)
     if (!length(cand)) next
     sh <- vapply(cand, function(b) rename_share(a, b), 1)
     ok <- sh >= 0.5
@@ -229,6 +262,58 @@ entry_keys <- function(x) {
     k[has_id] <- paste("id", ids, stats::ave(seq_along(ids), ids, FUN = seq_along), sep = "\001")
   }
   k
+}
+
+# Keys of both sides as entry_keys() gives them, except that within a (file, section,
+# kind, expr) group whose counts differ the occurrences are lined up by their sentences
+# (longest common subsequence), the entries between two lined-up ones by order, so that
+# deleting one of several identical expressions removes that one (C7, finding 3).
+align_keys <- function(tx, nx) {
+  kt <- entry_keys(tx)
+  kn <- entry_keys(nx)
+  if (!length(kt) || !length(kn)) return(list(kt = kt, kn = kn))
+  g <- function(x) ifelse(is.na(x$id), paste(x$file, x$section, x$kind, x$expr, sep = "\001"), NA_character_)
+  gt <- g(tx)
+  gn <- g(nx)
+  for (grp in unique(gt[!is.na(gt) & gt %in% gn])) {
+    it <- which(gt == grp)
+    jn <- which(gn == grp)
+    if (length(it) == length(jn)) next
+    st <- tx$sentence[it]
+    sn <- nx$sentence[jn]
+    st[is.na(st)] <- "\002NA"
+    sn[is.na(sn)] <- "\003NA"
+    nt <- length(it)
+    nn <- length(jn)
+    L <- matrix(0L, nt + 1L, nn + 1L)
+    for (a in seq_len(nt)) for (b in seq_len(nn)) {
+      L[a + 1L, b + 1L] <- if (st[a] == sn[b]) L[a, b] + 1L else max(L[a, b + 1L], L[a + 1L, b])
+    }
+    anchors <- matrix(integer(), 0L, 2L)
+    a <- nt
+    b <- nn
+    while (a > 0L && b > 0L) {
+      if (st[a] == sn[b]) {
+        anchors <- rbind(c(a, b), anchors)
+        a <- a - 1L
+        b <- b - 1L
+      } else if (L[a, b + 1L] >= L[a + 1L, b]) a <- a - 1L else b <- b - 1L
+    }
+    bounds_a <- c(0L, anchors[, 1L], nt + 1L)
+    bounds_b <- c(0L, anchors[, 2L], nn + 1L)
+    for (s in seq_len(length(bounds_a) - 1L)) {
+      if (s > 1L) {
+        kt[it[bounds_a[s]]] <- kn[jn[bounds_b[s]]] <- paste("m", grp, s, "anchor", sep = "\001")
+      }
+      ga <-seq_len(bounds_a[s + 1L] - bounds_a[s] - 1L) + bounds_a[s]
+      gb <- seq_len(bounds_b[s + 1L] - bounds_b[s] - 1L) + bounds_b[s]
+      m <- min(length(ga), length(gb))
+      for (q in seq_len(m)) kt[it[ga[q]]] <- kn[jn[gb[q]]] <- paste("m", grp, s, "gap", q, sep = "\001")
+      if (length(ga) > m) kt[it[ga[-seq_len(m)]]] <- paste("t", grp, it[ga[-seq_len(m)]], sep = "\001")
+      if (length(gb) > m) kn[jn[gb[-seq_len(m)]]] <- paste("n", grp, jn[gb[-seq_len(m)]], sep = "\001")
+    }
+  }
+  list(kt = kt, kn = kn)
 }
 
 dict_keys_of <- function(d) {
@@ -264,19 +349,33 @@ dict_numbers <- function(lines = NULL, file = NULL) {
   ty <- attr(d, "entries")$type
   nm <- names(d)
   out <- stats::setNames(rep(NA_real_, length(nm)), nm)
+  un <- rep(NA_character_, length(nm))
   for (i in seq_along(nm)) {
     if (!is.na(ty[i]) && ty[i] %in% c("number", "quantity", "year")) {
       out[i] <- tryCatch(suppressWarnings(as.numeric(d[[nm[i]]]))[1L], error = function(e) NA_real_)
+      if (inherits(d[[nm[i]]], "units")) {
+        un[i] <- tryCatch(units::deparse_unit(d[[nm[i]]])[1L], error = function(e) NA_character_)
+      }
     }
   }
+  attr(out, "unit") <- un
   out
+}
+
+# `x` in unit `from` as a number in unit `to`; NA when either has no unit (unless both
+# have none) or the two do not convert.
+raw_in_unit <- function(x, from, to) {
+  if (is.na(from) && is.na(to)) return(x)
+  if (is.na(from) || is.na(to)) return(NA_real_)
+  tryCatch(as.numeric(units::set_units(units::set_units(x, from, mode = "standard"), to, mode = "standard")),
+           error = function(e) NA_real_)
 }
 
 sgn <- function(x) as.numeric(sign(x))
 
 # the structural reasons (C8) of one changed entry, in C8's order, with the place
 # of each in that order
-structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta) {
+structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_character_, ua = NA_character_) {
   r <- character()
   place <- integer()
   add <- function(txt, i) { r <<- c(r, txt); place <<- c(place, i) }
@@ -288,14 +387,22 @@ structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta) {
   if (is.finite(b) && is.finite(a)) {
     if (b != 0 && a != 0 && sgn(b) != sgn(a)) add("sign flip", 2L)
     if ((b == 0) != (a == 0)) add("crosses 0", 3L)
-    if (sgn(b - 1) != sgn(a - 1)) add("crosses 1.0", 4L)
-    for (k in sort(unique(keys), method = "radix")) {
-      vb <- if (!is.null(tb)) tb[k] else NA_real_
-      va <- if (!is.null(ta)) ta[k] else NA_real_
-      if (length(vb) == 1L && length(va) == 1L && !is.na(vb) && !is.na(va) &&
-          sgn(b - vb) != sgn(a - va)) add(sprintf("crosses dict$%s", k), 5L)
+    if ((b - 1) * (a - 1) < 0) add("crosses 1.0", 4L)
+    thr <- function(t, k) {
+      if (is.null(t)) return(list(v = NA_real_, u = NA_character_))
+      v <- unname(t[k])
+      u <- attr(t, "unit")
+      list(v = v, u = if (is.null(u) || is.na(v)) NA_character_ else unname(u[match(k, names(t))]))
     }
-    if (b != 0 && a != 0 && abs(log10(abs(a / b))) >= 1) add("order of magnitude", 6L)
+    for (k in sort(unique(keys), method = "radix")) {
+      pb <- thr(tb, k)
+      pa <- thr(ta, k)
+      if (length(pb$v) != 1L || length(pa$v) != 1L || is.na(pb$v) || is.na(pa$v)) next
+      cb <- raw_in_unit(b, ub, pb$u)
+      ca <- raw_in_unit(a, ua, pa$u)
+      if (!is.na(cb) && !is.na(ca) && sgn(cb - pb$v) != sgn(ca - pa$v)) add(sprintf("crosses dict$%s", k), 5L)
+    }
+    if (b != 0 && a != 0 && abs(log10(abs(a / b))) >= 1 - 1e-9) add("order of magnitude", 6L)
   }
   list(reasons = r, place = if (length(place)) min(place) else NA_integer_)
 }
@@ -313,23 +420,52 @@ empty_entries <- function() {
                    raw_after = numeric(), sentence_before = character(), sentence_after = character(),
                    stringsAsFactors = FALSE)
   attr(df, "failed_after") <- character()
+  attr(df, "section_from") <- character()
   df
 }
 
 # Rows for one ledger pair. `tx` and `nx` are the entries then and now (either may
 # have no rows); `ctx` carries what the reasons need.
 compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
-  kt <- entry_keys(tx)
-  kn <- entry_keys(nx)
+  ak <- align_keys(tx, nx)
+  kt <- ak$kt
+  kn <- ak$kn
   ch <- function(a, b) (is.na(a) != is.na(b)) | (!is.na(a) & !is.na(b) & a != b)
   both <- intersect(kn, kt)
   it <- match(both, kt)
   jn <- match(both, kn)
-  diff <- if (length(both)) ch(tx$text[it], nx$text[jn]) | ch(tx$arm[it], nx$arm[jn]) else logical()
-  it_c <- it[diff]
-  jn_c <- jn[diff]
   jn_a <- which(!kn %in% kt)
   it_r <- which(!kt %in% kn)
+  # a section renamed: the anchor exists only then (or only now) in a file; the removed and
+  # added entries with equal kind, expression and occurrence are the same entry (question A)
+  from_sec <- rep(NA_character_, length(it))
+  if (length(jn_a) && length(it_r)) {
+    fs_t <- paste(tx$file, tx$section, sep = "\001")
+    fs_n <- paste(nx$file, nx$section, sep = "\001")
+    old <- it_r[!fs_t[it_r] %in% fs_n]
+    new <- jn_a[!fs_n[jn_a] %in% fs_t]
+    psi <- integer()
+    pj <- integer()
+    for (r in old) {
+      m <- new[!new %in% pj & nx$file[new] == tx$file[r] & nx$kind[new] == tx$kind[r] &
+                 nx$expr[new] == tx$expr[r] & nx$occ[new] == tx$occ[r]]
+      if (length(m)) {
+        psi <- c(psi, r)
+        pj <- c(pj, m[[1L]])
+      }
+    }
+    if (length(psi)) {
+      it <- c(it, psi)
+      jn <- c(jn, pj)
+      from_sec <- c(from_sec, tx$section[psi])
+      it_r <- setdiff(it_r, psi)
+      jn_a <- setdiff(jn_a, pj)
+    }
+  }
+  diff <- if (length(it)) ch(tx$text[it], nx$text[jn]) | ch(tx$arm[it], nx$arm[jn]) else logical()
+  it_c <- it[diff]
+  jn_c <- jn[diff]
+  from_sec <- c(from_sec[diff], rep(NA_character_, length(jn_a) + length(it_r)))
   I <- c(it_c, rep(NA_integer_, length(jn_a)), it_r)
   J <- c(jn_c, jn_a, rep(NA_integer_, length(it_r)))
   change <- c(rep("changed", length(it_c)), rep("added", length(jn_a)), rep("removed", length(it_r)))
@@ -358,7 +494,9 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
     keys <- c(dict_keys_of(tx$dict[[i]]), dict_keys_of(nx$dict[[j]]))
     if (!is.na(sb) && nzchar(sb)) keys <- c(keys, gtx[[paste(tx$file[i], tx$section[i], sb, sep = "\001")]])
     if (!is.na(sa) && nzchar(sa)) keys <- c(keys, gnx[[paste(nx$file[j], nx$section[j], sa, sep = "\001")]])
-    sr <- structural_reasons(kinds[r], tx$arm[i], nx$arm[j], b, a, keys, tb, ta)
+    sr <- structural_reasons(kinds[r], tx$arm[i], nx$arm[j], b, a, keys, tb, ta,
+                             if (is.null(tx$unit)) NA_character_ else tx$unit[i],
+                             if (is.null(nx$unit)) NA_character_ else nx$unit[j])
     structural[r] <- paste(sr$reasons, collapse = ", ")
     place[r] <- sr$place
     relv[r] <- if (is.finite(a) && is.finite(b)) {
@@ -379,6 +517,7 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
   rows$.place <- place
   rows$.rel <- relv
   rows$.failed <- pick(nx, J, "failed")
+  rows$.from_sec <- from_sec
   rows
 }
 
@@ -402,7 +541,21 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
 #' only. Because it runs no pipeline it does not see a store that is behind its
 #' code, and tier-2 findings are empty until stage 3 fills them. Ledgers are
 #' paired by path; a source that was renamed is paired with the old one when at
-#' least half of its entries match. The claim-word list is internal for now.
+#' least half of its entries match and the two output names are equal or each is
+#' its own source's base name; a ledger whose source is gone counts as the old
+#' one even while it is still in the working tree. Where one expression occurs
+#' several times in a section and the counts differ, the occurrences are lined
+#' up by their sentences, so a deleted one is reported as removed. Entries of a
+#' section whose heading was renamed are paired and marked `(section renamed
+#' from #old)`. A threshold from the dictionary that is a quantity is compared
+#' in its own unit, using the `unit` the ledger records beside `raw`; an entry
+#' from an older ledger, or a plain number, gives no such crossing. A note under
+#' "Ledgers" says so when git ignores `_weft/ledger/` (`git check-ignore -q`, the
+#' only git command added to `rev-parse`, `ls-tree` and `show`).
+#'
+#' The claim words are English only, so a chapter in another language gets no
+#' claim-word ranking, and the interim list is broad (it holds common words such
+#' as `no`, `one`, `first` and `more`); stage 3's lexicon replaces it.
 #'
 #' @param since One string naming a commit (anything `git rev-parse` accepts).
 #'   `"HEAD"` in a repository with no commit compares with nothing, so every
@@ -425,6 +578,7 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   if (!is.null(files) && (!is.character(files) || anyNA(files))) {
     changes_abort("`files` must be NULL or source paths relative to the project root (rule 7.3.1).")
   }
+  if (!is.null(files)) files <- sub("^(\\./)+", "", files)
   root <- normalizePath(find_project_root(path), winslash = "/", mustWork = FALSE)
   if (!is_set_up(root)) {
     changes_abort(sprintf("changes() reads the ledgers of a set-up project; %s has no _weft.yml (rule 9.3.2).",
@@ -453,13 +607,16 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   nows <- stats::setNames(lapply(now_p, function(p) read_side(root, p)), now_p)
   thens <- stats::setNames(lapply(then_p, function(p) read_side(root, p, commit)), then_p)
 
-  recs <- list()
-  for (p in intersect(now_p, then_p)) recs[[length(recs) + 1L]] <- list(then = thens[[p]], now = nows[[p]])
+  both_p <- intersect(now_p, then_p)
   only_now <- nows[setdiff(now_p, then_p)]
   only_then <- thens[setdiff(then_p, now_p)]
-  pairs <- pair_renames(unname(only_then), unname(only_now))
+  # a ledger on both sides whose source is gone is a rename candidate too (C5)
+  orphan_p <- both_p[!vapply(both_p, function(p) file.exists(file.path(root, thens[[p]]$source)), NA)]
+  pairs <- pair_renames(unname(c(only_then, thens[orphan_p])), unname(only_now))
   paired_now <- vapply(pairs, function(z) z$now$path, "")
   paired_then <- vapply(pairs, function(z) z$then$path, "")
+  recs <- list()
+  for (p in setdiff(both_p, paired_then)) recs[[length(recs) + 1L]] <- list(then = thens[[p]], now = nows[[p]])
   recs <- c(recs, pairs)
   for (b in only_now[!names(only_now) %in% paired_now]) recs[[length(recs) + 1L]] <- list(then = NULL, now = b)
   for (a in only_then[!names(only_then) %in% paired_then]) recs[[length(recs) + 1L]] <- list(then = a, now = NULL)
@@ -483,6 +640,7 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   cond <- list()
   stale <- list()
   led <- list()
+  whole <- character()
   for (z in recs) {
     a <- z$then
     b <- z$now
@@ -498,8 +656,9 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
     if (!is.null(a) && !is.null(b) && !identical(a$source, b$source)) {
       tx$file[tx$file == a$source] <- b$source
     }
-    st <- if (is.null(b)) list(stale = FALSE, reasons = character(), notes = character()) else
-      ledger_state(root, b$header)
+    # a ledger whose source is gone keeps that note only (question D)
+    st <- if (is.null(b) || !file.exists(file.path(root, src)))
+      list(stale = FALSE, reasons = character(), notes = character()) else ledger_state(root, b$header)
     rows <- compare_entries(tx, nx, src, out, st$stale, tb, ta)
     if (!is.null(rows)) ent[[length(ent) + 1L]] <- rows
     if (st$stale) {
@@ -521,6 +680,11 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
                if (!is.null(b) && !file.exists(file.path(root, src)))
                  sprintf("source gone; delete %s/", dirname(b$path)),
                st$notes)
+    # a ledger that is new, deleted, or unreadable on one side lists a count, not every entry
+    if (status %in% c("new", "deleted") ||
+        (status == "unreadable" && (is.null(a) || is.null(b) || !nrow(tx) || !nrow(nx)))) {
+      whole <- c(whole, paste(src, out))
+    }
     led[[length(led) + 1L]] <- data.frame(
       ledger = src, output = out, path = if (is.null(b)) a$path else b$path, status = status, from = from,
       note = if (length(notes)) paste(notes, collapse = "; ") else NA_character_,
@@ -558,6 +722,12 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   attr(res, "commit") <- commit
   attr(res, "root") <- root
   attr(res, "n_entries") <- n_entries
+  attr(res, "whole") <- whole
+  # `git check-ignore -q` (read only): ledgers that git ignores are never at a commit
+  probe <- if (length(now_p)) now_p[[1L]] else "_weft/ledger/"
+  ignored <- !is.null(changes_git(root, c("check-ignore", "-q", shQuote(probe))))
+  attr(res, "notes") <- if (ignored)
+    "_weft/ledger/ is ignored by git, so no ledger can be found at a commit and all are new" else character()
   class(res) <- "weft_changes"
   res
 }
@@ -581,6 +751,8 @@ order_entries <- function(e) {
   ch <- e$change == "changed"
   e$rank[ch] <- seq_len(sum(ch))
   failed <- e$.failed
+  from_sec <- e$.from_sec
+  e$.from_sec <- NULL
   e$.key <- NULL
   e$.place <- NULL
   e$.rel <- NULL
@@ -588,12 +760,18 @@ order_entries <- function(e) {
   e <- e[, ENTRY_COLS]
   rownames(e) <- NULL
   attr(e, "failed_after") <- failed
+  attr(e, "section_from") <- from_sec
   e
 }
 
 # ---- print (C14) ---------------------------------------------------------------------------------
 
 chg_plural <- function(n, one, many = paste0(one, "s")) sprintf("%d %s", n, if (n == 1L) one else many)
+
+# a source's name, with the output when it is not the source's base name
+ledger_label <- function(ledger, output) {
+  ifelse(output == vapply(ledger, strip_ext, "", USE.NAMES = FALSE), ledger, paste0(ledger, " (", output, ")"))
+}
 
 entry_location <- function(r) {
   loc <- r$file
@@ -610,7 +788,8 @@ print.weft_changes <- function(x, ...) {
   e <- x$entries
   l <- x$ledgers
   n_cmp <- sum(l$status %in% c("compared", "renamed"))
-  nothing <- !nrow(e) && !nrow(x$conditions) && !nrow(x$stale) && all(l$status == "compared") && all(is.na(l$note))
+  nothing <- !nrow(e) && !nrow(x$conditions) && !nrow(x$stale) && all(l$status == "compared") && all(is.na(l$note)) &&
+    !length(attr(x, "notes"))
   if (nothing) {
     cat(sprintf("weft: no changes since %s (%s); %s compared.\n", since, short,
                 chg_plural(n_cmp, "ledger")), sep = "")
@@ -622,7 +801,10 @@ print.weft_changes <- function(x, ...) {
                  chg_plural(nrow(x$conditions), "new condition"))
   failed <- attr(e, "failed_after")
   if (is.null(failed)) failed <- rep(NA_character_, nrow(e))
-  whole <- paste(l$ledger[l$status %in% c("new", "deleted")], l$output[l$status %in% c("new", "deleted")])
+  whole <- attr(x, "whole")
+  if (is.null(whole)) whole <- paste(l$ledger[l$status %in% c("new", "deleted")], l$output[l$status %in% c("new", "deleted")])
+  sec_from <- attr(e, "section_from")
+  if (is.null(sec_from)) sec_from <- rep(NA_character_, nrow(e))
   in_whole <- paste(e$ledger, e$output) %in% whole
   say <- function(s, t) if (!is.na(s) && nzchar(s)) s else if (!is.na(t)) t else ""
   entry_lines <- function(idx, marker) {
@@ -633,7 +815,8 @@ print.weft_changes <- function(x, ...) {
       br <- if (nzchar(r$structural)) r$structural else if (!is.na(r$claim_word) && r$change == "changed")
         sprintf("claim word \"%s\"", r$claim_word) else ""
       if (nzchar(br)) head <- paste0(head, "  [", br, "]")
-      if (isTRUE(r$stale) && r$change == "changed") head <- paste0(head, " (not re-rendered)")
+      if (!is.na(sec_from[i])) head <- paste0(head, " (section renamed from #", sec_from[i], ")")
+      if (isTRUE(r$stale)) head <- paste0(head, " (not re-rendered)")
       if (r$change == "changed") {
         after <- if (is.na(r$text_after)) sprintf("(failed: %s)", if (is.na(failed[i])) "?" else failed[i]) else
           say(r$sentence_after, r$text_after)
@@ -649,7 +832,7 @@ print.weft_changes <- function(x, ...) {
     sk <- unique(x$stale[c("ledger", "output")])
     lines <- vapply(seq_len(nrow(sk)), function(i) {
       s <- x$stale[x$stale$ledger == sk$ledger[i] & x$stale$output == sk$output[i], ]
-      sprintf("  %s: %s; %s", sk$ledger[i], chg_plural(s$entries[1L], "entry", "entries"),
+      sprintf("  %s: %s; %s", ledger_label(sk$ledger[i], sk$output[i]), chg_plural(s$entries[1L], "entry", "entries"),
               paste(s$reason, collapse = "; "))
     }, "")
     out <- c(out, sect("Not re-rendered", lines))
@@ -663,10 +846,11 @@ print.weft_changes <- function(x, ...) {
   if (nrow(x$conditions)) {
     cd <- x$conditions
     out <- c(out, sect("New conditions",
-                       sprintf("  ! %s  %s %s  %s: %s", cd$ledger, cd$from, cd$source, cd$class, cd$text)))
+                       sprintf("  ! %s  %s %s  %s: %s", ledger_label(cd$ledger, cd$output), cd$from, cd$source, cd$class, cd$text)))
   }
   show <- l$status != "compared" | !is.na(l$note)
-  if (any(show)) {
+  gnotes <- attr(x, "notes")
+  if (any(show) || length(gnotes)) {
     ln <- l[show, , drop = FALSE]
     n_e <- attr(x, "n_entries")
     lines <- vapply(seq_len(nrow(ln)), function(i) {
@@ -680,7 +864,7 @@ print.weft_changes <- function(x, ...) {
       txt <- paste(c(base[!is.na(base)], if (!is.na(ln$note[i])) ln$note[i]), collapse = "; ")
       sprintf("  %s (%s): %s", ln$ledger[i], ln$output[i], txt)
     }, "")
-    out <- c(out, sect("Ledgers", lines))
+    out <- c(out, sect("Ledgers", c(lines, if (length(gnotes)) paste0("  ", gnotes))))
   }
   cat(paste0(out, "\n"), sep = "")
   invisible(x)

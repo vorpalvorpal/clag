@@ -304,9 +304,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   cur_top <- NA_integer_
   top_pos <- NULL
   L_raw <- rep(NA_real_, nr)
+  L_unit <- rep(NA_character_, nr)
   L_rel <- rep(NA_character_, nr)
   L_fail <- rep(NA_character_, nr)
-  bare_aux <- list(raw = NA_real_, failed = NA_character_)
+  bare_aux <- list(raw = NA_real_, unit = NA_character_, failed = NA_character_)
   fail_note <- function(k, kind) {
     if (!is.na(k) && is.na(L_fail[k])) L_fail[k] <<- kind
     invisible()
@@ -629,7 +630,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is.null(idx)) idx <- spans$idx[match(st, spans$start)]
     p <- s$parked[[idx]]
     label <- sprintf("`r %s`", p$code)
-    bare_aux <<- list(raw = NA_real_, failed = NA_character_)
+    bare_aux <<- list(raw = NA_real_, unit = NA_character_, failed = NA_character_)
     # a bare value ahead of every construct in its block was evaluated when
     # knitr parked it, so that an error there names its own line (1.1.8)
     ev <- p$result %||% eval_expr(k, p$code, label, p$envir, stock = TRUE,
@@ -643,7 +644,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       stop(e)
     }
-    if (!is.null(ev$aux)) bare_aux$raw <<- ledger_raw(ev$aux$value)
+    if (!is.null(ev$aux)) {
+      bare_aux$raw <<- ledger_raw(ev$aux$value)
+      bare_aux$unit <<- ledger_unit(ev$aux$value)
+    }
     if (ev$claim_failed) {
       bare_aux$failed <<- "failed claim"
       paste0(ev$value, marker("failed claim", li$line, chunk_label))
@@ -661,6 +665,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!ev$ok) return(fail_from_error(k, ev$error, label))
     v <- ev$value
     L_raw[k] <<- ledger_raw(v)
+    L_unit[k] <<- ledger_unit(v)
     reg <- cfg$formatters
     # `.a` applies to numbers and number words only (1.4.5): a number it
     # meets is printed as `.num` prints it
@@ -795,6 +800,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     v <- g$v
     claim_failed <- g$claim_failed
     L_raw[k] <<- ledger_raw(v)
+    L_unit[k] <<- ledger_unit(v)
     own_fmt <- has_own_format(cc)
     # a range of two ends is one governor (1.5.11)
     if (!(".range" %in% cc$own)) {
@@ -828,6 +834,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     v <- g$v
     claim_failed <- g$claim_failed
     L_raw[k] <<- ledger_raw(v)
+    L_unit[k] <<- ledger_unit(v)
     chk <- check_governor(v)
     if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
     own_fmt <- has_own_format(cc)
@@ -1064,6 +1071,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                   context = if (wh$front) "front-matter" else (if (is_str) (ctx$context %||% "weft_str") else "prose"),
                   text = if (is.na(fail)) out else NULL, arm = NULL, rel = NULL,
                   raw = if (is.na(bare_aux$raw)) NULL else bare_aux$raw,
+                  unit = if (is.na(bare_aux$raw) || is.na(bare_aux$unit)) NULL else bare_aux$unit,
                   failed = if (is.na(fail)) NULL else fail,
                   dict = dict_refs(unwrap_quarto(trim_ws(p$code)))))
     }
@@ -1086,6 +1094,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     raw <- if (kind == "bare") bare_aux$raw else if (kind %in% c("value", "n", "sign")) L_raw[k] else NA_real_
     if (kind == "bare" && is.na(fail)) fail <- bare_aux$failed
+    unit <- if (kind == "bare") bare_aux$unit else if (kind %in% c("value", "n", "sign")) L_unit[k] else NA_character_
     rel <- if (kind %in% c("value", "n", "sign")) L_rel[k] else NA_character_
     arm <- NA_character_
     if (kind %in% c("n", "if", "sign", "list") && is.na(fail)) {
@@ -1097,6 +1106,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
          text = if (is.na(fail)) out else NULL,
          arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
          raw = if (is.na(raw)) NULL else raw,
+         unit = if (is.na(raw) || is.na(unit)) NULL else unit,
          failed = if (is.na(fail)) NULL else fail,
          dict = if (is.null(code)) character() else dict_refs(code))
   }

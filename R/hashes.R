@@ -20,13 +20,21 @@ file_hash <- function(path) {
 
 DICT_DOC_FIELDS <- c("definition", "decision", "why", "term", "avoid")
 
+# Names sorted byte by byte at every level, so field order changes nothing (P14).
+sort_names <- function(x) {
+  if (!is.list(x)) return(x)
+  if (!is.null(names(x))) x <- x[order(names(x), method = "radix")]
+  lapply(x, sort_names)
+}
+
 # A named character vector, key -> hash, in file order: the canonical JSON of
-# each entry's YAML mapping without the fields that print nothing in prose.
+# each entry's YAML mapping (names sorted at every level) without the fields that
+# print nothing in prose.
 dict_entry_hashes <- function(path) {
   y <- yaml::read_yaml(path)
   if (!length(y)) return(stats::setNames(character(), character()))
   vapply(y, function(e) {
-    if (is.list(e)) e <- e[setdiff(names(e), DICT_DOC_FIELDS)]
+    if (is.list(e)) e <- sort_names(e[setdiff(names(e), DICT_DOC_FIELDS)])
     cli::hash_raw_xxhash64(charToRaw(enc2utf8(as.character(
       jsonlite::toJSON(e, auto_unbox = TRUE, digits = NA)))))
   }, "")

@@ -7,7 +7,7 @@
 LEDGER_VERSION <- 1L
 LEDGER_KINDS <- c("value", "bare", "n", "if", "sign", "list", "cite")
 LEDGER_COLS <- c("file", "section", "kind", "expr", "occ", "id", "context", "text",
-                 "arm", "rel", "raw", "failed", "dict", "sentence")
+                 "arm", "rel", "raw", "unit", "failed", "dict", "sentence")
 CONDITION_COLS <- c("from", "source", "class", "normalised", "text")
 # the invisible characters D3 writes as escapes
 JSON_INVISIBLE <- c(0x0085L, 0x00a0L, 0x00adL, 0x061cL, 0x2000L:0x200fL, 0x2028L:0x202eL, 0x202fL,
@@ -91,6 +91,7 @@ ledger_entry_line <- function(e) {
          ",\"arm\":", json_nul(e$arm, json_str),
          ",\"rel\":", json_nul(e$rel, json_str),
          ",\"raw\":", json_nul(e$raw, json_num),
+         ",\"unit\":", json_nul(if (is.null(e$raw) || is.na(e$raw)) NULL else e$unit, json_str),
          ",\"failed\":", json_nul(e$failed, json_str),
          ",\"dict\":[", paste(vapply(as.character(e$dict), json_str, ""), collapse = ","), "]",
          ",\"sentence\":", json_str(e$sentence), "}")
@@ -122,6 +123,7 @@ ledger_df <- function(es, header = list()) {
                    rel = gc("rel"),
                    raw = vapply(es, function(e) if (is.null(e[["raw"]]) || is.na(e[["raw"]])) NA_real_ else
                      as.numeric(e[["raw"]]), 1),
+                   unit = gc("unit"),
                    failed = gc("failed"), dict = I(vector("list", length(es))),
                    sentence = gc("sentence"), stringsAsFactors = FALSE)
   df$dict <- lapply(es, function(e) as.character(unlist(e[["dict"]])))
@@ -407,6 +409,18 @@ ledger_raw <- function(v) {
   if (length(x) != 1L || !is.finite(x)) return(NA_real_)
   if (x == 0) return(0)
   as.numeric(formatC(x, digits = 6L, format = "g"))
+}
+
+# D8 (amended): the unit the raw number is in, as units::deparse_unit() writes it,
+# or NA for a plain number.
+ledger_unit <- function(v) {
+  un <- if (inherits(v, c("units", "weft_text"))) attr(v, "units") else NULL
+  if (is.null(un)) return(NA_character_)
+  tryCatch({
+    q <- if (inherits(v, "units")) v else units::set_units(1, un, mode = "standard")
+    u <- units::deparse_unit(q)
+    if (length(u) == 1L && !is.na(u) && nzchar(u) && u != "1") u else NA_character_
+  }, error = function(e) NA_character_)
 }
 
 # The relation of a printed record (D8), or NA.
