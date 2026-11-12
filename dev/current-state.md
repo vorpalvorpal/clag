@@ -71,6 +71,13 @@ first, then `dev/build-log.md`.
   (19011f6) and wait for the stage 3 rules; then the 4a implementer,
   then 4b installers and 4c `verify()` (test-writers, then
   implementers, in parallel). Owed: `test-gate-edits.R`.
+- **As of 47f03b7**: 3b (972699c) and 3d (4f40286) are on `main`. A
+  follow-up agent is fixing 3b/3d test faults and two `R/lint.R` slips
+  in the main tree (uncommitted until it reports). 3c and 4a
+  implementers are in worktrees. 4b and 4c tests are committed
+  (47f03b7; 163 and 126 tests, readings in `dev/design-4.md`); their
+  implementers start after 4a merges. A spec editor is writing
+  decision 63 into `PACKAGE-SCOPING.md` (uncommitted until it reports).
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
