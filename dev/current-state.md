@@ -71,13 +71,27 @@ first, then `dev/build-log.md`.
   (19011f6) and wait for the stage 3 rules; then the 4a implementer,
   then 4b installers and 4c `verify()` (test-writers, then
   implementers, in parallel). Owed: `test-gate-edits.R`.
-- **As of 47f03b7**: 3b (972699c) and 3d (4f40286) are on `main`. A
-  follow-up agent is fixing 3b/3d test faults and two `R/lint.R` slips
-  in the main tree (uncommitted until it reports). 3c and 4a
-  implementers are in worktrees. 4b and 4c tests are committed
-  (47f03b7; 163 and 126 tests, readings in `dev/design-4.md`); their
-  implementers start after 4a merges. A spec editor is writing
-  decision 63 into `PACKAGE-SCOPING.md` (uncommitted until it reports).
+- **As of be9595b**: all of stage 3 (3a to 3d) and the gate (4a,
+  50ab36f cherry-picked) are on `main`. Decision 63 is in the spec
+  (622d1a3). Running in worktrees: a fixer for six failing gate tests
+  (G12 x3, G20 x2, the non-ASCII path); the test-writer for
+  `dev/review-3.md` (13 findings, 6 design questions, S1 to S4, all
+  ruled at the end of that file) writing `test-review-3.R`; the 4b
+  implementer. NOT YET STARTED: the 4c implementer (`verify()`; tests
+  committed in 47f03b7), the stage 3 fixer (after its tests), decision
+  66 (the trimmed claim-word list: waiting on one measurement of two
+  candidate lists from the stage 0 agent; then edit
+  `inst/weft-claim-words.yml`, fix tests that use dropped words, write
+  the decision), `test-gate-edits.R`, the opus review of stage 4, the
+  spec editor for stages 3 and 4.
+- **Stage 0 has run** (scripts and outputs under
+  `dev/trials/stage0/`, git-ignored). Counts are to go into
+  `dev/build-log.md`: 46 files, 5,508 sentences, 83.5 s; `construct`
+  and `block-start` flag nothing; all rules reproduce 247 of 419 (59%)
+  but `claim-word` flags 66% of sentences; without it 145 of 419
+  (34.6%) at 29% of sentences; `numeral` 2,340 flags, 38 located, 22
+  reproduced; a sample of 60 numeral flags: 22 real results, 20 years
+  or dates, 14 section numbers, 3 identifiers, 1 other.
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
