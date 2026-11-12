@@ -153,6 +153,9 @@ local({
   # document with the id; the post-render script takes a document whose stamp
   # carries another id to have been served from freeze (2.9.2).
   dir.create(file.path(root, ".weft"), showWarnings = FALSE, recursive = TRUE)
+  # What weft keeps under .weft/ is not for committing (review 2e-1, D).
+  ignore <- file.path(root, ".weft", ".gitignore")
+  if (!file.exists(ignore)) writeLines("*", ignore)
   id <- sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
                 sample.int(999999L, 1L))
   rels <- substring(normalizePath(files, winslash = "/"), nchar(root) + 2L)

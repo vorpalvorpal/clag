@@ -621,7 +621,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
       # a unit of the project's own with a name and no symbol has no symbol (2i I5): it prints by
       # name. A unit weft or the units package already knows keeps its symbol.
       if (project && !is.null(ent$name) && is.null(ent$symbol) && grepl(UNIT_TOKEN_RE, key) &&
-          is.null(row$is) && !isTRUE(tok_resolve_db(key)$known) &&
+          !isTRUE(tok_resolve_db(key)$known) &&
           !(key %in% vapply(unit_default_rows(), function(d) d$key, ""))) ent$symbol <- FALSE
       dup <- vapply(entries, function(x) identical(x$id, ent$id), NA)
       if (any(dup)) {

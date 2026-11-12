@@ -51,10 +51,10 @@ test_that("2g 9.1.6: a unit_defaults that is not weft or si is a weft_config_err
 
 test_that("2g 9.1.7: is: base registers a unit of its own, with no conversion to anything", {
   g2_cfg(c("units:", "  zzg2bs:", "    is: base", "    name: widget"))
-  expect_equal(g2_num(g2_u(2, "zzg2bs")), f2("2~zzg2bs"))
+  expect_equal(g2_num(g2_u(2, "zzg2bs")), f2("2~widgets"))
   expect_equal(g2_nm(g2_u(2, "zzg2bs")), f2("2~widgets"))
   f2_has_class(f2_cond(g2_cv(g2_u(2, "zzg2bs"), "m")), "weft_value_error")
-  expect_equal(g2_cv(g2_u(2, "zzg2bs"), "zzg2bs"), f2("2~zzg2bs"))
+  expect_equal(g2_cv(g2_u(2, "zzg2bs"), "zzg2bs"), f2("2~widgets"))
 })
 
 test_that("2g 9.1.7: is: a number alone is a dimensionless unit", {

@@ -108,3 +108,13 @@ change a rule are in `dev/decisions.md` (58 to 61).
   only `hr`.
 - **I10** in front matter overrides the project file in either
   direction, as other settings do.
+- **I5 includes a row with `is:`.** A unit the project defines with
+  `is:` (a base unit or a multiple of another) is the project's own,
+  so with a name and no symbol it prints by name. Two older tests that
+  expected the key were amended. Alternative: leave `is:` rows printing
+  the key; refused, since that is the print the trial found surprising.
+- **I3 and I4 in a knit**, corrected: they are recorded as a warned
+  check of kind "unit warning", the route the "printed as zero"
+  warning takes, not as an R warning in the condition log.
+- **The pre-render script** writes `.weft/.gitignore` too (review
+  2e-1, D); it has no test yet.

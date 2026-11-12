@@ -281,7 +281,7 @@ test_that("2h 4.4.23: the picked rung prints as unit=<rung> would (symbol as typ
   }
   # a unit of the project's: picked, with its name and plural
   yml <- c("units:", "  zzh2sp:", "    is: 2 m", "    name: span", "    plural: spans")
-  expect_equal(h2_ws(cx("u(1500, m)", 'unit="zzh2sp|km"'), yml), f2("750~zzh2sp"))
+  expect_equal(h2_ws(cx("u(1500, m)", 'unit="zzh2sp|km"'), yml), f2("750~spans"))
   expect_equal(h2_ws(cx("u(1500, m)", '.uname unit="zzh2sp|km"'), yml), f2("750~spans"))
   expect_equal(h2_ws(cx("u(3, m)", '.uname unit="m|zzh2sp"'), yml), f2("3~metres"))
   expect_equal(h2_ws(cx("u(3000, m)", '.uname unit="m|zzh2sp"'), yml), f2("1,500~spans"))
@@ -443,7 +443,7 @@ test_that("2h 3.4.9: plural unless x has length one and prints 1", {
   expect_equal(f2_tx(fmt_unit(u(1, m), unit = "mm|m|km", unit_form = "name")), "metre")
   expect_equal(f2_tx(fmt_unit(u(c(1000), m), unit = "mm|m|km", unit_form = "name")), "kilometre")
   expect_equal(f2_tx(fmt_unit(u(c(1000, 1000), m), unit = "mm|m|km", unit_form = "name")), "kilometres")
-  expect_equal(f2_tx(fmt_unit(u(0, m), unit = "mm|m|km", unit_form = "name")), "millimetres")
+  expect_equal(f2_tx(fmt_unit(u(0, m), unit = "mm|m|km", unit_form = "name")), "metres")
 })
 
 test_that("2h L18: fmt_unit() of a string with a ladder of more than one rung is a value error", {

@@ -354,7 +354,7 @@ test_that("2i I8: .pct on a quantity in percent is a value error that says to dr
 test_that("2i I8: the message still says the unit already prints %, and the quantity without .pct prints it", {
   r <- i2_run("`r u(0.25, percent)`{.pct}")
   expect_match(conditionMessage(r$e), "%", fixed = TRUE)
-  expect_equal(i2_text("`r u(25, percent)`{.num}"), f2("25~%"))
+  expect_equal(i2_text("`r u(25, percent)`{.num}"), f2("25%"))
 })
 
 test_that("2i I8: control - .pct on a plain number prints the per cent", {

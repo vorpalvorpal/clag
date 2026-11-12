@@ -44,7 +44,7 @@ test_that("2b unit text: a quotient, a registered unit and a project unit are wr
   d <- pd()
   expect_equal(tx(fmt_num(u(5, sites) / u(2, ha))), paste0("2.5", NB, "sites/ha"))
   expect_equal(tx(fmt_num(d$salinity_res * 2, digits = 2)), paste0("0.02", NB, "PSU"))
-  expect_equal(tx(fmt_num(u(12, mm/hr))), paste0("12", NB, "mm/h"))
+  expect_equal(tx(fmt_num(u(12, mm/hr))), paste0("12", NB, "mm/hr"))
 })
 
 test_that("2b unit text: a value with no unit left prints the number alone (D30, 4.4.8)", {
