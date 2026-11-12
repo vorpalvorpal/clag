@@ -52,9 +52,15 @@ first, then `dev/build-log.md`.
   can reach them. Expected flag-recall of all lints together: 25 to 35%.
   Run `recall_check()` on these once stage 3 is built; a lint with no
   reproduced finding, or flagging nearly everything, goes back to design.
-- **Stage 3 design**: an opus agent is writing `dev/design-3.md` (work
-  packages with non-overlapping files). Next: commit it, then test-writers
-  per package, 3a (shared pieces) first.
+- **Stage 3**: `dev/design-3.md` is the contract (decision 64). Packages:
+  3a foundation (`R/lint.R`, `R/lint-source.R`, `R/recall.R`,
+  `inst/weft-claim-words.yml`; built first, alone), then 3b prose
+  (`R/lint-prose.R`, `R/lint-pandoc.R`), 3c code (`R/lint-code.R`), 3d
+  documents (`R/lint-doc.R`, tier-2 listing in `R/changes.R`) in parallel
+  worktrees. Progress: 3a tests being written.
+- **Stage 0** runs as each lint package merges: script
+  `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
+  note; only counts and verdicts go in the build log.
 
 ## Queue
 

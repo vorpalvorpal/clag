@@ -457,3 +457,22 @@ Robin delegated these and asked for the alternatives and the reasons.
 - **Units a dictionary registers are removed with the project**, as
   closing review 12 did for rows of `units:`.
 - **Decisions 53 to 61 stand.**
+
+## 64. Stage 3 is built to `dev/design-3.md` (13 Nov)
+
+The designer's choices K1 to K19 and the five marked for Robin are
+adopted under delegation; each is set out in the note with its
+alternative and how to reverse it. In one line each:
+
+- **R1** prose is read by the package's own reader; Pandoc only under
+  `reader = "pandoc"` and in parity tests (departs from 2.10.3; keeps a
+  chapter under half a second and the answer the same on every machine).
+- **R2** the entry point is `lints()`, not `lint()` (which would mask
+  `lintr::lint`); rule ids and `_weft.yml` keys as the note lists them.
+- **R3** target names come from the store's metadata, so no `_targets.R`
+  is run.
+- **R4** no inline ignore comment: `.weft-literal` with its `why` is the
+  only exemption in the source.
+- **R5** tier 1 is wider than the spec in three places (`p<0.05` and
+  `n=12` are typed numbers; `{n="3"}` is a literal value; a constant
+  two-arm `if` cannot fail).
