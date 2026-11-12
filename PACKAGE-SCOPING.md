@@ -899,8 +899,8 @@ knitr does not count, and the `before.knit` hook installs the rest once knitr
 has chosen its output hooks. Called during a knit, `weft_setup()` installs
 them at once.
 
-**2.1.8** `weft_setup()` also puts `claim()`, `plural()`, `glue_vec()`, `u()`
-and the `fmt_*()` functions on the search path, below everything else, so inline
+**2.1.8** `weft_setup()` also puts `claim()`, `plural()`, `glue_vec()`, `u()`,
+`dict_glossary()` and the `fmt_*()` functions on the search path, below everything else, so inline
 R can call them without `library(weft)` and an author's own function of the
 same name wins.
 
@@ -1336,7 +1336,11 @@ text, in either form: it holds the unit's markdown text as printed for a plural
 number (`m`, `years`). Two attributes go with it. `unit_form` is as long as the
 text and holds `"symbol"`, `"name"` or `NA` for each element, and `units` holds
 the unit as `units::units()` gives it after conversion. A text with no unit
-carries none of the three. The printed record does not hold the unit (4.4.4).
+carries none of the three. A fourth attribute, `unit_before`, is present only
+when some element has its unit written before the number (4.4.22): it is as long
+as the text and holds `TRUE` where the unit is before the number, `FALSE` where
+it is after, and `NA` where there is no unit. The printed record does not hold
+the unit (4.4.4).
 A formatter function given such a `weft_text` formats the number afresh, in the
 form in force for its own class, and places the unit as the class does, so
 `fmt_and(fmt_num(u(c(3, 5, 7), m)))` is "3, 5 and 7 m". A collapse function
@@ -1382,7 +1386,17 @@ unless `x` has length one and its number prints "1" under `.num`, and a string
 takes the plural: `fmt_unit(u(1, m), unit_form = "name")` is "metre",
 `u(1.04, m)` gives "metres" and `"m^2"` gives "square metres". A value that is
 neither a quantity nor a string is a `weft_value_error`; a string `u()` refuses
-is a `weft_unit_error`, as in 4.4.6. There is no `.unit` class.
+is a `weft_unit_error`, as in 4.4.6. There is no `.unit` class. A unit that is
+written before the number (4.4.22) prints as the unit alone: `fmt_unit(u(7.2,
+pH))` is "pH".
+
+**3.4.10** `unit_defaults()` takes no argument and is exported, not attached. It
+returns weft's default units (4.4.21) as a data frame, one row per row of the
+table in file order, with the columns `unit`, `is`, `name`, `plural`, `symbol`
+(character, `NA` where blank), `space` (logical, `NA` where blank), `before`
+(logical, `FALSE` where blank) and `redefines` (logical: whether the row
+redefines a unit that `units` already reads, 4.4.21). The attribute `file` holds
+the path of the YAML file the table is read from. It registers nothing.
 
 ### 3.5 Phrase functions
 
@@ -1528,9 +1542,11 @@ salinity_res:
 ```
 
 **4.2.1** An entry has a `value`, a `type` and a `definition`. `decision` is
-optional. `unit` is required for `type: quantity` and an error on any other
+optional, and so are `term` (any type, 4.7.3) and `avoid` (4.7.4). `unit` is required for `type: quantity` and an error on any other
 type. `display` is optional on a `type: quantity` entry (4.2.7) and an error on
-any other type. A field that is not named here is an error.
+any other type. A field that is not named here is an error; the problem lists
+the nine fields: `value`, `type`, `definition`, `unit`, `display`, `decision`,
+`why`, `term` and `avoid`.
 
 | `type` | `value` is | Read as |
 |---|---|---|
@@ -1582,7 +1598,7 @@ quoted if it looks like a number.
 **4.2.6** A dictionary that has problems is not half-read. `read_dict()`
 collects every problem, from every entry, and raises them together as one
 error, one line per problem with the file, the line of the entry's key, the
-field and the rule. A read that reports problems registers no unit (4.4.7).
+field and the rule. A read that reports problems registers no unit of the project's (4.4.7).
 Two bands of a `breaks` entry that leave a band which can never be chosen
 (an `at_most` followed by a `below` of the same number, or equal bounds of
 the same kind) are a problem.
@@ -1606,7 +1622,8 @@ These are problems of the dictionary (4.2.6): `display` on another type, one
 that does not parse, one that `unit` does not convert to, and one that `units`
 reaches only by inverting the value (4.4.14). The `entries`
 attribute of the dictionary holds a `display` column, `NA` where an entry has
-none, and `print()` shows the display unit. An entry holds no form setting:
+none, then a `term` column (`NA` where absent) and an `avoid` column (a list
+column, `character(0)` where absent), and `print()` shows the display unit. An entry holds no form setting:
 the form is the reader's choice (4.4.15).
 
 ### 4.3 Local entries
@@ -1657,12 +1674,12 @@ says so: "state the check's unit, as in `. < u(0.45, ug)`".
 `units::set_units()`: `u(35, m)`. The unit is written as it is, or as a
 string (`u(150, "CFU/100 mL")`), and is never evaluated as R, so a variable
 named `m` is not read. The value is a number or a `units` object, which is
-converted: `u(dict$core_len, cm)` is 50 cm. `u()` registers no unit. A unit
-the units database does not know, a unit the value does not convert to, a
+converted: `u(dict$core_len, cm)` is 50 cm. `u()` registers no unit of its own;
+the first parse of a unit in a session registers weft's default units (4.4.21).
+A unit the units database does not know, a unit the value does not convert to, a
 unit with a power that is not a whole number (`m^0.5`), a value that is not
 a number and a missing unit are each an error of class `weft_unit_error`.
-So is a unit that the `units` package reads as another unit, or misreads
-(4.4.20).
+So is a unit that 4.4.20 refuses.
 
 **4.4.7** When it reads the dictionary, weft registers every unit symbol the
 units database does not know, with `units::install_unit()`. `PSU`, `NTU` and
@@ -1671,10 +1688,12 @@ object: the unit symbols the dictionary needs that the units database does
 not have are listed in the attribute `registered`, whoever installed them. A
 unit that cannot be parsed, or that `units` parses only with a warning, is a
 problem with the dictionary (4.2.6), not a new unit. A power that is not a
-whole number is a problem too, and so is a unit that `units` reads as another
-unit or misreads (4.4.20). A key of the `units:` table (9.1.7) registers
-its unparseable tokens in the same way, when the configuration is read, before
-the dictionary.
+whole number is a problem too, and so is a unit that 4.4.20 refuses. A key of
+the `units:` table (9.1.7) registers its unparseable tokens in the same way,
+when the configuration is read, before the dictionary. weft's default units
+(4.4.21) are registered before either. A read that has problems leaves the
+default units registered and registers nothing of the project's. A row of
+`units:` with `is:` installs the definition it gives (9.1.7).
 
 **4.4.8** Any `units` value, from the dictionary or from the pipeline,
 prints with its unit when it has a weft formatter. The number stage formats
@@ -1694,11 +1713,13 @@ Three things differ in the symbol text. A token typed as a name prints its
 unit's symbol, so `kilometre` prints `km` and `microgram` `µg`; a token typed
 as a symbol prints as typed (`ug`). A unit with no symbol prints its name, in
 the plural in a numerator and the singular in a denominator ("10 years",
-"5 kg/year"). A `symbol:` in `units:` (9.1.7) replaces its unit's text, whole
+"5 kg/year"); a prefixed unit of such a row prints its symbol, as typed
+("3,000 Myr"). A `symbol:` in `units:` (9.1.7) replaces its unit's text, whole
 or one factor, as written.
 
-**The space.** There is none before a unit whose whole symbol is `%`, `°`, `′`
-or `″` ("35%", "45°"). Before every other symbol there is a no-break space
+**The space.** The space is between the number and the unit on whichever side the
+unit is written (4.4.22). There is none before a unit whose whole symbol is `%`,
+`°`, `′` or `″` ("35%", "45°"). Before every other symbol there is a no-break space
 ("20 °C"), and before every name. A `space:` in `units:` sets it for one unit's
 symbol only, and a compound takes the space unless its own key says otherwise;
 a name always has its space, so `space: false` never removes the space before a
@@ -1727,7 +1748,8 @@ error (1.4.20). `.nounit` drops the unit
 settings that change them are 4.4.15's.
 
 **4.4.3** A collapse prints the unit once, after the last item, in that item's
-form: "3–5 m", "3, 5 and 7 m". With `trunc` the last item is the last one
+form: "3–5 m", "3, 5 and 7 m"; a unit that is written before the number goes
+before the first item instead (4.4.22). With `trunc` the last item is the last one
 printed: "3, 5 m and 2 others". Whatever the last item is, the unit follows it:
 `u(c(200, 5), m)` under `.word .and` prints "200 and five metres", and
 `.count .and` on `u(c(3, 12), m)` prints "three and 12 m". `.pairs`, `.ul`,
@@ -1745,7 +1767,8 @@ holds whatever the governor is: a quantity, a formatter's text for a
 quantity, an id, `n="."`, a `sign` span, `plural()`. `#` keeps the unit
 whatever classes or keys the span has: a back-reference and a formatter's text
 keep the quantity, number and unit, so `.word`, `digits`, `.uname`, `.nounit`
-and `unit=` on the span act on `#` as on the quantity itself. In a `list` span over
+and `unit=` on the span act on `#` as on the quantity itself. A unit written
+before the number (4.4.22) precedes `#`'s number. In a `list` span over
 quantities `#` is the collapsed list with the unit once after the last number
 (4.4.3), with or without a number class. The author does not write the unit
 in the arm: `[# was | # were]{n="dict$core_len"}` prints "5 m were", the
@@ -1786,8 +1809,14 @@ unit printed and the arm chosen are all in that unit: a value of 150 cm with
 `units` reaches only by inverting the value: `unit="1/m"` on a length and
 `unit="Hz"` on a time are refused, and an author who wants the reciprocal writes
 it in the expression. A conversion between two quotients is allowed:
-`L/(100*km)` to `km/L`. `display:` (4.2.7) follows the same rule, and is a
-problem of the dictionary.
+`L/(100*km)` to `km/L`. A conversion from one of the twin units to another is a
+value error: the `units` package defines the sievert and the gray alike, the
+becquerel, the baud and the hertz alike, and the volt-ampere and the watt alike,
+though each group measures different things. `u(2, Sv)` with `unit="Gy"` and
+`u(2, Bq/L)` with `unit="Hz/L"` are refused, with any prefix and alone or in a
+compound. A conversion within one of them (`mSv` to `Sv`) and to the SI
+definition (`Sv` to `J/kg`) is allowed. `display:` (4.2.7) follows the same
+rule, and is a problem of the dictionary.
 
 **4.4.15** A unit prints in one of two forms: its **symbol** ("5 m") or its
 **name** ("five metres"). The setting nearest the use decides the form: the
@@ -1836,7 +1865,10 @@ before the plural ("milligrams", "millidegrees Celsius"), and a name that holds
 holds `CFU` over `100` and `mL`. weft resolves a token by the first of these
 that fits:
 
-1. a key of `units:` (9.1.7) that resolves, by 2 to 5, to the same unit;
+1. a row of `units:` in force (9.1.7) whose key resolves, by 2 to 5, to the same
+   unit: the document's row, else the project's, over weft's default table's
+   (4.4.21). A token that a row defines with `is:` resolves as itself, and is
+   never split into a prefix and a unit;
 2. the shipped table below;
 3. a row of `units::valid_udunits()` that has the token as its symbol, a symbol
    alias, a singular or plural name or alias, or has it as the English plural
@@ -1854,7 +1886,8 @@ not.
 
 A token's name is, in this order:
 
-1. the project's `name`;
+1. the `name` of a row of `units:` in force (the document's, else the project's,
+   over the default table's, field by field);
 2. the shipped name;
 3. what the author typed, when it is a name or alias of the unit, with `_`
    printed as a space and the plural from the database's alias plural, else
@@ -1920,23 +1953,228 @@ with the data. The message names the unit as `units` writes it and says why it
 has no name, shows how to add it to `_weft.yml` under `units:` with a YAML
 example keyed by it (9.1.7), and offers `.usym` or `.nounit` instead.
 
-**4.4.20** weft refuses a unit that the `units` package reads as another unit,
-and one it misreads, because the number would print with a unit the author did
-not write. `u()` raises a `weft_unit_error` and `read_dict()` reports a problem
-(4.2.6), for the unit alone or inside a compound. A unit read as another unit:
-`Sv`, `Bq`, `Bd`, `VA`, `Mg`, `mt`, `ut`. A unit misread: `mph`, `pH`, `nmi`,
-`Ma`, `ka`, `gal`. The message says what `units` read and what to write: `Mg`
-is read as a tonne, so write `t`.
+**4.4.20** weft prints the unit the author wrote. It keeps each token as written,
+wherever it reads a unit: `u()`, `fmt_unit()` on a string, the `unit` and
+`display` of the dictionary and of `dict_local`, the keys and `is:` of `units:`,
+and `unit=`. The one exception is the symbol that the `units` package
+substitutes, when that is the symbol of the token's own database row with the
+same prefix: `metre` is held as `m`, `degC` and `celsius` as `°C`, `lux` as `lx`. Left as
+written are `Sv`, `Bq`, `Bd`, `VA`, `Mg`, `ut`, `sievert`, `becquerel`,
+`gallon` and `nautical_mile`: the `units` package would store `Sv` as the gray,
+`Bq` and `Bd` as the hertz, `VA` as the watt, `Mg` as the tonne and `ut` as the
+gram, and a number would print with a unit the author did not write. weft sets
+no option of `units` for this, and changes no entry of its database. This
+holds in both modes of 4.4.21.
+
+A token that `units` reads as a prefix and another unit, or as another unit, can
+only be told from the one the author meant by a list, because the reading is a
+valid one. weft cannot detect a misreading in general; it knows a list. Under
+`unit_defaults: weft` (4.4.21):
+
+- `pH`, `mph`, `nmi`, `Ma`, `ka` and `gal` are defined by weft's default table,
+  so `u(7.2, pH)` is a pH and `u(60, mph)` miles per hour, not a picohenry and
+  a milliphot. A project that removes a row with `false` (9.1.7) and defines
+  nothing in its place has the token refused;
+- `mt` is refused: `units` reads a millitonne, which is a kilogram, and the
+  author means a tonne;
+- a prefix on the phot or the are, other than `ha`, is refused (`kph`, `Ga`,
+  `ca`): the author means "per hour" or "a billion years";
+- a token that a row in force defines, the project's or the document's, is never
+  refused.
+
+Under `unit_defaults: si` none of these is refused and each token means what
+`units` reads: `u(7.2, pH)` is 7.2 picohenries. In both modes a prefix on a unit
+of weft's default table that has `is:` (`NTU`, `PSU`, `CFU`, `MPN`) is refused:
+`kNTU` is not a unit.
+
+`u()` raises a `weft_unit_error`, the `unit` key a `weft_value_error`, and
+`read_dict()` and a `units:` key report a problem (4.2.6), for the unit alone or
+inside a compound (`mt/d`). The message says what `units` read and what to
+write: `mt` is read as a millitonne, so write `t` for a tonne or `Mt` for a
+megatonne; `kph` is read as a kilo-phot, so write `km/h`. For a token of the
+default table it says that `unit_defaults: si` takes the other reading.
+
+**4.4.21** weft carries a table of default units. It is the YAML file
+`inst/weft-units.yml`, whose rows are written as rows of `units:` are (9.1.7)
+and may be copied there, and `unit_defaults()` (3.4.10) returns it:
+
+```yaml
+units:
+  pH:
+    is: base
+    name: pH
+    plural: pH
+    before: true
+  mph:
+    is: 1 mi/h
+    name: mile per hour
+  nmi:
+    is: 1852 m
+    name: nautical mile
+  Ma:
+    is: 1 Myr
+    name: million years
+    plural: million years
+  ka:
+    is: 1 kyr
+    name: thousand years
+    plural: thousand years
+  gal:
+    is: 1 gallon
+    name: gallon
+  ppm:
+    name: part per million
+  ppb:
+    name: part per billion
+  NTU:
+    is: base
+    name: nephelometric turbidity unit
+  PSU:
+    is: base
+    name: practical salinity unit
+  CFU:
+    is: base
+    name: colony-forming unit
+  MPN:
+    is: base
+  CFU/100 mL:
+    symbol: CFU/100 mL
+  MPN/100 mL:
+    symbol: MPN/100 mL
+```
+
+The first six rows **redefine**: the `units` package already reads the key (as a
+prefix and a unit, or as another unit), and the row gives it the meaning a report
+intends. `gal` is the US gallon, as `units` has it. The other rows name or
+register a unit and change no reading. `MPN` has no name, so a wording class on
+it is the error of 4.4.19. The table is of what a report is likely to write; a
+project adds the rest under `units:`.
+
+`unit_defaults:` sets one of two modes, in `_weft.yml` or a document's `weft:`:
+`weft`, the default, and `si`.
+
+| | `weft` | `si` |
+|---|---|---|
+| the redefining rows | registered, every field applies | not applied at all |
+| the other rows, and the shipped names (4.4.17) | apply | apply |
+| a token kept as written; twin conversions refused (4.4.14, 4.4.20) | yes | yes |
+| the refusals of 4.4.20 | for a token no row in force defines | none |
+| a prefix on a unit of the table that has `is:` | refused | refused |
+| the project's and the document's `units:` rows | on top | on top |
+
+Under `si`, `u(7.2, pH)` prints "7.2 pH" and is 7.2 picohenries, `u(60, mph)`
+prints "60 mph" and is 60 milliphots, and `u(5, ppm)` is still "five parts per
+million" under `.word`. A project that wants `pH` alone under `si` copies the
+`pH` row into `units:`. A row whose definition is `base` and that redefines a
+unit (`pH`) is removed under `si` as the others are.
+
+*When the table is registered.* Loading or attaching weft changes nothing in the
+`units` package. The table is registered the first time weft parses or converts
+a unit in a session, and at every configuration read (9.1.3), and the database
+is then made to hold what the configuration in force wants: the default rows of
+its mode, then the project's rows, then the document's. Outside a knit that is
+the last configuration read, and before any read it is mode `weft` with no
+project rows. Registering is idempotent. weft records each token it installed
+and each mapping it removed (the name `gal`, and a token on the misread list
+that a project redefines). A read that wants what is already installed does
+nothing; a changed definition is removed and installed again; a token no longer
+wanted is removed and a removed mapping is restored from the database's own
+definition. So two documents knit in one session in different modes each see
+their own. A quantity holds only its token: `u(7.2, pH)` made under `weft` and
+printed under `si` prints picohenries. Registrations of a unit of weft's own
+that redefines nothing (`NTU`, `PSU`, `CFU`, `MPN`, and the tokens of 4.4.7) are
+not undone during the session; `false` removes only their names. A read that
+fails leaves the session as if no configuration had been read: mode `weft` and
+the default rows only. When the package is unloaded, what it installed is
+removed (the base registrations apart) and `gal` is restored.
+
+*A unit installed by someone else.* When `units` already maps a token that a row
+defines, weft accepts it if it reads as the row says: a row with `is:` and a
+unit expression converts with a factor of 1, within 1e-9; a `base` row's token
+does not convert to the database's reading. Otherwise the call is a
+`weft_unit_error` that names the token, says that it was installed in the
+session and not by weft, and says to remove it with `units::remove_unit()` or to
+set `unit_defaults: si`. weft never removes what it did not install.
+
+**4.4.22** A unit that a row writes with `before: true` is written before the
+number, joined to it by the space: `u(7.2, pH)` prints "pH 7.2" (the space is
+U+00A0). The unit is written before the number only when the unit printed is
+that token alone, with a power of 1: in a compound it follows, as for any unit
+("0.2 pH/h"). `space: false` removes the space, in the symbol and in the name
+form alike: "pH7.2". This is the one case in which `space:` governs a name
+(4.4.8).
+
+- A collapse (`.and`, `.or`, `.range`, `trunc`, `glue_vec()`) writes the unit
+  once, before the first item printed, in the form 4.4.3 gives: `.range` on
+  `u(c(6.5, 8.5), pH)` prints "pH 6.5–8.5", `.and` on `u(c(6.5, 7.2), pH)`
+  prints "pH 6.5 and 7.2". `.pairs`, the list classes and a vector that no
+  class joins write it before each element.
+- `#` carries it: `[# was | # were]{n="dict$ph"}` with a value of 7.2 prints "pH
+  7.2 were", and with a value of 1 "pH 1 was". A text class wraps the unit and
+  the number together: `.strong` prints `**pH 7.2**`. `.nounit` prints the
+  number, "7.2"; `.word` on `u(7, pH)` prints "pH seven". `fmt_unit()` prints
+  "pH".
+- `.cap` leaves a text whose unit is written before the number as it is.
+- The printed record (1.4.11) holds the number. The `weft_text` attribute
+  `unit_before` records the side (3.4.4).
 
 ### 4.5 Decision pointers
 
 **4.5.1** `decision:` points at wherever the project records decisions. It is
 resolved by a configured resolver (§9.1): a GitHub issue number in the
-repository's remote (the default), a file glob (`decisions/{id}*.md`), or a
+repository's remote (the default), a file glob (`decisions/{id}-*.md`), or a
 project function.
 
 **4.5.2** Pointers are checked only in `verify()` (§8). One that does not
 resolve fails it (tier 1).
+
+**4.5.3** The setting `decisions` (9.1.8) chooses one of three routes. An
+internal function, `check_decisions()`, takes a dictionary and returns one row
+for each entry that has a `decision`, in file order, with the columns `file`,
+`line`, `key`, `decision` (the pointer as the dictionary stores it, a string),
+`resolved` (`TRUE`, `FALSE` or `NA`) and `detail`. Each distinct pointer is
+checked once per call, and rows that share one share the result.
+
+- **GitHub.** The pointer is an issue number, and an issue or a pull request of
+  that number in the repository of `origin` (or the repository `github:<owner>/
+  <repo>` names) resolves it, open or closed. A pointer that is not a whole
+  number from 1 does not resolve, and no request is made. A pointer written
+  `#12` is read as 12. One written with a leading zero, in hex or in octal, or
+  with more digits than an issue number can have, is kept as it was written
+  and does not resolve; its detail says why. The repository is checked before
+  any issue. The `origin` is used only when the top level of its git repository
+  is the project root or a folder inside it. `GITHUB_PAT`, else `GITHUB_TOKEN`,
+  is sent as the token when set, and is never printed. A repository's remote may
+  be an `https` URL, with or without credentials, an `ssh` URL, with or without
+  a port, or the `git@` form, on `github.com` or `ssh.github.com` in any letter
+  case; its repository name holds letters, digits, `.`, `_` and `-` only.
+  Anything else is "not on github.com". The request is made with the `curl`
+  package, a suggested one; without it every GitHub row could not be checked.
+- **File glob.** The pattern holds `{id}`, which is replaced by the pointer, and
+  is relative to the project root. A glob is a glob and nothing more:
+  `decisions/{id}*.md` matches `31-x.md` for the pointer 3, which is why the
+  pattern is written `{id}-*.md`. The project root is never read as part of the
+  pattern, so a root whose path holds `[` or `*` resolves as any other. A
+  pointer that holds a pattern character (`* ? [ ] / \`) does not resolve, and a
+  match that is a folder, a link to nowhere or a file outside the project root
+  does not count.
+- **Function.** A function of the pointer, written `pkg::fun`, or a bare name in
+  the global environment. It returns `TRUE` (resolves), `FALSE` (does not) or
+  `NA` (could not check). A function that cannot be found is a
+  `weft_config_error`, unless the dictionary holds no pointer. A function that
+  fails, or returns anything else, is "could not check".
+
+**4.5.4** A pointer resolves, does not resolve, or could not be checked. Does not
+resolve means the record is missing. Could not be checked is a result of its
+own, and is never reported as does not resolve: there is no network, no token
+for a private repository, GitHub refused or limited the request, the repository
+has issues switched off (an answer of 410, as in a fork whose `origin` is the
+author's own; set `github:<owner>/<repo>`), the repository is not on
+github.com, a `fetch` threw, or a function returned `NA` or failed. After the
+first refusal of GitHub no further request is made for the call, and the later
+rows are could not check. Each row of the result says which it is, and a
+could-not-check detail begins `could not check: ` and is one line. Nothing is
+cached between calls.
 
 ### 4.6 The pipeline
 
@@ -1972,10 +2210,99 @@ dictionary.
 
 ### 4.7 Generated from the dictionary
 
-**4.7.1** The glossary is generated from `definition:`.
+**4.7.1** `dict_glossary(dict = NULL, values = TRUE, sort = TRUE)` returns the
+glossary as Pandoc markdown, a string that knitr prints as markdown with no
+`results: asis`, so a chunk that calls it is the glossary. It writes nothing
+(P10). `dict` is a dictionary, or `NULL`: in a knit, the knit's project
+dictionary; outside a knit, `dict.yml` at the project root, with the root's
+`_weft.yml` in force, so that the preview at the console prints as the knit
+does. No dictionary to read, and a `dict` that is not one, are errors of class
+`weft_tool_error`, and so is a `values` or `sort` that is not `TRUE` or `FALSE`.
+A `dict_local` is accepted and treated alike; `why` is never shown (4.3.3).
 
-**4.7.2** `dict_vale()` writes Vale terminology rules from the canonical
-spellings.
+An entry is a Pandoc definition: a heading line, then `:   ` and the
+definition.
+
+```
+core length (0.5 m)
+:   Length of each sediment core.
+```
+
+- The heading is the entry's `term`, as written (markdown), else the key in
+  code (`` `salinity_res` ``). When `values` is `TRUE` and the type is `number`,
+  `quantity`, `year`, `date` or `string`, a space and the value in parentheses
+  follow. `labels` and `breaks` show no value.
+- The value is the value as stipulated, printed with the configuration in force:
+  the marks, the minus sign, `thousands_from`, the unit form and the `units:`
+  table. It keeps the decimals it was written with: `value: 0.50` prints
+  "0.50". A quantity that `display:` converts prints as `fmt_num()` prints it.
+  A date prints through `fmt_date()` and a string as written.
+- The definition and a string value have each run of white space, newlines
+  included, made one space; the markdown is printed as written. A definition
+  that holds a blank line keeps its paragraphs, indented as Pandoc needs.
+- Entries are in alphabetical order of the term, or of the key without its
+  backticks, ignoring case, ties by key; `sort = FALSE` keeps file order.
+- The string starts and ends with a blank line, so that the text above and
+  below the chunk stays out of the list. An empty dictionary gives `""`.
+
+**4.7.2** `dict_vale(dict = NULL, path = "styles/Weft/Terms.yml", level =
+"warning")` writes one Vale `substitution` rule from the `avoid` fields (4.7.4).
+Each avoided spelling is a key, escaped as a regular expression, and its value
+is the entry's canonical spelling; the keys are written longest first, then in
+radix order, and the rule matches case-sensitively, so an author lists a case
+variant as a spelling of its own. `dict` is as for `dict_glossary()`, and a
+dictionary with problems raises its `weft_dict_error` and writes nothing. `path`
+is relative to the project root, ends `.yml` and has a style folder above the
+file (`styles/Weft/Terms.yml`); `level` is `suggestion`, `warning` or `error`.
+Either wrong is a `weft_tool_error`. The first lines of the file say that
+`dict_vale()` generated it from the dictionary file and that it is not to be
+edited.
+
+`dict_vale()` is an explicit call that writes a file, and it says what it will
+write first. It replaces only a file that it wrote, found by its first line: any
+other file at `path` is a `weft_tool_error` and nothing is written. A file that
+is already as it would write it is left alone, and the call says so. A path or a
+folder on the way that is a link, a target that is a folder, and a write that
+fails are each a `weft_tool_error` naming the path; "Wrote:" is printed only for
+a file that was written. Once the rule is in place it says what `.vale.ini` at
+the root must hold for Vale to use it: `StylesPath` set to the style's folder
+and the style listed by its whole name in `BasedOnStyles`. weft never writes
+`.vale.ini`.
+
+A dictionary that has no `avoid` removes a file that `dict_vale()` wrote, and
+says so first, when the dictionary is the project's own (`dict = NULL`). Given
+any other dictionary with no `avoid`, a `dict_local` or one read from another
+file, `dict_vale()` writes nothing and removes nothing.
+
+**4.7.3** `term:` is optional on an entry of any type, in `dict.yml` and in
+`dict_local`: the words a reader knows the entry by. It is a string that is not
+blank, with surrounding white space trimmed. A `term` that holds a line break,
+or starts with a markdown block marker (`#`, `>`, `-`, `*`, `:`, or a number
+and a point), is a problem of the dictionary (4.2.6): `read_dict()` reports it.
+The glossary heads the entry with it, and it is the canonical spelling that
+`dict_vale()` keeps.
+
+**4.7.4** `avoid:` is optional, in `dict.yml` only: one string, or a non-empty
+list of strings, none blank, each trimmed. They are spellings to replace by the
+entry's **canonical spelling**: its `term`, or, for a `string` entry with no
+`term`, its value, with white space made one space. `avoid` on an entry that is
+neither a `string` nor has a `term` is a problem, and so is `avoid` in
+`dict_local` (a chapter's own entries write no Vale rule). Each of these is a
+problem of the dictionary (4.2.6), reported by `read_dict()`; comparisons are
+case-sensitive:
+
+- a spelling that is the entry's own canonical spelling, or is listed twice in
+  one entry;
+- a spelling that another entry's `avoid` also lists (reported on the later
+  entry);
+- a spelling that is found, as whole words, inside any entry's canonical
+  spelling, its own included, because Vale would flag the right spelling;
+- a spelling that starts or ends with a character that is not a letter or a
+  digit (`approx.`), because Vale could never match it.
+
+The checks across entries leave out an entry whose own `term` or `avoid` had a
+problem, so one mistake is reported once. Canonical spellings need not be
+unique.
 
 ---
 
@@ -2593,8 +2920,10 @@ rule 8), and its message names `_weft.yml`.
 | `bibliography`, for files the front matter and the project do not name | 5.4.4 |
 | the date format | `.date` |
 | `unit_form`: whether a quantity's unit prints as its symbol or its name | 4.4.15 |
-| `units`: a unit's name, plural, symbol and space | 9.1.7 |
+| `unit_defaults`: whether weft's default units are used (`weft`) or the `units` package's readings (`si`) | 4.4.21 |
+| `units`: a unit's name, plural, symbol, space, meaning (`is`) and side of the number (`before`) | 9.1.7 |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
+| `decisions` (project only where `_weft.yml` exists): where `decision:` pointers resolve | 4.5.3, 9.1.4, 9.1.8 |
 | project formatters: class name, function, stage | 1.4.8 |
 | the severity list | 7.4.2 |
 | the rules made strict (none unless set) | 8.1.3 |
@@ -2602,7 +2931,6 @@ rule 8), and its message names `_weft.yml`.
 | the claim-word lexicon | 5.5.4 |
 | whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
-| the `decision:` resolver | 4.5.1 |
 | parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
 | the package version | 9.5.4 |
 
@@ -2623,7 +2951,9 @@ count_threshold: 10
 word_limit: 100
 draft: false
 unit_form: auto        # auto, symbol or name (4.4.15)
+unit_defaults: weft    # weft or si (4.4.21)
 units: {}              # 9.1.7
+decisions: github      # github, github:<owner>/<repo>, a file pattern, a function (9.1.8)
 formatters: {}         # 1.4.8
 severity: []           # 7.4.2, added to the shipped patterns
 ```
@@ -2631,10 +2961,13 @@ severity: []           # 7.4.2, added to the shipped patterns
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
 `false`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
 when the configuration is read (9.1.3); for `unit_form` it is a
-`weft_config_error`.
+`weft_config_error`. `unit_defaults` is `weft` or `si`, and may be set in a
+document's `weft:` as well; any other value is a `weft_config_error`:
+"`unit_defaults` must be `weft` or `si`; got `<value>` (rule 9.1.6)."
+`decisions` is one of the four forms of 9.1.8.
 
-**9.1.7** `units:` maps a unit, written as `u()` takes one, to up to four
-fields:
+**9.1.7** `units:` maps a unit, written as `u()` takes one, to up to six
+fields: `name`, `plural`, `symbol`, `space`, `is` and `before`.
 
 ```yaml
 units:
@@ -2651,9 +2984,18 @@ units:
     symbol: false          # "5 days", not "5 d"
   "%":
     space: true            # "35 %"
+  gal:
+    is: 4.54609 L          # the imperial gallon replaces the default's
+  ppth:
+    is: 0.001              # a number alone is a dimensionless unit
+    name: part per thousand
+  pH:
+    space: false           # merged into the default row: "pH7.2"
+  NTU: false               # removes the default row; NTU stays registered
 ```
 
-`space` governs the symbol only; a name always has its space (4.4.8).
+`space` governs the symbol only; a name always has its space (4.4.8), except
+beside a unit written before the number (4.4.22).
 `name` and `plural` are non-empty strings (`plural` alone re-plurals the name
 weft finds, 4.4.17), `symbol` is a non-empty string or `false`, and `space` is
 `true` or `false`. A `name` with no `plural` takes the English rule (4.4.16).
@@ -2667,13 +3009,46 @@ is not a mapping; a key that does not parse, parses only with a warning, or has
 a power that is not whole; two keys for one unit; an entry that is not a mapping,
 or is empty; an unknown field, which is named; a field of the wrong type; a key that is a
 number, cancels to nothing (`m/m`) or holds no unit; and `symbol: false` on a
-unit with no name. A read with problems registers nothing.
+unit with no name; an `is` that is not one of the forms below, or that the
+`units` package cannot read, or that 4.4.20 refuses; a key with `is` that is more
+than one token or ends in a digit; an `is` that redefines a unit of the database
+or gives the same unit as another row; a `before` that is not `true` or `false`;
+and `false` for a key the default table has no row for. The unknown-field line
+lists the six fields. A read with problems registers nothing of the project's
+(4.4.7).
 A document's `weft: units:` is checked alike, naming the document, and its
 entry for a unit replaces the project's entry for that unit whole; the other
-units merge (9.1.1). After the read `u(3, sites)` works with no dictionary. Outside
+units merge (9.1.1). Over a row of weft's default table (4.4.21), the project's
+or the document's row merges field by field. After the read `u(3, sites)` works with no dictionary. Outside
 a knit the `units:` table of the last configuration read is used, and
 `unit_form` is not carried over. The table kept for that use is cleared at the
 start of every read, so a read that fails leaves none.
+
+`is` says what a unit is. It is `base`, a unit of its own that converts to
+nothing; a positive finite number, a dimensionless unit; or an optional
+positive number, a space and a unit expression (`1 mi/h`, `mi/h`), as a YAML
+string or number. It is read as `u()` reads a unit, against the database and the
+rows installed before it (weft's default table, then the project's, then the
+document's, each in file order), so a forward or a circular reference is a
+problem. A key with `is` is one token: no space, no digit first, none of
+`* / ^ ( ) . +` or `-`, and no digit last (`units` reads a trailing digit as a
+power). Without `is` a key only names a unit. Two rows with the same `is` text
+are the same unit, and a problem. `is` on a key that the database holds as the
+symbol or name of a row of its own (not as a prefix and a unit) is a problem
+(`m: {is: ft}`, `ppt: {is: 0.001}`), because it would rewrite every unit derived
+from it; the exceptions are a token on the misread list of 4.4.20 and a key of
+the default table (`gal`, `mt`, `pH`).
+
+`before` is `true` or `false` (the default) and puts the unit before the number
+(4.4.22).
+
+A key whose value is `false` removes weft's default row for that unit: its
+redefinition is undone, so under `weft` the token is refused if it is on the
+misread list (4.4.20), and its names drop. A registration of `is: base` stays.
+
+The fields of one unit come from the default row, and over it the document's row
+if there is one, else the project's, so a project's `name` for `PSU` changes the
+name, and the default row's `is` still applies.
 
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
 when the hooks are installed.
@@ -2682,7 +3057,34 @@ when the hooks are installed.
 `_weft.yml` exists, either one in a document's front matter is an error,
 found from the source (5.8 rule 8) and when the knit is initialised. A single
 document with no `_weft.yml` may set them in its front matter. `WEFT_DRAFT=1`
-is unchanged (9.4.1).
+is unchanged (9.4.1). `decisions` is a project setting too: in a document's
+front matter, where a `_weft.yml` exists, it is a `weft_config_error` when the
+knit is initialised ("`decisions` is a project setting: set it in _weft.yml, not
+in a document's `weft:` front matter (rule 9.1.4)."). A single document with no
+`_weft.yml` may set it.
+
+**9.1.8** `decisions` is where `decision:` pointers resolve (4.5.3), as one string
+of four forms:
+
+| Written | Route |
+|---|---|
+| `github` (the default) | GitHub issues of the repository named by `git remote get-url origin` |
+| `github:<owner>/<repo>` | GitHub issues of that repository |
+| a string that holds `{id}` (`decisions/{id}-*.md`) | a file glob, relative to the project root |
+| `pkg::fun`, or a bare R name | a function of the pointer |
+
+```yaml
+decisions: github:example-org/example-repo
+```
+
+Any other value, or a value that is not one string, is a `weft_config_error`
+when the configuration is read: "The setting `decisions` must be `github`,
+`github:<owner>/<repo>`, a file pattern holding `{id}` (as decisions/{id}-*.md),
+or a function written pkg::fun; got `<value>` (rule 9.1.8)." A value that is the
+name of the route in another letter case (`GitHub`) is that error too, and it
+offers `github`, so a typo is not read as a function. A function that cannot be
+found is a `weft_config_error`: "Cannot find the decisions function `<fun>` (rule
+9.1.8)."
 
 ### 9.2 Activation
 
@@ -2732,7 +3134,8 @@ activating one.
 ### 9.3 Installers
 
 **9.3.1** Every file the package places exists because a `use_*()` function
-was called. Each says what it will write.
+was called, or because `dict_vale()` was, which writes a Vale rule file. Each
+says what it will write before it writes it.
 
 | Function | Writes |
 |---|---|
@@ -2741,7 +3144,8 @@ was called. Each says what it will write.
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
 | `use_hooks()` | the `commit-msg` shim, with the paths of R and Pandoc (6.1.5) |
 | `use_ci()` | the CI workflow (8.4.1) |
-| `use_dictionary()` | a dictionary skeleton and its schema |
+| `use_dictionary()` | `dict.yml` when absent (a starter that reads as no keys, with two examples commented out) and `_weft/dict.schema.json` |
+| `dict_vale()` | one Vale rule file, `styles/Weft/Terms.yml` unless `path` says otherwise (4.7.2) |
 | `use_agent_docs()` | agent-facing conventions and the Claude skill |
 
 **9.3.2** The hooks alone write nothing. The condition log, the ledger, the
@@ -2749,14 +3153,43 @@ freeze stamps (2.9.2) and the failure files are written only in a project
 that has been set up with `use_weft()`.
 
 **9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
-the CI workflow template, the dictionary schema, the default claim-word
-lexicon and severity list, and the Claude skill. The skill says:
+the CI workflow template, the dictionary schema and the starter dictionary, the
+table of default units (4.4.21), the default claim-word lexicon and severity
+list, and the Claude skill. The skill says:
 
 - a failed claim is a finding to report to the author, not an error to clear
 - do not change or remove a check to make a render pass unless asked
 - when a commit removes constructs on purpose, add the `Weft-Removed` trailer
   with the count the hook gives
 - the `dict_local` rules (§4.3)
+
+**9.3.4** `use_dictionary(path = ".")` writes under the project root: the folder
+holding `_weft.yml`, else `_quarto.yml`, found from `path` upwards, else `path`.
+When that differs from `path` it says so. `path` that is not one existing
+folder is a `weft_tool_error`. It considers two files. `dict.yml` is written
+only when absent, and an existing one is never changed. `_weft/dict.schema.json`
+is written when absent or when it differs from the schema that ships with this
+version, which is weft's own file. It says what it will write, and for each file
+whether it is new, left as it is, or replaced, then writes, then names what it
+wrote. When nothing is to be written it says only that nothing changes. It never
+asks, interactive or not: the call is the consent (P10). It returns, invisibly,
+the paths written, relative to the root. A file that is a link, a folder in the
+file's place, and a write that fails are each a `weft_tool_error` naming the
+path, raised before anything is written where that can be known, and a file is
+never reported as written that was not. When `dict.yml` exists and its own
+schema line is missing, or points somewhere else, the call prints the line to
+use: `# yaml-language-server: $schema=_weft/dict.schema.json`.
+
+The starter reads as a dictionary with no keys; its two commented examples, a
+quantity with a `display` and a `decision` and a string with an `avoid`, read as a
+dictionary of two keys when uncommented. The schema is JSON Schema draft-07, for
+an editor's YAML support; the `dict.yml` line `# yaml-language-server:
+$schema=_weft/dict.schema.json` points at it. It accepts every dictionary that
+`read_dict()` reads, except two: text written as a bare `true` or `false`
+(`definition: true`, which an editor reads as a boolean), and a key with a
+letter outside A to Z (`café`, which R reads in a UTF-8 locale and not in
+others). `read_dict()` refuses more than a schema can say, so a file the schema
+accepts may still be refused.
 
 ### 9.4 Draft mode
 
@@ -2786,8 +3219,27 @@ on one lint: a result of none reproduced, or of nearly everything flagged,
 sends the lint back to design. It does not rank layers and does not remove
 one.
 
-**9.5.2** `dict_seed()` harvests candidate dictionary keys by finding
-constants defined in more than one chapter.
+**9.5.2** `dict_seed(paths = NULL, min_files = 2)` harvests candidate dictionary
+keys by finding constants defined in more than one chapter. It parses and never
+runs code, and writes nothing. With `paths = NULL` it reads every `.qmd`,
+`.Rmd` and `.rmd` under the project root, outside folders whose name starts with
+`_` or `.` or is `renv`; given files, it reads those (`.R` files too, which are
+read only when named). A `.qmd` or `.Rmd` is read as its R chunks, except those
+with `eval = FALSE` (or `#| eval: false`) written literally. A constant is a
+top-level assignment (`<-`, `=` or `->`, not `<<-` or `assign()`) of a symbol to a
+number, a string, a minus or plus on a number, or `c()` of numbers or of strings;
+anything inside `{`, `if`, `function` or `local()` does not count. A piece that
+does not parse is skipped and listed, and a chunk that holds a nested code fence
+is listed the same way; the other chunks are read. It returns a data frame of
+the names assigned a literal in at least `min_files` files, one row each, with
+the columns `name`, `value` (the text, or `NA` when the values differ), `differs`,
+`n`, `files` and `where` (each assignment as `<file>:<line>: <value>`), sorted by
+`n`, largest first, then `name`; the attribute `skipped` lists the pieces left
+out, with `file`, `line` and `message`. A constant written by a computation, or
+inside a function or a block, is not seen; a name reused for unrelated things in
+two documents is listed, and the author decides. A missing file or another
+extension is a `weft_tool_error`, and so is a `min_files` that is not a whole
+number from 1.
 
 **9.5.3** `status()` reports which parts are installed, which are switched
 off, and what the next step is.
@@ -2932,7 +3384,8 @@ tiers are defined in 5.1.2.
 changes only the R session: it installs the hooks. Attaching the package or
 loading the namespace changes nothing. Every file the package places, and
 every file it writes during a render, exists because a `use_*()` function was
-called.
+called. `dict_vale()` is the one other function that writes a file, and it is
+a call that says first what it will write.
 
 **P11 — Every construct is markdown the toolchain already accepts.** The
 visual editor must be able to round-trip it, and inline R that already exists
@@ -3546,10 +3999,43 @@ for it. weft never guesses a name for a unit it does not know (4.4.19).
 per second squared" for anything else.
 
 **4.4.20** A unit that `units` reads as another prints a true number with a
-wrong unit, which weft cannot detect afterwards; the refusal is the only
-place to stop it. Saying what was read and what to write turns the error into a
-one-line fix. The lists are of units found to misread, and are pruned or grown
-as more are found.
+wrong unit, which weft cannot detect afterwards. Reinstalling the symbol does
+not cure it: after `Sv` is removed and defined again the gray holds `Sv`, and
+after the same for `Bq` the hertz holds `Bq`, because the `units` package stores
+the symbol udunits maps to the parsed unit, which its maintainers say is
+udunits's design. Keeping the token the author wrote, and changing nothing in
+the database, is the only fix that leaves the other packages' readings alone. A
+misreading that is a valid prefix parse (`pH` as a picohenry, `mph` as a
+milliphot) cannot be told from the unit meant, and weft has no list of the
+units a report uses, so it knows a list of the ones found, and redefines the six
+that a report means in the default table. The phot and the are are never meant
+with a prefix, so the two traps are general. `mt` is refused rather than
+defined, because the author means a tonne and SI a millitonne, a factor of a
+million. Under `si` nothing is refused: the setting asks for what `units` reads,
+and refusing SI's own units under it would invert the setting. A prefix on a
+unit of weft's own (`kmph` is 1609 km/h) is never what was meant. The lists are of
+units found to misread, and are pruned or grown as more are found.
+
+**4.4.21** weft's defaults are the units a water or air report writes, so that
+`u(3, NTU)` and `u(7.2, pH)` work with no dictionary and print as the report
+does. The table is data, in a file a project can read and copy from, and not
+code. Loading weft must not change what a picohenry is for any other package,
+so the table is registered when weft first reads a unit, and each read brings
+the database to what that read wants: a book or a test run knits in mixed modes.
+The mode is named for what the author gets instead (`si` is what `units` reads),
+and a name changes no meaning, so the names apply in both; a name for `pH` would
+call a picohenry "pH", so the redefining rows do not. A twin conversion is
+refused because a sievert is not a gray. `is:` may not redefine a unit of the
+database because `m: {is: ft}` would rewrite every unit derived from it for the
+session. A prefix on a default unit with `is:` is refused because `kNTU` was never a
+unit anyone wrote on purpose. The merge is per field so that adding `space:` to
+the default `pH` row does not restate `is:`. What someone else installed is not
+weft's to remove.
+
+**4.4.22** "7.2 pH" is wrong in every style guide, and "pH 7.2" is the form a
+report uses. The unit goes once before the first item of a collapse, as the unit
+goes once after the last item in 4.4.3: "pH 6.5–8.5". In a compound the pH is
+not the token alone, so the unit follows ("0.2 pH/h").
 
 **4.4.19** An error that waited for a number that prints a word would arrive
 months after the document was written, on the day the count fell below the
@@ -3575,6 +4061,27 @@ lacked it. The cost falls on Linux, where udunits-2 is one system package.
 pointer goes through a resolver and is tied to no one tracker. The default
 resolver needs the network, which a commit hook must not (P6).
 
+**4.5.3** GitHub numbers issues and pull requests together, and a decision may be
+recorded in a pull request. A glob is what is written and nothing more, so a
+pattern that wants a boundary writes one. The `curl` package gives the status
+code and headers exactly; base R's `url()` reports a status only inside the text
+of a message, which differs between R versions, and the `gh` command needs
+installing and signing in. The remote is used only inside the project because a
+project folder inside another repository would otherwise resolve against that
+repository's issues. The project root is not part of the pattern, because a
+folder named `Survey [2024]` is ordinary. A string pointer under the GitHub
+route does not resolve, with its reason, instead of stopping a read for a check
+that belongs to `verify()`.
+
+**4.5.4** "Unresolved" must mean that the record is missing. An offline machine,
+a private repository without a token and a rate limit all make GitHub answer
+something other than "here it is", and GitHub answers 404 for an issue in a
+private repository it will not show, so the repository is asked about first:
+without that, a missing token would read as an unresolved decision. After a
+refusal every further call would fail the same way, so the check stops. A
+cache would be a generated file (P8), or in a session would hide a deleted
+issue; one call per pointer is within GitHub's limit.
+
 **4.6** A stipulation matters most where it is computed with, so the pipeline
 reads the same object with the same spelling. `targets` cannot see `dict$key`
 as a dependency on one key, so the walker sets it. `tar_outdated()`
@@ -3584,6 +4091,41 @@ report.
 
 **4.7** Three things the dictionary removes rather than checks: the glossary,
 the unit, and terminology rules.
+
+**4.7.1** The glossary is a string a chunk prints, not a file: it writes
+nothing (P10), and there is no `results: asis` to forget. It is headed by the
+`term` and not by a key, because a key is an R symbol and a prettified key is
+guessed text. The value is the stipulation, so it prints as written, with the
+house style and the unit names, and with the decimals the author wrote: default
+digits would print 0.01 as "0.0". It ends with a blank line because a paragraph
+below the chunk would otherwise be read as part of the last definition. `labels`
+and `breaks` show no value because no one reading of a map or of bands as one
+phrase is obvious. Outside a knit it reads `_weft.yml` so that the preview at
+the console is the glossary the document prints.
+
+**4.7.2** `dict_vale()` replaces only a file it wrote, so that it never destroys
+a rule an author wrote, and removes it when no spelling remains so that no stale
+rule is left. It leaves `.vale.ini` to the author and says what it needs: a
+user's Vale configuration holds other styles, and is not weft's file. It
+removes only the project's own rule, because a `dict_local` or another
+dictionary says nothing about the project's.
+
+**4.7.3, 4.7.4** One field serves the glossary heading and the Vale rule, any
+type can carry a term, and there is no second file to keep in step; a term that
+is only a spelling is a `string` entry. The checks are made when the dictionary
+is read, because a spelling inside a canonical spelling makes Vale flag the
+right word in every document. A spelling that Vale's word boundary cannot match
+would never fire, and nothing would say so. A term that holds a line break or
+starts with a block marker would break its glossary entry or become a heading.
+The rule is case-sensitive because a case-insensitive one would match the
+canonical spelling against a variant that differs only in case. The schema is
+copied into the project and replaced when it differs, so that it works offline
+and per project, and `_weft/` is where weft's files go. It is never stricter than
+`read_dict()`, so that a correct file is not marked wrong; what YAML 1.2 cannot
+see stays with the reader. Text that an editor reads as YAML 1.2 differs from
+the reader's on a bare `true` where text is meant, which is nearly always a
+slip, and a key with a letter outside A to Z breaks on a machine whose locale
+is not UTF-8.
 
 ### Lints
 
@@ -3833,6 +4375,25 @@ single end-of-book report, which separate renders of each file would not. The
 backup is restored first because an interrupted run leaves the freezer empty.
 
 **8.3.3** rmarkdown has no freezer, and each `.Rmd` renders on its own.
+
+**9.1.8** One setting with four forms that do not overlap is one line in
+`_weft.yml`. It is a project setting because the resolver serves `dict.yml`, a
+project file.
+
+**9.3.1, 9.3.4** `dict_vale()` writes a file, and P10 asks that nothing be
+written without an explicit call that says first what it writes: the call is the
+consent, so it is named beside the `use_*()` functions. `use_dictionary()` never
+asks because a prompt in a non-interactive run is a hang, and it says what it
+will write first. It leaves an authored `dict.yml` alone and prints the line to
+add, because an authored file is not edited. The starter reads as no keys so
+that a knit works at once, and shows the fields that are hardest to guess. A
+write through a link could change a file outside the project, which the call did
+not announce.
+
+**9.5.2** A constant written by two documents with two values is the finding that
+matters, so it is listed with every assignment. `.R` files are read only when
+named, because a project's scripts are many and are not chapters. An `eval =
+FALSE` chunk is example code, and not a definition.
 
 **9.3.3** (the skill) Agents edit checks to get past them. In ImpossibleBench,
 Claude models cheated mostly by editing tests, and letting an agent flag a
@@ -4572,6 +5133,65 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   between quotients allowed, by `unit=` and `display:`; each unit `u()` and
   `read_dict()` refuse, alone and in a compound, with the message; each `units:`
   key problem; the table kept outside a knit cleared by a failed read.
+- **Default units.** Every example of 4.4.20 to 4.4.22 in each mode: the token
+  kept as written, by `units::deparse_unit()`, through `u()`, `read_dict()`,
+  `display:` and `unit=`; the twin conversions refused and the conversions
+  within a member and to the SI definition allowed; `unit_defaults()` (its
+  columns, its rows, `redefines` true for exactly the six, `file`, registering
+  nothing); each redefining row, `ppm` and `ppb`, `NTU`, `PSU`, `CFU`, `MPN`
+  and the two `/100 mL` rows; mode `weft`, `si` and `weft` again in one session,
+  each knit right and outside a knit after each, a failed read returning to
+  `weft`, a second read and a second `u()` changing nothing; a project row over
+  a default, per field, a document's over a project's, `false`, a project's
+  `is` in each of its forms, in file order and by a forward reference; each
+  new `units:` problem in one error with the others; each refusal in `u()`,
+  `unit=` and `read_dict()`, alone and in a compound, with its message; a unit
+  installed by someone else, accepted and refused. A unit written before the
+  number in each collapse class, `trunc`, `.pairs`, the list classes, `#` in
+  `n`, `sign` and `list` spans, `.nounit`, `.strong`, `.cap`, `space: false` and
+  a compound, and the attribute `unit_before` through a chain. Three tests need a
+  fresh R session: loading weft leaves `pH` a picohenry until the first unit is
+  read, a `pH` installed before weft's first use is accepted, and an `mph`
+  installed as another unit is the `weft_unit_error`.
+- **Dictionary tooling.** `term` and `avoid` read and trimmed, the `entries`
+  columns, every problem of 4.7.3 and 4.7.4 one dictionary each and two in one
+  file, `avoid` in `dict_local`. `use_dictionary()`: an empty folder, a second
+  run, an existing `dict.yml` with and without a schema line and with another,
+  an altered schema, a subfolder of a project, a bad `path`, a link in place of
+  either file, a folder in place of `dict.yml`, a folder that cannot be written
+  to (no "Wrote:" and a `weft_tool_error`), silence under `suppressMessages()`,
+  the starter read as no keys and, uncommented, as two. The schema: valid
+  draft-07 JSON, checked by a test helper that interprets only the keywords the
+  schema uses and fails on any other; the dictionaries that both it and
+  `read_dict()` accept, those both refuse, those only `read_dict()` refuses, the
+  two exceptions of 9.3.4, and an empty or null optional field, a one-item list
+  where text is wanted and a definition of only a no-break space. The glossary
+  exactly, with `values` and `sort` off, an empty dictionary, a `dict_local`, a
+  project with and without `dict.yml`, the `_weft.yml` in force outside a knit,
+  a value written `0.50`, a `display` conversion, a term and a definition with a
+  blank line, a paragraph below the chunk, and a render under rmarkdown.
+  `dict_vale()`: the rule exactly, the messages, a second run, `.vale.ini` with
+  the style listed, with `Weft-old`, and absent, an authored file at `path`, a
+  dictionary with no `avoid` and the file present, removed only for the
+  project's own dictionary, a `dict_local`, a bad `level` and `path`, a link, a
+  folder, escaping, and the order. `dict_seed()` over a fixture project:
+  the rows exactly, `skipped`, `paths`, `min_files`, a nested code fence, a
+  chunk header that holds `eval=FALSE` in a caption, that nothing is evaluated,
+  and each error.
+- **Decision pointers.** The setting in each form and each wrong one, including
+  `GitHub`, in `_weft.yml` and in front matter. With a recording `fetch` and no
+  network: no pointers and no call, every status of 4.5.4 and its detail, the
+  token reaching `fetch` and appearing in no detail, `GITHUB_PAT` over
+  `GITHUB_TOKEN`, no call after a refusal, a `fetch` that throws or returns
+  something malformed, a 410, `#12`, `012`, `0x1F` and a pointer of 11 digits,
+  `resolved` `NA` exactly when the detail starts `could not check: `. The
+  remote of a temporary repository in each form `parse_github_remote()` takes,
+  one outside the project, none, and another host; `github_fetch()` with
+  `curl` absent. The glob with `{id}-*.md` and `{id}*.md`, a folder that does not
+  count, a pointer that holds `..`, `~` or a pattern character, a root whose
+  path holds `[`, and a link to nowhere. The function route with `TRUE`,
+  `FALSE`, `NA`, a failure, another value, `pkg::fun`, a bare name that is
+  found only in the global environment, and a function that cannot be found.
 - **Condition matching.** The spike's recorded messages, each under two
   console widths, with and without `cli` Unicode.
 

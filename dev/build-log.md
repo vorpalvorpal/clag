@@ -31,8 +31,11 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 2a, the dictionary object | Built, reviewed, fixed and committed (1065cb0, b0347d9) |
 | Stage 2b, printing quantities | Built, reviewed, fixed and committed (ab902cd, 803c91a). `#` carries the unit and the `unit` key, by Robin's ruling of 12 November 2026 (1eaaeff) |
 | Stage 2f, unit names and unit settings (`dev/design-2f.md`) | Designed, built, reviewed (`dev/review-2f.md`), fixed and committed (5f2aec1, 898221a). Not in the original §22 order; added on Robin's approval. `PACKAGE-SCOPING.md` amended for it and for the rulings after its review |
-| Stages 2c, 2d, 2e | Not started |
-| Suite | 1,354 tests passing at 898221a |
+| Stage 2c, dictionary tooling (`dev/design-2c.md`) | Designed, built (c440a72), reviewed (`dev/review-2c.md`, rulings f03b1d0, in `dev/design-2c.md`). Fix round in progress: regression tests moved into the suite (0ce4cb6), the fixes not yet committed |
+| Stage 2g, weft's default units (`dev/design-2g.md`) | Added on Robin's instruction of 12 November 2026. Designed, built (827e80f). Not yet reviewed |
+| `PACKAGE-SCOPING.md` for 2c and 2g | Amended to state both as built, with the rulings so far (2c's review, 2g's test-writer and implementer reports) |
+| Stages 2d, 2e | Not started |
+| Suite | 1,776 tests passing at 827e80f |
 | Stages 0, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
 
@@ -44,11 +47,12 @@ Newest state first. Read this before anything else after a context reset.
 
 ## Next
 
-1. Stage 2, the rest (2c tooling, 2d ledger and condition log, 2e pipeline and
+1. Finish the fix round for 2c, then review 2g (`dev/design-2g.md`).
+2. Stage 2, the rest (2d ledger and condition log, 2e pipeline and
    `changes()`): the same cycle as stage 1 (contract in `dev/design-2.md`,
    tests from it, a different implementer, an independent review, regression
-   tests, a fixer). 2a, 2b and 2f are done.
-2. The items in `dev/decisions.md` under "For Robin" and
+   tests, a fixer). 2a, 2b and 2f are done; 2c and 2g are built.
+3. The items in `dev/decisions.md` under "For Robin" and
    `dev/open-findings.md`.
-3. `.Rprofile` activation and `use_setup()`, once the hooks have been run
+4. `.Rprofile` activation and `use_setup()`, once the hooks have been run
    under the Render buttons.
