@@ -214,3 +214,8 @@ So a later review does not raise them again without a new argument.
 - **`.a` with a spelled quantity** prints "an eighteen metres".
 - **A pH difference prints as a pH** ("pH 0.5"), which reads as an
   absolute value.
+
+## From the review of 2d
+
+- **Two renders of one output at once** have not been run by a test or
+  a reviewer; D25 rests on the rename being atomic.

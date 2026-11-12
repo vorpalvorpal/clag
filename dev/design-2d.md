@@ -594,3 +594,59 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
 - **D28**: `written` names the paths when the bytes were unchanged and
   the write was skipped. Accepted.
 - Whole suite after the build: 2,197 tests, none failing, none skipped.
+
+## Rulings on the review of 2d (`dev/review-2d.md`)
+
+Findings 1 to 11 are accepted as the reviewer states them, with these
+particulars:
+
+- **1.** A render started inside a chunk is its own top-level knit: it
+  writes its own files, and when it ends the outer knit's state is as
+  it was, so the outer ledger and condition log are complete.
+- **2.** The source is the file that was knitted. An `.Rmd` is mapped
+  to a `.qmd` only when Quarto is running the knit.
+- **3.** Nothing is written through a symbolic link: when `_weft`,
+  `_weft/ledger`, the source's folder under it, or either file is a
+  link, neither file is written and one `weft_ledger_warning` names
+  the link (as 2c's tools refuse).
+- **4, 5.** Accepted. A condition-log line on disk without a usable
+  `text` is skipped, as other unreadable lines are (D18).
+- **6.** `raw` for an `integer64` is its value when a double holds it
+  exactly, else `null`.
+- **7.** Under Quarto with no `output-file`, the warning is raised
+  unless the format is one Quarto gives no `output-file` for (`gfm`,
+  `typst`); for those the source's name is used quietly.
+- **8, 9.** A heading inside an HTML comment, or an ATX heading with no
+  blank line before it, is not a heading. An explicit `{#id}` is kept
+  as written, repeated or not.
+- **10.** One `weft_ledger_warning` with the reason; no other warning
+  escapes.
+- **11.** Under `rmarkdown::render()` the source is the file the author
+  named, read from the same frame D2 reads, not rmarkdown's copy.
+
+Questions:
+
+- **A.** Before the identifier rule, link and image targets, footnote
+  references, raw HTML tags and emphasis markers are dropped from the
+  heading's text.
+- **B.** A `.` followed by white space and a lower-case letter or a
+  digit does not end a sentence, nor does one after `e.g`, `i.e`, `cf`,
+  `al`, `Mr`, `Mrs`, `Ms`, `Dr`, `Fig`, `approx`, `vs`.
+- **C.** In `sentence`, a failure marker is written without its line
+  number (`<<weft: failed claim>>`).
+- **D.** U+0085, U+061C, U+202A to U+202E and U+2066 to U+2069 join the
+  characters written as escapes (D3).
+- **E.** When the condition log is not tracked by git (ignored, or no
+  commit holds it), the comparison is with the last render, and the
+  message says so.
+- **F.** In a session whose locale is not UTF-8 nothing is written and
+  one `weft_ledger_warning` names the locale.
+- **G.** `WEFT_OUTPUT` loses its extension and any folder, as the other
+  sources of the name do.
+- **H.** An output name ending `.conditions` is refused: nothing is
+  written and one `weft_ledger_warning` says why.
+- **I.** A footnote's definition marker is not part of its sentence.
+- **J.** D22 is corrected: stage 1 refuses a caption construct in a
+  cached chunk, so only `weft_str()` rows are stored and replayed.
+- Two renders of one output at the same moment were not run by the
+  reviewer either; filed in `dev/open-findings.md`.
