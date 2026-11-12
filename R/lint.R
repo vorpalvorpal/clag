@@ -127,7 +127,7 @@ finish_findings <- function(x, notes, n_files) {
   if (nrow(x)) {
     x <- as.data.frame(unclass(x), stringsAsFactors = FALSE)
     x <- x[!duplicated(x[, c("file", "line", "col", "rule", "text", "message")]), , drop = FALSE]
-    x <- x[order(x$file, x$line, x$col, x$rule, method = "radix"), , drop = FALSE]
+    x <- x[order(enc2utf8(x$file), x$line, x$col, x$rule, method = "radix"), , drop = FALSE]
     rownames(x) <- NULL
     x <- structure(x, class = c("weft_findings", "data.frame"))
   }

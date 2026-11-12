@@ -40,7 +40,8 @@ test_that("4a G20: the removal report, header, listing and advice", {
   expect_true("message, after a blank line:" %in% tr)
   expect_true("Weft-Removed: 3" %in% tr)
   expect_true("or commit with: git commit --trailer \"Weft-Removed: 3\"" %in% tr)
-  expect_match(rep[[length(rep)]], "^commit-msg: [0-9]+\\.[0-9] s$")
+  raw <- attr(res, "report")
+  expect_match(raw[[length(raw)]], "^commit-msg: [0-9]+\\.[0-9] s$")
 })
 
 test_that("4a G13: the right count passes", {
