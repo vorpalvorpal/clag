@@ -374,17 +374,21 @@ these readings:
 
 Design questions:
 
-1. G12 is changed: the removal count is per kind. N is the sum, over
-   projects and over the kinds `value`, `span` and `claim`, of the
-   positive part of removed less added. A deleted `claim()` no longer
-   hides behind an added value.
+1. G12 is changed: claims are counted apart. N is the sum over
+   projects of the positive part of claims removed less claims added,
+   plus the positive part of values and spans removed less values and
+   spans added. A deleted `claim()` no longer hides behind an added
+   value; a value turned into a span still removes nothing.
 2. H8 (amend) stands: the hook cannot tell an amend from a commit, and
    the reading fixed for 4b judges against the amended HEAD. Recorded
    in `dev/open-findings.md`.
-3. G25 step 1 is changed: a backup left by a killed run is restored
-   for a stem only when `_freeze` holds nothing for that stem newer
-   than the backup's manifest. Otherwise the current entry is kept,
-   that stem's backup is discarded, and a note says so.
+3. G25 step 1 is changed: the manifest records the run id of the
+   run that took the backup. A backup left by a killed run is restored
+   for a stem unless the document's stamp carries another run id, that
+   is, a later complete render made the current entry; then the entry
+   is kept, that stem's backup is discarded, and a note says so. File
+   times cannot decide it, because the killed run's own half-written
+   files are newer than its manifest.
 4. The files `use_quarto()` installs carry no marker and are replaced
    when they differ. Left as built (stage 1); recorded in
    `dev/open-findings.md`.
