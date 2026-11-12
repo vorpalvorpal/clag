@@ -1,0 +1,31 @@
+#!/bin/sh
+# weft-file: use_hooks @VERSION@ @HASH@
+# The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().
+# Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit
+# with: git commit --no-verify
+weft_rscript='@RSCRIPT@'
+weft_libs='@LIBS@'
+if [ ! -f "$weft_rscript" ]; then
+  weft_found=$(command -v Rscript 2>/dev/null)
+  if [ -z "$weft_found" ]; then
+    echo "commit-msg: weft cannot find R: $weft_rscript is gone and Rscript is not on the PATH." >&2
+    echo "  Run weft::use_hooks() again, or skip the check once with git commit --no-verify." >&2
+    exit 1
+  fi
+  weft_rscript=$weft_found
+fi
+R_LIBS=$weft_libs
+export R_LIBS
+exec "$weft_rscript" --no-init-file -e '
+if (!requireNamespace("weft", quietly = TRUE)) {
+  message("commit-msg: weft is not installed for the R at ", R.home(), ".")
+  message("  Run weft::use_hooks() again, or skip the check once with git commit --no-verify.")
+  quit(save = "no", status = 1L)
+}
+st <- tryCatch(if (isTRUE(weft::gate(commandArgs(TRUE)[1L])$ok)) 0L else 1L,
+  error = function(e) {
+    message("commit-msg: weft stopped with an error: ", conditionMessage(e))
+    message("  Skip the check once with git commit --no-verify, and report the error.")
+    1L
+  })
+quit(save = "no", status = st)' "$1"

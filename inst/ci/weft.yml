@@ -1,0 +1,30 @@
+# weft-file: use_ci @VERSION@ @HASH@
+# Written by weft::use_ci() (rule 8.4.1): weft::verify(static = TRUE) on each pull request.
+name: weft
+on:
+  pull_request:
+permissions:
+  contents: read
+  issues: read
+  pull-requests: read
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          use-public-rspm: true
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          packages: github::vorpalvorpal/clag
+      - name: weft static checks
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          since=$(git merge-base "$BASE_SHA" HEAD)
+          Rscript --no-init-file -e "weft::verify(static = TRUE, since = '$since', path = '@PATH@')"
