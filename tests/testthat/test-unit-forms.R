@@ -101,19 +101,20 @@ test_that("2f table: a ratio has no unit, so .word prints the number and .uname 
   f2_msg_has(e, ".uname", "no unit left")
 })
 
-test_that("2f table: PSU under .num prints the symbol; under .word and .count it is a value error naming PSU (4.4.19)", {
+test_that("2f table: a unit with no name (a made-up token, once PSU) under .num prints the symbol; under .word and .count it is a value error naming it (4.4.19)", {
   f2_register()
-  expect_equal(f2_ws("`r u(3, PSU)`{.num}"), f2("3~PSU"))
-  for (s in c("`r u(3, PSU)`{.word}", "`r u(12, PSU)`{.count}")) {
-    e <- f2_err(s)
+  yml <- c("units:", "  zzpsu:", "    is: base")
+  expect_equal(f2_ws("`r u(3, zzpsu)`{.num}", yml), f2("3~zzpsu"))
+  for (s in c("`r u(3, zzpsu)`{.word}", "`r u(12, zzpsu)`{.count}")) {
+    e <- f2_err(s, yml)
     f2_has_class(e, "weft_value_error")
-    f2_msg_has(e, "PSU")
+    f2_msg_has(e, "zzpsu")
   }
 })
 
 test_that("2f table: CFU/100 mL prints units' symbol under .num and has no name (4.4.19)", {
   f2_register()
-  expect_equal(f2_ws("`r u(150, \"CFU/100 mL\")`{.num}"), f2("150~CFU/(100mL)"))
+  expect_equal(f2_ws("`r u(150, \"CFU/100 mL\")`{.num}"), f2("150~CFU/100 mL"))
   f2_has_class(f2_err("`r u(150, \"CFU/100 mL\")`{.uname}"), "weft_value_error")
 })
 

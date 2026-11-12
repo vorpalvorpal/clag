@@ -119,11 +119,13 @@ test_that("2f database: a unit typed as a name prints its symbol; one typed as a
 })
 
 test_that("2f database: an unknown token has no name and prints itself as a symbol (4.4.16, 4.4.19)", {
-  f2_register()
-  expect_equal(sy(u(3, PSU)), "PSU")
-  e <- f2_cond(nm(u(3, PSU)))
+  withr::local_envvar(WEFT_DRAFT = NA)
+  withr::defer(weft:::read_config(f2_proj()))
+  weft:::read_config(f2_proj(c("units:", "  zzpsu:", "    is: base")))
+  expect_equal(sy(u(3, zzpsu)), "zzpsu")
+  e <- f2_cond(nm(u(3, zzpsu)))
   f2_has_class(e, "weft_value_error")
-  f2_msg_has(e, "PSU")
+  f2_msg_has(e, "zzpsu")
 })
 
 # ---- the same-unit rule (4.4.16) -------------------------------------------------------------------
@@ -233,12 +235,13 @@ test_that("2f compounds: a factor key gives its name to the compound (4.4.18, 4.
 
 test_that("2f no name: a unit with an unknown factor and no units: entry (4.4.19)", {
   f2_register()
-  e <- f2_err("`r u(3, PSU)`{.uname}")
+  yml <- c("units:", "  zzpsu:", "    is: base")
+  e <- f2_err("`r u(3, zzpsu)`{.uname}", yml)
   f2_has_class(e, "weft_value_error")
-  f2_msg_has(e, "PSU", "units:", "_weft.yml", ".usym", ".nounit")
-  e2 <- f2_err("`r u(3, PSU/d)`{.uname}")
+  f2_msg_has(e, "zzpsu", "units:", "_weft.yml", ".usym", ".nounit")
+  e2 <- f2_err("`r u(3, zzpsu/d)`{.uname}", yml)
   f2_has_class(e2, "weft_value_error")
-  f2_msg_has(e2, "PSU")
+  f2_msg_has(e2, "zzpsu")
 })
 
 test_that("2f no name: a unit that holds a number (4.4.19)", {
@@ -259,30 +262,32 @@ test_that("2f no name: a power that is not 1, 2 or 3 (4.4.19)", {
 
 test_that("2f no name: the message carries a YAML example keyed by the unit (4.4.19)", {
   f2_register()
-  e <- f2_err("`r u(3, PSU)`{.uname}")
-  f2_msg_has(e, "PSU:")
+  yml <- c("units:", "  zzpsu:", "    is: base")
+  e <- f2_err("`r u(3, zzpsu)`{.uname}", yml)
+  f2_msg_has(e, "zzpsu:")
   f2_msg_has(e, "name:")
 })
 
 test_that("2f no name: control, a unit with a name in the units: table does not error (4.4.19)", {
   f2_register()
-  yml <- c("units:", "  PSU:", "    name: practical salinity unit")
-  expect_equal(f2_ws("`r u(3, PSU)`{.uname}", yml), f2("3~practical salinity units"))
-  expect_equal(f2_ws("`r u(1, PSU)`{.uname}", yml), f2("1~practical salinity unit"))
+  yml <- c("units:", "  PSU:", "    name: salinity unit")
+  expect_equal(f2_ws("`r u(3, PSU)`{.uname}", yml), f2("3~salinity units"))
+  expect_equal(f2_ws("`r u(1, PSU)`{.uname}", yml), f2("1~salinity unit"))
 })
 
 test_that("2f no name: the error is judged on the classes, not the data (U3, 4.4.19)", {
   f2_register()
+  yml <- c("units:", "  zzpsu:", "    is: base")
   # a wording class on a quantity a name may print: the error comes for 3 and for 12 alike
-  for (src in c("`r u(3, PSU)`{.word}", "`r u(12, PSU)`{.word}", "`r u(12, PSU)`{.count}",
-                "`r u(3, PSU)`{.count}", "`r u(0, PSU)`{.no}")) {
-    e <- f2_err(src)
+  for (src in c("`r u(3, zzpsu)`{.word}", "`r u(12, zzpsu)`{.word}", "`r u(12, zzpsu)`{.count}",
+                "`r u(3, zzpsu)`{.count}", "`r u(0, zzpsu)`{.no}")) {
+    e <- f2_err(src, yml)
     f2_has_class(e, "weft_value_error")
-    f2_msg_has(e, "PSU")
+    f2_msg_has(e, "zzpsu")
   }
   # control: a digit class on the same unit under auto prints the symbol
-  expect_equal(f2_ws("`r u(3, PSU)`{.num}"), f2("3~PSU"))
-  expect_equal(f2_ws("`r u(12, PSU)`{.num}"), f2("12~PSU"))
+  expect_equal(f2_ws("`r u(3, zzpsu)`{.num}", yml), f2("3~zzpsu"))
+  expect_equal(f2_ws("`r u(12, zzpsu)`{.num}", yml), f2("12~zzpsu"))
 })
 
 test_that("2f no name: .count on 12 prints digits yet still needs a name (U3)", {
@@ -366,11 +371,13 @@ test_that("2f fmt_unit: neither a quantity nor a string is a value error; a stri
 })
 
 test_that("2f fmt_unit: a name that does not exist is the no-name value error (4.4.19)", {
-  f2_register()
-  e <- f2_cond(fmt_unit(u(3, PSU), unit_form = "name"))
+  withr::local_envvar(WEFT_DRAFT = NA)
+  withr::defer(weft:::read_config(f2_proj()))
+  weft:::read_config(f2_proj(c("units:", "  zzpsu:", "    is: base")))
+  e <- f2_cond(fmt_unit(u(3, zzpsu), unit_form = "name"))
   f2_has_class(e, "weft_value_error")
-  f2_msg_has(e, "PSU")
-  expect_equal(f2_tx(fmt_unit(u(3, PSU))), "PSU")      # control: the symbol needs no name
+  f2_msg_has(e, "zzpsu")
+  expect_equal(f2_tx(fmt_unit(u(3, zzpsu))), "zzpsu")      # control: the symbol needs no name
 })
 
 test_that("2f fmt_unit: it takes a unit from a units: entry, with its symbol and name (3.4.9, 9.1.7)", {

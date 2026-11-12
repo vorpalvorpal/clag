@@ -25,7 +25,7 @@ r2_two_rules <- function(msg) grepl("\\(rule [0-9.]+\\) \\(rule", msg)
 # ---- 1: a symbol and no name is no name, never "s" ---------------------------------------------
 
 test_that("review 2f #1: a database row with a symbol and an empty name has no name, so a name is a value error (4.4.19)", {
-  for (tok in c("ppm", "psi", "kt", "cmH2O", "rpm")) {
+  for (tok in c("psi", "kt", "cmH2O", "rpm")) {
     e <- f2_cond(f2_tx(fmt_word(r2_u(5, tok))))
     f2_has_class(e, "weft_value_error")
     f2_msg_has(e, tok)
@@ -238,22 +238,23 @@ test_that("review 2f #8: control - a unit typed as a name that has a symbol stil
 # ---- 9, e: a unit that units reads as another is refused ----------------------------------------------------
 
 test_that("review 2f #9/e: u() refuses a unit that units reads as a different unit, saying what it was read as (4.4.17, ruling 9/e)", {
-  for (tok in c("Sv", "Bq", "Mg", "Bd", "VA", "mt", "ut")) {
-    e <- f2_cond(r2_u(5, tok))
-    expect_false(is.null(e), label = paste(tok, "is refused"))
-    if (!is.null(e)) {
-      expect_true(inherits(e, "weft_unit_error"), label = paste(tok, "class"))
-      expect_true(grepl(tok, conditionMessage(e), fixed = TRUE), label = conditionMessage(e))
-    }
+  for (tok in c("Sv", "Bq", "Mg", "Bd", "VA", "ut")) {         # 2g: kept as written, not refused
+    x <- f2_cond(r2_u(5, tok))
+    expect_null(x, label = paste(tok, "is accepted"))
+    expect_equal(units::deparse_unit(r2_u(5, tok)), tok)
   }
-  e <- f2_cond(u(5, Sv))
-  if (!is.null(e)) expect_true(grepl("Gy", conditionMessage(e), fixed = TRUE), label = conditionMessage(e))
+  e <- f2_cond(r2_u(5, "mt"))                                    # 2g: mt is still refused (G18)
+  expect_false(is.null(e), label = "mt is refused")
+  if (!is.null(e)) {
+    expect_true(inherits(e, "weft_unit_error"), label = "mt class")
+    expect_true(grepl("mt", conditionMessage(e), fixed = TRUE), label = conditionMessage(e))
+    expect_true(grepl("millitonne", conditionMessage(e), fixed = TRUE), label = conditionMessage(e))
+  }
 })
 
 test_that("review 2f #9/e: read_dict() has a problem for such a unit (ruling 9/e)", {
-  e <- f2_cond(read_dict(f2_dict_file("dose: {value: 3, type: quantity, unit: Sv, definition: \"A dose.\"}")))
-  f2_has_class(e, "weft_dict_error")
-  f2_msg_has(e, "Sv")
+  d <- read_dict(f2_dict_file("dose: {value: 3, type: quantity, unit: Sv, definition: \"A dose.\"}"))
+  expect_equal(units::deparse_unit(d$dose), "Sv")                 # 2g: it reads and holds Sv
 })
 
 test_that("review 2f #9/e: control - the unit it was read as is itself fine (4.4.17)", {
@@ -333,9 +334,12 @@ test_that("review 2f #13: the no-name error for CFU/100 mL names the whole unit 
 
 test_that("review 2f #13: control - a unit whose only problem is one factor names that factor (4.4.19)", {
   f2_register()
-  e <- f2_cond(f2_tx(fmt_word(u(5, "CFU/L"))))
+  withr::local_envvar(WEFT_DRAFT = NA)
+  withr::defer(weft:::read_config(f2_proj()))
+  weft:::read_config(f2_proj(c("units:", "  zzcfu:", "    is: base")))        # 2g: CFU is named now; a made-up factor has no name
+  e <- f2_cond(f2_tx(fmt_word(u(5, "zzcfu/L"))))
   f2_has_class(e, "weft_value_error")
-  f2_msg_has(e, "CFU")
+  f2_msg_has(e, "zzcfu")
 })
 
 # ---- 14: the negative-power message --------------------------------------------------------------------------------
@@ -422,12 +426,17 @@ test_that("review 2f #a: control - .ord on a number is as before (1.4.2)", {
 
 test_that("review 2f #b: u() refuses the tokens units misreads, naming the token (ruling b)", {
   for (tok in c("mph", "pH", "nmi", "Ma", "ka", "gal")) {
+    expect_null(f2_cond(r2_u(5, tok)), label = paste(tok, "is accepted under weft (2g)"))
+    withr::local_envvar(WEFT_DRAFT = NA)
+    withr::defer(weft:::read_config(f2_proj()))
+    weft:::read_config(f2_proj(c("units:", paste0("  ", tok, ": false"))))     # with a false row it is refused
     e <- f2_cond(r2_u(5, tok))
     expect_false(is.null(e), label = paste(tok, "is refused"))
     if (!is.null(e)) {
       expect_true(inherits(e, "weft_unit_error"), label = paste(tok, "class"))
       expect_true(grepl(tok, conditionMessage(e), fixed = TRUE), label = conditionMessage(e))
     }
+    weft:::read_config(f2_proj())
   }
 })
 
