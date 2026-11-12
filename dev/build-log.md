@@ -102,6 +102,50 @@ Newest state first. Read this before anything else after a context reset.
   `dict_unmark()` would clear the second.
 - The fixes for the closing review were not themselves reviewed.
 
+## Stage 0: the lints against a real audit (13 Nov)
+
+The lints were run over the manuscript project as it stood before its
+audit (46 files, 5,508 sentences) and compared with the audit's 866
+findings, of which 419 carry a quote and 500 were raised from the
+sources. Scripts and outputs are in `dev/trials/stage0/` (git-ignored).
+Counts only:
+
+- Linting the whole copy took 83.5 s, with no error, warning or note.
+- `construct` and `block-start` flagged nothing, as they must in
+  sources with no weft constructs.
+- `recall_check()` located 175 of the 500 source findings.
+- `numeral` (tier 1): 2,340 flags, 23% of sentences; 38 findings
+  located, 22 reproduced. Of 60 sampled flags, 22 were hand-typed
+  results, 20 years or dates, 14 chapter or section numbers, 3
+  identifiers, 1 other.
+- `claim-word` (tier 2), list as designed: 66% of sentences; 16
+  located, 12 reproduced. Decision 66 trims the list: 42% of
+  sentences, 11 reproduced.
+- `value-format` 204 flags (30 located, 4 reproduced);
+  `value-constant` 405; `section-anchor` 142; `anchor-unused` 28;
+  `figure` 18; `chunk-label` 12; `table-caption` 5; `xref-code` 2. The
+  other rules flagged nothing.
+- All rules together reproduced 247 of the 419 quoted findings (59%)
+  with 75% of sentences flagged. Without `claim-word`: 145 (34.6%) at
+  29% of sentences, inside the 25 to 35% expected. With the trimmed
+  list: 220 (52.5%) at 58%.
+- Verdicts: no rule breaks a threshold of design-3 section 4.
+  `literal-value` and the citation rules "reproduce none" only because
+  the audit's categories were mapped to them too broadly (the
+  manuscript computes its inline values; its citation findings are
+  claims that overreach a source). `figure` and `table-caption`
+  "reproduce none" through a fault in `recall_check()`, which could
+  not credit a flag outside a prose sentence (ruled S1 in
+  `dev/review-3.md`).
+- Found on the way and ruled in `dev/review-3.md`: year ranges,
+  decades and possessives are not exempt under `numeral_years` (S2);
+  `xref-code` fires inside one shape of HTML comment (S3).
+
+What it means: the lints are a net for hand-typed numbers and
+unchecked wording, not a substitute for the audit. About 42% of the
+audit's findings came from the rendered PDF, which no source lint
+reaches.
+
 ## How to run things
 
 - Suite: `Rscript -e 'r <- as.data.frame(devtools::test(reporter="silent")); print(r[r$failed>0|r$error, c("file","test")])'` (15 to 20 minutes).
