@@ -90,7 +90,22 @@ first, then `dev/build-log.md`.
      (sections 6, 8, 9, design-4 readings, review-4 rulings), and
      decisions 64 to 67 (write 67 for the review-4 design changes);
   4. whole suite on a `git archive` export, `devtools::check()`;
-  5. build log totals, closing report.
+  5. build log totals;
+  6. NEW from Robin (13 Nov, after the stage 4 review): "When you have
+     finished the build. Look through the entire code base and look
+     for what should be refactored or simplified or made more robust
+     or otherwise improved, and then do it. And also create thorough
+     documentation for the package and publish it on GitHub." So after
+     the build: (a) an opus survey of the whole code base for
+     refactoring, simplification and robustness, rulings, then the
+     work under the whole suite (behaviour-preserving, in small
+     commits); (b) thorough documentation (README, vignettes or
+     articles, reference pages, a pkgdown site) published on GitHub.
+     This lifts the build prompt's "do not publish a website" for the
+     documentation only. Check the repository's visibility first
+     (`gh repo view --json visibility`): if it is private, a Pages
+     site would be public, so say so and choose with care;
+  7. closing report.
   Lesson: a helper defined twice in `R/` silently replaces the first
   (it broke `lints()` once); check with
   `grep -hoE '^[A-Za-z_.][A-Za-z0-9_.]* *(<-|=) *function' R/*.R | sed -E 's/ *(<-|=).*//' | sort | uniq -d`
