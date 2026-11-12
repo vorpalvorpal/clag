@@ -203,6 +203,7 @@ lit_node <- function(t, i) {
 tree_literal <- function(t) length(t$roots) == 1L && lit_node(t, t$roots[1L])
 
 has_var <- function(t, i) any(t$pd$token[subtree(t, i)] == "SYMBOL")
+has_call <- function(t, i) any(t$pd$token[subtree(t, i)] %in% c("SYMBOL_FUNCTION_CALL", "SYMBOL_PACKAGE"))
 
 # ---- the pieces of code of a document --------------------------------------------------
 
@@ -351,7 +352,8 @@ lint_inert_check <- function(src, ctx) {
   for (p in code_pieces(src)) {
     t <- p$tree
     if (is.null(t)) next
-    if (p$kind == "if" && !has_var(t, t$roots[1L])) {
+    # inert: no symbol and no call (a call such as `interactive()` can vary), review 3, question 5
+    if (p$kind == "if" && !has_var(t, t$roots[1L]) && !has_call(t, t$roots[1L])) {
       recs[[length(recs) + 1L]] <- list(
         s = p$off, e = p$off + nchar(p$text) - 1, text = p$text,
         message = sprintf("The condition `%s` has no variable, so it always takes the same arm (rule 3.1.6).", p$text),

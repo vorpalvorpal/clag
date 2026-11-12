@@ -281,7 +281,7 @@ doc_refs <- function(src) dl_cached(src, "refs", function() {
 project_index <- function(ctx) {
   cache <- lint_cache(ctx)
   if (!is.null(cache$index)) return(cache$index)
-  files <- sort(unique(c(ctx$files, ctx$md_files)), method = "radix")
+  files <- sort(unique(c(ctx$files, ctx$md_files, ctx$include_files)), method = "radix")
   A <- list()
   R <- list()
   auto <- list()
@@ -663,7 +663,13 @@ lint_section_anchor <- function(src, ctx) {
   b <- src$blocks[src$blocks$type == "heading", , drop = FALSE]
   if (!nrow(b)) return(dl_empty())
   out <- list()
+  # a heading inside a callout or a tabset div is a title or a tab, not a section (review 3, question 4)
+  dv <- src$divs
+  if (!is.null(dv) && nrow(dv)) {
+    dv <- dv[grepl("(?<![A-Za-z0-9-])callout(?:-[a-z]+)?(?![A-Za-z0-9])|panel-tabset", src$lines[dv$open], perl = TRUE), , drop = FALSE]
+  }
   for (i in seq_len(nrow(b))) {
+    if (!is.null(dv) && nrow(dv) && any(dv$open < b$line[i] & dv$close > b$line[i])) next
     t <- substr(src$text, b$start[i], b$end[i])
     off <- 0L
     atx <- regexpr("^ {0,3}#{1,6}[ \t]+", t, perl = TRUE)
@@ -729,6 +735,12 @@ lint_file_link <- function(src, ctx) {
   full <- ifelse(startsWith(dec, "/"), file.path(ctx$root, sub("^/+", "", dec)),
                  if (base == ".") file.path(ctx$root, dec) else file.path(ctx$root, base, dec))
   gone <- !file.exists(full)
+  # a link to a rendered page passes when its source document is beside it (review 3, question 3)
+  html <- gone & grepl("\\.html?$", full, ignore.case = TRUE)
+  if (any(html)) {
+    stem <- sub("\\.html?$", "", full[html], ignore.case = TRUE)
+    gone[html] <- !vapply(stem, function(z) any(file.exists(paste0(z, c(".qmd", ".Rmd", ".rmd", ".md")))), NA)
+  }
   if (!any(gone)) return(dl_empty())
   finding_at(src, lk$start[gone], lk$start[gone] + nchar(lk$target[gone]) - 1L, "file-link", path[gone],
              sprintf("The link target `%s` names no file (rule 5.8.4).", path[gone]),

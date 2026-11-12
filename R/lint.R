@@ -268,13 +268,18 @@ claim_lexicon <- function(cfg = default_config(), lang = NA_character_) {
 
 # ---- the project's documents --------------------------------------------------------------------
 
-lint_files_under <- function(root, ext = "\\.(qmd|Rmd|rmd)$") {
+lint_files_under <- function(root, ext = "\\.(qmd|Rmd|rmd)$", underscore = FALSE) {
   f <- list.files(root, pattern = ext, recursive = TRUE, include.dirs = FALSE)
   if (!length(f)) return(character())
   d <- dirname(f)
+  # `underscore = TRUE` gives only the documents in `_` folders (includes, partials) that are read for
+  # anchors but not linted; the folders Quarto writes to or reads from are never read
+  built <- c("_site", "_book", "_freeze", "_extensions")
   skip <- vapply(strsplit(d, "/", fixed = TRUE), function(p) {
     p <- p[p != "."]
-    any(startsWith(p, "_") | startsWith(p, ".") | p == "renv")
+    hid <- any(startsWith(p, ".") | p == "renv" | p %in% built)
+    us <- any(startsWith(p, "_"))
+    if (underscore) hid || !us else hid || us
   }, NA)
   sort(enc2utf8(f[!skip]), method = "radix")
 }
@@ -317,6 +322,7 @@ new_lint_ctx <- function(root, files, md_files, report, tier, rules, reader) {
   ctx$rules <- rules
   ctx$reader <- reader
   ctx$notes <- character()
+  ctx$include_files <- lint_files_under(root, underscore = TRUE)
   cache <- new.env(parent = emptyenv())
   ctx$source <- function(rel) {
     if (is.null(cache[[rel]])) cache[[rel]] <- lint_open(root, rel)

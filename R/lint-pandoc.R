@@ -232,14 +232,15 @@ lint_prose_view <- function(src, ctx) {
 
 # ---- block-start (L18) ---------------------------------------------------------------
 
-BLOCK_MARKER <- paste0("^( {0,3})(#{1,6}(?=[ \t]|$)|>|[-+*](?=[ \t])|[0-9]{1,9}[.)](?=[ \t])|",
-                       "`{3,}|~{3,}|:{3,})")
+# What Pandoc's `markdown` reader cuts a paragraph at (checked with Pandoc as Quarto ships it,
+# review 3, question 1): a setext underline (a line of `-` or `=` alone) and a definition line
+# (`:` then spaces then text), and a closed backtick fence (a fence with no closer is no cut).
+# `#`, `>`, list markers, `:::`, `~~~`, `$$` and table lines do not cut it.
+BLOCK_MARKER <- "^( {0,3})(-+(?=[ \t]*$)|=+(?=[ \t]*$)|:(?=[ \t]+\\S)|`{3,})"
 
 block_marker_kind <- function(m) {
-  ifelse(grepl("^#", m), "a heading",
-  ifelse(m == ">", "a block quote",
-  ifelse(grepl("^[-+*]$|^[0-9]", m), "a list item",
-  ifelse(grepl("^:", m), "a div fence", "the start of a code block"))))
+  ifelse(grepl("^[-=]", m), "a setext underline",
+  ifelse(m == ":", "a definition", "the start of a code block"))
 }
 
 block_start_r <- function(src) {
@@ -259,6 +260,13 @@ block_start_r <- function(src) {
       lines <- sort(unique(lines))
       m <- regexpr(BLOCK_MARKER, src$lines[lines], perl = TRUE)
       ok <- m > 0L
+      # a backtick fence cuts the paragraph only when it is closed
+      fence <- ok & grepl("^ {0,3}`{3,}", src$lines[lines])
+      if (any(fence)) {
+        fb <- fence_blocks(src$lines, rep(FALSE, length(src$lines)))
+        closed <- fb$open[fb$close > fb$open & grepl("^ {0,3}`{3,}[ \t\r]*$", src$lines[fb$close])]
+        ok[fence & !(lines %in% closed)] <- FALSE
+      }
       if (any(ok)) {
         cs <- attr(m, "capture.start")[ok, , drop = FALSE]
         cl <- attr(m, "capture.length")[ok, , drop = FALSE]
@@ -312,7 +320,7 @@ block_start_r <- function(src) {
 block_start_fence <- function(src) {
   lines <- src$lines
   nl <- length(lines)
-  if (!nl || !any(grepl("^ {0,3}(`{3,}|~{3,})", lines))) return(new_findings())
+  if (!nl || !any(grepl("^ {0,3}`{3,}", lines))) return(new_findings())
   inmeta <- logical(nl)
   for (m in src$meta) inmeta[m$open:m$close] <- TRUE
   fb <- fence_blocks(lines, inmeta)
@@ -322,17 +330,25 @@ block_start_fence <- function(src) {
   out <- list()
   for (i in seq_len(nrow(fb))) {
     o <- fb$open[[i]]
-    if (blank[o - 1L] || !grepl("^ {0,3}(`{3,}|~{3,})", lines[o])) next
+    cl <- fb$close[[i]]
+    # only a backtick fence that is closed cuts a paragraph
+    if (blank[o - 1L] || !grepl("^ {0,3}`{3,}", lines[o]) || cl <= o ||
+        !grepl("^ {0,3}`{3,}[ \t\r]*$", lines[cl])) next
     top <- o - 1L
     while (top > 1L && !blank[top - 1L]) top <- top - 1L
     para <- paste(lines[top:(o - 1L)], collapse = "\n")
     opens <- lengths(regmatches(para, gregexpr("(?<!\\\\)\\[", para, perl = TRUE)))
     closes <- lengths(regmatches(para, gregexpr("(?<!\\\\)\\]", para, perl = TRUE)))
     if (opens <= closes) next
-    inside <- paste(lines[o:fb$close[[i]]], collapse = "\n")
-    if (!grepl("\\]\\{[^{}\n]*(?:(?:n|if|sign|list|cite)[ \t]*=|\\.[A-Za-z])[^{}\n]*\\}", inside, perl = TRUE)) next
-    mk <- regmatches(lines[o], regexpr("(`{3,}|~{3,})", lines[o]))
-    pos <- src$line_start[o] + as.integer(regexpr("(`{3,}|~{3,})", lines[o])) - 1L
+    last <- cl
+    while (last < nl && !blank[last + 1L]) last <- last + 1L
+    inside <- paste(lines[o:last], collapse = "\n")
+    ab <- regmatches(inside, gregexpr("\\]\\{[^{}\n]*\\}", inside, perl = TRUE))[[1L]]
+    cls <- unlist(regmatches(ab, gregexpr("\\.[A-Za-z][A-Za-z0-9_-]*", ab, perl = TRUE)))
+    weft_cls <- c(shipped_classes(), names(src$cfg$formatters %||% list()))
+    if (!any(grepl("(?:n|if|sign|list|cite)[ \t]*=", ab, perl = TRUE)) && !any(cls %in% weft_cls)) next
+    mk <- regmatches(lines[o], regexpr("`{3,}", lines[o]))
+    pos <- src$line_start[o] + as.integer(regexpr("`{3,}", lines[o])) - 1L
     out[[length(out) + 1L]] <- finding_at(
       src, pos, pos + nchar(mk) - 1L, "block-start", mk,
       sprintf("Line %d inside a span starts with `%s`, which Pandoc reads as %s, so the span is cut in two (rule 2.10.5).",
