@@ -71,19 +71,21 @@ first, then `dev/build-log.md`.
   (19011f6) and wait for the stage 3 rules; then the 4a implementer,
   then 4b installers and 4c `verify()` (test-writers, then
   implementers, in parallel). Owed: `test-gate-edits.R`.
-- **As of be9595b**: all of stage 3 (3a to 3d) and the gate (4a,
-  50ab36f cherry-picked) are on `main`. Decision 63 is in the spec
-  (622d1a3). Running in worktrees: a fixer for six failing gate tests
-  (G12 x3, G20 x2, the non-ASCII path); the test-writer for
-  `dev/review-3.md` (13 findings, 6 design questions, S1 to S4, all
-  ruled at the end of that file) writing `test-review-3.R`; the 4b
-  implementer. NOT YET STARTED: the 4c implementer (`verify()`; tests
-  committed in 47f03b7), the stage 3 fixer (after its tests), decision
-  66 (the trimmed claim-word list: waiting on one measurement of two
-  candidate lists from the stage 0 agent; then edit
-  `inst/weft-claim-words.yml`, fix tests that use dropped words, write
-  the decision), `test-gate-edits.R`, the opus review of stage 4, the
-  spec editor for stages 3 and 4.
+- **As of def127c**: ALL packages are built and on `main`: stage 3
+  (3a to 3d), the stage 3 review fixes (`dev/review-3.md` with rulings;
+  decision 66 trimmed the claim-word list), 4a gate, 4b installers
+  (6cca012), 4c `verify()` (def127c), 4d `use_setup()`. The lint, gate
+  and installer filters were clean at 621dbc9 (1,208 tests). A test
+  editor is settling four disputed `verify` tests (uncommitted until
+  it reports). NEXT, in order: commit those; whole suite on a `git
+  archive` export; opus review of stage 4 (gate, installers, verify,
+  setup) with reproduction, rulings, regression tests, fixer;
+  `test-gate-edits.R` (owed); spec editor for stages 3 and 4 and
+  decisions 64 to 66; `devtools::check()`; build log; closing report.
+  Lesson: a helper defined twice in `R/` silently replaces the first
+  (it broke `lints()` once); check with
+  `grep -hoE '^[A-Za-z_.][A-Za-z0-9_.]* *(<-|=) *function' R/*.R | sed -E 's/ *(<-|=).*//' | sort | uniq -d`
+  after every merge.
 - **Stage 0 has run** (scripts and outputs under
   `dev/trials/stage0/`, git-ignored). Counts are to go into
   `dev/build-log.md`: 46 files, 5,508 sentences, 83.5 s; `construct`
