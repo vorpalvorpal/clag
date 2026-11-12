@@ -853,3 +853,28 @@ Every example in §2 is a case. Fixtures are written by the tests. Skips:
    `use_setup()` leaves an existing `weft_version` line alone.
 7. A test's child process must leave `R_PROFILE_USER` unset: R reads the
    project `.Rprofile` only then.
+
+## Readings fixed when the 4a tests were written
+
+1. No git, not a work tree, and git failing are each a
+   `weft_gate_error`, as G2 says.
+2. Tier 2 is not judged by the gate: it is in neither `added`, `excess`
+   nor the report.
+3. `count_constructs()` gives `kind` as `value`, `span` or `claim`.
+4. Under a merge, `excess$base` is the largest count over the parents.
+5. `n_removed` is an integer; `trailer` an integer, or `NA` for none or
+   a value that is not digits. The trailer is read as git reads
+   trailers: any letter case, with or without a space after the colon,
+   after a subject paragraph; a comment line is not one.
+6. Headers are singular for one ("1 weft construct removed",
+   "1 finding added that HEAD did not hold"). The pass line counts
+   changed documents.
+7. An amended commit whose removals come to zero ignores an old trailer.
+8. The cache is pruned to 800 entries, oldest by modification time
+   first. A cache that cannot be written gives a note and the gate runs
+   without it.
+9. The hook calls `weft::gate(<message file>)`: `message` is the first
+   argument and `path` the second.
+
+Owed: `test-gate-edits.R`, the ported edits and their generator (section
+5), to be written once stage 3's rules exist.
