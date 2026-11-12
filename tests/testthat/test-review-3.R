@@ -351,8 +351,8 @@ test_that("review-3 #13: dict-key with no near key has no stray full stop", {
 #                                    "1.", "1)", "(1) x", "i. x", "::: div", "::: {.x}", "~~~", "~~~ code" (also
 #                                    closed), an unclosed ``` line, "$$" (also closed), "| a | b |" (also a whole
 #                                    table), "    code", "* * *", "***", "___", "<div>"
-# Pinned here: a closed backtick fence gives a finding; every marker of the second group gives none. The
-# setext and definition cases are not pinned (block-start has no such marker today).
+# Pinned here (coordinator's ruling): a closed backtick fence, a lone "-" or "=", and a ":" definition line
+# give a finding; every marker of the second group gives none. The fence finding's text is the fence (```).
 
 bs3 <- function(mid, ...) lint_one(c("[a site |", mid, "b]{n=\"k\"}"), rules = "block-start", ...)
 
@@ -373,6 +373,26 @@ test_that("review-3 Q1: a closed backtick fence inside a span is a finding at th
     expect_identical(nrow(x), 1L, info = e)
     expect_identical(x$line, 2L, info = e)
     expect_identical(x$text, "```", info = e)
+  }
+})
+
+test_that("review-3 Q1: a lone '-' or '=' under a span line (setext underline) is a finding on its line", {
+  for (m in c("-", "=")) {
+    for (e in c("qmd", "Rmd")) {
+      x <- bs3(m, ext = e)
+      expect_identical(nrow(x), 1L, info = paste(m, e))
+      expect_identical(x$line, 2L, info = paste(m, e))
+      expect_identical(x$text, m, info = paste(m, e))
+    }
+  }
+})
+
+test_that("review-3 Q1: a definition line (':' then spaces then text) inside a span is a finding on its line", {
+  for (m in c(":   q", ": q")) {
+    x <- bs3(m)
+    expect_identical(nrow(x), 1L, info = m)
+    expect_identical(x$line, 2L, info = m)
+    expect_identical(x$text, ":", info = m)
   }
 })
 
