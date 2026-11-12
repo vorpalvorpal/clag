@@ -330,7 +330,8 @@ Questions:
   `degree/s`) is a value error and a `read_dict()` problem, as the
   twins of 4.4.14 are.
 - **b.** `kt` joins `mt` on the misread list (refused, with advice
-  naming `kn` for the knot and a project unit for the kilotonne).
+  naming `knot` for the knot and a project unit for the kilotonne;
+  the units database has no `kn`).
 - **c.** The 1e-9 snap of 1.4.13 does not apply to a quantity: a small
   quantity goes through the ordinary zero rule (4.4.13), which prints
   it as zero with the warning and its advice.

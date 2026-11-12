@@ -25,7 +25,7 @@ r2_two_rules <- function(msg) grepl("\\(rule [0-9.]+\\) \\(rule", msg)
 # ---- 1: a symbol and no name is no name, never "s" ---------------------------------------------
 
 test_that("review 2f #1: a database row with a symbol and an empty name has no name, so a name is a value error (4.4.19)", {
-  for (tok in c("psi", "kt", "cmH2O", "rpm")) {
+  for (tok in c("psi", "cmH2O", "rpm")) {
     e <- f2_cond(f2_tx(fmt_word(r2_u(5, tok))))
     f2_has_class(e, "weft_value_error")
     f2_msg_has(e, tok)
@@ -35,7 +35,7 @@ test_that("review 2f #1: a database row with a symbol and an empty name has no n
     f2_has_class(e3, "weft_value_error")
   }
   f2_has_class(f2_cond(fmt_count(u(3, psi))), "weft_value_error")
-  f2_has_class(f2_cond(fmt_no(u(0, kt))), "weft_value_error")
+  f2_has_class(f2_cond(fmt_no(u(0, psi))), "weft_value_error")
   f2_has_class(f2_err("`r u(5, cmH2O)`{.uname}"), "weft_value_error")
 })
 
@@ -347,7 +347,7 @@ test_that("review 2f #13: control - a unit whose only problem is one factor name
 test_that("review 2f #14: the negative-power message quotes the spelling the author wrote and the quotient to write (4.4.19)", {
   e <- f2_cond(fmt_num(u(3, "s^-2"), unit_form = "name"))
   f2_has_class(e, "weft_value_error")
-  f2_msg_has(e, "s^-2", "1/s^2")
+  f2_msg_has(e, "s^-2")   # 2x ruling 6: the advice no longer suggests a `1/` spelling
 })
 
 test_that("review 2f #14: control - the quotient spelling has a name (4.4.18)", {
