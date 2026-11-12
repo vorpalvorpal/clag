@@ -149,10 +149,10 @@ test_that("2d D8: .p printing a small value records the relation `<`", {
   expect_equal(e$raw, 1e-04)
 })
 
-test_that("2d D8: every entry has all fourteen fields, in the order of the table", {
+test_that("2d D8: every entry has all fifteen fields, in the order of the table", {
   res <- d2_kinds()
   want <- c("file", "section", "kind", "expr", "occ", "id", "context", "text", "arm", "rel", "raw",
-            "failed", "dict", "sentence")
+            "unit", "failed", "dict", "sentence")
   for (l in d2_lines(d2_path(res$dir))[-1]) {
     keys <- regmatches(l, gregexpr("\"[a-z]+\":", l))[[1]]
     # top-level keys appear in order; every wanted key is present once at least
@@ -665,7 +665,7 @@ test_that("2d D27: read_ledger() reads the example into a classed data frame wit
   l <- weft:::read_ledger(lines = d2_example_lines("reports/survey.qmd"))
   expect_s3_class(l, c("weft_ledger", "data.frame"))
   expect_identical(names(l), c("file", "section", "kind", "expr", "occ", "id", "context", "text", "arm", "rel",
-                               "raw", "failed", "dict", "sentence"))
+                               "raw", "unit", "failed", "dict", "sentence"))
   expect_identical(nrow(l), 5L)
   expect_type(l$occ, "integer")
   expect_type(l$raw, "double")
@@ -677,6 +677,8 @@ test_that("2d D27: read_ledger() reads the example into a classed data frame wit
   expect_true(is.na(l$raw[3]))
   expect_identical(attr(l, "header")$source, "reports/survey.qmd")
   expect_identical(l$text[4], "1.5\u00a0km")
+  expect_type(l$unit, "character")
+  expect_identical(l$unit, c(NA, NA, NA, "m", NA))
 })
 
 test_that("2d D27: read_ledger(file) reads a file the same way as lines", {
@@ -759,4 +761,52 @@ test_that("2d D5: a freshly written ledger reads back strictly", {
   l <- weft:::read_ledger(d2_path(res$dir))
   expect_identical(attr(l, "header")$version, 1L)
   expect_identical(nrow(l), 5L)
+})
+
+# ---- D8 (unit): the unit raw is in ---------------------------------------------------------------
+
+d2_units <- function() d2_memo("units", function() {
+  lines <- c("## Units", "",
+             "Reach `r len`{unit=\"m|km\"} long.", "",
+             "Dose `r dose` here.", "",
+             "Plain `r 5` and text `r 'abc'` here.", "",
+             "Few [# was | # were]{n=\"u(3, m)\"} seen.")
+  d2_render(lines, code = c("len <- u(1500, m)", "dose <- u(2, \"mg/L\")"))
+})
+
+test_that("2d D8 (unit): a quantity printed in another unit records raw and the held unit, not the printed one", {
+  res <- d2_units()
+  e <- d2_one(d2_ledger(res), expr = "len")
+  expect_equal(as.numeric(e$raw), 1500)
+  expect_identical(e$unit, "m")
+  expect_true(any(grepl("\"raw\":1500,\"unit\":\"m\",", d2_lines(d2_path(res$dir)), fixed = TRUE)))
+})
+
+test_that("2d D8 (unit): a compound unit is written as units::deparse_unit() spells it", {
+  want <- units::deparse_unit(units::set_units(2, "mg/L", mode = "standard"))
+  e <- d2_one(d2_ledger(d2_units()), expr = "dose")
+  expect_identical(e$unit, want)
+  expect_equal(as.numeric(e$raw), 2)
+})
+
+test_that("2d D8 (unit): a plain number and a text value write unit null", {
+  e <- d2_ledger(d2_units())
+  expect_null(d2_one(e, expr = "5")$unit)
+  expect_null(d2_one(e, expr = "\"abc\"")$unit)
+  ln <- d2_lines(d2_path(d2_units()$dir))
+  expect_true(any(grepl("\"expr\":\"5\".*\"raw\":5,\"unit\":null,", ln)))
+})
+
+test_that("2d D8 (unit): a governed span over a quantity carries the governor's unit", {
+  e <- d2_one(d2_ledger(d2_units()), kind = "n")
+  expect_equal(as.numeric(e$raw), 3)
+  expect_identical(e$unit, "m")
+})
+
+test_that("2d D8 (unit): read_ledger() on a line without the field gives NA in the unit column", {
+  line <- sub("\"unit\":null,", "", d2_example_lines("doc.Rmd")[2], fixed = TRUE)
+  expect_false(grepl("unit", line, fixed = TRUE))
+  l <- weft:::read_ledger(lines = c(d2_example_lines("doc.Rmd")[1], line))
+  expect_true("unit" %in% names(l))
+  expect_true(is.na(l$unit))
 })

@@ -91,11 +91,22 @@ test_that("2e-1 P14: a file that cannot be read has no hash (NA)", {
   expect_true(is.na(weft:::file_hash(file.path(d, "absent.txt"))))
 })
 
-test_that("2e-1 P14: an entry's hash is the xxhash64 of the canonical JSON of its mapping", {
+test_that("2e-1 P14: an entry's hash is the xxhash64 of the canonical JSON of its mapping, names sorted", {
   d <- withr::local_tempdir()
   p <- e1_dict(d, vals = list(a = 1))
   hs <- weft:::dict_entry_hashes(p)
-  expect_identical(hs[["a"]], cli::hash_raw_xxhash64(charToRaw("{\"value\":1,\"type\":\"number\"}")))
+  expect_identical(hs[["a"]], cli::hash_raw_xxhash64(charToRaw("{\"type\":\"number\",\"value\":1}")))
+})
+
+test_that("2e-1 P14: the order of an entry's fields does not change its hash; a changed value does", {
+  d <- withr::local_tempdir()
+  p1 <- file.path(d, "one.yml")
+  p2 <- file.path(d, "two.yml")
+  writeLines(c("a:", "  value: 1", "  type: number", "  definition: \"First.\""), p1)
+  writeLines(c("a:", "  definition: \"First.\"", "  type: number", "  value: 1"), p2)
+  expect_identical(weft:::dict_entry_hashes(p1), weft:::dict_entry_hashes(p2))
+  writeLines(c("a:", "  type: number", "  value: 2", "  definition: \"First.\""), p2)
+  expect_false(identical(weft:::dict_entry_hashes(p1)[["a"]], weft:::dict_entry_hashes(p2)[["a"]]))
 })
 
 test_that("2e-1 P14: a definition or a decision does not change an entry's hash; a value does", {
