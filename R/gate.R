@@ -152,12 +152,12 @@ gate_side_keys <- function(g, s, vers) {
   }
   cfg <- paste(cfgb("_weft.yml"), cfgb("_quarto.yml"), cfgb("_quarto.yaml"), sep = "|")
   docs <- e[e$doc, , drop = FALSE]
-  docs <- docs[order(docs$rel, method = "radix"), , drop = FALSE]
+  docs <- docs[order(enc2utf8(docs$rel), method = "radix"), , drop = FALSE]
   pf <- e[e$content & !e$doc, , drop = FALSE]
-  pf <- pf[order(pf$rel, method = "radix"), , drop = FALSE]
+  pf <- pf[order(enc2utf8(pf$rel), method = "radix"), , drop = FALSE]
   allc <- e[e$content, , drop = FALSE]
-  allc <- allc[order(allc$rel, method = "radix"), , drop = FALSE]
-  pathhash <- cli::hash_md5(paste(sort(e$rel, method = "radix"), collapse = "\n"))
+  allc <- allc[order(enc2utf8(allc$rel), method = "radix"), , drop = FALSE]
+  pathhash <- cli::hash_md5(paste(sort(enc2utf8(e$rel), method = "radix"), collapse = "\n"))
   fp <- cli::hash_md5(paste(paste(pf$rel, pf$blob), collapse = "\n"))
   full <- cli::hash_md5(paste(paste(allc$rel, allc$blob), collapse = "\n"))
   src_key <- if (nrow(docs)) gate_key("src", vers, docs$rel, docs$blob, cfg) else character()
@@ -397,12 +397,12 @@ gate_judge_project <- function(g, p, new_res, base_res) {
       take <- tb[[t]] - have
       if (take > 0L) {
         i <- which(b$text == t)
-        i <- i[order(b$file[i], b$line[i], method = "radix")]
+        i <- i[order(enc2utf8(b$file[i]), b$line[i], method = "radix")]
         rows <- c(rows, utils::tail(i, take))
       }
     }
     r <- b[rows, , drop = FALSE]
-    r <- r[order(r$file, r$line, method = "radix"), , drop = FALSE]
+    r <- r[order(enc2utf8(r$file), r$line, method = "radix"), , drop = FALSE]
     out$removed <- data.frame(project = rep(p$display, nrow(r)), file = vapply(r$file, top_path, "", USE.NAMES = FALSE),
                               line = as.integer(r$line), kind = r$kind, text = r$text, stringsAsFactors = FALSE)
   }
@@ -423,7 +423,7 @@ gate_added_lines <- function(g, p, rel) {
 
 as_weft_findings <- function(df) {
   if (!nrow(df)) return(new_findings())
-  df <- df[order(df$file, df$line, df$col, df$rule, method = "radix"), FINDING_COLS, drop = FALSE]
+  df <- df[order(enc2utf8(df$file), df$line, df$col, df$rule, method = "radix"), FINDING_COLS, drop = FALSE]
   rownames(df) <- NULL
   structure(df, class = c("weft_findings", "data.frame"), notes = character())
 }
@@ -446,7 +446,7 @@ gate_assemble <- function(g, parts, tr) {
     rownames(excess) <- NULL
   }
   if (nrow(removed)) {
-    removed <- removed[order(removed$project, removed$file, removed$line, method = "radix"), , drop = FALSE]
+    removed <- removed[order(removed$project, enc2utf8(removed$file), removed$line, method = "radix"), , drop = FALSE]
     rownames(removed) <- NULL
   }
   n <- sum(vapply(parts, function(p) as.integer(p$n), 1L))
@@ -465,7 +465,7 @@ gate_assemble <- function(g, parts, tr) {
 gate_finding_lines <- function(df) {
   out <- character()
   df <- as.data.frame(unclass(df), stringsAsFactors = FALSE)
-  df <- df[order(df$file, df$line, method = "radix"), , drop = FALSE]
+  df <- df[order(enc2utf8(df$file), df$line, method = "radix"), , drop = FALSE]
   for (f in unique(df$file)) {
     out <- c(out, paste0("  ", f))
     d <- df[df$file == f, , drop = FALSE]
