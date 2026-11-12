@@ -37,8 +37,10 @@ Newest state first. Read this before anything else after a context reset.
 | `PACKAGE-SCOPING.md` for 2c, 2g and 2h | Amended to state all three as built, with the rulings after the reviews of 2c and 2g (rule 4.4.23 is new), and again for the rulings on the review of 2h (rules 4.2.1, 4.2.7, 4.4.13, 4.4.23) |
 | Stage 2d, the ledger and the condition log (`dev/design-2d.md`) | Designed, tests written, built, reviewed (`dev/review-2d.md`, 11 findings, rulings in `dev/design-2d.md`), review fixes built. Not yet reviewed again |
 | Review of the stage 2 fix rounds (`dev/review-2-fixes.md`) | Done: 9 findings, all fixed; rulings at the end of that file |
-| Stage 2e-1, the pipeline (`dev/design-2e.md`) | Tests written (f2b6d86); build in progress |
-| Stage 2e-2, `changes()` and the third state (`dev/design-2e.md`) | Built (a22c9e5); review in progress |
+| Stage 2e-1, the pipeline (`dev/design-2e.md`) | Built; reviewed (`dev/review-2e1.md`, 14 findings, all ruled in `dev/design-2e.md`); regression tests being written |
+| Stage 2e-2, `changes()` and the third state (`dev/design-2e.md`) | Built (a22c9e5); reviewed (`dev/review-2e2.md`, 14 findings, ruled in `dev/design-2e.md`); fixes built |
+| Sentences by `stringi` (decision 57, `dev/design-2d.md`) | Built. Replaces the abbreviation list the 2d build used |
+| `PACKAGE-SCOPING.md` for 2e and decision 57 | Amended to state the pipeline (4.6.1 to 4.6.8), the third state (7.2), `changes()` (7.3), the conditions from `tar_meta()` (7.4), the ledger entry's `unit` and the sentence rule (7.1.1), `.weft/.gitignore` (9.3.2), and the "Did you mean" rule (4.1.2) |
 | `PACKAGE-SCOPING.md` for 2d and the stage 2 fix rounds | Amended to state the ledger (7.1, `_weft/ledger/`), the condition log (7.4), 2.9.1 and 9.4.2 as built, and the rulings on the reviews of 2d and of the fix rounds (rules in 1.4.13, 1.4.20, 4.2.7, 4.4.1, 4.4.4, 4.4.8, 4.4.13, 4.4.14, 4.4.16, 4.4.19 to 4.4.21, 4.4.23, 4.7.1) |
 | Suite | 1,908 tests at the code of 818020e, the last whole-suite run; five test faults in it have since been corrected. 2h added 160 tests, not yet run as a whole suite |
 | Stages 0, 3, 4 | not started |
@@ -58,10 +60,18 @@ Newest state first. Read this before anything else after a context reset.
 - Decisions 55 and 56 were taken by the orchestrator under delegation, not by
   Robin. Their Q/E question lists are in `dev/design-2d.md` and
   `dev/design-2e.md`.
-- The sentence stored in the ledger is to be split with `stringi` (ICU), not
-  with the abbreviation list the build has now. Pending; the spec says only that
-  the sentence is found by sentence-boundary rules for the document's language
-  and is never used to decide "changed" (7.1.1).
+- Decision 57 (the sentence stored in the ledger is cut with `stringi`, ICU)
+  was asked for by Robin. ICU's abbreviation lists are thin, so a short list of
+  weft's own stays (`dev/design-2d.md`). Built; stated in 7.1.1.
+- The run-time guard on `dict` in a pipeline (4.6.8) was the reviewer's
+  proposal and is adopted: a target that reads `dict` without passing through
+  `tar_dict_deps()` stops the first make with a `weft_pipeline_error`, where it
+  would otherwise give a stale number.
+- `crew` workers are still unsupported by `tar_dict()`: they do not see the
+  attached `dict`. Not run; in 4.6.7 and Q5.
+- The ledger entry has a new field, `unit`, after `raw` (rule 7.1.1; the version
+  stays 1). Dictionary thresholds are converted to that unit before `changes()`
+  looks for a crossing.
 - Three behaviours were left as built and are in `dev/open-findings.md`.
 
 ## How to run things

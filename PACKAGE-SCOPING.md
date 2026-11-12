@@ -1529,7 +1529,10 @@ constructs one. In a knit, weft creates `dict` when the knit is initialised
 (2.1.5).
 
 **4.1.2** `$` on a `dict` errors on any name that is not an exact key. It
-never returns `NULL`, and never matches partially.
+never returns `NULL`, and never matches partially. The error says "Did you
+mean" for the one key nearest the name within an edit distance of 2, and for
+none when two keys are equally near. The dictionary reader and the pipeline
+(4.6.4) use the same rule.
 
 **4.1.3** Keys are valid R symbols, and not reserved words: `..1` and `...`
 are refused. `file` is reserved.
@@ -2423,7 +2426,6 @@ cached between calls.
 
 ```r
 # _targets.R
-dict <- weft::read_dict("dict.yml")        # the same object prose reads
 list(
   tar_dict("dict.yml"),
   tar_dict_deps(list(
@@ -2432,24 +2434,45 @@ list(
 )
 ```
 
-**4.6.1** `tar_dict()` returns a file target for the YAML and one target per
-key, holding the value only.
+**4.6.1** `tar_dict()` returns a file target for the YAML (`dict_file`), a
+target `dict_values` that reads the file once per make, and one target per key
+(`dict_<key>`), holding the value only.
 
 **4.6.2** `tar_dict_deps()` walks each target's command, and the functions it
 calls, for `dict$key` and `dict[["key"]]`, and sets the per-key targets as
-that target's dependencies explicitly.
+that target's dependencies explicitly. A literal `"dict"` given to `get()`,
+`get0()`, `mget()` or `exists()` is a read of every key. It follows the
+functions bound in a closure's own environment, and for a call `g()` the
+`g.<class>` functions in the pipeline's environment.
 
 **4.6.3** A changed value re-runs exactly the targets that read it. A changed
 definition, a new key or a reorder re-runs no consumer.
 
 **4.6.4** An unknown key errors when the pipeline is defined, before anything
-runs.
+runs. The error names the nearest key as 4.1.2 does.
 
-**4.6.5** A `.qmd` rendered by `tar_quarto()` is scanned for `dict$key` the
-same way.
+**4.6.5** A `.qmd` rendered by `tar_quarto()`, and a source rendered by
+`tar_render()`, is scanned for `dict$key` the same way: chunk code, inline R and
+construct keys. `tar_quarto_rep()` and `tar_render_rep()` targets are report
+targets too. A report's sources are followed through knitr `child=` files, Quarto
+includes and any source that `tarchetypes` lists, whatever its extension, to any
+depth.
 
 **4.6.6** Dynamic access (`dict[[k]]`) and a bare `dict` depend on the whole
 dictionary.
+
+**4.6.7** `tar_dict()` attaches the dictionary as `dict` on the search path. A
+`dict` object in the pipeline's environment is an error, because `targets` would
+track it. So is a second `tar_dict()` call, or a target of the author's named
+`dict_file`, `dict_values` or `dict_<key>`: a pipeline has one dictionary. A
+`crew` worker does not see the attached `dict`.
+
+**4.6.8** The attached `dict` checks its own dependency. While a target runs, a
+read of key `k` requires `dict_k` among that target's dependencies, and a read of
+the whole dictionary requires every `dict_<key>`. Otherwise it is a
+`weft_pipeline_error` naming the target and the key, and saying to pass the
+target through `tar_dict_deps()`. A target left out of `tar_dict_deps()`, or a
+read the walker cannot see, stops the first make and never gives a stale number.
 
 ### 4.7 Generated from the dictionary
 
@@ -2948,14 +2971,23 @@ commit net out. The trailer is lost when commits are squashed.
 
 **7.1.1** The `text` hook records every value, governed span and `cite` span
 as it renders: its key (7.1.4), its expression, its printed text with its
-relation, its raw value, its file and section, its sentence as printed, the
+relation, its raw value, the unit the raw value is in, its file and section, its sentence as printed, the
 dictionary entries its expression names, and for a governed span the arm
 chosen, recorded by its role (`one`, `other`, `true`, `always` and so on). The
-raw value is the expression's own, before any formatter or unit conversion. A
+raw value is the expression's own, before any formatter or unit conversion.
+Its unit is written as `units::deparse_unit()` writes it, and is `null` for a
+plain number. A
 construct that failed in draft mode is recorded with its failure kind, and has
-no printed text, arm or raw value. The sentence is found by sentence-boundary
-rules for the document's language. It is for display (7.3.3) and ranking, and
-never decides whether an entry has changed. A failure marker inside a stored
+no printed text, arm, raw value or unit. The sentence is found by sentence-boundary
+rules for the document's language: ICU's, through `stringi` (an `Imports`
+package), for the document's `lang` (`en` when unset). They are applied to the
+block of markdown that holds the construct's text, after what is not prose is
+masked: code, maths, link targets, citations and cross-references, footnotes,
+attribute blocks and raw HTML. A boundary is dropped before a lower-case letter
+or a digit, inside brackets, after an initial, and after a short list of
+abbreviations. The list is weft's own, because ICU's are thin; it is in
+`dev/design-2d.md` under decision 57. The sentence is for display (7.3.3) and
+ranking only, and never decides whether an entry has changed. A failure marker inside a stored
 sentence has no line number. A footnote's definition marker is not part of its
 sentence.
 
@@ -3040,41 +3072,100 @@ was.
 
 **7.2.1** An entry is *unchanged*, *changed*, or *not re-rendered*: its
 chapter was not rendered, or was served from freeze, since something it
-depends on changed.
+depends on changed. An entry is not re-rendered when any of what 7.2.2 records
+differs now.
 
-**7.2.2** The ledger records which pipeline targets each chapter reads, from
-`targets`.
+**7.2.2** The ledger's header records, with a hash of each, the targets the
+chapter reads, the dictionary entries its code reads and its source files. All
+three are objects, always present, with names sorted. They are found in a
+top-level knit of a set-up project, from the code of every chunk that runs
+(children and cached chunks included) and of every entry, with the functions it
+calls followed. The header's files are the source, every file an entry is
+written in, every child, and every file a literal `source()` or `sys.source()`
+names. A target is read by `tar_read()` and `tar_load()` with a literal name,
+and is recorded under the store it is read from: a literal `store`, else the
+knit's configured store. A `store` that is not a literal is evaluated at the end
+of the knit; when it cannot be, the read is recorded under the default store and
+the knit warns once. A target's hash is the `data` hash in `tar_meta()`; a
+dictionary entry's is of its JSON with names sorted at every level, so reordering
+its fields changes nothing; a file's is of its bytes with line ends made `\n`. A
+hash of what cannot be read is `null`. The condition log's header holds none of
+this.
 
 **7.2.3** `verify()` reports entries that were not re-rendered ("chapter 17:
 34 values not re-rendered since `fit_reband` changed"), and does not pass
 (tier 1).
 
+**7.2.4** A chapter is judged from its own header: a target whose hash differs
+now or that is not in the store, a dictionary entry that differs or is gone, and a
+file that differs or is gone. A chapter served from freeze keeps its old header,
+so it shows what has changed since. The freeze stamp (2.9.2) is not part of this.
+A header written before these fields is not stale. A missing `targets` package,
+a store that does not exist, a store that exists but cannot be read, and a
+`dict.yml` with problems are each a note saying what was not checked, not a
+reason. A ledger whose source is gone is noted as such, and is not also stale.
+
 ### 7.3 `changes()`
 
 **7.3.1** `changes()` compares the ledger and the condition log in the
 working tree with their versions in `HEAD`. `changes(since = "<commit or
-tag>")` compares them with their versions at any commit.
+tag>")` compares them with their versions at any commit. Without git it is an
+error. Before the first commit, everything is new. A ledger whose source was
+renamed is compared with the old one (7.3.8).
 
 **7.3.2** "Changed" always means: against the committed version at the
 comparison point, which is `HEAD` or the commit given to `since`.
 
 **7.3.3** `changes()` shows each changed entry as its sentence before and
-after.
+after. Where a section anchor exists only at the comparison point and another
+only now in the same file, the removed and added entries with equal kind,
+expression and occurrence are paired and shown as changed, marked `(section
+renamed from #<old>)`. Within a group of entries with the same file, section,
+kind and expression whose counts differ between the two sides, the occurrences
+are lined up by their sentences before the occurrence index is used, so deleting
+one of three identical expressions reports that one as removed.
 
 **7.3.4** Structural changes come first: a governed span choosing a
 different arm, a sign flip, crossing zero, crossing 1.0, crossing a
-dictionary threshold, and an order-of-magnitude change. The rest follow,
-ranked (tier 3): a change to a value next to a claim word ranks above one
-that is not.
+dictionary threshold, and an order-of-magnitude change. A change can have
+several, and they are shown in that order. They are judged from the raw values.
+A sign flip is two non-zero values of opposite sign; crossing zero is exactly one
+of the two being zero; crossing 1.0 is strict, the value being on one side of 1
+and then on the other, so starting or ending at 1 is not a crossing. Crossing a
+dictionary threshold is the same test against a number, quantity or year that the
+entry's expression or its sentence names, taken from `dict.yml` at the
+comparison point and now; a quantity threshold is converted to the unit of the
+raw value first, and with no unit on either side, or no conversion between
+them, or no readable `dict.yml` on a side, there is no crossing for that key. An
+order-of-magnitude change is a factor of ten or more, with a tolerance for
+rounding. The rest follow, ranked (tier 3): a change to a value next to a claim
+word, that is, in the same sentence, ranks above one that is not. The entry's
+own text is removed from the sentence, as a whole word, before the claim words
+are looked for. Until stage 3 supplies its lexicon the claim words are an
+interim list: English only, and broad.
 
 **7.3.5** It also lists the entries added and removed, each with its
 sentence; the new conditions (7.4.4); and the tier-2 findings on material
-added since the comparison point (5.1.5).
+added since the comparison point (5.1.5; from stage 3).
 
-**7.3.6** It marks the entries not re-rendered (7.2.1). It renders nothing
-and writes nothing.
+**7.3.6** It marks the entries not re-rendered (7.2.1), every listed entry of
+such a ledger carrying "(not re-rendered)". It renders nothing, writes nothing
+and runs no pipeline, so a store behind its code is not seen; `tar_outdated()`
+shows it.
 
 **7.3.7** Nothing is accepted. Committing the ledger is the acceptance.
+
+**7.3.8** Every `*.jsonl` file under `_weft/ledger/` is a ledger on both sides,
+whatever its name. A ledger that exists only at the comparison point, or whose
+source is gone, is a candidate for a rename of one that exists only now. The two
+are paired when at least half the entries of the first match an entry of the
+second by section, kind, expression and occurrence, or by id, and either the
+output names are equal or each output name is its own source's base name; the
+largest share wins, and a tie pairs nothing. A paired ledger is compared entry
+by entry with each entry's file mapped from the old source to the new. A ledger
+that cannot be read, on either side, is a note, and prints a count as a new or
+deleted ledger does. When `_weft/ledger/` is ignored by git, one note says so. A ledger whose source is gone carries that note
+only: its third state is not computed.
 
 ### 7.4 Conditions
 
@@ -3086,15 +3177,21 @@ the ledger, one file for each ledger file. It has four sources:
 - for a chunk served from knitr's cache, the conditions logged when it was
   computed, stored under the chunk's cache hash and replayed
 - the warnings and errors that `targets::tar_meta()` holds for each target a
-  chapter reads, and for the targets upstream of those. `tar_meta()` stores no
-  messages, so a message raised inside a target is not seen (§15).
+  chapter reads, and for the targets upstream of those, in every store the
+  chapter reads from. `tar_meta()` stores no messages, so a message raised inside
+  a target is not seen (§15). It joins a target's warnings into one text, which
+  is one line, and a branch's condition is logged under its pattern. Finding the
+  targets upstream runs the pipeline's script once per project render, and the
+  edges are kept while the store's `meta` file is as it was. A script that cannot
+  be run is one warning, and the targets read are still logged.
 
 **7.4.2** A **severity list** of patterns decides which conditions fail the
 render (tier 1). It ships with patterns for the model-fit conditions that do
 not stop a fit: `lme4`'s singular fit, which arrives as a message, and
 `glmmTMB`'s non-positive-definite Hessian, which is a warning. It is
 configurable. A message is matched only where it is logged: in a chunk or in
-prose, not inside a target (7.4.1).
+prose, not inside a target (7.4.1). A warning that `tar_meta()` holds is
+matched too.
 
 **7.4.3** Every other condition is recorded in the log, one line each, keyed
 on its source, its class and its normalised text (7.4.5). The lines are
@@ -3114,8 +3211,8 @@ and its text after normalising. Normalising, in order:
 
 1. remove ANSI styling
 2. replace hexadecimal addresses and R's temporary paths with a placeholder
-3. replace every number (digits with any sign, decimal part or exponent) with
-   a placeholder
+3. replace every number (digits with any sign, a decimal part, which needs a
+   digit after the point, or an exponent) with a placeholder
 4. turn curly quotes into straight ones, and `cli`'s bullets and rules into
    their ASCII forms
 5. collapse every run of whitespace, including line breaks, to one space
@@ -3467,7 +3564,9 @@ says what it will write before it writes it.
 
 **9.3.2** The hooks alone write nothing. The condition log, the ledger, the
 freeze stamps (2.9.2) and the failure files are written only in a project
-that has been set up with `use_weft()`.
+that has been set up with `use_weft()`. Whatever creates the folder `.weft/`
+also writes `.weft/.gitignore` holding `*`, so that its files are not committed
+by accident.
 
 **9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
 the CI workflow template, the dictionary schema and the starter dictionary, the
@@ -5132,7 +5231,7 @@ with `HEAD`.
 
 | Fact | Run under |
 |---|---|
-| `tar_dict()` and `tar_dict_deps()`: a changed value re-runs exactly its readers, through commands and through functions; a changed definition, a new key or a reorder re-runs no consumer; an unknown key errors at definition | targets 1.12.0 |
+| `tar_dict()` and `tar_dict_deps()`: a changed value re-runs exactly its readers, through commands and through functions; a changed definition, a new key or a reorder re-runs no consumer; an unknown key errors at definition; a changed function re-runs its target | targets 1.12.0, re-measured for 2e with the dictionary on the search path |
 | A `tar_quarto()` report notices a dictionary change only when its `.qmd` is scanned for `dict$key`; then exactly | targets, Quarto |
 | `targets::tar_meta()` stores warnings and errors, not messages: `lme4`'s singular fit, a message, is not recorded; `glmmTMB`'s non-positive-definite Hessian, a warning, is | review |
 
@@ -5274,7 +5373,8 @@ depends on it.
 tree. Whether the hooks then see the constructs unchanged is untested.
 
 **Q5 — `tar_dict()` beyond the toy pipeline.** Not run: branching, parallel
-workers, functions in a package namespace, Windows.
+workers, functions in a package namespace, Windows. `crew` workers do not see
+the dictionary `tar_dict()` attaches.
 
 **Q6 — Plural rules for languages other than English.** The table would be
 generated from CLDR's `plurals.xml`; no R package was found that exposes those
