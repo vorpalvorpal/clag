@@ -156,8 +156,11 @@ local({
   # What weft keeps under .weft/ is not for committing (review 2e-1, D).
   ignore <- file.path(root, ".weft", ".gitignore")
   if (!file.exists(ignore)) writeLines("*", ignore)
-  id <- sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
-                sample.int(999999L, 1L))
+  id <- Sys.getenv("WEFT_RUN", "")
+  if (!nzchar(id)) {
+    id <- sprintf("%s-%d-%06d", format(Sys.time(), "%Y%m%dT%H%M%S"), Sys.getpid(),
+                  sample.int(999999L, 1L))
+  }
   rels <- substring(normalizePath(files, winslash = "/"), nchar(root) + 2L)
   writeLines(c(id, rels), file.path(root, ".weft", "run"))
   writeLines(sprintf("{\"run\":\"%s\"}", id), file.path(root, ".weft", "failures.jsonl"))

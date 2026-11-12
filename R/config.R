@@ -59,7 +59,10 @@ default_config <- function() {
     claim_words = list(add = list(), drop = list()),
     claim_cap = 20,
     guard_words = 25,
-    expected_names = list()
+    expected_names = list(),
+    strict = character(),
+    verify_skip = character(),
+    weft_version = NULL
   )
 }
 
@@ -239,6 +242,7 @@ validate_config <- function(cfg) {
   }
   decisions_route(cfg$decisions)
   validate_lint_config(cfg)
+  validate_verify_config(cfg)
   prop <- function(nm, open = TRUE) {
     v <- cfg[[nm]]
     if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 0 ||
@@ -397,11 +401,70 @@ validate_lint_config <- function(cfg, raw = NULL) {
 check_raw_scalars <- function(raw) {
   if (!is.list(raw)) return(invisible())
   what <- c(numeral_years = "TRUE or FALSE", claim_cap = "a whole number from 1",
-            guard_words = "a whole number from 1")
+            guard_words = "a whole number from 1", weft_version = "a single string")
   for (nm in names(what)) {
     if (is.list(raw[[nm]])) {
       weft_abort(sprintf("The setting `%s` must be %s.", nm, what[[nm]]), "weft_config_error")
     }
   }
+  # a list of words has no list inside it (`strict: [[numeral]]`)
+  for (nm in c("strict", "verify_skip")) {
+    if (is.list(raw[[nm]]) && any(vapply(raw[[nm]], is.list, NA))) {
+      weft_abort(sprintf("The setting `%s` must be a list of words, not a nested list.", nm), "weft_config_error")
+    }
+  }
   invisible()
+}
+
+# ---- the verify settings (rules 8.1.3, 8.1.4, 9.5.4; design-4 G31) -------------------
+
+VERIFY_PARTS <- c("lints", "decisions", "render", "ledger")
+
+# `strict`, `verify_skip` and `weft_version`.
+validate_verify_config <- function(cfg) {
+  bad <- function(nm, what) {
+    weft_abort(sprintf("The setting `%s` must be %s.", nm, what), "weft_config_error")
+  }
+  words <- function(nm) {
+    v <- cfg[[nm]]
+    if (is.null(v) || (is.list(v) && !length(v))) return(character())
+    u <- if (is.list(v)) {
+      if (!is.null(names(v)) ||
+          any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(NULL)
+      unlist(v, use.names = FALSE)
+    } else v
+    if (!is.character(u) || anyNA(u) || any(!nzchar(u))) return(NULL)
+    u
+  }
+  st <- words("strict")
+  if (is.null(st)) bad("strict", "a list of tier-1 rule ids")
+  tab <- lint_rule_table()
+  for (id in st) {
+    i <- match(id, tab$id)
+    if (is.na(i)) {
+      hint <- did_you_mean(id, tab$id[tab$tier == 1L])
+      weft_abort(sprintf("`%s` is not a weft rule;%s", id,
+                         if (nzchar(hint)) sub("^ Did you mean", " did you mean", hint)
+                         else " see lint_rules()$id for the ids (rule 8.1.3)."),
+                 "weft_config_error")
+    }
+    if (tab$tier[i] != 1L) {
+      weft_abort(sprintf("`%s` is tier 2 and blocks nothing, so it cannot be strict (rule 8.1.3).", id),
+                 "weft_config_error")
+    }
+  }
+  vs <- words("verify_skip")
+  if (is.null(vs)) bad("verify_skip", "a list of parts of verify(): lints, decisions, render, ledger")
+  unk <- setdiff(vs, VERIFY_PARTS)
+  if (length(unk)) {
+    weft_abort(sprintf("`verify_skip` names %s, which %s not a part of verify(); the parts are %s (rule 8.1.4).",
+                       paste0("`", unk, "`", collapse = ", "), if (length(unk) == 1L) "is" else "are",
+                       paste(VERIFY_PARTS, collapse = ", ")), "weft_config_error")
+  }
+  wv <- cfg$weft_version
+  if (!is.null(wv) && (is.list(wv) || length(wv) != 1L || is.na(wv) ||
+                       !(is.character(wv) || is.numeric(wv)))) {
+    bad("weft_version", "a single string")
+  }
+  invisible(cfg)
 }

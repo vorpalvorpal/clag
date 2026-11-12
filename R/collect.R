@@ -151,8 +151,11 @@ weft_state_dir <- function(root, ...) {
   invisible(file.path(d, ...))
 }
 
-# The run id the pre-render script wrote (first line of .weft/run), or "".
+# The run id: WEFT_RUN when it is set (verify() sets it, 4c G30), else the one the
+# pre-render script wrote (first line of .weft/run), or "".
 run_id <- function(root) {
+  e <- Sys.getenv("WEFT_RUN", "")
+  if (nzchar(e)) return(e)
   p <- file.path(root, ".weft", "run")
   if (!file.exists(p)) return("")
   x <- tryCatch(readLines(p, n = 1L, warn = FALSE), error = function(e) "")
