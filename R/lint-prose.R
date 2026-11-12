@@ -186,6 +186,17 @@ lint_sentences <- function(src, ctx, prose) {
   res
 }
 
+# the sentence of the table that holds each position, the innermost when sentences nest (a sentence
+# in an inline note sits inside the sentence of its paragraph); NA when none holds it
+innermost_sentence <- function(ps, sent) {
+  vapply(ps, function(p) {
+    h <- which(sent$start <= p & sent$end >= p)
+    if (!length(h)) return(NA_integer_)
+    h <- h[sent$start[h] == max(sent$start[h])]
+    h[which.min(sent$end[h])]
+  }, 1L)
+}
+
 lint_claim_word <- function(src, ctx) {
   lex <- claim_lexicon(src$cfg, src$lang)
   if (!length(lex) || !nzchar(src$prose)) return(new_findings())
@@ -208,8 +219,8 @@ lint_claim_word <- function(src, ctx) {
     ps <- ps[ok]
     run <- run[ok]
   }
-  sid <- findInterval(ps, sent$start)
-  ok <- sid > 0L & ps <= sent$end[pmax(sid, 1L)]
+  sid <- innermost_sentence(ps, sent)
+  ok <- !is.na(sid)
   ps <- ps[ok]
   run <- run[ok]
   sid <- sid[ok]

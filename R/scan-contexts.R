@@ -429,11 +429,10 @@ line_starts <- function(lines) {
   1 + c(0, cumsum(nchar(lines) + 1))[seq_along(lines)]
 }
 
-# The column (in characters) of a parse-data column, which counts bytes.
-parse_col_chars <- function(line, col) {
-  b <- nchar(strsplit(line, "")[[1L]], "bytes")
-  which(cumsum(b) >= col)[1L] %||% col
-}
+# The column (in characters) of a parse-data column. In a UTF-8 session `getParseData()` already
+# counts characters (review 3, finding 2), so this is the identity; every place that turns a
+# parse-data column into a string offset goes through it.
+parse_col_chars <- function(line, col) col
 
 # ---- caption rows ------------------------------------------------------------
 

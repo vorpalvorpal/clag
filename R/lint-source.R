@@ -445,7 +445,8 @@ P2_PATTERN <- paste0(
   "|(?<eml>[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,})")
 P2_TYPES <- c("com", "scr", "cod", "md", "m1", "m3", "m4", "ref", "sc", "ent", "tag", "url", "doi", "eml")
 
-XREF_PREFIX <- "(?:fig|tbl|lst|sec|eq|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)"
+# a Quarto cross-reference type in any letter case: `@Fig-map` prints as a capitalised "Figure 1"
+XREF_PREFIX <- "(?i:fig|tbl|lst|sec|eq|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)"
 KEY_BODY <- "[[:alnum:]_:.#$%&+?<>~/-]*[[:alnum:]_]"
 
 P3_PATTERN <- paste0(
@@ -1054,6 +1055,8 @@ source_sentences <- function(src) {
                       block = integer()))
   }
   r <- do.call(rbind, out)
+  # in document order: a note's sentences are emitted after the paragraph's but start inside it
+  r <- r[order(r$start, -r$end), , drop = FALSE]
   rownames(r) <- NULL
   r
 }

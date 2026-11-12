@@ -69,11 +69,7 @@ pd_tree <- function(text) {
   pd$token[pd$token %in% c("expr_or_assign_or_help", "equal_assign")] <- "expr"
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
   if (!length(lines)) lines <- ""
-  nonascii <- vapply(lines, function(s) grepl("[^\\x01-\\x7f]", s, perl = TRUE), NA, USE.NAMES = FALSE)
-  if (any(nonascii)) {
-    for (j in which(nonascii[pd$line1])) pd$col1[j] <- parse_col_chars(lines[pd$line1[j]], pd$col1[j])
-    for (j in which(nonascii[pd$line2])) pd$col2[j] <- parse_col_chars(lines[pd$line2[j]], pd$col2[j])
-  }
+  # parse-data columns count characters, as the findings do
   pd <- pd[order(pd$line1, pd$col1, -pd$line2, -pd$col2), , drop = FALSE]
   rownames(pd) <- NULL
   n <- nrow(pd)

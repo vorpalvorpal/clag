@@ -9,7 +9,9 @@
 
 XREF_PREFIXES <- c("fig", "tbl", "lst", "sec", "eq", "thm", "lem", "cor", "prp", "cnj", "def",
                    "exm", "exr", "sol", "rem")
-XREF_ID_RE <- paste0("^(?:", paste(XREF_PREFIXES, collapse = "|"), ")-")
+XREF_ID_RE <- paste0("^(?i:", paste(XREF_PREFIXES, collapse = "|"), ")-")
+# an anchor id as the document defines it: the first letter of a reference is lowered
+xref_id_norm <- function(id) paste0(tolower(substr(id, 1L, 1L)), substring(id, 2L))
 # keys that a `config-place` finding looks for in a document's `weft:` (stage 4 adds its switch key)
 CONFIG_PLACE_KEYS <- c("draft", "decisions")
 
@@ -221,7 +223,7 @@ doc_refs <- function(src) dl_cached(src, "refs", function() {
   if (nrow(cr)) {
     at <- grepl("^-?@", cr$name)
     if (any(at)) {
-      out[[length(out) + 1L]] <- data.frame(id = sub("^-?@", "", cr$name[at]),
+      out[[length(out) + 1L]] <- data.frame(id = xref_id_norm(sub("^-?@", "", cr$name[at])),
                                             start = cr$start[at] + startsWith(cr$name[at], "-"), kind = "at",
                                             file = NA_character_, stringsAsFactors = FALSE)
     }
@@ -235,12 +237,12 @@ doc_refs <- function(src) dl_cached(src, "refs", function() {
   ct <- rg[rg$type == "citation", , drop = FALSE]
   if (nrow(ct)) {
     txt <- substring(src$text, ct$start, ct$end)
-    pat <- paste0("(?<![[:alnum:]_])-?(@)((?:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, ")")
+    pat <- paste0("(?<![[:alnum:]_])-?(@)((?i:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, ")")
     mm <- dl_matches(pat, txt)
     for (i in seq_along(mm)) {
       d <- mm[[i]]
       if (is.null(d)) next
-      out[[length(out) + 1L]] <- data.frame(id = substring(txt[i], d$c2, d$c2 + d$l2 - 1L),
+      out[[length(out) + 1L]] <- data.frame(id = xref_id_norm(substring(txt[i], d$c2, d$c2 + d$l2 - 1L)),
                                             start = ct$start[i] + d$c1 - 1L, kind = "at", file = NA_character_,
                                             stringsAsFactors = FALSE)
     }
@@ -645,7 +647,7 @@ lint_xref_code <- function(src, ctx) {
   if (!nrow(rg)) return(dl_empty())
   txt <- substring(src$text, rg$start, rg$end)
   inner <- dl_trim(gsub("^`+|`+$", "", txt))
-  ok <- grepl(paste0("^-?@(?:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, "$"), inner, perl = TRUE)
+  ok <- grepl(paste0("^-?@(?i:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, "$"), inner, perl = TRUE)
   if (!any(ok)) return(dl_empty())
   tk <- regexpr("@", txt[ok], fixed = TRUE)
   s <- rg$start[ok] + as.integer(tk) - 1L
@@ -1038,7 +1040,7 @@ changes_added_lines <- function(root, commit, docs) {
   for (f in changed) {
     n <- length(strsplit(read_raw_text(file.path(root, f)) %||% "", "\n", fixed = TRUE)[[1L]])
     whole <- !have || f %in% untracked_all ||
-      is.null(changes_git(root, c("cat-file", "-e", shQuote(paste0(commit, ":", f)))))
+      is.null(changes_git(root, c("cat-file", "-e", shQuote(paste0(commit, ":./", f)))))
     if (whole) {
       res[[f]] <- seq_len(n)
       next

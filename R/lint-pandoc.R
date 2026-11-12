@@ -127,6 +127,23 @@ pandoc_caps <- function(pat, x) {
   out
 }
 
+# The character column of a Pandoc column (tabs expand to stops of four) on each of `line`.
+pandoc_char_col <- function(lines, line, col) {
+  vapply(seq_along(line), function(k) {
+    ln <- lines[line[k]]
+    if (!grepl("\t", ln, fixed = TRUE)) return(as.integer(col[k]))
+    ch <- strsplit(ln, "")[[1L]]
+    w <- integer(length(ch))
+    v <- 0L
+    for (i in seq_along(ch)) {
+      w[i] <- if (ch[i] == "\t") 4L - (v %% 4L) else 1L
+      v <- v + w[i]
+    }
+    h <- which(cumsum(w) >= col[k])[1L]
+    if (is.na(h)) as.integer(col[k] - sum(w) + length(ch)) else as.integer(h)
+  }, 1L)
+}
+
 # From Pandoc's JSON: the file offsets the `Str` nodes cover (a logical vector of
 # length `n`), and the blocks as `line`, `type`.
 pandoc_parse <- function(json, src) {
@@ -140,8 +157,11 @@ pandoc_parse <- function(json, src) {
   if (!is.null(s)) {
     ok <- s[, 1L] <= nl & s[, 3L] <= nl
     s <- s[ok, , drop = FALSE]
-    st <- ls[s[, 1L]] + s[, 2L] - 1
-    en <- ls[s[, 3L]] + s[, 4L] - 2
+    # data-pos columns expand a tab to the next stop of four: back to character columns
+    c1 <- pandoc_char_col(src$lines, s[, 1L], s[, 2L])
+    c2 <- pandoc_char_col(src$lines, s[, 3L], s[, 4L] - 1L)
+    st <- ls[s[, 1L]] + c1 - 1
+    en <- ls[s[, 3L]] + c2 - 1
     str <- mark_ranges(n, st, en)
   }
   types <- "Para|Plain|CodeBlock|RawBlock|BlockQuote|BulletList|OrderedList|DefinitionList|HorizontalRule|LineBlock"
