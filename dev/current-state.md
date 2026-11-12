@@ -71,17 +71,26 @@ first, then `dev/build-log.md`.
   (19011f6) and wait for the stage 3 rules; then the 4a implementer,
   then 4b installers and 4c `verify()` (test-writers, then
   implementers, in parallel). Owed: `test-gate-edits.R`.
-- **As of def127c**: ALL packages are built and on `main`: stage 3
-  (3a to 3d), the stage 3 review fixes (`dev/review-3.md` with rulings;
-  decision 66 trimmed the claim-word list), 4a gate, 4b installers
-  (6cca012), 4c `verify()` (def127c), 4d `use_setup()`. The lint, gate
-  and installer filters were clean at 621dbc9 (1,208 tests). A test
-  editor is settling four disputed `verify` tests (uncommitted until
-  it reports). NEXT, in order: commit those; whole suite on a `git
-  archive` export; opus review of stage 4 (gate, installers, verify,
-  setup) with reproduction, rulings, regression tests, fixer;
-  `test-gate-edits.R` (owed); spec editor for stages 3 and 4 and
-  decisions 64 to 66; `devtools::check()`; build log; closing report.
+- **As of 5ca2514**: ALL packages are built and on `main` (stage 3 with
+  its review fixes and decision 66; 4a gate; 4b installers; 4c
+  `verify()`; 4d `use_setup()`). Whole suite at def127c: 3,902 tests,
+  4 failing, all four since corrected as test faults (eaa865a).
+  `dev/review-4.md` (17 findings, 7 design questions, rulings at its
+  end, two of them refined) has its failing regression tests on `main`
+  (`test-review-4.R`, 52 tests, 35 failing by design). WAITING for the
+  5-hour usage window to reset (a background sleep notifies), THEN:
+  1. stage 4 fixer (sonnet, worktree): make `test-review-4.R` pass per
+     the rulings; it will change the hook and CI templates (#13, #14),
+     after which `h4_hook_expected` / `h4_ci_expected` in
+     `helper-4b.R` need a test editor; no test for #9 (cache identity)
+     exists, the fixer implements it from the ruling;
+  2. `test-gate-edits.R` (owed, design-4 section 5);
+  3. spec editor: `PACKAGE-SCOPING.md` for stage 3 (section 5,
+     design-3 readings, review-3 rulings, decision 66), stage 4
+     (sections 6, 8, 9, design-4 readings, review-4 rulings), and
+     decisions 64 to 67 (write 67 for the review-4 design changes);
+  4. whole suite on a `git archive` export, `devtools::check()`;
+  5. build log totals, closing report.
   Lesson: a helper defined twice in `R/` silently replaces the first
   (it broke `lints()` once); check with
   `grep -hoE '^[A-Za-z_.][A-Za-z0-9_.]* *(<-|=) *function' R/*.R | sed -E 's/ *(<-|=).*//' | sort | uniq -d`
