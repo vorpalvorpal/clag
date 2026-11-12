@@ -42,6 +42,7 @@ default_config <- function() {
     count_threshold = 10,
     word_limit = 100,
     draft = FALSE,
+    ledger = TRUE,
     date_format = "%-d %B %Y",
     ci_level = 0.95,
     about_tolerance = 0.05,
@@ -107,6 +108,13 @@ read_config_ <- function(dir, front, doc) {
       "(rules 4.3.4, 9.1.2)."), "weft_config_error")
   }
   if (has_file) warn_unknown(proj, "_weft.yml")
+  # `ledger: [true]` reads as TRUE; a list is not a logical (I10)
+  if (has_file && "ledger" %in% names(proj)) {
+    raw <- tryCatch(yaml::read_yaml(file, handlers = list(seq = function(x) x)), error = function(e) NULL)
+    if (is.list(raw) && is.list(raw$ledger)) {
+      weft_abort("The setting `ledger` must be TRUE or FALSE.", "weft_config_error")
+    }
+  }
   if (has_file && "draft" %in% names(front)) {
     weft_abort(paste0(
       "`draft` is a project setting: set it in _weft.yml, not in a ",
@@ -203,7 +211,7 @@ validate_config <- function(cfg) {
   whole("digits"); whole("count_threshold"); whole("word_limit")
   whole("thousands_from")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
-  lgl("pct_proportion"); lgl("draft"); lgl("sentence_start_fail"); lgl("serial_comma")
+  lgl("pct_proportion"); lgl("draft"); lgl("ledger"); lgl("sentence_start_fail"); lgl("serial_comma")
   str("date_format")
   uf <- cfg$unit_form
   if (!is.character(uf) || length(uf) != 1L || is.na(uf) || !uf %in% c("auto", "symbol", "name")) {

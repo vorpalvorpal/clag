@@ -2,9 +2,12 @@
 % Please edit documentation in R/changes.R
 \name{changes}
 \alias{changes}
+\alias{print.weft_changes}
 \title{What changed in the ledgers since a commit}
 \usage{
 changes(since = "HEAD", path = ".", files = NULL)
+
+\method{print}{weft_changes}(x, brief = FALSE, ...)
 }
 \arguments{
 \item{since}{One string naming a commit (anything \verb{git rev-parse} accepts).
@@ -16,6 +19,13 @@ weft and must hold \verb{_weft.yml}.}
 
 \item{files}{\code{NULL}, or source paths relative to the root; only their ledgers
 are compared.}
+
+\item{x}{A \code{weft_changes}.}
+
+\item{brief}{If \code{TRUE}, print only the header line, the structural changes,
+the ledgers not re-rendered and the new conditions.}
+
+\item{...}{Unused.}
 }
 \value{
 A \code{weft_changes}, a list of the tables \code{entries}, \code{conditions},
@@ -53,5 +63,11 @@ only git command added to \code{rev-parse}, \code{ls-tree} and \code{show}).
 
 The claim words are English only, so a chapter in another language gets no
 claim-word ranking, and the interim list is broad (it holds common words such
-as \code{no}, \code{one}, \code{first} and \code{more}); stage 3's lexicon replaces it.
+as \code{no}, \code{all} and \code{more}, but not the number words \code{one} to \code{twelve},
+\code{first}, \code{second} or \code{third}); stage 3's lexicon replaces it. A crossing of
+1.0 is a reason only where the entry has no unit on either side (a ratio or a
+count).
+
+\code{print(x, brief = TRUE)} prints the header line, the structural changes, the
+ledgers not re-rendered and the new conditions, and nothing else.
 }

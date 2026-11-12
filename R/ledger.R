@@ -943,7 +943,7 @@ ledger_finish <- function(s, write = TRUE) {
   es <- ledger_entries(s)
   root <- ledger_root(s)
   set_up <- !is.na(root) && is_set_up(root) && !rehearsing()
-  do_write <- write && set_up
+  do_write <- write && set_up && !isFALSE(s$config$ledger)
   s$output <- ledger_output_name(s, warn = do_write)
   hdr <- s$ledger_header
   prior <- NULL

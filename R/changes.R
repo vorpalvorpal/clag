@@ -98,11 +98,10 @@ ledger_state <- function(root, header) {
 # Internal; stage 3's list (5.5.1) replaces it.
 claim_words <- function() {
   strsplit(paste(
-    "one two three four five six seven eight nine ten eleven twelve twenty",
-    "hundred thousand million billion half twice double doubled triple",
+    "twenty hundred thousand million billion half twice double doubled triple",
     "tripled halved quarter all every each none no nothing only most",
     "majority minority few fewer several many both neither either any largest",
-    "smallest highest lowest greatest least maximum minimum peak record first",
+    "smallest highest lowest greatest least maximum minimum peak record",
     "last best worst rose rise rises risen rising fell fall falls fallen",
     "falling increase increased increases increasing decrease decreased",
     "decreases decreasing declined grew dropped higher lower more less greater",
@@ -387,7 +386,7 @@ structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_c
   if (is.finite(b) && is.finite(a)) {
     if (b != 0 && a != 0 && sgn(b) != sgn(a)) add("sign flip", 2L)
     if ((b == 0) != (a == 0)) add("crosses 0", 3L)
-    if ((b - 1) * (a - 1) < 0) add("crosses 1.0", 4L)
+    if (is.na(ub) && is.na(ua) && (b - 1) * (a - 1) < 0) add("crosses 1.0", 4L)
     thr <- function(t, k) {
       if (is.null(t)) return(list(v = NA_real_, u = NA_character_))
       v <- unname(t[k])
@@ -555,7 +554,13 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
 #'
 #' The claim words are English only, so a chapter in another language gets no
 #' claim-word ranking, and the interim list is broad (it holds common words such
-#' as `no`, `one`, `first` and `more`); stage 3's lexicon replaces it.
+#' as `no`, `all` and `more`, but not the number words `one` to `twelve`,
+#' `first`, `second` or `third`); stage 3's lexicon replaces it. A crossing of
+#' 1.0 is a reason only where the entry has no unit on either side (a ratio or a
+#' count).
+#'
+#' `print(x, brief = TRUE)` prints the header line, the structural changes, the
+#' ledgers not re-rendered and the new conditions, and nothing else.
 #'
 #' @param since One string naming a commit (anything `git rev-parse` accepts).
 #'   `"HEAD"` in a repository with no commit compares with nothing, so every
@@ -780,8 +785,13 @@ entry_location <- function(r) {
   loc
 }
 
+#' @param x A `weft_changes`.
+#' @param brief If `TRUE`, print only the header line, the structural changes,
+#'   the ledgers not re-rendered and the new conditions.
+#' @param ... Unused.
+#' @rdname changes
 #' @export
-print.weft_changes <- function(x, ...) {
+print.weft_changes <- function(x, brief = FALSE, ...) {
   commit <- attr(x, "commit")
   since <- attr(x, "since")
   short <- if (is.na(commit)) "no commit yet" else substr(commit, 1L, 7L)
@@ -806,7 +816,7 @@ print.weft_changes <- function(x, ...) {
   sec_from <- attr(e, "section_from")
   if (is.null(sec_from)) sec_from <- rep(NA_character_, nrow(e))
   in_whole <- paste(e$ledger, e$output) %in% whole
-  say <- function(s, t) if (!is.na(s) && nzchar(s)) s else if (!is.na(t)) t else ""
+  say <- function(s, t) if (!is.na(t) && !nzchar(t)) "(prints nothing)" else if (!is.na(s) && nzchar(s)) s else if (!is.na(t)) t else ""
   entry_lines <- function(idx, marker) {
     unlist(lapply(idx, function(i) {
       r <- e[i, ]
@@ -840,13 +850,17 @@ print.weft_changes <- function(x, ...) {
   struct <- which(e$change == "changed" & nzchar(e$structural))
   other <- which(e$change == "changed" & !nzchar(e$structural))
   out <- c(out, sect("Structural changes", entry_lines(struct, "~")),
-           sect("Other changes, ranked", entry_lines(other, "~")),
+           if (!brief) c(sect("Other changes, ranked", entry_lines(other, "~")),
            sect("Added", entry_lines(which(e$change == "added" & !in_whole), "+")),
-           sect("Removed", entry_lines(which(e$change == "removed" & !in_whole), "-")))
+           sect("Removed", entry_lines(which(e$change == "removed" & !in_whole), "-"))))
   if (nrow(x$conditions)) {
     cd <- x$conditions
     out <- c(out, sect("New conditions",
                        sprintf("  ! %s  %s %s  %s: %s", ledger_label(cd$ledger, cd$output), cd$from, cd$source, cd$class, cd$text)))
+  }
+  if (brief) {
+    cat(paste0(out, "\n"), sep = "")
+    return(invisible(x))
   }
   show <- l$status != "compared" | !is.na(l$note)
   gnotes <- attr(x, "notes")
