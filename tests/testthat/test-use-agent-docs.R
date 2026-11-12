@@ -95,7 +95,8 @@ test_that("4b G34: a block from an older template is replaced in place; the text
   res <- h4_agent(d)
   x <- readLines(agents(d))
   expect_identical(x, c(before, h4_block_lines(), after))
-  expect_identical(u4_rel(res, d), "AGENTS.md")
+  # The skill file is new in this project, so it is written too (G34).
+  expect_true("AGENTS.md" %in% u4_rel(res, d))
 })
 
 test_that("4b G40: an edited block is left as it is with the message; overwrite = TRUE replaces it, outside text kept", {
