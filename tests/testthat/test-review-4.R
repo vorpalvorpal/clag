@@ -19,7 +19,7 @@
 #   - #11: the hook that is not executable is `outdated` with "not executable" in the detail;
 #   - #13: the project path reaches the workflow's run step through an `env:` entry of that step;
 #   - #15: an R_PROFILE_USER that is set makes the .Rprofile route `off`, or says so in a message or warning;
-#   - Q3: the note that the current entry was kept holds "newer", "kept", "keeps" or "current";
+#   - Q3: the manifest has a `run: <id>` line; the note holds "newer", "kept", "keeps" or "current";
 #   - Q5: the report says the project's `_weft.yml` is a baseline (the word "baseline").
 
 # ---- shared pieces ------------------------------------------------------------------------------------------
@@ -629,46 +629,96 @@ test_that("review-4 Q1: the count sums over projects: one removes a value, anoth
   expect_false(res$ok)
 })
 
-# ---- Q3: a stale backup of a killed run --------------------------------------------------------------------------------------------------
+# values and spans count together, claims on their own
+R4_SPAN <- "We monitored [a site | # sites]{n=\"n_sites\"} here."
+R4_VALUE <- "We monitored `r n_sites`{.num} sites."
 
-# a killed run's leftovers for stems a and b (as test-verify-freeze.R forges them), two hours old
-r4_forge_killed <- function(root) {
-  v4_plant_freeze(root, c("a", "b"))
+test_that("review-4 Q1: removing a claim() and adding a span needs Weft-Removed: 1", {
+  d <- g_scenario(list("ch1.qmd" = c(R4_CLAIM_CHUNK, G_ENGINE)),
+                  list("ch1.qmd" = c(R4_NO_CLAIM, "", R4_SPAN, G_ENGINE)))
+  res <- g_gate(d)
+  expect_false(res$ok)
+  expect_identical(res$n_removed, 1L)
+  expect_true(g_gate(d, c("Drop the claim", "", "Weft-Removed: 1"))$ok)
+})
+
+test_that("review-4 Q1: removing a value and adding a span needs no trailer (values and spans count together)", {
+  d <- g_scenario(list("ch1.qmd" = c(R4_VALUE, G_ENGINE)), list("ch1.qmd" = c(R4_SPAN, G_ENGINE)))
+  res <- g_gate(d)
+  expect_identical(max(0, res$n_removed), 0)
+  expect_true(res$ok)
+})
+
+test_that("review-4 Q1: removing a span and adding a claim needs Weft-Removed: 1", {
+  d <- g_scenario(list("ch1.qmd" = c(R4_SPAN, G_ENGINE)),
+                  list("ch1.qmd" = c(R4_CLAIM_CHUNK, G_ENGINE)))
+  res <- g_gate(d)
+  expect_false(res$ok)
+  expect_identical(res$n_removed, 1L)
+  expect_true(g_gate(d, c("Swap", "", "Weft-Removed: 1"))$ok)
+})
+
+# ---- Q3: a stale backup of a killed run --------------------------------------------------------------------------------------------------
+# The manifest of a backup records the run id of the verify run that took it, on a line `run: <id>` (the
+# stems are the other lines, as before). A stem's current entry is kept, and its backup discarded with a
+# note, only when the document's stamp exists and carries a run id other than the manifest's.
+
+R4_KILLED_RUN <- "verify-20260101000000-111"
+R4_LATER_RUN <- "verify-20260102000000-222"
+
+# a killed run's leftovers for stems a, b and c (as test-verify-freeze.R forges them); `run`: the manifest's
+# run id (NULL: a manifest as older versions wrote). Stamps: a from a later run, b from the killed run, c none.
+r4_forge_killed <- function(root, run = R4_KILLED_RUN) {
+  v4_plant_freeze(root, c("a", "b", "c"))
   bk <- v4_backup_dir(root)
   dir.create(bk, recursive = TRUE)
-  writeLines(c("a", "b"), file.path(bk, "manifest"))
-  for (s in c("a", "b")) file.rename(file.path(root, "_freeze", s), file.path(bk, s))
-  old <- Sys.time() - 7200
-  for (f in c(list.files(bk, recursive = TRUE, all.files = TRUE, full.names = TRUE, include.dirs = TRUE), bk)) {
-    Sys.setFileTime(f, old)
-  }
-  # a later render wrote a newer entry for a
+  writeLines(c(if (!is.null(run)) paste0("run: ", run), "a", "b", "c"), file.path(bk, "manifest"))
+  for (s in c("a", "b", "c")) file.rename(file.path(root, "_freeze", s), file.path(bk, s))
+  # a later complete render of a wrote a newer entry and its stamp; b's stamp is the killed run's own
   f3_write(file.path(root, "_freeze", "a", "execute-results", "html.json"), "NEWER a")
+  f3_write(file.path(root, ".weft", "stamps", "a.qmd.json"), v4_stamp_json("a.qmd", run = R4_LATER_RUN))
+  f3_write(file.path(root, ".weft", "stamps", "b.qmd.json"), v4_stamp_json("b.qmd", run = R4_KILLED_RUN))
   invisible(root)
 }
+r4_trio <- function(env = parent.frame()) {
+  v4_proj(list("a.qmd" = V4_PLAIN_DOC, "b.qmd" = V4_PLAIN_DOC, "c.qmd" = V4_PLAIN_DOC), git = TRUE,
+          quarto_yml = V4_QUARTO_YML, env = env)
+}
 
-test_that("review-4 Q3: after a failing run the newer entry of a stem stays, with a note; a stem with nothing newer is restored", {
+test_that("review-4 Q3: a stem with a stamp of a later run keeps its entry, with a note; the others are restored", {
   v4_env()
   fq <- v4_fake_quarto(status = 1L)
-  p <- r4_pair()
+  p <- r4_trio()
   r4_forge_killed(p$root)
   r <- v4_verify(p$root)
   r4_failed(r)
-  expect_identical(r4_entry(p$root, "a"), "NEWER a")
-  expect_identical(r4_entry(p$root, "b"), "OLD b")
+  expect_identical(r4_entry(p$root, "a"), "NEWER a")     # stamp of another run: kept
+  expect_identical(r4_entry(p$root, "b"), "OLD b")       # stamp of the killed run: restored
+  expect_identical(r4_entry(p$root, "c"), "OLD c")       # no stamp: restored
   expect_false(dir.exists(v4_backup_dir(p$root)))
   said <- c(r$report, r$res$notes, vapply(r$warnings, conditionMessage, ""))
   expect_true(any(grepl("newer|kept|keeps|current", said)))
 })
 
-test_that("review-4 Q3: verify(files = b) keeps the newer entry of a, which stays after a pass", {
+test_that("review-4 Q3: verify(files = b) keeps the entry of a, which stays after a pass", {
   v4_env()
   fq <- v4_fake_quarto()
-  p <- r4_pair()
+  p <- r4_trio()
   r4_forge_killed(p$root)
   r <- v4_verify(p$root, files = "b.qmd")
   expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "")
   expect_identical(r4_entry(p$root, "a"), "NEWER a")
+  expect_false(dir.exists(v4_backup_dir(p$root)))
+})
+
+test_that("review-4 Q3: a manifest with no run id (older versions) restores every stem, whatever the stamps", {
+  v4_env()
+  fq <- v4_fake_quarto(status = 1L)
+  p <- r4_trio()
+  r4_forge_killed(p$root, run = NULL)
+  r <- v4_verify(p$root)
+  r4_failed(r)
+  for (s in c("a", "b", "c")) expect_identical(r4_entry(p$root, s), paste("OLD", s), label = s)
   expect_false(dir.exists(v4_backup_dir(p$root)))
 })
 

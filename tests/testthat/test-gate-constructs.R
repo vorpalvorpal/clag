@@ -93,13 +93,12 @@ test_that("4a G11: the file column is the document's path", {
 
 removed_n <- function(res) max(0, res$n_removed)
 
-test_that("4a G12, review-4 Q1: a value turned into a span is one value removed (the count is per kind)", {
+test_that("4a G12: a value turned into a span removes nothing", {
   d <- g_scenario(list("ch1.qmd" = "We monitored `r n_sites`{.num} sites."),
                   list("ch1.qmd" = "We monitored [a site | # sites]{n=\"n_sites\"} here."))
   res <- g_gate(d)
-  expect_identical(removed_n(res), 1)
-  expect_false(res$ok)
-  expect_true(g_gate(d, c("Use a span", "", "Weft-Removed: 1"))$ok)
+  expect_identical(removed_n(res), 0)
+  expect_true(res$ok)
 })
 
 test_that("4a G12: a variable renamed in forty expressions removes nothing", {
