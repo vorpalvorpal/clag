@@ -95,17 +95,12 @@ ledger_state <- function(root, header) {
 
 # ---- claim words (C9) -----------------------------------------------------------
 
-# Internal; stage 3's list (5.5.1) replaces it.
+# The ranking's claim words: stage 3's lexicon (5.5.1) without the number words and
+# ordinals that 7.3.4 keeps out of the ranking (K10).
 claim_words <- function() {
-  strsplit(paste(
-    "twenty hundred thousand million billion half twice double doubled triple",
-    "tripled halved quarter all every each none no nothing only most",
-    "majority minority few fewer several many both neither either any largest",
-    "smallest highest lowest greatest least maximum minimum peak record",
-    "last best worst rose rise rises risen rising fell fall falls fallen",
-    "falling increase increased increases increasing decrease decreased",
-    "decreases decreasing declined grew dropped higher lower more less greater",
-    "smaller larger above below exceeded exceeds steady stable unchanged"), " ")[[1L]]
+  setdiff(claim_lexicon(default_config(), "en"),
+          c("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten", "eleven",
+            "twelve", "first", "second", "third"))
 }
 
 # The first claim word in a sentence once the entry's own text is removed once, as
@@ -538,7 +533,9 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
 #'
 #' `changes()` renders nothing, runs no pipeline and writes nothing. It reads git
 #' only. Because it runs no pipeline it does not see a store that is behind its
-#' code, and tier-2 findings are empty until stage 3 fills them. Ledgers are
+#' code. `findings` lists the tier-2 lints of [lints()] over the lines added since
+#' the commit, with the columns `file`, `line`, `rule` and `message`; a file with
+#' more `claim-word` findings than its `claim_cap` gets one row that counts them. Ledgers are
 #' paired by path; a source that was renamed is paired with the old one when at
 #' least half of its entries match and the two output names are equal or each is
 #' its own source's base name; a ledger whose source is gone counts as the old
@@ -719,8 +716,8 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
                stringsAsFactors = FALSE)
   stale_df <- stale_df[order(stale_df$ledger, stale_df$output, method = "radix"), , drop = FALSE]
   rownames(stale_df) <- NULL
-  findings <- data.frame(file = character(), line = integer(), rule = character(), message = character(),
-                         stringsAsFactors = FALSE)
+  t2 <- changes_tier2(root, commit, files)
+  findings <- t2$table
   res <- list(entries = entries, conditions = conditions, stale = stale_df, ledgers = ledgers,
               findings = findings)
   attr(res, "since") <- since
@@ -731,8 +728,8 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   # `git check-ignore -q` (read only): ledgers that git ignores are never at a commit
   probe <- if (length(now_p)) now_p[[1L]] else "_weft/ledger/"
   ignored <- !is.null(changes_git(root, c("check-ignore", "-q", shQuote(probe))))
-  attr(res, "notes") <- if (ignored)
-    "_weft/ledger/ is ignored by git, so no ledger can be found at a commit and all are new" else character()
+  attr(res, "notes") <- c(if (ignored)
+    "_weft/ledger/ is ignored by git, so no ledger can be found at a commit and all are new", t2$notes)
   class(res) <- "weft_changes"
   res
 }
@@ -799,7 +796,7 @@ print.weft_changes <- function(x, brief = FALSE, ...) {
   l <- x$ledgers
   n_cmp <- sum(l$status %in% c("compared", "renamed"))
   nothing <- !nrow(e) && !nrow(x$conditions) && !nrow(x$stale) && all(l$status == "compared") && all(is.na(l$note)) &&
-    !length(attr(x, "notes"))
+    !length(attr(x, "notes")) && !nrow(x$findings)
   if (nothing) {
     cat(sprintf("weft: no changes since %s (%s); %s compared.\n", since, short,
                 chg_plural(n_cmp, "ledger")), sep = "")
@@ -861,6 +858,10 @@ print.weft_changes <- function(x, brief = FALSE, ...) {
   if (brief) {
     cat(paste0(out, "\n"), sep = "")
     return(invisible(x))
+  }
+  if (nrow(x$findings)) {
+    fd <- x$findings
+    out <- c(out, sect("Tier-2 findings", sprintf("  ? %s:%d  %s  %s", fd$file, fd$line, fd$rule, fd$message)))
   }
   show <- l$status != "compared" | !is.na(l$note)
   gnotes <- attr(x, "notes")

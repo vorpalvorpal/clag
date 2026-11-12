@@ -48,7 +48,9 @@ now, so its entries were not re-rendered.
 
 \code{changes()} renders nothing, runs no pipeline and writes nothing. It reads git
 only. Because it runs no pipeline it does not see a store that is behind its
-code, and tier-2 findings are empty until stage 3 fills them. Ledgers are
+code. \code{findings} lists the tier-2 lints of \code{\link[=lints]{lints()}} over the lines added since
+the commit, with the columns \code{file}, \code{line}, \code{rule} and \code{message}; a file with
+more \code{claim-word} findings than its \code{claim_cap} gets one row that counts them. Ledgers are
 paired by path; a source that was renamed is paired with the old one when at
 least half of its entries match and the two output names are equal or each is
 its own source's base name; a ledger whose source is gone counts as the old
