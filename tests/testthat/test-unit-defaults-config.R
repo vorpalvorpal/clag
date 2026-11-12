@@ -217,8 +217,8 @@ test_that("2g 9.1.7: under si, false on a redefining default row is not a proble
 test_that("2g 9.1.7: a project row merges per field over the default row (space on pH keeps is, name, plural and before)", {
   g2_cfg(c("units:", "  pH:", "    space: false"))
   expect_equal(g2_num(u(7.2, pH)), "pH7.2")
-  expect_equal(g2_nm(u(7.2, pH)), "pH7.2")
-  expect_equal(g2_nm(u(7, pH)), "pH7")
+  expect_equal(g2_nm(u(7.2, pH)), f2("pH~7.2"))      # review 2g ruling c: space: false governs the symbol form only
+  expect_equal(g2_nm(u(7, pH)), f2("pH~7"))
   expect_equal(g2_cv(u(7.2, pH), "pH"), "pH7.2")          # still its own base unit
 })
 

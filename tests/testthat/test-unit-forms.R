@@ -114,7 +114,7 @@ test_that("2f table: a unit with no name (a made-up token, once PSU) under .num 
 
 test_that("2f table: CFU/100 mL prints units' symbol under .num and has no name (4.4.19)", {
   f2_register()
-  expect_equal(f2_ws("`r u(150, \"CFU/100 mL\")`{.num}"), f2("150~CFU/100 mL"))
+  expect_equal(f2_ws("`r u(150, \"CFU/100 mL\")`{.num}"), f2("150~CFU/100~mL"))   # review 2g #11
   f2_has_class(f2_err("`r u(150, \"CFU/100 mL\")`{.uname}"), "weft_value_error")
 })
 

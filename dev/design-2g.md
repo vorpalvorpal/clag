@@ -528,3 +528,16 @@ wins.
   or `sigfig`, and, for a unit that is one SI token, the prefixed unit
   that would print a number from 1 up to 1,000 (`unit="mm"`). weft does
   not rescale by itself (decision 51).
+
+## Rulings added for the regression tests of the review of 2g
+
+- **11.** The space inside `CFU/100 mL` and `MPN/100 mL` is a no-break
+  space, so the unit stays on one line; arithmetic on such a quantity
+  never prints a mangled unit.
+- **8.** An `is:` that names a unit weft installed is read against it.
+  Where the definition is exactly that unit (`is: 1 zzr`) and `units`
+  cannot hold two symbols for one unit, the problem is the "same unit"
+  one, naming the other key; never "not a unit the units package can
+  read".
+- **14.** An `is:` is `base`, a number, a unit, or a number and a unit;
+  anything else (`2 m 3`) is the format problem.
