@@ -841,3 +841,28 @@ The test-writer met these gaps; each reading below is now the contract.
    finding.
 6. `context` is `prose`, `chunk`, `caption`, `front-matter` or
    `weft_str`, by where the piece came from.
+
+## Readings fixed when the 3b tests were written
+
+1. **L15, the Pandoc path.** The answer is cached for the session under
+   the values of the option `weft.pandoc` and of `WEFT_PANDOC`: a change
+   to either is honoured at once.
+2. **L15.** The weft reader never runs Pandoc, version checks included.
+   A version check does not count toward "at most twice per file".
+3. **L15.** Pandoc is given the masked text, which keeps the line count
+   and each line's length (front matter as spaces, a construct as
+   letters), and the unmasked text for the block-type comparison.
+4. **L18.** Under `reader = "pandoc"` the R half still runs; the Pandoc
+   comparison adds findings and removes none of the R half's
+   `block-start` findings.
+5. **L19.** `spec` is the rule number the message cites (5.2.1 prose,
+   5.2.4 cross-reference words, 5.2.6 math). Math numerals are reported
+   under either reader. A string used as a name in `lookup()` is not a
+   phrase.
+6. **L20.** A guard (`if`) or a `cite` row is not a value row for the
+   claim-word rule.
+7. **L36, `label_seed()`.** `files` is the count of files; `where` joins
+   `<file>:<line>` entries with `"; "`. A label word is counted when the
+   very next word is a numeral. An invalid `min_count` is a
+   `weft_tool_error`. With no documents the result has zero rows and the
+   four columns.
