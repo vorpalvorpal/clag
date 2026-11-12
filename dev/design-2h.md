@@ -377,8 +377,22 @@ wins.
   "most elements fit" as before. Stated too: a value may print in one
   unit alone and another inside a vector, and elements hidden by
   `trunc` take part in the choice.
-- **6, i.** When no rung fits, "nearest" is measured on the number
-  before rounding.
+- **6, i (re-ruled on the test-writer's report; decision 54).** The
+  first ruling ("nearest" measured before rounding) was wrong: by the
+  ratio measure 149 m under `mm|km` is nearer in km rounded or not, and
+  the unrounded measure moves 32.5 m with `digits="2"` from
+  "32,500.00 mm" to "0.03 km". The rule is now: when no rung fits, a
+  rung that prints the number at 1,000 or more is taken before any rung
+  that prints it below 1, because the first keeps every digit and the
+  second loses them. Among rungs at 1,000 or more, the smallest number;
+  if there is none, among rungs below 1, the largest number; ties go to
+  the earlier rung. All measured on the number as printed, as fitting
+  is. So under `mm|km` every length from 1 m up to the one that prints
+  "1.0 km" prints in mm (149 m is "149,000 mm", 940 m is "940,000 mm",
+  960 m is "1.0 km"); a number too small for every rung still takes the
+  smallest unit and one too large the largest; zero still takes the
+  first rung. The vector rule's last resort (its largest absolute
+  value, alone) uses the same rule.
 - **8.** `plural()` chooses its arm by the number as printed in the
   picked rung, as a span does.
 - **9.** `unit_picked` is `NA` for a construct that failed.

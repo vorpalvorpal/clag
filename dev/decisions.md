@@ -339,3 +339,16 @@ and are entries 30 to 37 under "Made".
     the quantity (lost by `c()`, `mean()`, subsetting). Chosen: one
     unit in `display:`, ladders in the `unit` key at the use. Reverse:
     `R/dict.R`; the tests are in git history at 80d3ff9.
+54. **Which rung a number takes when it fits none (re-rules finding 6
+    of the 2h review).** Built first: the rung whose printed number is
+    nearest the window as a ratio; under `mm|km` that printed 149 m as
+    "0.1 km" and 50 m as "0.1 km". Alternatives: measure the ratio
+    before rounding (the reviewer's suggestion; it changes none of
+    those cases and makes 32.5 m at two decimals "0.03 km"); refuse a
+    rung whose printed number is off by more than some share (needs an
+    arbitrary threshold). Chosen: a rung that prints 1,000 or more
+    before any that prints below 1, since a long number keeps every
+    digit and a short one loses them; then the smallest such number,
+    or failing any the largest number below 1. Cost: 940 m under
+    `mm|km` prints "940,000 mm", not "0.9 km". Reverse: `ladder_pick()`
+    in `R/units.R`.

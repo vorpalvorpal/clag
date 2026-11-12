@@ -125,7 +125,7 @@ test_that("2h L6: the number tested is the number as printed, so it rounds into 
   expect_false(grepl("1,000", h2_ws(cx("u(999.96, m)", 'unit="m|km"')), fixed = TRUE))
 })
 
-test_that("2h L8: a number that fits no rung takes the rung whose number is nearest the window", {
+test_that("2h L8: a number that fits no rung takes a rung at 1,000 or more before one below 1, the smallest such number (decision 54)", {
   h2_restore()
   expect_equal(h2_ws(cx("u(0.5, m)", 'unit="m|km"')), f2("0.5~m"))          # too small: the smallest unit
   expect_equal(h2_ws(cx("u(5000, m)", 'unit="mm|m"')), f2("5,000~m"))       # too large: the largest unit
@@ -253,9 +253,11 @@ test_that("2h 4.4.23: names and plurals are those of the picked rung", {
   expect_equal(h2_ws(cx("u(2, m)", '.word unit="mm|m|km"')), f2("two~metres"))
 })
 
-test_that("2h 4.4.23: .usym and .nounit act on the picked rung", {
+test_that("2h 4.4.23: .usym acts on the picked rung, and .nounit with a ladder is a value error (ruling g)", {
   h2_restore()
-  expect_equal(h2_ws(cx("u(1500, m)", paste(".nounit", L))), "1.5")
+  # review 2h #1, ruling g: .nounit with a ladder of more than one rung is a value error (was "1.5")
+  f2_has_class(f2_err(cx("u(1500, m)", paste(".nounit", L))), "weft_value_error")
+  expect_equal(h2_ws(cx("u(1500, m)", '.nounit unit="km"')), "1.5")
   expect_equal(h2_ws(cx("u(1500, m)", paste(".usym", L))), f2("1.5~km"))
   expect_equal(h2_ws(cx("u(1500, m)", paste(".uname", L))), f2("1.5~kilometres"))
 })
