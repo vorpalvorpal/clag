@@ -728,7 +728,8 @@ lint_name <- function(src, ctx) {
         near <- nearest(nm, is_class)
         # on a code span a class is "one edit" from weft's only when a governor or key is there too:
         # `{.cpp}` is a highlighting language, not a typo (review 3, finding 12)
-        if (is_class && identical(it$kind, "code") && !any(tk$type == "key") && !is.na(near)) next
+        if (is_class && identical(it$kind, "code") && !any(tk$type == "key") && !is.na(near) &&
+            tolower(sub("^\\.", "", nm)) != tolower(sub("^\\.", "", near))) next
         if (!construct && is.na(near)) next
         msg <- if (!is.na(near)) {
           sprintf("`%s` is not a name weft knows; it is one edit from `%s` (rule 5.3.3).", nm, near)
