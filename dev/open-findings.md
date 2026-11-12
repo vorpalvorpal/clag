@@ -206,3 +206,11 @@ So a later review does not raise them again without a new argument.
   unit error.
 - A quantity made under one `unit_defaults` mode and printed under the other
   is wrong in both directions.
+
+## From the review of the stage 2 fix rounds (`dev/review-2-fixes.md`)
+
+- **A ladder can collapse a range.** `.range` over 999.6 and 1,000.4 m
+  under `m|km` prints one number, because both ends print "1.0 km".
+- **`.a` with a spelled quantity** prints "an eighteen metres".
+- **A pH difference prints as a pH** ("pH 0.5"), which reads as an
+  absolute value.
