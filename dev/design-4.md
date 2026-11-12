@@ -878,3 +878,63 @@ Every example in §2 is a case. Fixtures are written by the tests. Skips:
 
 Owed: `test-gate-edits.R`, the ported edits and their generator (section
 5), to be written once stage 3's rules exist.
+
+## Readings fixed when the 4b tests were written
+
+1. Markers: the hook's is line 2, the CI workflow's is line 1, the
+   skill's is the last line (`<!-- weft-file: use_agent_docs V H -->`).
+   The hash is the md5 of the other lines joined by a newline.
+2. The `AGENTS.md` block's hash covers the inner lines and the end line
+   (G40 read literally). A new `AGENTS.md` is exactly the block; an
+   appended block follows one blank line.
+3. A foreign hook, workflow or `SKILL.md` is left alone with no error,
+   under `overwrite = TRUE` too. For a foreign hook the value returned
+   is the path of the script copy, `<common dir>/weft/commit-msg`. A
+   hook manager means a foreign hook or any `core.hooksPath`.
+4. A second project running `use_ci()` over our unedited workflow with
+   a different path replaces it.
+5. A folder or a link where a file should go is a `weft_tool_error`.
+6. `status()` states the design did not give: `draft: true` and a
+   non-empty `verify_skip` are `off`; `strict` set is `ok` with the ids
+   in the detail; an older template or a recorded Rscript that has gone
+   is `outdated`; an edited file is `edited` and never makes a next
+   step; `quarto` is `n/a` outside a Quarto project; `hooks` and `ci`
+   are `missing` or `n/a` without git; an unrecorded version says "not
+   recorded". Lines print as `sprintf("  %-12s %-9s %s", ...)`.
+7. `use_weft()` has no `lib` argument. Its `use_quarto` line is absent
+   or starts `skipped` outside a Quarto project.
+8. An amended commit is judged against the amended HEAD. A merge passes
+   when only the other parent added a finding and fails when the
+   conflict resolution adds one.
+
+Not covered: the hook's "weft stopped with an error" message; `use_ci()`
+and `use_agent_docs()` without `_weft.yml`; Windows.
+
+## Readings fixed when the 4c tests were written
+
+1. `weft_version: null` and an absent key are both "no record", with no
+   warning. `strict` and `weft_version` are not project-only.
+2. A skipped part's detail is the text after its name: `skipped: static
+   = TRUE`, `skipped: no dict.yml`, `skipped: verify_skip in _weft.yml`,
+   `skipped: ledger: false in _weft.yml`.
+3. A report section appears only when it has content. A clean report is
+   the verdict line, four part lines and the time line.
+4. A finding line is `sprintf("    %5d  %s  %s", line, rule, message)`
+   under the file name, which is indented two spaces and relative to
+   the project root. The heading is `Findings added since <7 hex>`.
+5. Removed constructs have the columns `file`, `line`, `kind`, `text`.
+6. The freeze manifest lists the stem of every verified document, with
+   or without a `_freeze` entry, nested stems as `chapters/c`.
+7. `QUARTO_PATH` is looked up first. Quarto gets `render`, or `render`
+   and the files as passed.
+8. The run id's pid is that of the verifying process.
+9. A warned check fails nothing. The stale ledger reason comes from
+   `ledger_state()`.
+10. `since` takes a sha, a branch name, `HEAD~1` or `HEAD`; with no
+    commit in the repository it is a `weft_verify_error`.
+11. Front-matter `verify_skip` works in a lone document.
+12. `print()` of a result repeats the report.
+
+Not covered: restoring `_freeze` after an R-level error mid-render (only
+a non-zero exit and a killed process are tested); the stamp file name of
+a nested document; whether `verify()` stops after a failing part.
