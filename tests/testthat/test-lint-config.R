@@ -245,35 +245,49 @@ test_that("3a L4: a document's weft: block is applied per document by lints() (e
 
 # ---- L8a the claim lexicon ----------------------------------------------------------------
 
-LEX_LISTED <- c("zero", "one", "two", "three", "four", "five", "six", "seven", "eight",
-                "nine", "ten", "eleven", "twelve", "first", "second", "third",
-                "always", "never", "whole", "entire", "single", "sole", "solely", "fewest",
-                "top", "exceed", "exceeding", "surpassed", "decline", "declines",
-                "declining", "grow", "grows", "growing", "drop", "drops", "dropping",
-                "reduced", "significant", "significantly")
+# the 69 words of decision 66, in file order
+LEX_LISTED <- c(
+                 "all", "every", "each", "none", "no", "nothing", "only", "most", "both",
+                 "neither", "either", "always", "never", "whole", "entire", "sole", "solely",
+                 "largest", "smallest", "highest", "lowest", "greatest", "least", "maximum",
+                 "minimum", "best", "worst", "fewest", "rose", "rise", "rises", "risen",
+                 "rising", "fell", "fall", "falls", "fallen", "falling", "increase",
+                 "increased", "increases", "increasing", "decrease", "decreased", "decreases",
+                 "decreasing", "declined", "decline", "declines", "declining", "grew", "grow",
+                 "grows", "growing", "dropped", "drop", "drops", "dropping", "reduced",
+                 "significant", "significantly", "higher", "lower", "exceeded", "exceeds",
+                 "exceed", "exceeding", "surpassed", "unchanged"
+)
+LEX_DROPPED <- c("one", "two", "first", "any", "many", "several", "few", "single", "more", "less",
+                 "above", "below", "greater", "smaller", "larger", "record", "top", "last",
+                 "peak", "steady", "stable")
 
 lex <- function(cfg = weft:::default_config(), lang) {
   if (missing(lang)) weft:::claim_lexicon(cfg) else weft:::claim_lexicon(cfg, lang)
 }
 
-test_that("3a L8a: inst/weft-claim-words.yml is a mapping of the four lists, lower case", {
+test_that("3a L8a: inst/weft-claim-words.yml is a mapping of the three lists, lower case", {
   cl_units_clean()
   p <- system.file("weft-claim-words.yml", package = "weft")
   expect_true(nzchar(p))
   y <- yaml::read_yaml(p)
-  expect_setequal(names(y), c("number", "quantifier", "extremum", "direction"))
+  expect_setequal(names(y), c("quantifier", "extremum", "direction"))
   w <- unlist(y, use.names = FALSE)
   expect_identical(w, tolower(w))
   expect_false(anyDuplicated(w) > 0)
-  expect_true(all(c("zero", "one", "twelve", "first", "third") %in% y$number))
+  expect_length(w, 69L)
+  expect_false("number" %in% names(y))
 })
 
-test_that("3a L8a: the shipped lexicon holds the words the design lists", {
+test_that("3a L8a: the shipped lexicon holds exactly the 69 words of decision 66", {
   cl_units_clean()
   w <- lex(lang = "en")
   expect_type(w, "character")
   expect_true(all(LEX_LISTED %in% w), label = paste("missing:", paste(setdiff(LEX_LISTED, w), collapse = ", ")))
-  # the shipped words are the union of the four lists
+  expect_setequal(w, LEX_LISTED)
+  expect_length(LEX_LISTED, 69L)
+  expect_false(any(LEX_DROPPED %in% w), label = paste("present:", paste(intersect(LEX_DROPPED, w), collapse = ", ")))
+  # the shipped words are the union of the three lists
   y <- yaml::read_yaml(system.file("weft-claim-words.yml", package = "weft"))
   expect_setequal(w, unlist(y, use.names = FALSE))
 })

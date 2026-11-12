@@ -67,23 +67,26 @@ claim_paras <- function(words) {
   unlist(lapply(words, function(w) c(paste("Blue", w, "items."), "")))[-(2 * length(words))]
 }
 
-test_that("3b L20/L8a: number words are claim words", {
-  words <- c("zero", "one", "two", "three", "four", "five", "six", "seven", "eight", "nine", "ten",
-             "eleven", "twelve", "first", "second", "third")
-  x <- cw(claim_paras(words))
-  expect_identical(x$text, words)
-  expect_identical(x$line, seq(1L, by = 2L, length.out = length(words)))
-  expect_identical(x$col, rep(6L, length(words)))
+test_that("3b L20/L8a: number words are not claim words by default (decision 66)", {
+  words <- c("zero", "one", "two", "three", "ten", "twelve", "first", "second", "third", "half", "twice")
+  expect_identical(nrow(cw(claim_paras(words))), 0L)
 })
 
-test_that("3b L20/L8a: quantifier, extremum and direction words are claim words", {
-  words <- c("all", "none", "only", "majority", "always", "never", "whole", "entire", "single",
-             "sole", "solely", "largest", "fewest", "top", "rose", "exceed", "exceeding",
+test_that("3b L20/L8a: a project can restore a dropped word through claim_words add", {
+  x <- cw(claim_paras(c("one", "two")), weft_yml = c("claim_words:", "  add: [one]"))
+  expect_identical(x$text, "one")
+})
+
+test_that("3b L20/L8a: quantifier, extremum and direction words are claim words; dropped words are not", {
+  words <- c("all", "none", "only", "most", "always", "never", "whole", "entire",
+             "sole", "solely", "largest", "fewest", "rose", "exceed", "exceeding",
              "surpassed", "decline", "declines", "declining", "grow", "grows", "growing", "drop",
-             "drops", "dropping", "reduced", "significant", "significantly")
+             "drops", "dropping", "reduced", "significant", "significantly", "higher", "unchanged")
+  dropped <- c("more", "above", "many", "record")
   for (e in c("qmd", "Rmd")) {
     x <- cw(claim_paras(words), e)
     expect_identical(x$text, words)
+    expect_identical(nrow(cw(claim_paras(dropped), e)), 0L)
   }
 })
 
@@ -217,14 +220,14 @@ test_that("3b L20: strings and captions of an eval: false chunk follow reading 1
 # ---- sentences and positions -------------------------------------------------------------------
 
 test_that("3b L20: one finding per sentence, at its first claim word", {
-  lines <- c("Sites were counted. All sites rose. The water was clear. Two sites rose.")
+  lines <- c("Sites were counted. All sites rose. The water was clear. Each site fell.")
   for (e in c("qmd", "Rmd")) {
     x <- cw(lines, e)
-    expect_identical(x$text, c("all, rose", "two, rose"))
-    expect_identical(x$sentence, c("All sites rose.", "Two sites rose."))
+    expect_identical(x$text, c("all, rose", "each, fell"))
+    expect_identical(x$sentence, c("All sites rose.", "Each site fell."))
     expect_identical(x$line, c(1L, 1L))
     expect_identical(x$col, c(as.integer(f3_pos(lines, "All")[["col"]]),
-                              as.integer(f3_pos(lines, "Two")[["col"]])))
+                              as.integer(f3_pos(lines, "Each")[["col"]])))
   }
 })
 
