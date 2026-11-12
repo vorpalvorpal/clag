@@ -752,3 +752,51 @@ the nearest that does not. Every example in §2 is a case, under `.qmd` and
   `print()` with and without `brief`; findings alone are a change; every
   existing `changes()` test still passing, the 2e-2 and 2i claim-word tests
   among them.
+
+## Readings fixed when the 3a tests were written
+
+The test-writer met these gaps; each reading below is now the contract.
+
+1. **L5 and L17.** Rows are duplicates only when `file`, `line`, `col`,
+   `rule` and `text` are all equal. Distinct constructs on one line stay
+   separate; a multi-line error gives one finding per line.
+2. **L6.** `lint_rules()` lists the ids of section 1 in that order and
+   with those tiers, and also `read` and `xref-code`, placed after the
+   rules they belong with. Every id it lists is accepted by
+   `lints(rules = )`. `scope` is `file` or `project`.
+3. **L2.** `lints(path)` on a folder or file inside a project lints only
+   what is under `path`; `file` in a finding is relative to the project
+   root. Project-scope rules still read the whole project.
+4. **L7.** The summary line is singular for one: `1 finding in 1 file`.
+5. **`reader`.** A value other than the two allowed is a
+   `weft_lint_error`.
+6. **`lint_config(root, front)`.** `front` is the whole front matter;
+   the function takes its `weft:` list itself. `path` is absolute.
+7. **`read_source()`.** `front` is a field of the result. `ext` has no
+   leading dot. `fblock` is the offset of the attribute block's opening
+   `{`, or `NA`. `chunks$open` and `chunks$close` are line numbers.
+   `meta` is a list of blocks, empty when there is no front matter.
+8. **L9.** A region's text is the text between its delimiters. A
+   `text_span` is a span with a formatter class; `.smallcaps` is not one.
+9. **L11.** In `title: "x"` the key and the quotes are blank and the
+   words are prose. A raw LaTeX command is blank with its braces'
+   content. `(3)` and `(@)` list markers are blank; a task marker
+   `- [ ]` blanks five characters; the `:` of a definition blanks one.
+10. **L12.** A full stop inside a masked code span or citation does not
+    end a sentence. A document with no prose gives a zero-row table.
+11. **L39.** `flagged` is the number of findings of the rule over the
+    source; `flagged_sentences` the number of sentences holding one.
+    `recall` is `reproduced / located`. `in_scope` counts findings whose
+    `rule` names the rule or is `NA`; a finding with `rule = ""` counts
+    only in the `any` row. `rules = NULL` gives a row per
+    `lint_rules()$id`, then `any`. `unlocated` is a data frame with
+    `id`. Two verdicts are joined with `; ` in the order "reproduces
+    none", "flags nearly everything".
+12. **L38.** There is no partial last window. A quote under 12
+    characters is unlocated. A quote wins over `file` and `line`.
+13. **L37.** A missing column, a non-whole `line`, a source that is not
+    a folder, an unknown commit, no git, and a commit asked of a folder
+    that is not a repository are each a `weft_tool_error`.
+14. **L10.** Captions in an `eval: false` chunk are read; `weft_str()`,
+    `lookup()` and `brk()` strings in one are not.
+15. The helper file is `tests/testthat/helper-3.R`.
