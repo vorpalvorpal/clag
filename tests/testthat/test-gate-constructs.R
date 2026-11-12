@@ -120,7 +120,7 @@ test_that("4a G12: a changed bound removes nothing", {
 
 test_that("4a G12: a paragraph moved between files removes nothing", {
   d <- g_scenario(list("ch1.qmd" = c(G_PROSE, "", g_vals("a_one")), "ch2.qmd" = G_PROSE),
-                  list("ch1.qmd" = G_PROSE, "ch2.qmd" = c(G_PROSE, "", g_vals("a_one"))))
+                  list("ch1.qmd" = G_PROSE, "ch2.qmd" = c(G_PROSE, "", g_vals("a_one"), G_ENGINE)))
   res <- g_gate(d)
   expect_identical(removed_n(res), 0)
   expect_true(res$ok)
@@ -129,7 +129,7 @@ test_that("4a G12: a paragraph moved between files removes nothing", {
 
 test_that("4a G12: a renamed file removes nothing", {
   d <- g_scenario(list("ch1.qmd" = g_vals(c("a_one", "a_two"))),
-                  list("ch1.qmd" = NULL, "intro.qmd" = g_vals(c("a_one", "a_two"))))
+                  list("ch1.qmd" = NULL, "intro.qmd" = c(g_vals(c("a_one", "a_two")), G_ENGINE)))
   res <- g_gate(d)
   expect_identical(removed_n(res), 0)
   expect_true(res$ok)

@@ -197,7 +197,7 @@ test_that("4a G12: a deleted document removes its constructs (a trailer is deman
 })
 
 test_that("4a G12: a new document is compared with an empty version: nothing is removed", {
-  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch2.qmd" = g_vals(c("a1", "a2"))))
+  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch2.qmd" = c(g_vals(c("a1", "a2")), G_ENGINE)))
   res <- g_gate(d)
   expect_true(res$ok)
   expect_identical(max(0, res$n_removed), 0)

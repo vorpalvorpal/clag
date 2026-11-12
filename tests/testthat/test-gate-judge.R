@@ -53,7 +53,7 @@ test_that("4a H4: a file that is not UTF-8 (rule read) is a construct error", {
 
 test_that("4a H4 [3b]: a span cut by a re-wrap (rule block-start) is a construct error", {
   d <- g_scenario(list("ch1.qmd" = c("Sites: [a site | # sites]{n=\"n_sites\"} here.")),
-                  list("ch1.qmd" = c("Sites: [a site |", "# sites]{n=\"n_sites\"} here.")))
+                  list("ch1.qmd" = c("Sites: [a site |", "```", "code", "```", "b]{n=\"n_sites\"} here.")))
   res <- g_gate(d)
   expect_false(res$ok)
   expect_true("block-start" %in% res$errors$rule)
@@ -225,7 +225,7 @@ test_that("4a G18: a bad _weft.yml at HEAD means findings are not compared, with
 
 test_that("4a G20: the report, section by section, as the design shows it", {
   d <- g_scenario(list("book/ch1.qmd" = G_PROSE, "book/ch2.qmd" = G_PROSE, "book/ch3.qmd" = G_PROSE),
-                  list("book/ch1.qmd" = g_bad_doc(),
+                  list("book/ch1.qmd" = c(g_bad_doc(), G_ENGINE),
                        "book/ch2.qmd" = g_num_doc("45%"),
                        "book/ch3.qmd" = c(G_PROSE, "", "", "Flow rose by 37% in May.")),
                   weft = "book")
@@ -294,7 +294,7 @@ test_that("4a G20: one added finding: the header names HEAD", {
 })
 
 test_that("4a G20: sections absent when empty: a construct error alone prints no 'added' section", {
-  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch1.qmd" = g_bad_doc()))
+  d <- g_scenario(list("ch1.qmd" = G_PROSE), list("ch1.qmd" = c(g_bad_doc(), G_ENGINE)))
   rep <- g_report(g_gate(d))
   expect_false(any(grepl("findings? added that HEAD did not hold", rep)))
   expect_false(any(grepl("weft constructs? removed", rep)))

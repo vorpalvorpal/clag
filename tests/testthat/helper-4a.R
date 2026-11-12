@@ -233,6 +233,9 @@ G_PROSE <- c("The river runs past the town.", "", "Children swim there in summer
 g_num_doc <- function(pcts = "45%", lead = "Intro paragraph.") {
   c(lead, unlist(lapply(pcts, function(p) c("", sprintf("Flow rose by %s in March.", p)))))
 }
+# a trailing metadata block: the lint rule `engine` wants `engine: knitr`; at the end it keeps every line number
+G_ENGINE <- c("", "---", "engine: knitr", "---")
+
 # a document whose line 3 holds one construct error (rule construct; F3_BAD_TWO)
 g_bad_doc <- function(lead = "Intro paragraph.") c(lead, "", paste("A", F3_BAD_TWO, "here."))
 
