@@ -398,7 +398,7 @@ test_that("3a L9: rows carry fstart, fend and fblock, and substr(text, fstart, f
     r <- src$rows
     expect_true(all(c("fstart", "fend", "fblock") %in% names(r)))
     expect_true(all(c("kind", "line", "start", "end", "expr", "error") %in% names(r)))
-    got <- substr(src$text, r$fstart, r$fend)
+    got <- substring(src$text, r$fstart, r$fend)
     expect_setequal(got, ROW_CONSTRUCTS)
     expect_equal(nrow(r), length(ROW_CONSTRUCTS))
     expect_false(anyNA(r$fstart))
@@ -409,9 +409,9 @@ test_that("3a L9: rows carry fstart, fend and fblock, and substr(text, fstart, f
 test_that("3a L9: fblock is the offset of the attribute block (assumed: its opening brace)", {
   src <- read_src(ROW_DOC)
   r <- src$rows
-  with_attr <- grepl("\\}$", substr(src$text, r$fstart, r$fend))
+  with_attr <- grepl("\\}$", substring(src$text, r$fstart, r$fend))
   expect_true(any(with_attr))
-  expect_true(all(substr(src$text, r$fblock[with_attr], r$fblock[with_attr]) == "{"))
+  expect_true(all(substring(src$text, r$fblock[with_attr], r$fblock[with_attr]) == "{"))
   # a bare value has no attribute block
   bare <- !with_attr
   expect_true(all(is.na(r$fblock[bare])))
@@ -420,7 +420,7 @@ test_that("3a L9: fblock is the offset of the attribute block (assumed: its open
 test_that("3a L9: rows still hold the scanner's columns (kind, expr, classes, keys, error) for the same text", {
   src <- read_src(ROW_DOC)
   expect_true(all(c("classes", "keys", "id", "arms", "parent", "arm") %in% names(src$rows)))
-  k <- src$rows$kind[substr(src$text, src$rows$fstart, src$rows$fend) == "[many | one]{if=\"zzcond\"}"]
+  k <- src$rows$kind[substring(src$text, src$rows$fstart, src$rows$fend) == "[many | one]{if=\"zzcond\"}"]
   expect_identical(k, "if")
 })
 
@@ -428,7 +428,7 @@ test_that("3a L9: fstart and fend survive CRLF, BOM, and non-ASCII before the co
   doc <- c("\u00e9\u00e9 `r zzx1`{.num}", "", "Line \u2014 [a | b]{n=\"zzk\"}")
   for (variant in list(list(), list(eol = "\r\n", bom = TRUE))) {
     src <- do.call(read_src, c(list(doc), variant))
-    expect_setequal(substr(src$text, src$rows$fstart, src$rows$fend), c("`r zzx1`{.num}", "[a | b]{n=\"zzk\"}"))
+    expect_setequal(substring(src$text, src$rows$fstart, src$rows$fend), c("`r zzx1`{.num}", "[a | b]{n=\"zzk\"}"))
   }
 })
 
@@ -474,7 +474,7 @@ test_that("3a L9: each region type is found, and its offsets cover its text", {
     for (ex in REG_EXPECT) {
       rr <- src_regions(src, ex[[1]])
       expect_gte(nrow(rr), 1L)
-      txt <- substr(src$text, rr$start, rr$end)
+      txt <- substring(src$text, rr$start, rr$end)
       expect_true(any(grepl(ex[[2]], txt, fixed = TRUE)),
                   label = sprintf("[%s] region %s covers text with %s (got: %s)", e, ex[[1]], ex[[2]],
                                   substr(paste(txt, collapse = " | "), 1, 80)))
@@ -487,10 +487,10 @@ test_that("3a L9: a span region has inner and attribute offsets and parsed class
   sp <- src_regions(src, "span")
   expect_equal(nrow(sp), 2L)
   strip <- function(x) sub("\\]$", "", sub("^\\[", "", x))
-  inner <- strip(substr(src$text, sp$inner_start, sp$inner_end))
+  inner <- strip(substring(src$text, sp$inner_start, sp$inner_end))
   expect_setequal(inner, c("a site | # sites", "t"))
   a <- sp[inner == "a site | # sites", ]
-  attr_txt <- substr(src$text, a$attr_start, a$attr_end)
+  attr_txt <- substring(src$text, a$attr_start, a$attr_end)
   expect_true(grepl("zzk", attr_txt, fixed = TRUE))
   expect_identical(sub("^\\.", "", unlist(a$classes[[1]])), "zzcls")
   expect_identical(unlist(a$keys[[1]]), "n")
@@ -514,7 +514,7 @@ test_that("3a L9: code_attr is inline code with an attribute block; yaml_field n
 
 test_that("3a L9: code spans and chunks give 'code' and 'chunk' regions", {
   src <- read_src(c("A `zzspan` here.", "", "```{r}", "zzchunk <- 1", "```"))
-  expect_true(any(grepl("zzspan", substr(src$text, src_regions(src, "code")$start, src_regions(src, "code")$end), fixed = TRUE)))
+  expect_true(any(grepl("zzspan", substring(src$text, src_regions(src, "code")$start, src_regions(src, "code")$end), fixed = TRUE)))
   expect_equal(nrow(src_regions(src, "chunk")), 1L)
 })
 

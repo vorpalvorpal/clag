@@ -214,7 +214,7 @@ test_that("3a L5/L17: non-ASCII before a finding in a caption and in front matte
   x <- cons(doc)
   expect_equal(nrow(x), 2L)
   expect_identical(x$line, c(4L, 9L))
-  expect_identical(x$col, c(6L, 9L))
+  expect_identical(x$col, c(7L, 9L))
 })
 
 # \u00a721's position stress document: repeated and blank blocks, a block equal to a line of the

@@ -33,6 +33,7 @@ len0 <- function(x) length(x) == 0L
 # ---- defaults ---------------------------------------------------------------------
 
 test_that("3a L8: default_config() holds each new key with its default", {
+  cl_units_clean()
   d <- weft:::default_config()
   expect_true(all(L8_KEYS %in% names(d)))
   expect_true(len0(d$label_words))
@@ -47,6 +48,7 @@ test_that("3a L8: default_config() holds each new key with its default", {
 })
 
 test_that("3a L8: read_config() with no _weft.yml returns the defaults for the new keys", {
+  cl_units_clean()
   x <- rc()
   expect_true(len0(x$label_words))
   expect_false(x$numeral_years)
@@ -58,6 +60,7 @@ test_that("3a L8: read_config() with no _weft.yml returns the defaults for the n
 })
 
 test_that("3a L8: the new keys in _weft.yml do not make a knit warn about unknown settings", {
+  cl_units_clean()
   yml <- c("label_words: [Site, Station]", "numeral_years: true",
            "claim_words: {add: [dramatic], drop: [rose]}", "claim_cap: 5",
            "guard_words: 10", "expected_names: ['.foo', foo]")
@@ -72,6 +75,7 @@ test_that("3a L8: the new keys in _weft.yml do not make a knit warn about unknow
 })
 
 test_that("3a L8: a document's weft: block overrides _weft.yml setting by setting", {
+  cl_units_clean()
   yml <- c("label_words: [Site]", "claim_cap: 5", "guard_words: 10")
   x <- rc(yml, front = list(claim_cap = 7, numeral_years = TRUE))
   expect_equal(x$claim_cap, 7)
@@ -131,6 +135,7 @@ BAD_L8 <- list(
 )
 
 test_that("3a L8: a wrong value is a weft_config_error from read_config() with the documented message", {
+  cl_units_clean()
   for (b in BAD_L8) {
     e <- rc_err(b$yml)
     lbl <- b$yml
@@ -144,12 +149,14 @@ test_that("3a L8: a wrong value is a weft_config_error from read_config() with t
 })
 
 test_that("3a L8: the message ends with the rule: label_words (rule 5.2.4)", {
+  cl_units_clean()
   e <- rc_err("label_words: [Site 3]")
   expect_match(f2_msg(e), "The setting `label_words` must be a list of words without spaces (rule 5.2.4).",
                fixed = TRUE)
 })
 
 test_that("3a L8: the same refusals come from lints() on _weft.yml", {
+  cl_units_clean()
   for (b in BAD_L8) {
     e <- ln_err_yml(b$yml)
     expect_true(inherits(e, "weft_config_error"), label = paste("lints():", b$yml))
@@ -158,6 +165,7 @@ test_that("3a L8: the same refusals come from lints() on _weft.yml", {
 })
 
 test_that("3a L8: the same refusals come from lints() on a document's weft: front matter", {
+  cl_units_clean()
   for (b in BAD_L8[c(1, 4, 7, 11, 16, 18)]) {
     # YAML flow lines are valid indented under `weft:`
     e <- ln_err_front(b$yml)
@@ -167,6 +175,7 @@ test_that("3a L8: the same refusals come from lints() on a document's weft: fron
 })
 
 test_that("3a L8: read_config() refuses a wrong value given in the front matter list too", {
+  cl_units_clean()
   withr::local_envvar(WEFT_DRAFT = NA)
   e <- f2_cond(weft:::read_config(f2_proj(), front = list(claim_cap = 0)))
   f2_has_class(e, "weft_config_error")
@@ -176,6 +185,7 @@ test_that("3a L8: read_config() refuses a wrong value given in the front matter 
 })
 
 test_that("3a L8: valid forms are accepted by lints()", {
+  cl_units_clean()
   ok <- list(
     "label_words: []", "label_words: [Site, 'Stn.']", "numeral_years: true",
     "numeral_years: false", "claim_words: {add: [], drop: []}",
@@ -192,6 +202,7 @@ test_that("3a L8: valid forms are accepted by lints()", {
 # ---- L4: lint_config() parses YAML only -----------------------------------------------
 
 test_that("3a L4: a bad `units:` table does not stop a lint (lint_config() never calls read_config())", {
+  cl_units_clean()
   root <- lint_proj(list("a.qmd" = F3_BAD_LIT), weft_yml = "units: [m, km]")
   expect_error(weft:::read_config(root), class = "weft_config_error")
   expect_no_error(lints(root))
@@ -200,6 +211,7 @@ test_that("3a L4: a bad `units:` table does not stop a lint (lint_config() never
 })
 
 test_that("3a L4: lint_config() returns the merged settings, with the new keys' defaults", {
+  cl_units_clean()
   root <- lint_proj(list(), weft_yml = c("claim_cap: 6", "label_words: [Site]"))
   cfg <- weft:::lint_config(root, list())
   expect_equal(cfg$claim_cap, 6)
@@ -209,6 +221,7 @@ test_that("3a L4: lint_config() returns the merged settings, with the new keys' 
 })
 
 test_that("3a L4: the nearest wins, setting by setting: front matter over _weft.yml", {
+  cl_units_clean()
   root <- lint_proj(list(), weft_yml = c("claim_cap: 6", "guard_words: 9"))
   # Design silent on whether `front` is the front matter or its weft: key; both shapes tried.
   shapes <- list(list(weft = list(claim_cap = 3)), list(claim_cap = 3))
@@ -220,6 +233,7 @@ test_that("3a L4: the nearest wins, setting by setting: front matter over _weft.
 })
 
 test_that("3a L4: a document's weft: block is applied per document by lints() (error is per front matter)", {
+  cl_units_clean()
   root <- lint_proj(list(
     "good.qmd" = c("---", "weft:", "  claim_cap: 3", "---", "", F3_BAD_LIT),
     "bad.qmd" = c("---", "weft:", "  claim_cap: 0", "---", "", "Plain.")
@@ -243,6 +257,7 @@ lex <- function(cfg = weft:::default_config(), lang) {
 }
 
 test_that("3a L8a: inst/weft-claim-words.yml is a mapping of the four lists, lower case", {
+  cl_units_clean()
   p <- system.file("weft-claim-words.yml", package = "weft")
   expect_true(nzchar(p))
   y <- yaml::read_yaml(p)
@@ -254,6 +269,7 @@ test_that("3a L8a: inst/weft-claim-words.yml is a mapping of the four lists, low
 })
 
 test_that("3a L8a: the shipped lexicon holds the words the design lists", {
+  cl_units_clean()
   w <- lex(lang = "en")
   expect_type(w, "character")
   expect_true(all(LEX_LISTED %in% w), label = paste("missing:", paste(setdiff(LEX_LISTED, w), collapse = ", ")))
@@ -263,12 +279,14 @@ test_that("3a L8a: the shipped lexicon holds the words the design lists", {
 })
 
 test_that("3a L8a: the words of the interim claim_words() are all in the lexicon (K10)", {
+  cl_units_clean()
   interim <- weft:::claim_words()
   w <- lex(lang = "en")
   expect_true(all(interim %in% w), label = paste("missing:", paste(setdiff(interim, w), collapse = ", ")))
 })
 
 test_that("3a L8a: lang missing, NA or starting en (any case) gets the shipped words", {
+  cl_units_clean()
   shipped <- lex(lang = "en")
   expect_identical(sort(lex()), sort(shipped))
   expect_identical(sort(lex(lang = NA_character_)), sort(shipped))
@@ -278,12 +296,14 @@ test_that("3a L8a: lang missing, NA or starting en (any case) gets the shipped w
 })
 
 test_that("3a L8a: a lang not starting en gets no shipped words", {
+  cl_units_clean()
   for (l in c("de", "fr-CA", "ende", "xen")) {
     expect_equal(length(lex(lang = l)), 0L, label = l)
   }
 })
 
 test_that("3a L8a: add is united in, then drop removed, for any lang", {
+  cl_units_clean()
   cfg <- weft:::default_config()
   cfg$claim_words <- list(add = c("dramatic", "huge"), drop = c("rose", "one"))
   w <- lex(cfg, "en-AU")
@@ -301,6 +321,7 @@ test_that("3a L8a: add is united in, then drop removed, for any lang", {
 })
 
 test_that("3a L8a: the configuration read from _weft.yml feeds claim_lexicon()", {
+  cl_units_clean()
   cfg <- rc(c("claim_words: {add: [dramatic], drop: [never]}"))
   w <- lex(cfg, "en")
   expect_true("dramatic" %in% w)

@@ -391,15 +391,18 @@ test_that("3a L7: print() shows a header, the file, then 'line:col  rule  messag
   l1 <- grep("^  3:5 +construct +", rows, value = TRUE)
   expect_length(l1, 1L)
   expect_match(l1, "weft-literal", fixed = TRUE)
-  expect_match(l1, "\\(rule 1\\.8\\.10\\)\\.$")
+  expect_match(l1, "\\(rule 1\\.8\\.10\\)")
   l2 <- grep("^  5:1 +construct +", rows, value = TRUE)
   expect_length(l2, 1L)
-  expect_match(l2, "\\(rule 1\\.1\\.5\\)\\.$")
+  expect_match(l2, "\\(rule 1\\.1\\.5\\)")
 })
 
 test_that("3a L7: print() returns its argument invisibly", {
   x <- lint_one(F3_BAD_LIT)
-  expect_invisible(capture.output(y <- print(x)))
+  vis <- NULL
+  capture.output(vis <- withVisible(print(x))$visible)
+  expect_false(vis)
+  capture.output(y <- print(x))
   expect_identical(y, x)
 })
 

@@ -154,7 +154,10 @@ test_that("3a L39: print() shows the table and the verdicts", {
   expect_match(out, "construct", fixed = TRUE)
   expect_match(out, "any", fixed = TRUE)
   expect_match(out, "ok", fixed = TRUE)
-  expect_invisible(capture.output(y <- print(r)))
+  vis <- NULL
+  capture.output(vis <- withVisible(print(r))$visible)
+  expect_false(vis)
+  capture.output(y <- print(r))
   expect_identical(y, r)
 })
 
