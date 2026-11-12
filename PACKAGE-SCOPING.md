@@ -1762,9 +1762,10 @@ markdown reads (`_`, `*`, `~`, `^`, `[`, `]`, `` ` ``, `\`) are escaped, except
 the superscript marks weft writes. A value with no unit left, such as a
 ratio, prints the number alone.
 
-Three things differ in the symbol text. A token typed as a name prints its
-unit's symbol, so `kilometre` prints `km` and `microgram` `µg`; a token typed
-as a symbol prints as typed (`ug`). A unit with no symbol prints its name, in
+Three things differ in the symbol text. A token typed as a name, standing
+alone, prints its unit's symbol, so `kilometre` prints `km` and `microgram`
+`µg` (in a compound it prints as typed, 4.4.20); a token typed as a symbol
+prints as typed (`ug`). A unit with no symbol prints its name, in
 the plural in a numerator and the singular in a denominator ("10 years",
 "5 kg/year"); a prefixed unit of such a row prints its symbol, as typed
 ("3,000 Myr"). A row of `units:` whose `symbol` is `false` has no symbol in any
@@ -2065,7 +2066,7 @@ gram, and a number would print with a unit the author did not write. weft sets
 no option of `units` for this, and changes no entry of its database. This
 holds in both modes of 4.4.21. In a compound unit every token prints as the
 author typed it: `mm/hr` prints "mm/hr", not "mm/h", and `mm/day` and `ha/yr`
-print as typed.
+print as typed, and so do names: `kilometre/hr` prints "kilometre/hr".
 
 A token that `units` reads as a prefix and another unit, or as another unit, can
 only be told from the one the author meant by a list, because the reading is a
@@ -2194,8 +2195,9 @@ that redefines nothing (`NTU`, `PSU`, `CFU`, `MPN`, and the tokens of 4.4.7) are
 not undone during the session; `false` removes only their names. A read that
 fails removes every token installed since it began and returns the session to
 mode `weft` with the default rows only; it does not restore an earlier
-project's. A unit that a project registers through `units:` is removed when
-another project's tables are read, and by `units_reset()`.
+project's. A unit that a project registers, through `units:` or through its
+dictionary (4.4.7), belongs to the project root: it is removed when
+another root's configuration is read, and by `units_reset()`.
 When the package is unloaded, what it installed is
 removed (the base registrations apart) and `gal` is restored. A project unit
 defined as a unit with a non-ASCII symbol is refused before anything is
@@ -2473,7 +2475,10 @@ list(
 
 **4.6.1** `tar_dict()` returns a file target for the YAML (`dict_file`), a
 target `dict_values` that reads the file once per make, and one target per key
-(`dict_<key>`), holding the value only.
+(`dict_<key>`), holding the value only. Each target's command is wrapped in
+`weft::dict_unmark()`, which strips the marker of the attached dictionary from the value.
+The function is exported, marked internal, because the generated commands name it; it is
+not for direct use.
 
 **4.6.2** `tar_dict_deps()` walks each target's command, and the functions it
 calls, for `dict$key` and `dict[["key"]]`, and sets the per-key targets as
@@ -3597,8 +3602,8 @@ reads (7.1.3).
 
 **9.1.10** The units tables are kept for the session. A copy in the user's cache
 directory (`tools::R_user_dir("weft", "cache")`) is written only under
-`options(weft.units_cache = TRUE)`; weft writes nothing outside the project
-unless asked.
+on by default; `options(weft.units_cache = FALSE)` turns it off. A bad or stale copy
+falls back to a read of the tables.
 
 ### 9.2 Activation
 
