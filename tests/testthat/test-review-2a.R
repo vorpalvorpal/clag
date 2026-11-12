@@ -471,7 +471,7 @@ test_that("review 2a #14: a warned check outside a knit carries the 4.4.5 hint (
 })
 
 test_that("review 2a #14: in a knit a warned check carries the hint in last_knit()$warnings and in the warned-checks report (4.4.5)", {
-  res <- r2a_kn(c("Prose `r claim(dict$core_len, . < 1, level = 'warn')`.", "",
+  res <- r2a_kn(c("Prose `r claim(dict$core_len, . < 1, level = 'warn')`{.num}.", "",
                   "```{r}", "claim(dict$core_len, . < 1, level = 'warn')", "```"))
   expect_false(res$failed, label = res$message)
   w <- res$knit$warnings
