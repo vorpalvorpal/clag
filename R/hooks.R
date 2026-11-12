@@ -200,8 +200,10 @@ park_inline <- function(s, code, envir) {
   } else {
     li <- early_line(s)
     label <- sprintf("`r %s`", code)
+    er <- s$early_row
+    wh <- function() ledger_where(s, er$F, li$file, er$line)
     r <- run_inline(s, li$file, li$line, label, code,
-                    function() stock_bare_text(code, envir))
+                    function() stock_bare_text(code, envir), where = wh)
     if (r$ok || inherits(r$error, c("weft_no_value", "weft_value_error"))) {
       s$parked[[idx]]$result <- r
     } else {
@@ -464,6 +466,12 @@ finish_document <- function() {
   fr <- failures_frame(s)
   # the stamp, and in a book the held failures (2.6.6, 2.9.2, 2.9.4)
   collected <- record_knit(s, fr)
+  # the ledger and the condition log follow the output (7.1.3, D20): a knit
+  # that stops on its failures writes neither
+  stops <- nrow(fr) > 0L && !collected && !isTRUE(s$config$draft)
+  tryCatch(ledger_finish(s, write = !stops), error = function(e) {
+    ledger_warn(sprintf("weft: the ledger could not be built: %s (rule 7.1.3).", conditionMessage(e)))
+  })
   # the warned checks go to stderr at the end of the knit, whether or not it
   # also fails (entry 31); a collection file carries them to the post-render
   # report instead

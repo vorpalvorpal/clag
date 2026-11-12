@@ -12,13 +12,13 @@ URL: https://github.com/vorpalvorpal/clag
 BugReports: https://github.com/vorpalvorpal/clag/issues
 Imports:
     cli,
+    jsonlite,
     knitr (>= 1.51),
     rlang,
     units,
     yaml
 Suggests:
     curl,
-    jsonlite,
     pkgload,
     quarto,
     rmarkdown,

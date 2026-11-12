@@ -1,5 +1,5 @@
 # Package 2d: the ledger (dev/design-2d.md D1-D14, D20-D28). Written before the code.
-# Non-ASCII is written as \uXXXX; "\\u00a0" is the six-character escape, " " a no-break space.
+# Non-ASCII is written as \uXXXX; "\\u00a0" is the six-character escape, "\u00a0" a no-break space.
 # Made-up values only. Renders are shared between tests through d2_memo().
 if (!exists("d2_render")) source(Filter(file.exists, c(testthat::test_path("helper-2d.R"), testthat::test_path("..", "helper-2d.R")))[[1]])
 d2_need()
@@ -37,7 +37,7 @@ test_that("2d D3: the escape is six ASCII characters, not a no-break space; no C
   b <- d2_bytes(d2_path(res$dir))
   txt <- rawToChar(b)
   expect_true(grepl("1.5\\u00a0km", txt, fixed = TRUE))
-  expect_false(grepl(" ", txt, fixed = TRUE))
+  expect_false(grepl("\u00a0", txt, fixed = TRUE))
   expect_false(as.raw(0x0d) %in% b)
   expect_false(identical(b[1:3], as.raw(c(0xEF, 0xBB, 0xBF))))
   expect_identical(b[length(b)], as.raw(0x0a))
@@ -94,7 +94,7 @@ test_that("2d D8: a sign span records the role of its arm and its governor's val
   e <- d2_one(d2_ledger(res), kind = "sign", expr = "dd")
   expect_identical(e$arm, "negative")
   expect_identical(e$rel, "=")
-  expect_identical(e$raw, -2)
+  expect_equal(as.numeric(e$raw), -2)
   expect_identical(e$text, "fell")
   expect_identical(e$section, "kinds")
   expect_identical(e$context, "prose")
@@ -230,7 +230,7 @@ test_that("2d D13: lines after the header are sorted on file, section, kind, exp
             "Intro words `r alpha`.")
   res <- d2_render(c("Top `r alpha`.", "", body), code = "Zeta <- 1; alpha <- 2")
   e <- d2_ledger(res)
-  expect_gt(length(e), 20L)
+  expect_length(e, 17L)
   df <- data.frame(file = vapply(e, `[[`, "", "file"), section = vapply(e, `[[`, "", "section"),
                    kind = vapply(e, `[[`, "", "kind"), expr = vapply(e, `[[`, "", "expr"),
                    occ = vapply(e, `[[`, 1L, "occ"), stringsAsFactors = FALSE)
@@ -311,7 +311,7 @@ test_that("2d D10: the section of each construct is the anchor of the nearest he
 # ---- D11: raw --------------------------------------------------------------------------------
 
 d2_raws <- function() d2_memo("raws", function() {
-  lines <- c("A `r 0.8234567` b `r 1234567` c `r 0` d `r c(1, 2)` e `r 'a'` f `r NA_real_` g.", "",
+  lines <- c("A `r 0.8234567` b `r 1234567` c `r 0` d `r c(1, 2)` e `r 'a'` f `r NA_real_` g `r NA_real_`{.num} h.", "",
              "H [x | y]{if=\"TRUE\"}.")
   d2_render(lines, env = c(WEFT_DRAFT = "1"))
 })
@@ -324,7 +324,7 @@ test_that("2d D11: a number is written to six significant figures as formatC(dig
   expect_equal(d2_one(e, expr = "0")$raw, 0)
   ln <- d2_lines(d2_path(res$dir))
   expect_true(any(grepl("\"expr\":\"0.8234567\".*\"raw\":0.823457,", ln)))
-  expect_true(any(grepl("\"expr\":\"1234567\".*\"raw\":1.23457e+06,", ln)))
+  expect_true(any(grepl("\"raw\":1.23457e+06,", ln, fixed = TRUE)))
   expect_true(any(grepl("\"expr\":\"0\".*\"raw\":0,", ln)))
 })
 
@@ -333,14 +333,22 @@ test_that("2d D11: a vector, text, NA and an `if` have a null raw", {
   expect_null(d2_one(e, expr = "c(1, 2)")$raw)
   expect_null(d2_one(e, expr = "\"a\"")$raw)
   expect_null(d2_one(e, kind = "if")$raw)
-  na <- d2_one(e, expr = "NA_real_")
-  expect_null(na$raw)
+  expect_null(d2_one(e, kind = "bare", expr = "NA_real_")$raw)
+  expect_null(d2_one(e, kind = "value", expr = "NA_real_")$raw)
 })
 
-test_that("2d D8: in draft mode an NA value has text null and failed set", {
-  na <- d2_one(d2_ledger(d2_raws()), expr = "NA_real_")
+test_that("2d D8: a bare NA records the text knitr printed, with raw null and failed null", {
+  na <- d2_one(d2_ledger(d2_raws()), kind = "bare", expr = "NA_real_")
+  expect_identical(na$text, "NA")
+  expect_null(na$raw)
+  expect_null(na$failed)
+})
+
+test_that("2d D8: in draft mode a missing value in a value construct has text null, failed 'no value', raw null", {
+  na <- d2_one(d2_ledger(d2_raws()), kind = "value", expr = "NA_real_")
   expect_null(na$text)
-  expect_type(na$failed, "character")
+  expect_identical(na$failed, "no value")
+  expect_null(na$raw)
 })
 
 # ---- D3: characters -------------------------------------------------------------------------
@@ -354,8 +362,8 @@ test_that("2d D3: other characters are written as themselves (U+2212, U+00B2); i
   res <- d2_chars()
   expect_false(res$failed, label = res$message)
   txt <- paste(d2_lines(d2_path(res$dir))[-1], collapse = "\n")
-  expect_true(grepl("\"text\":\"−3\"", txt, fixed = TRUE))
-  expect_true(grepl("m²", txt, fixed = TRUE))
+  expect_true(grepl("\"text\":\"\u22123\"", txt, fixed = TRUE))
+  expect_true(grepl("m\u00b2", txt, fixed = TRUE))
   expect_false(grepl("\\u2212", txt, fixed = TRUE))
   expect_false(grepl("\\u00b2", txt, fixed = TRUE))
   expect_true(grepl("p\\u00a0q", txt, fixed = TRUE))
@@ -364,14 +372,14 @@ test_that("2d D3: other characters are written as themselves (U+2212, U+00B2); i
   expect_true(grepl("f\\ufeffg", txt, fixed = TRUE))
   expect_true(grepl("w\\tx", txt, fixed = TRUE))
   expect_true(grepl("a\\nb", txt, fixed = TRUE))
-  expect_false(grepl("[  ­﻿\t]", txt))
+  expect_false(grepl("[\u00a0\u2028\u00ad\ufeff\t]", txt))
 })
 
 test_that("2d D3: a quote and a backslash are escaped, and the line parses back to the text", {
   res <- d2_chars()
   txt <- paste(d2_lines(d2_path(res$dir))[-1], collapse = "\n")
   expect_true(grepl("say \\\"hi\\\" \\\\ there", txt, fixed = TRUE))
-  e <- d2_one(d2_ledger(res), expr = "'say \"hi\" \\\\ there'")
+  e <- d2_one(d2_ledger(res), expr = "\"say \\\"hi\\\" \\\\ there\"")
   expect_identical(e$text, "say \"hi\" \\ there")
 })
 
@@ -437,7 +445,7 @@ test_that("2d D12: a sentence of 600 characters is cut near the value, marked wi
   e <- d2_one(d2_ledger(res), expr = "a")
   s <- e$sentence
   expect_true(grepl("42", s, fixed = TRUE))
-  expect_true(startsWith(s, "…") || endsWith(s, "…"))
+  expect_true(startsWith(s, "\u2026") || endsWith(s, "\u2026"))
   expect_lte(nchar(s), 402L + nchar(e$text))
   expect_lt(nchar(s), 600L)
 })
@@ -457,7 +465,7 @@ test_that("2d D8 + D20: a failed claim in draft mode is written with text null, 
   f <- Filter(function(z) identical(z$failed, "failed claim"), e)
   expect_length(f, 1L)
   expect_null(f[[1]]$text)
-  expect_identical(f[[1]]$raw, 3L)
+  expect_equal(as.numeric(f[[1]]$raw), 3)
 })
 
 test_that("2d D20: a render that stops on its failures, or on a chunk error, leaves both files byte-identical", {
@@ -472,7 +480,7 @@ test_that("2d D20: a render that stops on its failures, or on a chunk error, lea
   expect_true(bad$failed)
   expect_identical(d2_bytes(pl), before[[1]])
   expect_identical(d2_bytes(pc), before[[2]])
-  boom <- d2_render(c("```{r}", "stop('boom')", "```", "", "Value `r k` here."), code = "k <- 5", dir = dir,
+  boom <- d2_render(c("```{r, error=FALSE}", "stop('boom')", "```", "", "Value `r k` here."), code = "k <- 5", dir = dir,
                     env = c(WEFT_DRAFT = NA), may_fail = TRUE)
   expect_true(boom$failed)
   expect_identical(d2_bytes(pl), before[[1]])
@@ -660,7 +668,7 @@ test_that("2d D27: read_ledger() reads the example into a classed data frame wit
   expect_identical(l$arm[2], "other")
   expect_true(is.na(l$raw[3]))
   expect_identical(attr(l, "header")$source, "reports/survey.qmd")
-  expect_identical(l$text[4], "1.5 km")
+  expect_identical(l$text[4], "1.5\u00a0km")
 })
 
 test_that("2d D27: read_ledger(file) reads a file the same way as lines", {

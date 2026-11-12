@@ -80,12 +80,16 @@ fill_template <- function(tmpl, hash, outs, gov = logical(length(outs))) {
 # (1.5.12): the space before it when a space, the end of the text or one of
 # `. , ; : ! ? ) ]`, a closing quotation mark (U+201D, U+2019) or an em dash follows; at the start of a block, the space after it. A
 # space is one space or one line break.
-join_pieces <- function(gaps, outs, gov) {
+join_pieces <- function(gaps, outs, gov, pos = FALSE) {
   n <- length(outs)
   acc <- ""
+  p_start <- integer(n)
+  p_end <- integer(n)
   for (i in seq_len(n)) {
     acc <- paste0(acc, gaps[i])
     o <- outs[i]
+    p_start[i] <- nchar(acc) + 1L
+    p_end[i] <- nchar(acc) + nchar(o)
     if (!gov[i] || nzchar(o)) {
       acc <- paste0(acc, o)
       next
@@ -108,7 +112,10 @@ join_pieces <- function(gaps, outs, gov) {
       acc <- substr(acc, 1L, nchar(acc) - 1L)
     }
   }
-  paste0(acc, gaps[n + 1L])
+  res <- paste0(acc, gaps[n + 1L])
+  # where each printed piece lies in the result, for the ledger's sentences
+  if (pos) attr(res, "pos") <- data.frame(start = p_start, end = p_end)
+  res
 }
 
 # What stock knitr prints for an inline value (rule 1.3.1).
@@ -140,7 +147,7 @@ in_knit_dir <- function(expr) {
 # Evaluate one piece of inline code with the claim context set, the
 # conditions it raises logged and kept out of the document (2.6.4, 2.8).
 run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
-                       option = NA_character_, live = TRUE) {
+                       option = NA_character_, live = TRUE, where = NULL) {
   old <- weft_env$inline
   weft_env$inline <- list(file = file, line = line, label = label, expr = expr,
                           failed = FALSE, chunk = chunk, option = option)
@@ -153,24 +160,43 @@ run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
     return(out)
   }
   src <- sprintf("%s:%d", file, line)
+  # the source the condition log names for a condition from prose (D15)
+  lsrc <- function() {
+    w <- if (is.function(where)) where() else where
+    if (is.null(w)) src else where_label(w)
+  }
+  weft_env$bare_aux <- NULL
   out <- withCallingHandlers(
     tryCatch(
       list(ok = TRUE, value = in_knit_dir(run())),
       error = function(e) list(ok = FALSE, error = e)),
     warning = function(w) {
-      log_condition(s, src, "warning", conditionMessage(w), file = file, line = line)
+      log_condition(s, src, "warning", conditionMessage(w), file = file, line = line,
+                    from = "prose", lsource = lsrc())
       invokeRestart("muffleWarning")
     },
     message = function(m) {
-      log_condition(s, src, "message", conditionMessage(m), file = file, line = line)
+      log_condition(s, src, "message", conditionMessage(m), file = file, line = line,
+                    from = "prose", lsource = lsrc())
       invokeRestart("muffleMessage")
     })
   out$claim_failed <- isTRUE(weft_env$inline$failed)
+  out$aux <- weft_env$bare_aux
+  weft_env$bare_aux <- NULL
   out
 }
 
 stock_bare_text <- function(code, envir) {
-  ev <- weft_env$stock_eval %||% knitr::knit_hooks$get("evaluate.inline", default = TRUE)
+  dflt <- knitr::knit_hooks$get("evaluate.inline", default = TRUE)
+  ev <- weft_env$stock_eval %||% dflt
+  if (identical(ev, dflt)) {
+    # as knitr's own hook evaluates, but the value is kept for the ledger's raw field
+    v <- withVisible(eval(parse(text = code, keep.source = FALSE), envir = envir))
+    res <- if (v$visible) knitr::knit_print(v$value, inline = TRUE, options = knitr::opts_chunk$get())
+    out <- finish_stock(res, code)
+    weft_env$bare_aux <- list(value = v$value)
+    return(out)
+  }
   finish_stock(ev(code, envir), code)
 }
 
@@ -258,7 +284,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                                   line = as.integer(ctx$line %||% NA_integer_),
                                   stringsAsFactors = FALSE))
     lv <- loc$start + sum(nlpos < start)
-    map_lines(F, lv)
+    out <- map_lines(F, lv)
+    out$view <- as.integer(lv)
+    out
   }
   draft <- isTRUE(cfg$draft)
   # text knitted by a child has no file: its lines are relative to the text,
@@ -269,6 +297,20 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   } else NA_character_
   owned <- owned_classes(cfg)
   gov <- NULL
+
+  # what the ledger records of each construct (design-2d D8): the raw number,
+  # the relation of the printed record, and the kind of failure
+  ents <- list()
+  cur_top <- NA_integer_
+  top_pos <- NULL
+  L_raw <- rep(NA_real_, nr)
+  L_rel <- rep(NA_character_, nr)
+  L_fail <- rep(NA_character_, nr)
+  bare_aux <- list(raw = NA_real_, failed = NA_character_)
+  fail_note <- function(k, kind) {
+    if (!is.na(k) && is.na(L_fail[k])) L_fail[k] <<- kind
+    invisible()
+  }
 
   on.exit({
     if (nr) {
@@ -305,6 +347,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       weft_abort(sprintf("weft: %s: %s", loc_str(k), msg),
                  c("weft_construct_error", "weft_located"))
     }
+    fail_note(k, "construct error")
     add_failure(s, "construct error", file = R$file[k], line = R$line[k],
                 expr = source_label(k), detail = msg, chunk = chunk_label,
                 option = ctx$option)
@@ -353,6 +396,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                  switch(kind, `failed claim` = "weft_claim_failed",
                         `no value` = "weft_no_value", "weft_value_error"))
     }
+    fail_note(k, kind)
     add_failure(s, kind, file = R$file[k], line = R$line[k], expr = label,
                 detail = detail, hint = hint, chunk = chunk_label,
                 option = if (is_str) ctx$option else NA_character_)
@@ -382,11 +426,12 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                         line_info = NULL) {
     file <- if (is.null(line_info)) R$file[k] else line_info$file
     line <- if (is.null(line_info)) R$line[k] else line_info$line
+    vl <- if (is.null(line_info)) R$line_view[k] else (line_info$view %||% NA_integer_)
     run_inline(s, file, line, label, expr, function() {
       if (stock) stock_bare_text(expr, envir) else
         eval(parse(text = expr, keep.source = FALSE), envir)
     }, chunk = chunk_label, option = if (is_str) ctx$option else NA_character_,
-    live = !strict)
+    live = !strict, where = function() ledger_where(s, F, file, vl, chunk_label))
   }
 
   non_english <- function() {
@@ -446,7 +491,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   finish <- function(k, text, cc, claim_failed, text_classes = TRUE) {
     if (text_classes) text <- apply_text_classes(text, cc$own)
     text <- passthrough(text, cc$pass, cc$pass_keys)
-    if (claim_failed) text <- paste0(text, marker("failed claim", R$line[k], chunk_label))
+    if (claim_failed) {
+      fail_note(k, "failed claim")
+      text <- paste0(text, marker("failed claim", R$line[k], chunk_label))
+    }
     text
   }
 
@@ -519,7 +567,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   render_plain <- function(a, b, items, top = FALSE) {
     outs <- character()
     prev <- ""
-    for (it in items) {
+    for (ii in seq_along(items)) {
+      it <- items[[ii]]
+      if (top) cur_top <<- ii
       o <- render_item(it)
       if (top && (it$type == "span" ||
                   R$kind[it$k] %in% c("bare", "value", "n", "if", "sign", "list", "text", "cite", "literal"))) {
@@ -540,7 +590,12 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       cur <- it$end + 1L
     }
     gaps[length(items) + 1L] <- substr(text, cur, b)
-    join_pieces(gaps, outs, vapply(items, governed, NA))
+    res <- join_pieces(gaps, outs, vapply(items, governed, NA), pos = top)
+    if (top) {
+      top_pos <<- attr(res, "pos")
+      attr(res, "pos") <- NULL
+    }
+    res
   }
 
   arm_range <- function(k, i) {
@@ -574,6 +629,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is.null(idx)) idx <- spans$idx[match(st, spans$start)]
     p <- s$parked[[idx]]
     label <- sprintf("`r %s`", p$code)
+    bare_aux <<- list(raw = NA_real_, failed = NA_character_)
     # a bare value ahead of every construct in its block was evaluated when
     # knitr parked it, so that an error there names its own line (1.1.8)
     ev <- p$result %||% eval_expr(k, p$code, label, p$envir, stock = TRUE,
@@ -587,7 +643,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       stop(e)
     }
-    if (ev$claim_failed) paste0(ev$value, marker("failed claim", li$line, chunk_label)) else ev$value
+    if (!is.null(ev$aux)) bare_aux$raw <<- ledger_raw(ev$aux$value)
+    if (ev$claim_failed) {
+      bare_aux$failed <<- "failed claim"
+      paste0(ev$value, marker("failed claim", li$line, chunk_label))
+    } else ev$value
   }
 
   render_value <- function(k) {
@@ -600,6 +660,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     ev <- eval_expr(k, expr, label, s$parked[[idx]]$envir)
     if (!ev$ok) return(fail_from_error(k, ev$error, label))
     v <- ev$value
+    L_raw[k] <<- ledger_raw(v)
     reg <- cfg$formatters
     # `.a` applies to numbers and number words only (1.4.5): a number it
     # meets is printed as `.num` prints it
@@ -609,9 +670,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     own <- cc$own
     res <- tryCatch({
       if (has_fmt) {
-        paste(as.character(apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
-                                            on_zero = zero_note(k, label),
-                                            on_pick = pick_note(k))), collapse = "")
+        rr <- apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
+                               on_zero = zero_note(k, label), on_pick = pick_note(k))
+        L_rel[k] <<- ledger_rel(rr)
+        paste(as.character(rr), collapse = "")
       } else {
         apply_text_classes(stock_print(v), cc$own, symbol = isTRUE(attr(v, "is_symbol")))
       }
@@ -732,6 +794,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!is.null(g$stop)) return(g$stop)
     v <- g$v
     claim_failed <- g$claim_failed
+    L_raw[k] <<- ledger_raw(v)
     own_fmt <- has_own_format(cc)
     # a range of two ends is one governor (1.5.11)
     if (!(".range" %in% cc$own)) {
@@ -742,6 +805,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(k)),
       error = function(e) e)
     if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
+    L_rel[k] <<- ledger_rel(rec)
     register_id(k, v, cc, rec)
     i <- choose_arm_n(rec, narms)
     R$chosen[k] <<- i
@@ -763,6 +827,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!is.null(g$stop)) return(g$stop)
     v <- g$v
     claim_failed <- g$claim_failed
+    L_raw[k] <<- ledger_raw(v)
     chk <- check_governor(v)
     if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
     own_fmt <- has_own_format(cc)
@@ -777,6 +842,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
     num <- attr(rec, "number")[1L]
+    L_rel[k] <<- ledger_rel(rec)
     if (!identical(attr(rec, "relation")[1L], "=")) {
       return(record_fail(k, "value error", label, sprintf(
         "A `sign` governor that prints as a bound (\"%s\") has no magnitude to print (rule 1.5.17); write that case with `if`.",
@@ -979,15 +1045,80 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                     detail = sprintf("the key `%s` is not in the bibliography (rule 1.8.5)%s", u, gone),
                     chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)
       }
+      fail_note(k, "value error")
       out <- paste0(out, marker("unknown key", R$line[k], chunk_label))
     }
     out
   }
 
+  # the ledger entry of a construct, after it has been rendered (D7, D8)
+  make_entry <- function(it, out) {
+    if (it$type == "span") {
+      p <- s$parked[[it$idx]]
+      li <- span_line(it$start)
+      view <- li$view %||% NA_integer_
+      wh <- ledger_where(s, F, li$file, view, chunk_label)
+      fail <- bare_aux$failed
+      return(list(file = wh$file, section = wh$section, kind = "bare",
+                  expr = expr_key(unwrap_quarto(trim_ws(p$code))), id = NULL,
+                  context = if (wh$front) "front-matter" else (if (is_str) (ctx$context %||% "weft_str") else "prose"),
+                  text = if (is.na(fail)) out else NULL, arm = NULL, rel = NULL,
+                  raw = if (is.na(bare_aux$raw)) NULL else bare_aux$raw,
+                  failed = if (is.na(fail)) NULL else fail,
+                  dict = dict_refs(unwrap_quarto(trim_ws(p$code)))))
+    }
+    k <- it$k
+    kind <- R$kind[k]
+    if (!(kind %in% LEDGER_KINDS)) return(NULL)
+    if (kind %in% c("bare", "value") && is.na(match(R$start[k], spans$start))) return(NULL)
+    wh <- ledger_where(s, F, R$file[k], R$line_view[k], chunk_label)
+    fail <- L_fail[k]
+    code <- NULL
+    expr <- if (kind == "bare") {
+      code <- unwrap_quarto(trim_ws(s$parked[[spans$idx[match(R$start[k], spans$start)]]]$code))
+      expr_key(code)
+    } else if (kind == "cite") {
+      br <- if (R$block_start[k] - 2L >= R$start[k] + 1L) substr(text, R$start[k] + 1L, R$block_start[k] - 2L) else ""
+      paste(collapse_ws(R$expr[k]), collapse_ws(br), sep = " | ")
+    } else {
+      code <- if (kind == "value") unwrap_quarto(R$expr[k]) else R$expr[k]
+      expr_key(code)
+    }
+    raw <- if (kind == "bare") bare_aux$raw else if (kind %in% c("value", "n", "sign")) L_raw[k] else NA_real_
+    if (kind == "bare" && is.na(fail)) fail <- bare_aux$failed
+    rel <- if (kind %in% c("value", "n", "sign")) L_rel[k] else NA_character_
+    arm <- NA_character_
+    if (kind %in% c("n", "if", "sign", "list") && is.na(fail)) {
+      arm <- ledger_arm(kind, length(R$arms[[k]]), R$chosen[k])
+    }
+    id <- if (kind %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])) R$id[k] else NULL
+    list(file = wh$file, section = wh$section, kind = kind, expr = expr, id = id,
+         context = if (wh$front) "front-matter" else R$context[k],
+         text = if (is.na(fail)) out else NULL,
+         arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
+         raw = if (is.na(raw)) NULL else raw,
+         failed = if (is.na(fail)) NULL else fail,
+         dict = if (is.null(code)) character() else dict_refs(code))
+  }
+
   render_item <- function(it) {
+    slot <- length(ents) + 1L
+    ents[slot] <<- list(NULL)
+    top_i <- cur_top
+    out <- render_item0(it)
+    e <- make_entry(it, out)
+    if (!is.null(e)) {
+      e$top <- top_i
+      ents[slot] <<- list(e)
+    }
+    out
+  }
+
+  render_item0 <- function(it) {
     if (it$type == "span") {
       li <- span_line(it$start)
-      return(render_bare(NA_integer_, idx = it$idx, line_info = list(file = li$file, line = li$line),
+      return(render_bare(NA_integer_, idx = it$idx,
+                         line_info = list(file = li$file, line = li$line, view = li$view),
                          start = it$start))
     }
     k <- it$k
@@ -1056,6 +1187,20 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   top <- range_items(1L, nchar(text), which(is.na(R$parent)))
   out <- render_plain(1L, nchar(text), top, top = TRUE)
+  # the ledger entries of this block, with the sentence each construct sits in (D12)
+  ents <- Filter(Negate(is.null), ents)
+  if (length(ents)) {
+    for (j in seq_along(ents)) {
+      e <- ents[[j]]
+      ti <- e$top
+      a <- if (!is.null(top_pos) && !is.na(ti) && ti <= nrow(top_pos)) top_pos$start[ti] else NA_integer_
+      b <- if (!is.null(top_pos) && !is.na(ti) && ti <= nrow(top_pos)) top_pos$end[ti] else NA_integer_
+      e$sentence <- ledger_sentence(out, a, b, whole = is_str, front = identical(e$context, "front-matter"))
+      e$top <- NULL
+      ents[[j]] <- e
+    }
+    s$ledger <- c(s$ledger, ents)
+  }
   if (nr && draft && non_english()) {
     for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & !R$evaluated & is.na(R$error))) {
       cc <- split_classes(k)

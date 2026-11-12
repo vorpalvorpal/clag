@@ -47,14 +47,21 @@ severity_patterns <- function(cfg) {
 # Record one condition. `source` is the chunk label or `file:line`. A
 # condition that matches the severity list is also a failure (7.4.2).
 log_condition <- function(s, source, class, text, file = NA_character_,
-                          line = NA_integer_, chunk = NA_character_) {
+                          line = NA_integer_, chunk = NA_character_, from = "chunk",
+                          lsource = NULL) {
   text <- sub("\n+$", "", as.character(text)[1])
-  s$conditions[[length(s$conditions) + 1L]] <- list(
+  # the source the condition log names (D15): a labelled chunk's label; else
+  # the file and section
+  if (is.null(lsource)) lsource <- chunk_log_source(s, chunk)
+  n <- length(s$conditions) + 1L
+  s$conditions[[n]] <- list(
     source = source, class = class, text = text,
-    normalised = normalise_condition(text))
+    normalised = normalise_condition(text), from = from, lsource = lsource,
+    severe = FALSE)
   for (pat in severity_patterns(s$config)) {
     hit <- tryCatch(grepl(pat, text, perl = TRUE), error = function(e) FALSE)
     if (isTRUE(hit)) {
+      s$conditions[[n]]$severe <- TRUE
       add_failure(s, "condition", file = file, line = line, chunk = chunk,
                   expr = if (!is.na(chunk)) NA_character_ else NA_character_,
                   detail = sprintf("%s: %s", class, sub("\n.*$", "", text)),
@@ -88,6 +95,7 @@ make_evaluate_hook <- function(prev) {
     if (!is.null(km) && !is.na(km)) args$keep_message <- TRUE
     mine <- list()
     n0 <- length(s$failures)
+    l0 <- length(s$ledger)
     note <- function(class, cond) {
       mine[[length(mine) + 1L]] <<- list(class = class, text = conditionMessage(cond))
     }
@@ -95,7 +103,7 @@ make_evaluate_hook <- function(prev) {
       do.call(prev, c(list(code, envir), args)),
       error = function(e) {
         note("error", e)
-        record_chunk_conditions(s, label, mine, opts)
+        record_chunk_conditions(s, label, mine, opts, lrows = ledger_since(s, l0))
         stop(e)
       }
     )
@@ -108,7 +116,7 @@ make_evaluate_hook <- function(prev) {
       }
     }
     fails <- if (length(s$failures) > n0) s$failures[(n0 + 1L):length(s$failures)] else list()
-    record_chunk_conditions(s, label, mine, opts, fails)
+    record_chunk_conditions(s, label, mine, opts, fails, ledger_since(s, l0))
     # what the author's settings say to hide is hidden, as evaluate() would
     # have hidden it (2.8.1)
     drop <- function(el) {
@@ -119,7 +127,7 @@ make_evaluate_hook <- function(prev) {
   }
 }
 
-record_chunk_conditions <- function(s, label, mine, opts, fails = list()) {
+record_chunk_conditions <- function(s, label, mine, opts, fails = list(), lrows = list()) {
   file <- current_file_name(s)
   for (m in mine) {
     log_condition(s, label, m$class, m$text, file = file, chunk = label)
@@ -136,6 +144,9 @@ record_chunk_conditions <- function(s, label, mine, opts, fails = list()) {
       # kept with the cache, so that serving the chunk from it reports them
       # again, as the first knit did (2.9.1)
       saveRDS(fails, paste0(hash, ".weft-failures.rds"))
+      # the ledger rows the chunk's code recorded (a weft_str() string), replayed
+      # with the conditions when the chunk is served from the cache (D22)
+      saveRDS(lrows, paste0(hash, ".weft-ledger.rds"))
     }, error = function(e) NULL, warning = function(w) NULL)
   }
   invisible()
@@ -195,7 +206,18 @@ replay_cached <- function(s, p) {
     for (x in fails) {
       if (is.list(x) && !is.null(x$kind)) s$failures[[length(s$failures) + 1L]] <- x
     }
+    lf <- sub("\\.weft\\.rds$", ".weft-ledger.rds", f)
+    lrows <- if (file.exists(lf)) tryCatch(readRDS(lf), error = function(e) NULL) else NULL
+    for (x in lrows) {
+      if (is.list(x) && !is.null(x$kind)) s$ledger[[length(s$ledger) + 1L]] <- x
+    }
     return(invisible())
   }
   invisible()
+}
+
+# The ledger rows recorded since the knit held `n0` of them.
+ledger_since <- function(s, n0) {
+  n <- length(s$ledger)
+  if (n > n0) s$ledger[(n0 + 1L):n] else list()
 }

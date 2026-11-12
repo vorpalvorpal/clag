@@ -22,6 +22,17 @@ zero"), in the same columns as \code{failures} (zero rows when there are
 none);
 \item \code{conditions}: a data frame of the warnings and messages that chunks and
 inline code raised (\code{source}, \code{class}, \code{text} and \code{normalised});
+\item \code{ledger}: the entries of the ledger the knit recorded, as a data frame
+of class \code{weft_ledger} (the columns of the ledger file, one row for each
+construct evaluated), for every top-level knit, set up or not;
+\item \code{condition_log}: the lines of the condition log, as a data frame of
+class \code{weft_condition_log} (\code{from}, \code{source}, \code{class}, \code{normalised} and
+\code{text});
+\item \code{output}: the output name the ledger files are named by;
+\item \code{written}: the paths of the ledger and the condition log written,
+relative to the project root, each \code{NA} when nothing was written (the
+project is not set up, the knit is a rehearsal, or it stopped on its
+failures);
 \item \code{config}: the configuration the knit used;
 \item \code{sentence_starts}: a data frame of the values that start a sentence
 (\code{file}, \code{line}, \code{expr} and \code{text});

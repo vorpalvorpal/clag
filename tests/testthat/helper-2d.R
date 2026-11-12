@@ -1,6 +1,6 @@
 # Helpers for the 2d tests (the ledger and the condition log). Contract: dev/design-2d.md.
 # Non-ASCII is written as \uXXXX. The six characters of an escape are written "\\u00a0" (a
-# backslash, "u00a0"); a literal U+00A0 is " ". Made-up content only.
+# backslash, "u00a0"); a literal U+00A0 is "\u00a0". Made-up content only.
 
 # Source a helper that lives in tests/testthat/ when its function is not defined yet.
 d2_need <- function() {

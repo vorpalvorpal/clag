@@ -576,3 +576,21 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
 - **Not tested, accepted for this round**: D20's collection-file case,
   D23, D25, a nested `render()`, and D26's no-permission case. The
   reviewer is asked to try them.
+
+## Rulings on the implementer's report
+
+- Six tests in `test-ledger.R` were test faults and were corrected by
+  the test-writer (an integer compared as a double, a wrong count, a
+  regex that could not match, a quoted expression not in its deparsed
+  form, a chunk error that plain `knit()` captures). A bare `NA` is not
+  a failure: its entry has `text` "NA", `raw` null, `failed` null.
+- **D2**: under Quarto, `QUARTO_EXECUTE_INFO` is read before the
+  `render()` frame, because Quarto's engine runs inside its own
+  `rmarkdown::render()`. Accepted; D2's order is (1), then (3) under
+  Quarto, else (2), then (4).
+- **D8**: an unknown `cite` key is recorded as `value error`; `arm` is
+  null for every failed construct; `raw` is set for a failed claim.
+  Accepted.
+- **D28**: `written` names the paths when the bytes were unchanged and
+  the write was skipped. Accepted.
+- Whole suite after the build: 2,197 tests, none failing, none skipped.

@@ -16,6 +16,13 @@ new_state <- function() {
   s$failures <- list()
   s$warnings <- list()
   s$conditions <- list()
+  s$ledger <- list()
+  s$ledger_header <- NULL
+  s$condition_rows <- NULL
+  s$ledger_root <- NULL
+  s$file_rel <- NULL
+  s$output <- NULL
+  s$written <- c(ledger = NA_character_, conditions = NA_character_)
   s$files <- list()
   s$pending_cache <- NULL
   s$ids <- list()
@@ -181,6 +188,17 @@ format_report <- function(fr) {
 #'     none);
 #'   * `conditions`: a data frame of the warnings and messages that chunks and
 #'     inline code raised (`source`, `class`, `text` and `normalised`);
+#'   * `ledger`: the entries of the ledger the knit recorded, as a data frame
+#'     of class `weft_ledger` (the columns of the ledger file, one row for each
+#'     construct evaluated), for every top-level knit, set up or not;
+#'   * `condition_log`: the lines of the condition log, as a data frame of
+#'     class `weft_condition_log` (`from`, `source`, `class`, `normalised` and
+#'     `text`);
+#'   * `output`: the output name the ledger files are named by;
+#'   * `written`: the paths of the ledger and the condition log written,
+#'     relative to the project root, each `NA` when nothing was written (the
+#'     project is not set up, the knit is a rehearsal, or it stopped on its
+#'     failures);
 #'   * `config`: the configuration the knit used;
 #'   * `sentence_starts`: a data frame of the values that start a sentence
 #'     (`file`, `line`, `expr` and `text`);
@@ -212,7 +230,18 @@ last_knit <- function() {
   sentence_starts <- data.frame(file = col("file", ""), line = col("line", 0L),
                                 expr = col("expr", ""), text = col("text", ""),
                                 stringsAsFactors = FALSE)
+  ledger <- s$ledger_df %||% {
+    d <- ledger_df(ledger_entries(s))
+    attr(d, "header") <- NULL
+    d
+  }
+  clog <- s$condition_log %||% {
+    d <- condition_df(condition_rows(s))
+    attr(d, "header") <- NULL
+    d
+  }
   list(constructs = cons, failures = fr, warnings = failures_frame(s, "warnings"),
-       conditions = conds, config = s$config,
+       conditions = conds, ledger = ledger, condition_log = clog,
+       output = s$output, written = s$written, config = s$config,
        sentence_starts = sentence_starts, dict = s$dict, dict_local = s$dict_local)
 }

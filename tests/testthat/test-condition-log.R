@@ -163,8 +163,8 @@ test_that("2d D16: a 3,000-character message is cut to 999 characters and an ell
   expect_length(c, 1L)
   expect_identical(nchar(c[[1]]$text), 1000L)
   expect_identical(nchar(c[[1]]$normalised), 1000L)
-  expect_true(endsWith(c[[1]]$text, "…"))
-  expect_true(endsWith(c[[1]]$normalised, "…"))
+  expect_true(endsWith(c[[1]]$text, "\u2026"))
+  expect_true(endsWith(c[[1]]$normalised, "\u2026"))
 })
 
 # ---- the chunk cache ---------------------------------------------------------------------------
