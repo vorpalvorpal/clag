@@ -497,3 +497,38 @@ reverse it.
   only one of the two.
 - **F6** the first commit of a repository is the baseline: its findings
   are not compared with anything.
+
+## 66. The default claim-word list is trimmed to 69 words (13 Nov)
+
+Stage 0 ran the lints over a real manuscript as it stood before an
+audit (46 files, 5,508 sentences). With the list of design-3 L8a (119
+words) `claim-word` flagged 66% of all sentences, and every rule
+together 75%, so a flag carried almost no information: all rules
+reproduced 59% of the audit's quoted findings, little above what
+flagging at random would. The words doing it were number words (`one`
+alone was 21% of the flags, `two` 14%), loose quantifiers (`any`,
+`many`, `several`, `few`, `single`), the bare comparatives (`more`,
+`less`, `above`, `below`) and `record`, `top`, `last`.
+
+- **Chosen: 69 words.** The absolute quantifiers, eleven extremum words
+  and the direction words without the bare comparatives. It flags 42%
+  of sentences, reproduces 11 of the 16 audit findings the rule could
+  locate (the full list: 12), and of 20 sampled sentences flagged only
+  by a direction word, 14 were statements about data that a check
+  could back.
+- Alternative: the same without the direction words (30 words, 37% of
+  sentences, 10 of 16). Refused: wording that says which way a number
+  moved is what `claim()` exists for, and it costs five points.
+- Alternative: drop only the number words (53%, 11 of 16). Refused:
+  still more than half of all sentences.
+- Alternative: keep the full list and lean on `claim_cap`. Refused:
+  the cap hides the excess, it does not make a flag mean more.
+- Alternative: make `claim-word` fire only next to a number. Not
+  tried; it would be a new rule and needs its own measurement.
+
+The rule is tier 2 and only lists sentences a change touched, so the
+share matters less than at tier 1, but a list that flags most prose
+teaches an author to ignore it. A project restores any word through
+its own claim-word setting. The evidence is thin (16 located
+findings, one manuscript); undo by restoring the list in
+`inst/weft-claim-words.yml` from commit 5940aeb.
