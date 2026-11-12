@@ -28,6 +28,7 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   st$scopes <- list()
   st$params <- character() # the arguments of the function being walked
   st$cur <- NULL           # the name of the function being walked
+  st$locals <- character() # the names that function assigns in its body
   st$wrappers <- list()
   st$names <- NULL
   st$files <- character()  # literal paths given to source() and sys.source()
@@ -52,6 +53,9 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     on.exit({ st$params <- old$params; st$cur <- old$cur }, add = TRUE)
     st$params <- c(st$params, names(formals(f)))
     st$cur <- label
+    oldloc <- st$locals
+    on.exit(st$locals <- oldloc, add = TRUE)
+    st$locals <- setdiff(assigned_in(body(f)), names(formals(f)))
     walk(formals(f))
     walk(body(f))
   }
@@ -89,13 +93,38 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   }
 
   # the strings a `name`/`names` argument gives (literal strings, or `c()` of them)
-  literal_names <- function(v) {
-    l <- lit_chr(v)
+  # (`sym`: a bare symbol is a name too, for a reader that embraces its argument)
+  literal_names <- function(v, sym = FALSE) {
+    one <- function(e) {
+      l <- lit_chr(e)
+      if (is.null(l) && sym && is.symbol(e) && nzchar(as.character(e))) l <- as.character(e)
+      l
+    }
+    l <- one(v)
     if (!is.null(l)) return(l)
     if (is.call(v) && identical(v[[1L]], quote(c))) {
-      return(unlist(lapply(as.list(v)[-1L], lit_chr)))
+      return(unlist(lapply(as.list(v)[-1L], one)))
     }
     character()
+  }
+
+  # the default of a formal argument of `f`, or NULL when it has none
+  formal_default <- function(f, nm) {
+    fm <- formals(f)
+    if (is.null(nm) || !nm %in% names(fm) || identical(fm[[nm]], quote(expr = ))) return(NULL)
+    fm[[nm]]
+  }
+
+  # the names a function assigns in its body
+  assigned_in <- function(e) {
+    out <- character()
+    if (is.call(e)) {
+      if (as.character(e[[1L]])[1L] %in% c("<-", "=", "<<-") && length(e) == 3L && is.symbol(e[[2L]])) {
+        out <- as.character(e[[2L]])
+      }
+      for (a in as.list(e)) if (!missing(a)) out <- c(out, assigned_in(a))
+    }
+    out
   }
 
   add_read <- function(nm, store, expr) {
@@ -120,9 +149,30 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     }
     # an argument of the function being walked, given as the name: a reader
     wrapper_param <- NULL
+    embraced <- FALSE
     unparam <- function(e) {
-      if (is.call(e) && identical(e[[1L]], quote(`!!`)) && length(e) == 2L) e <- e[[2L]]
-      if (is.symbol(e) && as.character(e) %in% st$params) as.character(e) else NULL
+      emb <- FALSE
+      # {{ x }}, !!enquo(x), !!ensym(x) (bare or rlang::-qualified), and !!x
+      if (is.call(e) && identical(e[[1L]], quote(`{`)) && length(e) == 2L &&
+          is.call(e[[2L]]) && identical(e[[2L]][[1L]], quote(`{`)) && length(e[[2L]]) == 2L) {
+        e <- e[[2L]][[2L]]
+        emb <- TRUE
+      } else {
+        while (is.call(e) && identical(e[[1L]], quote(`!`)) && length(e) == 2L) e <- e[[2L]]
+        if (is.call(e) && length(e) == 2L) {
+          h <- e[[1L]]
+          if (is.call(h) && length(h) == 3L && is.symbol(h[[1L]]) &&
+              as.character(h[[1L]]) %in% c("::", ":::") && is.symbol(h[[3L]])) h <- h[[3L]]
+          if (is.symbol(h) && as.character(h) %in% c("enquo", "ensym")) {
+            e <- e[[2L]]
+            emb <- TRUE
+          }
+        }
+      }
+      if (is.symbol(e) && as.character(e) %in% st$params) {
+        if (emb) embraced <<- TRUE
+        as.character(e)
+      } else NULL
     }
     names_found <- character()
     if (!is.na(i)) {
@@ -144,9 +194,13 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
         one(v)
       }
     }
+    sp <- if (!is.null(sexpr)) unparam(sexpr) else NULL
+    # a store held in a local of the reader cannot be worked out from outside it (rule 7.2.2)
+    if (is.null(sp) && !is.null(sexpr) && length(st$locals) && any(all.vars(sexpr) %in% st$locals)) {
+      sexpr <- quote(stop("the store is a local of the reader"))
+    }
     if (!is.null(wrapper_param) && !is.null(st$cur)) {
-      sp <- if (!is.null(sexpr)) unparam(sexpr) else NULL
-      st$wrappers[[st$cur]] <- list(param = wrapper_param, store = store,
+      st$wrappers[[st$cur]] <- list(param = wrapper_param, store = store, embraced = embraced,
                                     expr = if (is.null(sp)) sexpr else NULL, store_param = sp)
     }
     for (nm in as.character(names_found)) add_read(nm, store, sexpr)
@@ -162,12 +216,16 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     if (is.null(w) || is.null(f)) return(invisible())
     mc <- tryCatch(match.call(f, x, expand.dots = FALSE), error = function(e) NULL)
     if (is.null(mc)) return(invisible())
-    nms <- literal_names(mc[[w$param]])
+    # an argument the call omits takes the reader's default
+    arg <- mc[[w$param]]
+    if (is.null(arg)) arg <- formal_default(f, w$param)
+    nms <- literal_names(arg, sym = isTRUE(w$embraced))
     if (!length(nms)) return(invisible())
     store <- w$store
     expr <- w$expr
     if (!is.null(w$store_param)) {
       a <- mc[[w$store_param]]
+      if (is.null(a)) a <- formal_default(f, w$store_param)
       if (!is.null(a)) {
         l <- lit_chr(a)
         if (!is.null(l)) store <- l else expr <- a
@@ -296,7 +354,8 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   }
   # every read with the `store` expression it gave when that was not a literal
   store_exprs <- function() st$reads
-  list(add = add, result = result, store_exprs = store_exprs, source_files = function() st$files)
+  list(add = add, result = result, store_exprs = store_exprs, source_files = function() st$files,
+       set_all = function() st$all <- TRUE)
 }
 
 # What code reads: the dictionary keys, whether every key (`all`), the keys it
@@ -420,7 +479,8 @@ dict_guard <- function(x, key = NULL) {
   def <- tryCatch(targets::tar_definition(default = weft_env$no_target), error = function(e) NULL)
   if (is.null(def) || identical(def, weft_env$no_target)) return(invisible())
   keys <- names(unclass(x))
-  need <- paste0("dict_", if (is.null(key)) keys else key)
+  # with no keys a whole-dictionary read depends on nothing (rule 4.1)
+  need <- if (is.null(key)) paste0("dict_", keys)[seq_along(keys)] else paste0("dict_", key)
   miss <- setdiff(need, def$deps)
   if (!length(miss)) return(invisible())
   nm <- def$settings$name
@@ -447,7 +507,9 @@ dict_guard <- function(x, key = NULL) {
 #' (rule 4.6.2). A target made by `tarchetypes::tar_quarto()` or
 #' `tarchetypes::tar_render()` is read the same way through its source files:
 #' chunk code, inline R and the code of constructs, included files too (rule
-#' 4.6.5). A key that the dictionary does not hold is an error that lists every
+#' 4.6.5). Includes rooted at `/` resolve against the Quarto project root. A report
+#' with a `child=` or include that the scan cannot resolve to a file (a computed path)
+#' depends on every key. A key that the dictionary does not hold is an error that lists every
 #' target that reads one (rule 4.6.4).
 #'
 #' See [tar_dict()] for the limit with `crew` workers: the dictionary is not
@@ -512,6 +574,7 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
     }
     found <- sort(unique(found), method = "radix")
     if (length(found)) t$deps <- union(t$deps, paste0("dict_", found))
+    if (is.null(rep)) unmark_command(t)
   }
   if (length(bad)) {
     lines <- vapply(bad, function(b) {
@@ -523,6 +586,30 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
                            lines), collapse = "\n"))
   }
   targets
+}
+
+# A target's value never carries the marker of the attached dictionary: a copy that one target
+# stores reads freely in another, which depends on that target (rule 4.6.2). The command is
+# wrapped, so the value is cleaned before it is stored.
+unmark_command <- function(t) {
+  ex <- t$command$expr
+  if (length(ex) != 1L) return(invisible())
+  e <- ex[[1L]]
+  if (is.call(e) && identical(e[[1L]], quote(weft:::dict_unmark))) return(invisible())
+  t$command$expr <- as.expression(as.call(list(quote(weft:::dict_unmark), e)))
+  invisible()
+}
+
+# `x` without the marker of the attached dictionary, in `x` and in the lists it holds.
+dict_unmark <- function(x) {
+  if (!is.null(attr(x, "weft_pipeline"))) attr(x, "weft_pipeline") <- NULL
+  if (is.list(x) && !is.data.frame(x) && is.null(oldClass(x))) {
+    for (i in seq_along(x)) {
+      v <- x[[i]]
+      if (is.list(v) || !is.null(attr(v, "weft_pipeline"))) x[i] <- list(dict_unmark(v))
+    }
+  }
+  x
 }
 
 flatten_targets <- function(x) {
@@ -555,12 +642,19 @@ report_files <- function(t) {
   NULL
 }
 
-# The knitr child files and Quarto includes a document names, as written.
+# The knitr child files and Quarto includes a document names, as written. The
+# attribute `unresolved` is TRUE when a `child` option is not a string the scan
+# can work out (a computed path), as that is a file it cannot follow.
 document_children <- function(lines) {
   out <- character()
+  unresolved <- FALSE
   strs <- function(txt) {
-    v <- tryCatch(eval(parse(text = txt, keep.source = FALSE), baseenv()), error = function(e) NULL)
-    if (is.character(v)) v else character()
+    v <- tryCatch(suppressWarnings(suppressMessages(eval(parse(text = txt, keep.source = FALSE), baseenv()))),
+                  error = function(e) NULL)
+    if (is.character(v)) v else {
+      unresolved <<- TRUE
+      character()
+    }
   }
   lines <- tryCatch(dequote_chunks(lines), error = function(e) lines)
   for (ch in tryCatch(find_chunks(lines), error = function(e) list())) {
@@ -571,13 +665,28 @@ document_children <- function(lines) {
     for (h in hit) {
       if (length(h) == 2L) {
         y <- tryCatch(yaml::yaml.load(h[2L], eval.expr = FALSE), error = function(e) NULL)
-        if (is.character(y)) out <- c(out, y)
+        if (is.character(y)) out <- c(out, y) else unresolved <- TRUE
       }
     }
   }
-  inc <- regmatches(lines, regexec("\\{\\{<\\s*include\\s+([^ >]+)\\s*>\\}\\}", lines))
+  inc <- regmatches(lines, regexec("\\{\\{<\\s*include\\s+(\"[^\"]+\"|'[^']+'|[^ >]+)\\s*>\\}\\}", lines))
   for (h in inc) if (length(h) == 2L) out <- c(out, gsub("^[\"']|[\"']$", "", h[2L]))
-  unique(out[nzchar(out)])
+  out <- unique(out[nzchar(out)])
+  attr(out, "unresolved") <- unresolved
+  out
+}
+
+# The Quarto project root of a document: the nearest folder above it (or its own)
+# that holds `_quarto.yml`, else the document's folder.
+quarto_root <- function(path) {
+  d <- norm_path(dirname(path))
+  start <- d
+  repeat {
+    if (file.exists(file.path(d, "_quarto.yml")) || file.exists(file.path(d, "_quarto.yaml"))) return(d)
+    up <- dirname(d)
+    if (identical(up, d)) return(start)
+    d <- up
+  }
 }
 
 BINARY_EXT <- c("png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp", "ico", "pdf", "zip", "gz",
@@ -616,12 +725,18 @@ report_reads <- function(path, envir, keys) {
       for (x in c(rows$expr, unlist(rows$keys))) if (!is.na(x)) w$add(as.character(x))
     }
     kids <- document_children(lines)
+    if (isTRUE(attr(kids, "unresolved"))) w$set_all()
     if (length(kids)) {
       base <- dirname(f)
+      qroot <- quarto_root(f)
       cand <- vapply(kids, function(k) {
-        c1 <- if (is_abs_path(k)) k else file.path(base, k)
-        if (file.exists(c1)) c1 else if (file.exists(k)) k else NA_character_
+        c1 <- if (grepl("^/", k) && !grepl("^//", k)) {
+          file.path(qroot, sub("^/+", "", k))
+        } else if (is_abs_path(k)) k else file.path(base, k)
+        if (file.exists(c1) && !dir.exists(c1)) c1 else if (file.exists(k) && !dir.exists(k)) k else NA_character_
       }, "")
+      # a child or include that is not a file the scan can find: any key may be read there
+      if (anyNA(cand)) w$set_all()
       todo <- c(todo, cand[!is.na(cand)])
     }
   }
@@ -682,6 +797,8 @@ note_chunk_code <- function(s, options) {
 chapter_reads <- function(s) {
   root <- ledger_root(s)
   if (is.na(root) || !is_set_up(root) || rehearsing()) return(invisible())
+  # with `ledger: false` no reads are collected (rule 7.1.3)
+  if (isFALSE(s$config$ledger)) return(invisible())
   keys <- names(s$dict)
   if (is.null(keys)) keys <- character()
   w <- reads_walker(knitr::knit_global(), keys)

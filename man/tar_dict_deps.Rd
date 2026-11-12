@@ -24,7 +24,9 @@ reading every entry), and adds \verb{dict_<key>} to the target's dependencies
 (rule 4.6.2). A target made by \code{tarchetypes::tar_quarto()} or
 \code{tarchetypes::tar_render()} is read the same way through its source files:
 chunk code, inline R and the code of constructs, included files too (rule
-4.6.5). A key that the dictionary does not hold is an error that lists every
+4.6.5). Includes rooted at \code{/} resolve against the Quarto project root. A report
+with a \verb{child=} or include that the scan cannot resolve to a file (a computed path)
+depends on every key. A key that the dictionary does not hold is an error that lists every
 target that reads one (rule 4.6.4).
 }
 \details{
