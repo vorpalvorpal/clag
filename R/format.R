@@ -204,11 +204,11 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE)
 }
 
 # What a number that printed as zero says (stage 1i).
-zero_message <- function(z, un = NULL) {
+zero_message <- function(z, un = NULL, ladder = NULL, all_zero = TRUE) {
   n <- length(z$idx)
   sprintf("%s printed as %s%s: add sigfig to show it, or digits to confirm it%s",
           paste0(z$value, if (endsWith(z$printed, "%")) "%" else ""), z$printed,
-          if (n > 1L) sprintf(" (%d values printed as zero)", n) else "", zero_prefix_advice(z, un))
+          if (n > 1L) sprintf(" (%d values printed as zero)", n) else "", zero_prefix_advice(z, un, ladder, all_zero))
 }
 
 # The SI tokens that take a prefix, and the prefixes weft offers, for the zero rule's advice.
@@ -218,7 +218,10 @@ ZERO_PREFIXES <- c(G = 1e9, M = 1e6, k = 1e3, m = 1e-3, "\u00b5" = 1e-6, n = 1e-
 
 # For a unit that is one SI token, ", or write the prefixed unit that prints from 1 up to 1,000
 # (`unit = \"mm\"`)"; weft does not rescale by itself (decision 51). Else "".
-zero_prefix_advice <- function(z, un) {
+zero_prefix_advice <- function(z, un, ladder = NULL, all_zero = TRUE) {
+  # a ladder (4.4.23): the ladder with the prefixed unit put first, when every element printed
+  # zero in the first rung and that is one SI token; else digits and sigfig only
+  if (!is.null(ladder) && (!all_zero || !identical(ladder$picked, ladder$rungs[1L]))) return("")
   if (is.null(un) || length(un$numerator) != 1L || length(un$denominator) > 0L ||
       !un$numerator %in% ZERO_PREFIXABLE) return("")
   v <- suppressWarnings(abs(as.numeric(z$value)))
@@ -226,7 +229,13 @@ zero_prefix_advice <- function(z, un) {
   for (p in names(ZERO_PREFIXES)) {
     x <- v / ZERO_PREFIXES[[p]] * 1
     # the unit's own value is in the unit, so a smaller prefix gives a larger number
-    if (x >= 1 && x < 1000 && v < 1) return(sprintf("; or show it in a prefixed unit, such as unit = \"%s%s\"", p, un$numerator))
+    if (x >= 1 && x < 1000 && v < 1) {
+      if (!is.null(ladder)) {
+        return(sprintf("; or show it in a prefixed unit, such as unit=\"%s\"",
+                       paste(c(paste0(p, un$numerator), ladder$rungs), collapse = "|")))
+      }
+      return(sprintf("; or show it in a prefixed unit, such as unit = \"%s%s\"", p, un$numerator))
+    }
   }
   ""
 }
@@ -456,7 +465,8 @@ collapse_list <- function(cls, text, nms) {
 # (1.5.7, 1.5.18). `join` joins a vector that no collapse class joined.
 apply_formatters <- function(value, classes = character(), keys = list(),
                              config = current_config(), governor = FALSE,
-                             join = NULL, on_zero = note_zero, unit_form = NULL) {
+                             join = NULL, on_zero = note_zero, unit_form = NULL,
+                             on_pick = NULL) {
   cfg <- config
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
@@ -470,7 +480,14 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     nm[vapply(nm, function(k) identical(reg[[k]][["stage"]] %||% "number", stage), NA)]
   }
   # `unit` converts a quantity before anything else (4.4.14)
-  if (!is.null(keys$unit)) value <- convert_unit(value, keys$unit)
+  # a ladder of units (4.4.23) picks one by the value
+  ladder <- NULL
+  if (!is.null(keys$unit)) {
+    value <- convert_unit(value, keys$unit, classes, keys, cfg, function(rung, v, rungs) {
+      if (length(rungs) > 1L) ladder <<- list(rungs = rungs, picked = rung)
+      if (!is.null(on_pick)) on_pick(rung, v, length(rungs) > 1L)
+    })
+  }
   # the form a unit is asked to print in at the use: a unit class, or the
   # `unit_form` of a function (4.4.15)
   explicit <- unit_class_form(classes)
@@ -940,7 +957,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     text <- text_stage(text)
   }
 
-  if (!governor && !is.null(zero)) on_zero(zero_message(zero, un))
+  if (!governor && !is.null(zero)) on_zero(zero_message(zero, un, ladder, all_zero = length(zero$idx) == n_el))
 
   out <- new_weft_text(text, number, decimals, relation, raw)
   if (!is.null(un)) {
@@ -999,7 +1016,18 @@ apply_project <- function(spec, x, number_source) {
 #'   number, the unit and the arm an `n` span chooses are all in that unit. A
 #'   unit the quantity cannot be converted to, and `unit` on a value that is
 #'   not a quantity, are a `weft_value_error`. Like `digits`, it implies
-#'   `.num`.
+#'   `.num`. A ladder of units the author approves, written as one string with
+#'   `|` between the units or as a character vector, `unit = "mm|m|km"` or
+#'   `unit = c("mm", "m", "km")` (rule 4.4.23), prints in the first unit that
+#'   gives a number from 1 up to, not including, 1,000, as the number is
+#'   printed, and in one unit for a whole vector (the unit where most of its
+#'   numbers fit, ties to the earlier). A number that fits no unit takes the
+#'   one whose number is nearest the window, and zero the first. The order is
+#'   the author's preference. Every unit on the ladder is checked, whichever is
+#'   picked: one that does not convert, is refused or is the size of another is
+#'   a `weft_value_error`, and an empty or repeated unit is a
+#'   `weft_construct_error`. A ladder of one unit is that unit. The `units`
+#'   attribute holds the unit picked.
 #' @param unit_form How a quantity's unit prints (rule 3.4.8): `NULL` (the
 #'   setting `unit_form` in force: `"auto"` unless `_weft.yml` or the document
 #'   says otherwise, and for a `weft_text` input given a collapse class alone,

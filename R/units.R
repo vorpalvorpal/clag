@@ -152,31 +152,130 @@ check_one_unit <- function(x) {
   invisible(x)
 }
 
-# `x` converted to the unit `unit` (a string), for the `unit` key (4.4.14).
-convert_unit <- function(x, unit) {
-  if (!inherits(x, "units")) {
-    value_error(sprintf("`unit = %s` needs a quantity (see u()); the value is of class %s.",
-                        as.character(unit)[1L], class(x)[1L]))
+# ---- the unit ladder (4.4.23) ---------------------------------------------------------------------
+
+LADDER_FIT_LO <- 1
+LADDER_FIT_HI <- 1000
+
+# The rungs of a ladder, written as one string of units separated by `|` or as a character
+# vector of single units, and the problem with them (a construct error's text) or NULL.
+# `rungs` are trimmed; `written` is the ladder as the author wrote it. A string with no `|`
+# is one rung (as `unit` is today); it is not checked here, so blank and NA stay 4.4.14's.
+ladder_split <- function(unit) {
+  written <- paste(as.character(unit), collapse = "|")
+  bad <- function(msg) list(rungs = character(), written = written, problem = msg)
+  if (length(unit) == 1L && !is.na(unit) && !grepl("|", unit, fixed = TRUE)) {
+    return(list(rungs = trimws(unit), written = written, problem = NULL))
   }
-  if (!is.character(unit) || length(unit) != 1L || is.na(unit) || !nzchar(trimws(unit))) {
-    value_error("`unit` must be one string that names a unit, such as \"m\" (rule 4.4.14).")
+  if (length(unit) == 1L && !is.na(unit)) {
+    rungs <- trimws(strsplit(paste0(unit, "|"), "|", fixed = TRUE)[[1L]])
+  } else {
+    if (anyNA(unit) || any(!nzchar(trimws(unit))) || any(grepl("|", unit, fixed = TRUE))) {
+      return(bad(sprintf(paste0("`unit = %s`: the ladder is one string with `|` between the units, or a ",
+                                "vector of single units, with no blank or missing item (rule 4.4.23)."),
+                         written)))
+    }
+    rungs <- trimws(unit)
   }
-  ref <- unit_refusal(unit)
-  if (!is.null(ref)) value_error(sprintf("`unit = %s`: %s", unit, ref$text))
-  cannot <- function(e) value_error(sprintf(
-    "`unit = %s`: the quantity (%s) cannot be converted to it. %s", unit,
-    as.character(attr(x, "units")), sub("\n.*$", "", conditionMessage(e))))
-  to <- tryCatch(unit_symbolic(unit), error = cannot)
-  tw <- unit_twin_problem(attr(x, "units"), to, unit)
-  if (!is.null(tw)) value_error(paste0(tw, " (rule 4.4.14)."))
+  if (any(!nzchar(rungs))) {
+    return(bad(sprintf(paste0("`unit = %s`: the ladder has an empty rung; separate units with `|`, ",
+                              "such as `unit=\"mm|m|km\"` (rule 4.4.23)."), written)))
+  }
+  if (anyDuplicated(rungs)) {
+    return(bad(sprintf("`unit = %s`: `%s` is on the ladder twice (rule 4.4.23).", written,
+                       rungs[duplicated(rungs)][1L])))
+  }
+  list(rungs = rungs, written = written, problem = NULL)
+}
+
+# `x` converted to the unit `rung`, `pre` the start of an error's text (`unit = m`: ...).
+# `ladder` is TRUE for a rung of a ladder: its twin error then names the ladder too.
+convert_one <- function(x, rung, pre, ladder = FALSE) {
+  ref <- unit_refusal(rung)
+  if (!is.null(ref)) value_error(paste0(pre, ref$text))
+  cannot <- function(e) value_error(paste0(pre, sprintf(
+    "the quantity (%s) cannot be converted to it. %s",
+    as.character(attr(x, "units")), sub("\n.*$", "", conditionMessage(e)))))
+  to <- tryCatch(unit_symbolic(rung), error = cannot)
+  tw <- unit_twin_problem(attr(x, "units"), to, rung)
+  if (!is.null(tw)) value_error(paste0(if (ladder) pre else "", tw, " (rule 4.4.14)."))
   out <- tryCatch(units::set_units(x, to, mode = "standard"), error = cannot)
   if (converts_by_inversion(x, out)) {
-    value_error(sprintf(paste0(
-      "`unit = %s`: the quantity (%s) is of another dimension, which units reaches by inverting the ",
+    value_error(paste0(pre, sprintf(paste0(
+      "the quantity (%s) is of another dimension, which units reaches by inverting the ",
       "value. Write the reciprocal in the expression if that is meant (rule 4.4.14)."),
-      unit, as.character(attr(x, "units"))))
+      as.character(attr(x, "units")))))
   }
   out
+}
+
+# The rungs, among `rungs`, that are the size of an earlier one (factor 1 within 1e-9), as
+# the index of the later rung and the earlier rung's.
+ladder_same_size <- function(from, rungs) {
+  one <- tryCatch(units::set_units(1, from, mode = "standard"), error = function(e) NULL)
+  if (is.null(one)) return(NULL)
+  f <- vapply(rungs, function(r) {
+    tryCatch(as.numeric(units::set_units(one, unit_symbolic(r), mode = "standard")), error = function(e) NA_real_)
+  }, 0)
+  for (j in seq_along(rungs)[-1L]) {
+    for (i in seq_len(j - 1L)) {
+      if (is.finite(f[i]) && is.finite(f[j]) && f[i] != 0 && abs(f[j] / f[i] - 1) < 1e-9) return(c(i, j))
+    }
+  }
+  NULL
+}
+
+# How far a number as printed is from the window 1 up to 1,000, as a ratio; zero is infinitely far.
+ladder_far <- function(a) {
+  ifelse(a == 0, Inf, ifelse(a < LADDER_FIT_LO, 1 / a, ifelse(a >= LADDER_FIT_HI, a / LADDER_FIT_HI, 1)))
+}
+
+# The index of the rung a ladder picks (rule 4.4.23). `nums` holds the quantity's numbers in
+# each rung. They are tested as the number stage prints them (`.num`, with the use's `digits`,
+# `sigfig` and `.range`).
+ladder_pick <- function(nums, classes, keys, cfg) {
+  fin <- is.finite(nums[[1L]])
+  if (!any(fin)) return(1L)
+  range <- ".range" %in% classes
+  shown <- lapply(nums, function(v) abs(attr(format_numbers(v[fin], ".num", keys, cfg, range = range), "number")))
+  fits <- vapply(shown, function(a) sum(a >= LADDER_FIT_LO & a < LADDER_FIT_HI), 0L)
+  if (max(fits) > 0L) return(which(fits == max(fits))[1L])
+  big <- which.max(abs(nums[[1L]][fin]))
+  far <- vapply(shown, function(a) ladder_far(a[big]), 0)
+  which(far == min(far))[1L]
+}
+
+# `x` converted to the unit `unit` for the `unit` key (4.4.14): one unit (a string), or a ladder
+# (4.4.23) of which every rung is checked and one is picked by the number as printed. `on_pick`,
+# when given, is called with the rung picked, the quantity in it and the rungs.
+convert_unit <- function(x, unit, classes = character(), keys = list(), cfg = current_config(),
+                         on_pick = NULL) {
+  if (!inherits(x, "units")) {
+    value_error(sprintf("`unit = %s` needs a quantity (see u()); the value is of class %s.",
+                        paste(as.character(unit), collapse = "|"), class(x)[1L]))
+  }
+  if (!is.character(unit) || length(unit) < 1L ||
+      (length(unit) == 1L && (is.na(unit) || !nzchar(trimws(unit))))) {
+    value_error("`unit` must be one string that names a unit, such as \"m\" (rule 4.4.14).")
+  }
+  lad <- ladder_split(unit)
+  if (!is.null(lad$problem)) construct_error(lad$problem)
+  rungs <- lad$rungs
+  if (length(rungs) == 1L) {
+    out <- convert_one(x, rungs, sprintf("`unit = %s`: ", unit))
+    if (!is.null(on_pick)) on_pick(rungs, out, rungs)
+    return(out)
+  }
+  outs <- lapply(rungs, function(r) convert_one(x, r, sprintf("`unit = %s`: rung `%s`: ", lad$written, r), TRUE))
+  same <- ladder_same_size(attr(x, "units"), rungs)
+  if (!is.null(same)) {
+    value_error(sprintf(paste0("`unit = %s`: `%s` and `%s` are the same size, so `%s` could never be ",
+                               "picked; keep one (rule 4.4.23)."),
+                        lad$written, rungs[same[1L]], rungs[same[2L]], rungs[same[2L]]))
+  }
+  i <- ladder_pick(lapply(outs, as.numeric), classes, keys, cfg)
+  if (!is.null(on_pick)) on_pick(rungs[i], outs[[i]], rungs)
+  outs[[i]]
 }
 
 # `b` as bare numbers in the unit of `a`, when both are quantities; an error

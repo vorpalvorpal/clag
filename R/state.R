@@ -169,7 +169,9 @@ format_report <- function(fr) {
 #' @return `NULL`, or a list with these elements:
 #'   * `constructs`: a data frame with a row for each construct the scanner
 #'     found (its file, line, kind, expression, context, chunk, option, arm
-#'     chosen and whether it was evaluated), or `NULL` when there was none;
+#'     chosen, whether it was evaluated, and `unit_picked`: for a construct with a
+#'     `unit` key the unit it printed in, as written in its ladder (rule 4.4.23),
+#'     else `NA`), or `NULL` when there was none;
 #'   * `failures`: a data frame of the failures, one row for each, with the
 #'     columns `kind`, `file`, `line`, `chunk`, `expr`, `detail`, `hint`,
 #'     `option` and `chunk_line`;

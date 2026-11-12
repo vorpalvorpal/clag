@@ -81,7 +81,7 @@ test_that("2h L13: the ladder picks from the value converted into each rung, wha
     "c: {value: 0.25, type: quantity, unit: m, display: \"mm|m|km\", definition: \"A length.\"}")))
   expect_equal(units::deparse_unit(d$a), "m")
   expect_equal(as.numeric(d$a), 1.5)
-  expect_equal(units::deparse_unit(d$b), "ug/L")
+  expect_equal(units::deparse_unit(d$b), "ug L-1")   # deparse_unit() writes a quotient so
   expect_equal(as.numeric(d$b), 2)
   expect_equal(units::deparse_unit(d$c), "mm")
   expect_equal(as.numeric(d$c), 250)

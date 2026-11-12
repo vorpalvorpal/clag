@@ -90,7 +90,18 @@ accepted.}
 number, the unit and the arm an \code{n} span chooses are all in that unit. A
 unit the quantity cannot be converted to, and \code{unit} on a value that is
 not a quantity, are a \code{weft_value_error}. Like \code{digits}, it implies
-\code{.num}.}
+\code{.num}. A ladder of units the author approves, written as one string with
+\code{|} between the units or as a character vector, \code{unit = "mm|m|km"} or
+\code{unit = c("mm", "m", "km")} (rule 4.4.23), prints in the first unit that
+gives a number from 1 up to, not including, 1,000, as the number is
+printed, and in one unit for a whole vector (the unit where most of its
+numbers fit, ties to the earlier). A number that fits no unit takes the
+one whose number is nearest the window, and zero the first. The order is
+the author's preference. Every unit on the ladder is checked, whichever is
+picked: one that does not convert, is refused or is the size of another is
+a \code{weft_value_error}, and an empty or repeated unit is a
+\code{weft_construct_error}. A ladder of one unit is that unit. The \code{units}
+attribute holds the unit picked.}
 
 \item{unit_form}{How a quantity's unit prints (rule 3.4.8): \code{NULL} (the
 setting \code{unit_form} in force: \code{"auto"} unless \verb{_weft.yml} or the document

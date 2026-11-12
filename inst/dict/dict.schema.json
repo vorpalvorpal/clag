@@ -109,7 +109,7 @@
           "$ref": "#/definitions/optional_text"
         },
         "display": {
-          "description": "The unit the value is read in; a quantity only (rule 4.2.7).",
+          "description": "The unit the value is shown in, or a ladder of units (a string with | between the units, or a list of at least one) of which the one that gives a number from 1 up to 1,000 is picked when the dictionary is read; a quantity only (rules 4.2.7, 4.4.23).",
           "$ref": "#/definitions/optional_text"
         },
         "decision": {

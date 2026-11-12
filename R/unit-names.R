@@ -520,13 +520,17 @@ check_unit_form <- function(unit_form, fn = NULL, no_symbol = FALSE, none = TRUE
 #' (`*site*` would print `*site*s`). `.cap` leaves a symbol as it is, since its
 #' case is its meaning, and capitalises a name. `unit` converts `x` first, a
 #' string as well as a quantity; the unit of a formatter's text is not read, so
-#' pass the quantity.
+#' pass the quantity. With a ladder of units (`unit = "mm|m|km"`, rule 4.4.23) and a
+#' quantity, the unit is picked as [fmt_num()] picks it for `x` (one number, or the
+#' vector rule), and printed plural unless `x` has length one and prints "1"; a ladder
+#' of more than one unit with a string is a `weft_value_error`.
 #'
 #' @param x A quantity of any length (a missing value is allowed: no number
 #'   prints), or one string naming a unit.
 #' @param unit_form `NULL` (the setting `unit_form`, else `"auto"`), `"auto"`,
 #'   `"symbol"` or `"name"`. `"none"` is a `weft_construct_error`.
-#' @param unit A unit to convert `x` to first, as a string.
+#' @param unit A unit to convert `x` to first, as a string, or a ladder of units
+#'   (one string with `|` between the units, or a character vector; see [fmt_num()]).
 #' @return A `weft_text` of length one.
 #' @examples
 #' fmt_unit(u(5, mg/L))
@@ -546,13 +550,17 @@ fmt_unit <- function(x, unit_form = NULL, unit = NULL) {
       value_error("fmt_unit() takes one string that names a unit, or a quantity.")
     }
     if (!nzchar(trimws(x))) unit_abort("fmt_unit(): the unit is blank; write fmt_unit(\"m\").")
+    if (!is.null(unit) && length(ladder_split(unit)$rungs) > 1L) {
+      value_error(paste0("fmt_unit(): a ladder picks its unit by the quantity's numbers, and a string has none; ",
+                         "pass the quantity, or one unit (rule 3.4.9)."))
+    }
     x <- u_make(1, x, "fmt_unit")
     if (!is.null(unit)) x <- convert_unit(x, unit)
   } else if (!inherits(x, "units")) {
     value_error(sprintf("fmt_unit() needs a quantity (see u()) or a string that names a unit; the value is of class %s.",
                         class(x)[1L]))
   } else {
-    if (!is.null(unit)) x <- convert_unit(x, unit)
+    if (!is.null(unit)) x <- convert_unit(x, unit, ".num", list(), cfg)
     if (length(x) == 1L && is.finite(as.numeric(x))) {
       p <- print_one(as.numeric(x), NULL, NULL, cfg)
       plural <- !(p$number == 1 && !p$decimals)

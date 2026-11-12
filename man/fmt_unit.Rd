@@ -13,7 +13,8 @@ prints), or one string naming a unit.}
 \item{unit_form}{\code{NULL} (the setting \code{unit_form}, else \code{"auto"}), \code{"auto"},
 \code{"symbol"} or \code{"name"}. \code{"none"} is a \code{weft_construct_error}.}
 
-\item{unit}{A unit to convert \code{x} to first, as a string.}
+\item{unit}{A unit to convert \code{x} to first, as a string, or a ladder of units
+(one string with \code{|} between the units, or a character vector; see \code{\link[=fmt_num]{fmt_num()}}).}
 }
 \value{
 A \code{weft_text} of length one.
@@ -34,7 +35,10 @@ own \verb{plural:}, as the English plural is added to the end of the markup
 (\verb{*site*} would print \verb{*site*s}). \code{.cap} leaves a symbol as it is, since its
 case is its meaning, and capitalises a name. \code{unit} converts \code{x} first, a
 string as well as a quantity; the unit of a formatter's text is not read, so
-pass the quantity.
+pass the quantity. With a ladder of units (\code{unit = "mm|m|km"}, rule 4.4.23) and a
+quantity, the unit is picked as \code{\link[=fmt_num]{fmt_num()}} picks it for \code{x} (one number, or the
+vector rule), and printed plural unless \code{x} has length one and prints "1"; a ladder
+of more than one unit with a string is a \code{weft_value_error}.
 }
 \examples{
 fmt_unit(u(5, mg/L))

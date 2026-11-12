@@ -283,7 +283,15 @@ parse_block <- function(S, i) {
   if (i > n || ch[i] != "{") return(NULL)
   lim <- para_limit(S, i)
   blk <- parse_block_strict(ch, i, lim)
-  if (!is.null(blk)) return(blk)
+  if (!is.null(blk)) {
+    blk$start <- i
+    # the `|` of a ladder in `unit` may be written `\|` (1.2.3, 1.5.13, 4.4.23): read as `|`; one
+    # written bare is noted, for a pipe-table cell
+    at <- which(tolower(blk$names) == "unit")
+    blk$unit_bare_bar <- any(grepl("(?<!\\\\)\\|", blk$values[at], perl = TRUE))
+    blk$values[at] <- gsub("\\|", "|", blk$values[at], fixed = TRUE)
+    return(blk)
+  }
   close <- i + 1L
   while (close <= lim && ch[close] != "}") close <- close + 1L
   if (close > lim || close == i + 1L) return(NULL)
@@ -664,6 +672,17 @@ block_errors <- function(S, blk, kind) {
   }
   if (any(grepl("\\", blk$values, fixed = TRUE))) {
     e <- c(e, paste0("A `\\` inside a value (rule 1.2.3). ", BIND_HINT))
+  }
+  # a ladder in `unit` (4.4.23): an empty or a repeated rung; in a pipe-table cell its `|` is `\|`
+  for (uv in blk$values[tolower(blk$names) == "unit"]) {
+    if (grepl("|", uv, fixed = TRUE)) {
+      pr <- ladder_split(uv)$problem
+      if (!is.null(pr)) e <- c(e, pr)
+    }
+  }
+  if (isTRUE(blk$unit_bare_bar) && !is.null(blk$start) && isTRUE(S$tbl[line_index(S, blk$start)])) {
+    e <- c(e, paste0("An unescaped `|` in the `unit` of a construct in a pipe-table cell (rule 1.5.13); ",
+                     "write `\\|`."))
   }
   lc <- lower_keys(blk$names)
   if (any(duplicated(lc))) {

@@ -225,7 +225,7 @@ test_that("2h L9: the # of a list span takes the rung by the vector rule", {
 test_that("2h L11: NA is ignored in picking, and fmt_unit() shows it; a vector with nothing to test takes the first rung", {
   h2_restore()
   expect_equal(f2_tx(fmt_unit(u(c(NA, 1500), m), unit = "m|km")), "km")
-  expect_equal(f2_tx(fmt_unit(u(c(NA, NA), m), unit = "km|m")), "km")
+  expect_equal(f2_tx(fmt_unit(u(c(NA_real_, NA_real_), m), unit = "km|m")), "km")
   expect_equal(f2_tx(fmt_unit(u(numeric(0), m), unit = "km|m")), "km")
   expect_equal(f2_tx(fmt_unit(u(numeric(0), m), unit = "m|km")), "m")
 })
@@ -277,11 +277,11 @@ test_that("2h 4.4.23: the picked rung prints as unit=<rung> would (symbol as typ
     }
   }
   # a unit of the project's: picked, with its name and plural
-  yml <- c("units:", "  zzh2fa:", "    is: 2 m", "    name: span", "    plural: spans")
-  expect_equal(h2_ws(cx("u(1500, m)", 'unit="zzh2fa|km"'), yml), f2("750~zzh2fa"))
-  expect_equal(h2_ws(cx("u(1500, m)", '.uname unit="zzh2fa|km"'), yml), f2("750~spans"))
-  expect_equal(h2_ws(cx("u(3, m)", '.uname unit="m|zzh2fa"'), yml), f2("3~metres"))
-  expect_equal(h2_ws(cx("u(3000, m)", '.uname unit="m|zzh2fa"'), yml), f2("1,500~spans"))
+  yml <- c("units:", "  zzh2sp:", "    is: 2 m", "    name: span", "    plural: spans")
+  expect_equal(h2_ws(cx("u(1500, m)", 'unit="zzh2sp|km"'), yml), f2("750~zzh2sp"))
+  expect_equal(h2_ws(cx("u(1500, m)", '.uname unit="zzh2sp|km"'), yml), f2("750~spans"))
+  expect_equal(h2_ws(cx("u(3, m)", '.uname unit="m|zzh2sp"'), yml), f2("3~metres"))
+  expect_equal(h2_ws(cx("u(3000, m)", '.uname unit="m|zzh2sp"'), yml), f2("1,500~spans"))
 })
 
 test_that("2h 4.4.23: a unit written before the number is a rung like any other", {
@@ -622,7 +622,7 @@ test_that("2h determinism: the same value and ladder print in the same rung, eve
 test_that("2h determinism: a value whose numbers change may print in another rung", {
   h2_restore()
   expect_equal(h2_ws(cx("u(999, m)", 'unit="m|km"')), f2("999~m"))
-  expect_equal(h2_ws(cx("u(1001, m)", 'unit="m|km"')), f2("1~km"))
+  expect_equal(h2_ws(cx("u(1001, m)", 'unit="m|km"')), f2("1.0~km"))   # 1.001 prints as .num prints it
 })
 
 # ---- in a knit: last_knit()$constructs, the table cell, a collected failure, determinism across knits -----------------

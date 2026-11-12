@@ -11,7 +11,9 @@ last_knit()
 \itemize{
 \item \code{constructs}: a data frame with a row for each construct the scanner
 found (its file, line, kind, expression, context, chunk, option, arm
-chosen and whether it was evaluated), or \code{NULL} when there was none;
+chosen, whether it was evaluated, and \code{unit_picked}: for a construct with a
+\code{unit} key the unit it printed in, as written in its ladder (rule 4.4.23),
+else \code{NA}), or \code{NULL} when there was none;
 \item \code{failures}: a data frame of the failures, one row for each, with the
 columns \code{kind}, \code{file}, \code{line}, \code{chunk}, \code{expr}, \code{detail}, \code{hint},
 \code{option} and \code{chunk_line};

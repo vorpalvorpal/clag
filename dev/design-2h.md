@@ -330,3 +330,20 @@ Built as recommended until answered.
 - **Q4 — the order is a preference** (L3): `cm|mm|m` prints 0.05 m as "5 cm"
   and `mm|cm|m` as "50 mm". Alternative: sort by size and ignore the order.
   Recommended: as built.
+
+## Rulings on the implementer's report
+
+- **Four tests were faulty and are edited** (no rule changed):
+  `deparse_unit()` writes a quotient as "ug L-1"; `c(NA, NA)` is not a
+  number, so `u()` refuses it before the ladder is reached; a made-up
+  token ending in "fa" is read as a femtoare and refused (4.4.20); and
+  1,001 m on `m|km` prints "1.0 km", as `.num` prints 1.001.
+- The starter `dict.yml` gains no comment about ladders: its text is
+  fixed by 2c (C15). The help of `display` says it.
+- A back-reference holds the quantity in the picked rung for a ladder
+  of more than one rung; with a single `unit` it holds what it held
+  before. Accepted.
+- The pick tests the number as `.num` prints it, for every number
+  class. Accepted.
+- The zero rule's advice names the ladder only when every element
+  printed zero in the first rung. Accepted.

@@ -30,7 +30,15 @@ the value in. The value is read in \code{unit} and converted to \code{display} w
 the file is read, so \code{dict$key} is already in \code{display}, and arithmetic,
 checks, \verb{#} and \code{units::drop_units()} see it. A \code{display} that does not
 parse, or that \code{unit} does not convert to, is a problem; \verb{unit =} at the use
-converts back. The \code{entries} column \code{display} is \code{NA} where absent.
+converts back. It may be a ladder of units (rule 4.4.23), one string with
+\code{|} between the units (\code{display: m|km}) or a YAML list (\verb{display: [m, km]}):
+the unit that gives a number from 1 up to, not including, 1,000, as \code{.num}
+prints it under weft's shipped default digits, is picked once, when the file
+is read, and the entry is held in it. The ladder does not travel: a value
+computed from the entry stays in the entry's unit. Every unit on the ladder
+is checked; an empty or repeated unit, two units of the same size and a list
+item holding \code{|} are problems. The \code{entries} column \code{display} holds the
+ladder joined by \code{|}, and is \code{NA} where absent.
 \item \code{decision}: a whole number from 1, or a string that is not blank; it is
 not resolved when the file is read. \code{"#12"} is read as 12; text such as
 \code{012}, \code{0x1F} or \code{1e3}, or a number with more digits than an issue number

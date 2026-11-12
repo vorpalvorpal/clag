@@ -303,11 +303,18 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     }
     disp <- NA_character_
     if (!is.null(e[["display"]])) {
+      dv <- e[["display"]]
       if (type_ok && type != "quantity") {
         p(sprintf("`display` is only for a quantity, and this is a %s", type), "4.2.7")
-      } else if (!str1(e[["display"]])) {
-        p("`display` must be a string that is not blank", "4.2.7")
-      } else disp <- e[["display"]]
+      } else if (is.character(dv) && length(dv) >= 1L && (length(dv) > 1L || str1(dv))) {
+        # one unit, or a ladder (4.4.23): one string with `|`, or a YAML list
+        lad <- ladder_split(dv)
+        if (!is.null(lad$problem)) {
+          p(sprintf("`display` `%s`: %s", lad$written, strip_rule(sub("^`unit = [^`]*`: ", "", lad$problem))), "4.4.23")
+        } else disp <- lad$rungs
+      } else {
+        p("`display` must be a string that is not blank, or a list of such strings (a ladder of units)", "4.2.7")
+      }
     }
     dec <- NA_character_
     if (!is.null(e[["decision"]])) {
@@ -417,28 +424,45 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       } else {
         registered <- c(registered, reg$needed)
         values[i] <- list(u_set(values[[i]], unit))
-        # the value is read in `unit` and converted to `display` (4.2.7)
-        if (!is.na(disp)) {
-          dreg <- dict_register_unit(disp)
-          installed <- c(installed, dreg$installed)
-          if (!is.null(dreg$refusal)) {
-            p(sprintf("`display` `%s`: %s", disp, dreg$refusal), "4.4.20")
-          } else if (!is.null(dreg$error)) {
-            p(sprintf("`display` `%s` is not a unit the units package can read: %s", disp, strip_rule(dreg$error)), "4.2.7")
-          } else {
-            registered <- c(registered, dreg$needed)
-            to <- tryCatch(unit_symbolic(disp), error = function(e) NULL)
-            twin <- if (!is.null(to)) unit_twin_problem(attr(values[[i]], "units"), to, disp)
-            conv <- if (is.null(to) || !is.null(twin)) NULL else
-              tryCatch(units::set_units(values[[i]], to, mode = "standard"), error = function(e) NULL)
-            if (!is.null(twin)) {
-              p(twin, "4.4.14")
-            } else if (is.null(conv)) {
-              p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", disp, unit), "4.2.7")
-            } else if (converts_by_inversion(values[[i]], conv)) {
-              p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
-                               "by inverting the value; write the reciprocal in the expression"), disp, unit), "4.2.7")
-            } else values[i] <- list(conv)
+        # the value is read in `unit` and converted to `display` (4.2.7), or to the rung a ladder
+        # picks for it (4.4.23), tested under weft's shipped default digits
+        if (!anyNA(disp)) {
+          ladder <- length(disp) > 1L
+          convs <- vector("list", length(disp))
+          for (j in seq_along(disp)) {
+            dj <- disp[j]
+            pj <- function(what, rule) p(if (ladder) sprintf("`display` `%s`: %s", dj, what) else what, rule)
+            dreg <- dict_register_unit(dj)
+            installed <- c(installed, dreg$installed)
+            if (!is.null(dreg$refusal)) {
+              p(sprintf("`display` `%s`: %s", dj, dreg$refusal), "4.4.20")
+            } else if (!is.null(dreg$error)) {
+              p(sprintf("`display` `%s` is not a unit the units package can read: %s", dj, strip_rule(dreg$error)), "4.2.7")
+            } else {
+              registered <- c(registered, dreg$needed)
+              to <- tryCatch(unit_symbolic(dj), error = function(e) NULL)
+              twin <- if (!is.null(to)) unit_twin_problem(attr(values[[i]], "units"), to, dj)
+              conv <- if (is.null(to) || !is.null(twin)) NULL else
+                tryCatch(units::set_units(values[[i]], to, mode = "standard"), error = function(e) NULL)
+              if (!is.null(twin)) {
+                pj(twin, "4.4.14")
+              } else if (is.null(conv)) {
+                p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", dj, unit), "4.2.7")
+              } else if (converts_by_inversion(values[[i]], conv)) {
+                p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
+                                 "by inverting the value; write the reciprocal in the expression"), dj, unit), "4.2.7")
+              } else convs[[j]] <- conv
+            }
+          }
+          if (!any(vapply(convs, is.null, NA))) {
+            same <- if (ladder) ladder_same_size(attr(values[[i]], "units"), disp)
+            if (!is.null(same)) {
+              p(sprintf("`display` `%s`: `%s` and `%s` are the same size, so `%s` could never be picked",
+                        paste(disp, collapse = "|"), disp[same[1L]], disp[same[2L]], disp[same[2L]]), "4.4.23")
+            } else {
+              pick <- if (ladder) ladder_pick(lapply(convs, as.numeric), ".num", list(), default_config()) else 1L
+              values[i] <- list(convs[[pick]])
+            }
           }
         }
       }
@@ -446,7 +470,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     str_or_na <- function(x) if (str1(x)) x else NA_character_
     rows[[i]] <- list(key = key, type = if (type_ok) type else NA_character_,
                       definition = str_or_na(e[["definition"]]), unit = unit,
-                      display = disp, decision = dec, why = why, line = as.integer(line),
+                      display = if (anyNA(disp)) NA_character_ else paste(disp, collapse = "|"), decision = dec, why = why, line = as.integer(line),
                       term = trm, avoid = avd)
   }
   # the spellings against each other (rule 4.7.4); only entries whose own
@@ -844,7 +868,9 @@ print.weft_dict <- function(x, ...) {
   cat(sprintf("<weft_dict> %s: %d %s\n", attr(x, "file"), length(x),
               if (length(x) == 1L) "key" else "keys"))
   for (i in seq_len(nrow(e))) {
-    shown <- if (is.na(e$display[i])) e$unit[i] else e$display[i]
+    shown <- if (is.na(e$display[i])) e$unit[i] else if (grepl("|", e$display[i], fixed = TRUE)) {
+      units::deparse_unit(unclass(x)[[e$key[i]]])
+    } else e$display[i]
     cat(sprintf("  %s  %s  %s\n", e$key[i], e$type[i],
                 dict_short(x, e$key[i], e$type[i], shown)))
   }
@@ -878,7 +904,15 @@ print.weft_dict <- function(x, ...) {
 #'   the file is read, so `dict$key` is already in `display`, and arithmetic,
 #'   checks, `#` and `units::drop_units()` see it. A `display` that does not
 #'   parse, or that `unit` does not convert to, is a problem; `unit =` at the use
-#'   converts back. The `entries` column `display` is `NA` where absent.
+#'   converts back. It may be a ladder of units (rule 4.4.23), one string with
+#'   `|` between the units (`display: m|km`) or a YAML list (`display: [m, km]`):
+#'   the unit that gives a number from 1 up to, not including, 1,000, as `.num`
+#'   prints it under weft's shipped default digits, is picked once, when the file
+#'   is read, and the entry is held in it. The ladder does not travel: a value
+#'   computed from the entry stays in the entry's unit. Every unit on the ladder
+#'   is checked; an empty or repeated unit, two units of the same size and a list
+#'   item holding `|` are problems. The `entries` column `display` holds the
+#'   ladder joined by `|`, and is `NA` where absent.
 #' * `decision`: a whole number from 1, or a string that is not blank; it is
 #'   not resolved when the file is read. `"#12"` is read as 12; text such as
 #'   `012`, `0x1F` or `1e3`, or a number with more digits than an issue number

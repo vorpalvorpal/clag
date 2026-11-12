@@ -249,6 +249,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   R$chunk <- rep(if (is_str) as.character(ctx$chunk %||% NA_character_) else NA_character_, nr)
   R$option <- rep(if (is_str) as.character(ctx$option %||% NA_character_) else NA_character_, nr)
   R$evaluated <- rep(FALSE, nr)
+  R$unit_picked <- rep(NA_character_, nr)
   R$chosen <- rep(NA_integer_, nr)
   env0 <- if (is_str) (ctx$envir %||% knitr::knit_global()) else knitr::knit_global()
   nlpos <- which(strsplit(text, "")[[1L]] == "\n")
@@ -327,6 +328,16 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   # the label of a record made inside a governed span: its governor expression
   gov_label <- function(k) trim_ws(gsub("[ \t\r\n]+", " ", R$expr[k]))
+
+  # the unit a construct with a `unit` key printed in (4.4.23): the rung, kept in `last_knit()`;
+  # a ladder's pick is also what an id records, in the rung printed (1.7.8)
+  picked <- NULL
+  pick_note <- function(k) {
+    function(rung, value, ladder) {
+      R$unit_picked[k] <<- rung
+      picked <<- if (ladder) list(k = k, value = value)
+    }
+  }
 
   source_label <- function(k) {
     t <- substr(text, R$start[k], R$end[k])
@@ -598,7 +609,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     res <- tryCatch({
       if (has_fmt) {
         paste(as.character(apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
-                                            on_zero = zero_note(k, label))), collapse = "")
+                                            on_zero = zero_note(k, label),
+                                            on_pick = pick_note(k))), collapse = "")
       } else {
         apply_text_classes(stock_print(v), cc$own, symbol = isTRUE(attr(v, "is_symbol")))
       }
@@ -643,6 +655,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     id <- R$id[k]
     if (is.na(id) || !nzchar(id)) return(invisible())
     if (is.null(rec)) rec <- governor_record(v, cc)
+    # a ladder printed the value in the rung it picked: the id holds the quantity there (L15)
+    if (!is.null(picked) && picked$k == k) v <- picked$value
+    picked <<- NULL
     s$ids[[id]] <- list(rec = rec, raw = raw_of(v), un = unit_of(v), loc = id_loc(k))
     invisible()
   }
@@ -723,7 +738,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
     }
     rec <- if (inherits(v, "weft_text") && !own_fmt && !(".range" %in% cc$own)) v else tryCatch(
-      apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE),
+      apply_formatters(v, cc$own, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(k)),
       error = function(e) e)
     if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
     register_id(k, v, cc, rec)
@@ -756,7 +771,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       # the sign is judged on the number as printed; wording classes and the
       # magnitude are read from the absolute value
       judge <- setdiff(cc$own, c(".no", WORDING_CLASSES))
-      tryCatch(apply_formatters(v, judge, as.list(cc$keys), cfg, governor = TRUE),
+      tryCatch(apply_formatters(v, judge, as.list(cc$keys), cfg, governor = TRUE, on_pick = pick_note(k)),
                error = function(e) e)
     }
     if (inherits(rec, "error")) return(fail_from_error(k, rec, label))
@@ -834,7 +849,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       out <- tryCatch(
         paste(as.character(apply_formatters(v, fcl, as.list(cc$keys), cfg, join = ", ",
-                                            on_zero = zero_note(k, gov_label(k)))), collapse = ""),
+                                            on_zero = zero_note(k, gov_label(k)),
+                                            on_pick = pick_note(k))), collapse = ""),
         error = function(e) e)
       if (inherits(out, "error")) return(fail_from_error(k, out, label))
       hash <- out
