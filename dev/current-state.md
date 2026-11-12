@@ -59,18 +59,21 @@ first, then `dev/build-log.md`.
   `inst/weft-claim-words.yml`; built first, alone), then 3b prose
   (`R/lint-prose.R`, `R/lint-pandoc.R`), 3c code (`R/lint-code.R`), 3d
   documents (`R/lint-doc.R`, tier-2 listing in `R/changes.R`) in parallel
-  worktrees. Progress: 3a tests committed (ac54095, 206 tests); a sonnet
+  worktrees. Progress: tests for all four packages are committed (3a
+  ac54095, 3b 4bd730f, 3c a4590a6, 3d 2420cba); readings fixed while
+  they were written are at the end of the design note. A sonnet
   implementer is building 3a in the main tree (uncommitted `R/lint*.R`,
-  `R/recall.R`, `inst/weft-claim-words.yml` are its); three test-writers
-  are writing the 3b, 3c and 3d tests (helpers `helper-3b.R` etc.).
-  When 3a reports: commit it, hand its registry interface (in its
-  report) to the 3b/3c/3d implementers, launch those in worktrees.
-  3a was also sent design-4's G4 (reader hook `lint_read()`, `files`
-  scope, `project_only_settings()`).
+  `R/recall.R`, `R/config.R`, `inst/weft-claim-words.yml` are its; it
+  was also sent design-4's G4 and the hygiene spec ids). When it
+  reports: commit 3a, hand its registry interface (in its report) to
+  three implementers for 3b/3c/3d in worktrees, cherry-pick each, run
+  stage 0 (`dev/trials/stage0/recall.R`), whole suite, opus review.
 - **Stage 4**: `dev/design-4.md` is the contract (decision 65). Packages
   4a gate and 4d activation (`use_setup()`, `.Rprofile`) first, in
   parallel; then 4b installers and 4c `verify()` in parallel. None edits
-  `R/lint*.R`. Start 4a/4d test-writers once stage 3's 3a has merged.
+  `R/lint*.R`. The 4d and 4a test-writers are running (files
+  `helper-4d.R`, `helper-4a.R` and the test files design-4 section 5
+  names); commit their tests when they report, build after 3a merges.
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
