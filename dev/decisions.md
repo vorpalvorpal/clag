@@ -409,3 +409,18 @@ and are entries 30 to 37 under "Made".
     take a plural. Alternative: keep the key as the default symbol.
 61. **`ledger: false`** separates the ledger from the existence of
     `_weft.yml`.
+
+## 62. The disk copy of the units tables is off unless asked for
+
+The performance work keeps what `units::valid_udunits()` returns for
+the session, and can keep it in the user's cache directory
+(`tools::R_user_dir("weft", "cache")`) for the next one. The disk copy
+is written only under `options(weft.units_cache = TRUE)`.
+
+- First `weft_setup()` in a session, installed package: 1.08 s before,
+  about 0.6 s with the session copy alone, 0.15 s with the disk copy.
+  Later calls: 0.12 s before, 0.04 s after.
+- Alternative: write the disk copy by default. Refused for now: a
+  package that writes outside the project without being asked is a
+  choice for Robin, and the build was told to write only inside this
+  repository. Turning it on by default is a one-line change.

@@ -93,13 +93,16 @@ split_cells <- function(x) {
 # second, so one read serves the whole session (ud_db() and ud_shipped() both use it) and,
 # keyed on the units package's version and on the path, size and modification time of
 # every XML file of the database, a copy kept in the user's cache directory serves the
-# next session. A changed database, or a cache that cannot be read or written, is a read
+# next session when the option `weft.units_cache` is TRUE. A changed database, or a cache that cannot be read or written, is a read
 # of the XML as before.
 ud_tables <- function() {
   key <- ud_tables_key()
   if (!is.null(un_cache$tables) && identical(un_cache$tables_key, key)) return(un_cache$tables)
   disk <- NULL
-  if (!is.null(key)) {
+  # the disk copy is asked for: `options(weft.units_cache = TRUE)`. Off, weft writes nothing
+  # outside the project.
+  on_disk <- !is.null(key) && isTRUE(getOption("weft.units_cache", FALSE))
+  if (on_disk) {
     disk <- tryCatch({
       f <- ud_tables_file(key)
       if (file.exists(f)) {
@@ -115,7 +118,7 @@ ud_tables <- function() {
     utils::capture.output(pf <- suppressMessages(units::valid_udunits_prefixes()))
     disk <- list(key = key, v = v, pf = pf)
     # not while a package check runs: it must not write outside its own directories
-    if (!is.null(key) && !nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_", ""))) {
+    if (on_disk && !nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_", ""))) {
       try(suppressWarnings({
         f <- ud_tables_file(key)
         dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)

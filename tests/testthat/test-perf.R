@@ -3,6 +3,7 @@
 
 test_that("the units database read is kept in the session and on disk, keyed on the database", {
   withr::local_envvar(R_USER_CACHE_DIR = withr::local_tempdir())
+  withr::local_options(weft.units_cache = TRUE)
   uc <- weft:::un_cache
   tb <- uc$tables
   tbk <- uc$tables_key
