@@ -113,7 +113,14 @@ first, then `dev/build-log.md`.
      in the code review. Speed optimisations should only be taken
      when they are real and they don't degrade code quality." So the
      survey covers `R/`, `inst/` and `tests/`; a speed change needs a
-     before and after measurement and must not make the code worse;
+     before and after measurement and must not make the code worse.
+     Robin on "real": "both that it existed, and that it was an
+     actual gain. Eg 1ms speed up on a rarely used function isn't
+     real. Look where actual bottlenecks are, and target those." So:
+     profile first (render of a real-sized document, `lints()` over a
+     project, `gate()` warm and cold, `verify(static = TRUE)`, package
+     load, the test suite's slowest files), rank by time a user
+     actually waits, and touch only the top few;
   7. closing report.
   Lesson: a helper defined twice in `R/` silently replaces the first
   (it broke `lints()` once); check with
