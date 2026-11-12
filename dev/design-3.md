@@ -819,3 +819,25 @@ The test-writer met these gaps; each reading below is now the contract.
 8. `tar-name` belongs to 3c.
 9. An unlabelled chunk with `eval: false` is not flagged by
    `chunk-label`.
+
+## Readings fixed when the 3c tests were written
+
+1. **`spec` of the hygiene rules** is the row of the table in 5.8:
+   `section-anchor` and `chunk-label` 5.8.1, `tar-name` 5.8.2,
+   `dict-assign` 5.8.3, `file-link` 5.8.4, `above-setup` 5.8.5,
+   `dict-key` 5.8.6, `tar-cache` 5.8.7, `config-place` 5.8.8, `engine`
+   5.8.9. `lint_rules()$spec` and the "(rule x.y.z)" tail of a message
+   agree.
+2. A finding's position is where its `text` starts: the expression after
+   `` `r ``, the constant, the function name, the condition inside the
+   quotes, the bracket text after `[`, a class name at its dot.
+3. Code lints read executed R chunks only: `eval: false` and non-R
+   chunks give nothing.
+4. A wholly literal value gets `literal-value` only, never
+   `value-constant` as well. `if="TRUE"` is an `inert-check`, not a
+   `literal-value`.
+5. `tar_load(c(a, b))` gives one finding per absent name. A name that is
+   not a literal is not guessed. A missing store gives a note, not a
+   finding.
+6. `context` is `prose`, `chunk`, `caption`, `front-matter` or
+   `weft_str`, by where the piece came from.
