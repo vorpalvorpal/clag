@@ -23,21 +23,26 @@ DIV_REMEDY <- paste0("write the caption in a figure or table div instead, ",
 metadata_blocks <- function(lines) {
   n <- length(lines)
   is_blank <- function(l) !nzchar(trim_ws(l))
-  fence <- NULL
   open <- integer()
   close <- integer()
+  # only a fence line or a `---` line can matter: the rest are skipped, in one pass
+  cand <- which(grepl("^[ \t>]*(`{3,}|~{3,})", lines) | grepl("^---[ \t\r]*$", lines))
+  # the first line after `k` that closes the fence `fence`, or n + 1
+  next_close <- function(fence, k) {
+    if (k >= n) return(n + 1L)
+    hit <- which(grepl(fence, lines[(k + 1L):n], perl = TRUE))
+    if (length(hit)) k + hit[1L] else n + 1L
+  }
   k <- 1L
   while (k <= n) {
+    ci <- cand[cand >= k]
+    if (!length(ci)) break
+    k <- ci[1L]
     l <- lines[k]
-    if (!is.null(fence)) {
-      if (grepl(fence, l, perl = TRUE)) fence <- NULL
-      k <- k + 1L
-      next
-    }
     fm <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
     if (length(fm)) {
       fence <- paste0("^[ \t>]*", substr(fm[2], 1, 1), "{", nchar(fm[2]), ",}[ \t\r]*$")
-      k <- k + 1L
+      k <- next_close(fence, k) + 1L
       next
     }
     if (grepl("^---[ \t\r]*$", l) && (k == 1L || is_blank(lines[k - 1L])) &&
@@ -261,21 +266,25 @@ find_chunks <- function(lines) {
   inyaml <- rep(FALSE, n)
   for (b in seq_len(nrow(mb))) inyaml[mb$open[b]:mb$close[b]] <- TRUE
   begin <- "^[ \t>]*(`{3,})[ \t]*\\{[ \t]*([A-Za-z0-9_]+)(.*)\\}[ \t]*$"
+  # a chunk header is a fence line: only those are looked at, in one pass
+  cand <- which(!inyaml & grepl("^[ \t>]*(`{3,}|~{3,})", lines))
   out <- list()
   k <- 1L
   while (k <= n) {
-    if (inyaml[k]) {
-      k <- k + 1L
-      next
-    }
+    ci <- cand[cand >= k]
+    if (!length(ci)) break
+    k <- ci[1L]
     l <- lines[k]
     m <- regmatches(l, regexec(begin, l, perl = TRUE))[[1]]
     gen <- regmatches(l, regexec("^[ \t>]*(`{3,}|~{3,})", l))[[1]]
     if (length(m) || length(gen)) {
       fence <- if (length(m)) m[2] else gen[2]
       close_re <- paste0("^[ \t>]*", substr(fence, 1, 1), "{", nchar(fence), ",}[ \t\r]*$")
-      j <- k + 1L
-      while (j <= n && !grepl(close_re, lines[j], perl = TRUE)) j <- j + 1L
+      j <- n + 1L
+      if (k < n) {
+        hit <- which(grepl(close_re, lines[(k + 1L):n], perl = TRUE))
+        if (length(hit)) j <- k + hit[1L]
+      }
       if (length(m)) {
         out[[length(out) + 1L]] <- list(open = k, close = min(j, n + 1L) - 0L,
                                         engine = m[3], header = m[4], closed = j <= n)

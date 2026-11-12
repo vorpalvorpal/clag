@@ -88,12 +88,69 @@ split_cells <- function(x) {
   x[nzchar(x)]
 }
 
+# The units database's symbols, names and prefixes as units::valid_udunits() and
+# valid_udunits_prefixes() give them: list(v, pf). Reading the XML costs about half a
+# second, so one read serves the whole session (ud_db() and ud_shipped() both use it) and,
+# keyed on the units package's version and on the path, size and modification time of
+# every XML file of the database, a copy kept in the user's cache directory serves the
+# next session. A changed database, or a cache that cannot be read or written, is a read
+# of the XML as before.
+ud_tables <- function() {
+  key <- ud_tables_key()
+  if (!is.null(un_cache$tables) && identical(un_cache$tables_key, key)) return(un_cache$tables)
+  disk <- NULL
+  if (!is.null(key)) {
+    disk <- tryCatch({
+      f <- ud_tables_file(key)
+      if (file.exists(f)) {
+        x <- readRDS(f)
+        if (is.list(x) && identical(x$key, key) && is.data.frame(x$v) && is.data.frame(x$pf)) x else NULL
+      }
+    }, error = function(e) NULL, warning = function(w) NULL)
+  }
+  if (is.null(disk)) {
+    v <- NULL
+    utils::capture.output(v <- suppressMessages(units::valid_udunits()))
+    pf <- NULL
+    utils::capture.output(pf <- suppressMessages(units::valid_udunits_prefixes()))
+    disk <- list(key = key, v = v, pf = pf)
+    # not while a package check runs: it must not write outside its own directories
+    if (!is.null(key) && !nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_", ""))) {
+      try(suppressWarnings({
+        f <- ud_tables_file(key)
+        dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
+        tmp <- tempfile(tmpdir = dirname(f))
+        saveRDS(disk, tmp)
+        if (!file.rename(tmp, f)) unlink(tmp)
+      }), silent = TRUE)
+    }
+  }
+  un_cache$tables <- disk
+  un_cache$tables_key <- key
+  disk
+}
+
+# What the database read depends on, or NULL when that cannot be told (then nothing is kept
+# on disk).
+ud_tables_key <- function() {
+  tryCatch({
+    p <- get("default_units_xml", envir = asNamespace("units"))()
+    fs <- list.files(dirname(p), pattern = "\\.xml$", full.names = TRUE)
+    fi <- file.info(fs)
+    list(units = as.character(utils::packageVersion("units")), weft = 1L,
+         files = unname(fs), size = fi$size, mtime = as.numeric(fi$mtime), main = p)
+  }, error = function(e) NULL)
+}
+
+ud_tables_file <- function(key) {
+  file.path(tools::R_user_dir("weft", "cache"), paste0("udunits-", rlang::hash(key), ".rds"))
+}
+
 ud_db <- function() {
   if (!is.null(un_cache$db)) return(un_cache$db)
-  v <- NULL
-  utils::capture.output(v <- suppressMessages(units::valid_udunits()))
-  pf <- NULL
-  utils::capture.output(pf <- suppressMessages(units::valid_udunits_prefixes()))
+  tb <- ud_tables()
+  v <- tb$v
+  pf <- tb$pf
   n <- nrow(v)
   id <- ifelse(nzchar(v$symbol), v$symbol, v$name_singular)
   # a twin row is the unit of the row it names

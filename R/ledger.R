@@ -649,6 +649,40 @@ sentence_starts_of <- function(m, lang) {
   p[keep]
 }
 
+# The window and the sentence cuts of a paragraph `para` under the language `lang`:
+# list(win, cuts). Masking the paragraph and asking ICU for its boundaries is the cost of
+# a sentence, and every entry in a paragraph asks for the same answer, so it is kept, keyed
+# on the paragraph's own text and the language (a changed paragraph is a different key).
+# The position `keep` matters only to a paragraph with an inline footnote `^[`; such a
+# paragraph is not kept. The store is emptied when it grows large.
+sentence_cache <- new.env(parent = emptyenv())
+
+sentence_cuts <- function(para, keep, lang) {
+  cacheable <- !grepl("^[", para, fixed = TRUE)
+  if (cacheable) {
+    key <- paste(lang, para, sep = "\r\001")
+    hit <- sentence_cache[[key]]
+    if (!is.null(hit)) return(hit)
+  }
+  m <- mask_nonprose(para, keep)
+  win <- attr(m, "window") %||% c(1L, nchar(para))
+  cuts <- sentence_starts_of(m, lang)
+  mk <- gregexpr(sentence_marker_re, para, perl = TRUE)[[1L]]
+  if (mk[1L] > 0L) {
+    ml <- attr(mk, "match.length")
+    own <- !grepl("^[ \t>]*$", substring(para, mk, mk + ml - 1L))
+    cuts <- c(cuts, (mk + ml)[own | mk == 1L])
+  }
+  fence <- gregexpr("(?m)^[ \t]*:{3,}.*$", para, perl = TRUE)[[1L]]
+  if (fence[1L] > 0L) cuts <- c(cuts, fence + attr(fence, "match.length"))
+  out <- list(win = win, cuts = cuts)
+  if (cacheable) {
+    if (length(sentence_cache) >= 5000L) rm(list = ls(sentence_cache, all.names = TRUE), envir = sentence_cache)
+    sentence_cache[[key]] <- out
+  }
+  out
+}
+
 ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
   n <- nchar(out)
   if (is.na(a) || is.na(b)) return(collapse_ws(out))
@@ -697,17 +731,9 @@ ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
     return(sentence_cut_around(para, a2, b2, hs, le))
   }
   # the sentence: between the cuts that ICU, less weft's rules, leaves (D12)
-  m <- mask_nonprose(para, c(a2, b2))
-  win <- attr(m, "window") %||% c(1L, nchar(para))
-  cuts <- sentence_starts_of(m, current_lang())
-  mk <- gregexpr(sentence_marker_re, para, perl = TRUE)[[1L]]
-  if (mk[1L] > 0L) {
-    ml <- attr(mk, "match.length")
-    own <- !grepl("^[ \t>]*$", substring(para, mk, mk + ml - 1L))
-    cuts <- c(cuts, (mk + ml)[own | mk == 1L])
-  }
-  fence <- gregexpr("(?m)^[ \t]*:{3,}.*$", para, perl = TRUE)[[1L]]
-  if (fence[1L] > 0L) cuts <- c(cuts, fence + attr(fence, "match.length"))
+  cb <- sentence_cuts(para, c(a2, b2), current_lang())
+  win <- cb$win
+  cuts <- cb$cuts
   st <- max(c(win[1L], cuts[cuts <= a2 & cuts >= win[1L]]))
   after <- cuts[cuts > b2 & cuts <= win[2L]]
   en <- if (length(after)) min(after) - 1L else win[2L]

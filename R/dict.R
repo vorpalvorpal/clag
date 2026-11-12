@@ -648,10 +648,9 @@ ud_cache <- new.env(parent = emptyenv())
 
 ud_shipped <- function(tok) {
   if (is.null(ud_cache$names)) {
-    v <- NULL
-    utils::capture.output(v <- suppressMessages(units::valid_udunits()))
-    pf <- NULL
-    utils::capture.output(pf <- suppressMessages(units::valid_udunits_prefixes()))
+    tb <- ud_tables()
+    v <- tb$v
+    pf <- tb$pf
     cells <- unlist(v[c("symbol", "symbol_aliases", "name_singular", "name_singular_aliases",
                         "name_plural", "name_plural_aliases")], use.names = FALSE)
     ud_cache$names <- unique(trimws(unlist(strsplit(cells[nzchar(cells)], "[, ]+"))))
