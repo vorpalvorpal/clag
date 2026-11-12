@@ -926,3 +926,57 @@ The implementer's calls on the layout stand, as the reviewer agrees.
 - A fault in 2d's header writer was fixed: every extra header field
   was written under the first field's name.
 - Whole suite after the build: 2,513 tests, none failing, none skipped.
+
+## Rulings on the review of 2e-1 (`dev/review-2e1.md`)
+
+Findings 1 to 14 are accepted, with these particulars:
+
+- **1.** A report target's sources are followed: a knitr `child=` file,
+  a Quarto `{{< include >}}` and any source `tarchetypes` lists,
+  whatever its extension, are scanned, to any depth.
+- **2, 3, question A (the guard).** The `dict` that `tar_dict()`
+  attaches checks its own dependency: while a target is running
+  (`targets::tar_active()`), a read of key `k` through `$` or `[[`
+  requires `dict_k` among the running target's dependencies, and a
+  read of the whole dictionary requires every `dict_<key>`; otherwise
+  it is a `weft_pipeline_error` naming the target and the key and
+  saying to pass the target through `tar_dict_deps()`. So a target
+  left outside `tar_dict_deps()`, or a read the walker cannot see,
+  stops the first make and never gives a stale number. The walker
+  also: takes a literal `"dict"` given to `get()`, `get0()`, `mget()`
+  or `exists()` as a read of every key; follows the functions bound
+  in a closure's own environment; and for a call `g()` follows the
+  `g.<class>` functions in the pipeline's environment.
+- **2, `*_rep`.** `tar_render_rep()` and `tar_quarto_rep()` targets are
+  report targets: their sources are scanned as P10 says (the guard
+  cannot see a document's own `dict`).
+- **4, question B.** The upstream edges are cached on the store's
+  `meta/meta` file (its size and modification time) and the script's
+  path, not on the run id; a single-file render reuses them too.
+- **5.** A `store =` that is not a literal is evaluated at the end of
+  the knit in the knit's environment; when it gives one string that
+  is the store. When it cannot be evaluated, the read is recorded
+  under the default store and the knit raises one
+  `weft_ledger_warning` naming the read.
+- **6.** Done with the 2e-2 review fixes (names sorted at every level).
+- **7.** Upstream conditions are read for every store a chapter reads
+  from; the script is that store's project's (`_targets.R` beside the
+  store unless configured). When it cannot be found, P16's warning.
+- **8 (P4 amended).** `tar_dict()` adds one target `dict_values`
+  (`weft::read_dict(dict_file)`), and each `dict_<key>` is
+  `dict_values[["<key>"]]`; the dictionary is read once per make.
+- **9 to 12, 14.** Accepted as wording and help text.
+- **13.** One rule everywhere, the dictionary reader included: the
+  suggestion is the one nearest key within edit distance 2; a tie
+  gives none.
+
+Questions:
+
+- **C.** A literal path given to `source()` or `sys.source()` in walked
+  code is recorded in the header's `files`, as a child is.
+- **D.** Whatever creates `.weft/` also writes `.weft/.gitignore`
+  holding `*`, so its files are not committed by accident.
+- **E.** One dictionary to a pipeline: a second `tar_dict()` call, or
+  a target of the author's named `dict_file`, `dict_values` or
+  `dict_<key>`, is a `weft_pipeline_error` from weft.
+- **F.** No separate warnings; the guard covers them.
