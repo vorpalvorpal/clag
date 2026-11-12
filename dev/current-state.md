@@ -59,7 +59,13 @@ first, then `dev/build-log.md`.
   `inst/weft-claim-words.yml`; built first, alone), then 3b prose
   (`R/lint-prose.R`, `R/lint-pandoc.R`), 3c code (`R/lint-code.R`), 3d
   documents (`R/lint-doc.R`, tier-2 listing in `R/changes.R`) in parallel
-  worktrees. Progress: 3a tests being written.
+  worktrees. Progress: 3a tests committed (ac54095, 206 tests); a sonnet
+  implementer is building 3a in the main tree (uncommitted `R/lint*.R`,
+  `R/recall.R`, `inst/weft-claim-words.yml` are its); three test-writers
+  are writing the 3b, 3c and 3d tests (helpers `helper-3b.R` etc.).
+  When 3a reports: commit it, hand its registry interface (in its
+  report) to the 3b/3c/3d implementers, launch those in worktrees.
+  The stage 4 designer (opus) is writing `dev/design-4.md`.
 - **Stage 0** runs as each lint package merges: script
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
