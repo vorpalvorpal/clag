@@ -324,13 +324,14 @@ heading_anchors <- function(lines) {
 
 # Pandoc's identifier rule on a heading's source text (D10).
 pandoc_id <- function(txt) {
-  x <- gsub("`[^`]*`", "", txt)
+  x <- gsub("`r[ \t][^`]*`", "", txt)
+  x <- gsub("`", "", x, fixed = TRUE)
   x <- gsub("\\{[^{}]*\\}", "", x)
   # what Pandoc does not keep: link and image targets, footnote references,
   # raw HTML tags, emphasis markers
   x <- gsub("\\]\\([^)]*\\)", "]", x)
   x <- gsub("\\[\\^[^]]*\\]", "", x)
-  x <- gsub("<[^<>]*>", "", x)
+  x <- gsub("</?[A-Za-z][^<>]*>", "", x)
   x <- gsub("(?<![\\p{L}\\p{N}])_+|_+(?![\\p{L}\\p{N}])", "", x, perl = TRUE)
   x <- gsub("[^\\p{L}\\p{N}_.\\s-]", "", x, perl = TRUE)
   x <- trimws(tolower(x))
@@ -602,7 +603,7 @@ mask_nonprose <- function(x, keep = NULL) {
         ch[c(f, f + 1L, t)] <- " "
         window <- c(f + 2L, t - 1L)
       } else {
-        ch[f:t] <- c("A", rep("a", t - f))
+        ch[f:t] <- ")"
       }
       y <- paste(ch, collapse = "")
     }
@@ -737,6 +738,13 @@ ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
   st <- max(c(win[1L], cuts[cuts <= a2 & cuts >= win[1L]]))
   after <- cuts[cuts > b2 & cuts <= win[2L]]
   en <- if (length(after)) min(after) - 1L else win[2L]
+  # the cut sits after the next block's marker: the sentence stops before it
+  nlp <- gregexpr("\n", substr(para, 1L, en), fixed = TRUE)[[1L]]
+  if (nlp[1L] > 0L && max(nlp) > b2) {
+    tl <- substr(para, max(nlp) + 1L, en)
+    mm <- regexpr(sentence_marker_re, tl, perl = TRUE)
+    if (mm[1L] == 1L && attr(mm, "match.length") == nchar(tl)) en <- max(nlp) - 1L
+  }
   sentence_cut_around(para, a2, b2, st, en)
 }
 

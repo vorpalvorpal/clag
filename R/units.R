@@ -454,19 +454,23 @@ typed_unit_message <- function(rec, following, cfg) {
   suf <- attr(rec, "unit_suffix")
   un <- attr(rec, "units")
   if (is.null(un) || !length(suf) || !nzchar(suf[length(suf)]) || is.na(following)) return(NULL)
-  m <- regmatches(following, regexec("^[ \t\n ]+([^ \t\n ]+)", following))[[1L]]
+  m <- regmatches(following, regexec("^[ \t\n\u00a0]+([^ \t\n\u00a0]+)", following))[[1L]]
   if (length(m) < 2L) return(NULL)
-  word <- sub("[.,;:!?)”’]+$", "", m[2L])
+  word <- sub("[.,;:!?)\u201d\u2019]+$", "", m[2L])
   if (!nzchar(word)) return(NULL)
-  shown <- gsub("^[ \t\n ]+|[ \t\n ]+$", "", suf[length(suf)])
+  shown <- gsub("^[ \t\n\u00a0]+|[ \t\n\u00a0]+$", "", suf[length(suf)])
   shown <- gsub("\\\\", "", shown)
   lang <- current_lang()
   nms <- unlist(lapply(c(FALSE, TRUE), function(pl) {
     tryCatch(unit_name_text(un, pl, cfg, lang), error = function(e) NULL)
   }))
   sym <- tryCatch(unit_symbol_text(un, TRUE, cfg, lang), error = function(e) NULL)
-  hit <- identical(word, shown) || (length(sym) && identical(word, gsub("\\\\", "", sym))) ||
-    tolower(word) %in% tolower(c(nms, shown))
+  # a symbol is compared as typed (and not when it is an ordinary word); a name as typed or in lower case
+  symtxt <- if (length(sym)) gsub("\\\\", "", sym) else character()
+  plain <- c("a", "am", "as", "at", "in")
+  sym_hit <- (identical(word, shown) || (length(sym) && identical(word, symtxt))) && !(word %in% plain)
+  name_hit <- length(nms) > 0L && (word %in% nms || word %in% tolower(nms))
+  hit <- sym_hit || name_hit
   if (!hit) return(NULL)
   sprintf(paste0("weft: the unit is printed (\"%s\") and the text after it types it again (\"%s %s\"); ",
                  "delete the word you typed (rule 4.4.10)."), shown, shown, word)

@@ -19,6 +19,8 @@ ud_state$default_entries <- NULL
 # `disabled`: the default tokens someone else installed as another unit, each with the text that
 # says so; their rows are off until the token is removed.
 ud_state$disabled <- character()
+# the tokens a project's keys without `is` registered (4.4.7); they go with the project
+ud_state$registered <- character()
 
 UNIT_TOKEN_RE <- "^[^[:space:][:digit:]*/^().+-][^[:space:]*/^().+-]*$"
 
@@ -464,6 +466,15 @@ ud_unload <- function() {
   invisible()
 }
 
+# Remove the tokens that the keys without `is` of an earlier read registered: they belong to the
+# project that was read, not to the session.
+ud_forget_registered <- function() {
+  for (tok in rev(ud_state$registered)) try(units::remove_unit(tok, tok), silent = TRUE)
+  if (length(ud_state$registered)) un_cache$sym <- NULL
+  ud_state$registered <- character()
+  invisible()
+}
+
 # Make the database what the configuration in force wants, before the first use in a session.
 units_ready <- function() {
   if (isTRUE(ud_state$ready) || isTRUE(ud_state$busy)) return(invisible())
@@ -479,6 +490,7 @@ units_reset <- function() {
   if (isTRUE(ud_state$resetting)) return(invisible())
   ud_state$resetting <- TRUE
   on.exit(ud_state$resetting <- FALSE)
+  ud_forget_registered()
   ud_state$ready <- FALSE
   ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
   weft_env$units <- NULL
@@ -649,6 +661,7 @@ units_entries <- function(rows, where, installed, project = FALSE) {
 read_units_tables <- function(tabs, mode) {
   ud_state$busy <- TRUE
   on.exit(ud_state$busy <- FALSE)
+  ud_forget_registered()
   # a failed read ends with the database as before it: the tokens it installed go again
   before <- names(ud_state$installed)
   back <- function() {
@@ -792,6 +805,7 @@ read_units_tables <- function(tabs, mode) {
   doc <- e_t[[2L]]$entries
   pk <- !vapply(proj, function(x) any(vapply(doc, function(d) identical(d$id, x$id), NA)), NA)
   over <- c(proj[pk], doc)
+  ud_state$registered <- unique(c(ud_state$registered, installed$tok))
   ud_state$ready <- TRUE
   list(units = stats::setNames(over, vapply(over, function(e) e$key, "")),
        default = stats::setNames(e_def$entries, vapply(e_def$entries, function(e) e$key, "")))
