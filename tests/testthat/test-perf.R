@@ -4,6 +4,8 @@
 test_that("the units database read is kept in the session and on disk, keyed on the database", {
   withr::local_envvar(R_USER_CACHE_DIR = withr::local_tempdir())
   withr::local_options(weft.units_cache = TRUE)
+  # a package check sets this, and the disk copy is then not written; the test wants it written
+  withr::local_envvar("_R_CHECK_PACKAGE_NAME_" = NA)
   uc <- weft:::un_cache
   tb <- uc$tables
   tbk <- uc$tables_key

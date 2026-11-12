@@ -49,9 +49,9 @@ Newest state first. Read this before anything else after a context reset.
 | Performance (decision 62) | Made faster (26712d1), then the disk copy of the units tables made opt-in (69ac93b, `options(weft.units_cache = TRUE)`). Installed package, 245-line document: first `weft_setup()` in a session 1.08 s to about 0.6 s, or 0.15 s with the disk copy; later calls 0.12 s to 0.04 s; sentence extraction per entry 0.73 ms to 0.33 ms |
 | Closing review of the fix rounds (`dev/review-closing.md`) | Done: 12 findings, all accepted. Review and rulings (a1c0e3b, "Record and rule on the closing review of the fix rounds"), tests (509f504), fixes (4d30004 for the ledger and units, 3519b3d "Fix what the closing review found in the pipeline"), one test narrowed to weft's own scan (49e8658). Whole-suite count pending |
 | `PACKAGE-SCOPING.md` for the closing review and decision 62 | Amended in place: 4.4.24, 4.6.5, 4.6.6, 4.6.8, 7.1.1, 7.1.3, 7.1.4, 7.2.2, 7.4.1, the unit-registration text of section 4.4 (project units removed on another project's read and by `units_reset()`), 9.1.9 and 9.1.10 (new, the `weft.units_cache` option). Not committed by the spec editor |
-| Suite | 1,908 tests at the code of 818020e, the last whole-suite run; five test faults in it have since been corrected. 2h added 160 tests, not yet run as a whole suite. The 2e, 2i and fix-round tests since then are not in this count: whole-suite count pending |
+| Suite | 2,758 tests at the code of 49e8658, the last whole-suite run: 1 failing, 0 skipped. The one failure was a test that the closing review's finding 12 made out of date; it is amended (407ca32) and its file passes. The whole suite has not been run since that amendment |
 | Stages 0, 3, 4 | not started |
-| Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
+| Usage | 12 Nov evening: the weekly window was reset by Robin; about 10% of it used by the end of the fix rounds |
 
 ## For Robin (from the 2h review)
 
@@ -81,20 +81,37 @@ Newest state first. Read this before anything else after a context reset.
   looks for a crossing.
 - Three behaviours were left as built and are in `dev/open-findings.md`.
 
+## For Robin (from the trial fixes, the closing review and the speed work)
+
+- Decisions 58 to 62 were taken by the orchestrator under delegation.
+  62: the copy of the units tables in the user's cache directory is
+  written only under `options(weft.units_cache = TRUE)`. With it the
+  first `weft_setup()` of a session is 0.15 s, without it about 0.6 s
+  (1.08 s before the work).
+- A bare quantity now warns (decision 58), so an inline `claim()` on a
+  quantity with no format class warns too.
+- With `ledger: false` weft does not look for upstream target
+  conditions (7.1.3). That is the orchestrator's ruling on closing
+  review 8 and is one early return in `chapter_reads()`.
+- The repeated-unit warning never fires for the symbols `a`, `am`,
+  `as`, `at`, `in` (4.4.24), to spare ordinary prose.
+- A second `tar_dict()` in a plain `_targets.R` is found by a frame of
+  `targets` on the call stack; see `dev/open-findings.md`.
+- `R CMD check` notes the `units:::` calls and a `weft:::dict_unmark`
+  that `tar_dict_deps()` writes into each target's command. Exporting
+  `dict_unmark()` would clear the second.
+- The fixes for the closing review were not themselves reviewed.
+
 ## How to run things
 
-- Suite: `Rscript -e 'r <- as.data.frame(devtools::test(reporter="silent")); print(r[r$failed>0|r$error, c("file","test")])'` (about 9 minutes).
+- Suite: `Rscript -e 'r <- as.data.frame(devtools::test(reporter="silent")); print(r[r$failed>0|r$error, c("file","test")])'` (15 to 20 minutes).
 - Check: `devtools::check(document = FALSE, args = "--no-manual", error_on = "never")` (about 8 minutes; run in the background).
 - Usage left: newest file in `~/.claude/usage-live/` (`five_hour`, `seven_day`). The weekly window was 76% used at 03:00.
 
 ## Next
 
-1. Run the whole suite on the fixed 2h code.
-2. Stage 2, the rest (2d ledger and condition log, 2e pipeline and
-   `changes()`): the same cycle as stage 1 (contract in `dev/design-2.md`,
-   tests from it, a different implementer, an independent review, regression
-   tests, a fixer). 2a, 2b, 2c, 2f, 2g and 2h are done.
-3. The items in `dev/decisions.md` under "For Robin" and
+1. The items in `dev/decisions.md` under "For Robin" and
    `dev/open-findings.md`.
-4. `.Rprofile` activation and `use_setup()`, once the hooks have been run
+2. `.Rprofile` activation and `use_setup()`, once the hooks have been run
    under the Render buttons.
+3. Stages 0, 3 and 4.
