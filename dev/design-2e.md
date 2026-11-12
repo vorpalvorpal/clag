@@ -807,3 +807,19 @@ Each with the smallest change to `PACKAGE-SCOPING.md`.
     only (T7, T13), freeze is judged by hashes (T8), and `tarchetypes` is a
     test dependency.
 12. **4.1.3** (`file` reserved): unchanged; the reason is `dict_file` (D19).
+
+## Rulings on the 2e-2 test-writer's report
+
+- **C8**: a change can have several structural reasons; they are joined
+  in the order C8 lists them (`sign flip, crosses 1.0`).
+- **C11**: whether `targets` is installed is asked with
+  `requireNamespace("targets", quietly = TRUE)`, which the tests mock.
+  With no `dict.yml` the reason is `dict.yml is gone`, once, not one
+  line per key.
+- **C6, C14**: the entries of a new ledger are `added` and of a deleted
+  one `removed`; a deleted ledger prints its count, not its lines. The
+  line formats the tests take from the example stand.
+- **C4**: the note for an unreadable ledger carries the reader's
+  message, with its line number.
+- The helper's hashes are checked against 2e-1's `file_hash()` and
+  `dict_entry_hashes()` by a test that skips until 2e-1 is built.
