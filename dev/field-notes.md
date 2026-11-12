@@ -703,3 +703,395 @@ rounds, with the converted documents unchanged.
   it, and an author who wants `sentence_starts` has to write
   `weft:::last_knit()`. For Robin: export it, or give the report another
   way in.
+
+## Report 4: the trials on stage 2
+
+Both trials were run again on the stage 2 build (snapshot of HEAD, installed
+into a private library under `dev/trials/lib`). The converted documents were
+first rendered unchanged. They were then converted to stage 2: quantities,
+a `dict.yml` for each project, the ledger, `changes()` in a throwaway git
+repository, and a small `targets` pipeline with `tar_dict()`. The daily
+reports run on the same made-up data cases as before, plus a made-up "next
+day". The chapter renders against the real store through the read-only links,
+which were removed again afterwards. No data value, site or person is named
+here.
+
+### What was converted
+
+**Unchanged documents on the stage 2 build.**
+
+- *Daily reports.* There are three differences from the last trial's text, all
+  from rule 1.5.20 (the space beside an empty span).
+  - An empty span on a source line of its own no longer leaves a blank line.
+    Sentences written on consecutive lines of one paragraph now stay in one
+    paragraph. Before, a false span between two of them split the paragraph:
+    in the summary, and between a day's forecast text and its first topic
+    line. The source says one paragraph, so this change is wanted.
+  - **Not wanted:** in the rain report, "**Rainfall**:" is now followed by no
+    space in the cases where the sentence that prints is not the first of a
+    chain of alternative `if` spans. See "What broke".
+  - Nothing else changed. The cases that should pass still pass, and the
+    failing cases still stop, with the same sentences in draft mode.
+- *Chapter.* The stock text is identical. The converted chapter differs from
+  the last trial in one value: a four-digit count under `.num` now has the
+  thousands mark, because `thousands_from` now defaults to 1,000. That
+  matches stock, so one of Report 2's unintended differences is gone.
+- *The zero rule.* It changed nothing in either document. Every number that
+  could print as zero already had `digits=`, and neither document held a
+  quantity yet. No warned check was recorded.
+
+**Conversion to stage 2.** The work was done on copies in `dev/trials/s2/`
+and `dev/trials/chapter/`.
+
+- **Daily reports.** The two reports share one `dict.yml` of 24 entries:
+  - seven rainfall thresholds, as quantities in `mm` and `mm/hr`;
+  - eight index thresholds, two of which (the UV ones) were typed inline as
+    bare numbers rather than held as constants;
+  - the station's name and code;
+  - the weighbridge site code and two item names;
+  - the weight of one truckload, as a quantity in `t`;
+  - the lightest weight used to learn a vehicle's usual weight;
+  - the two standard-deviation multipliers of the anomaly rule.
+
+  Quantities replaced the typed units in:
+  - the observed and forecast rainfall;
+  - the hourly intensity sentences, which are built with `paste0()` and now go
+    through `weft_str()`;
+  - the plot label;
+  - the forecast day count (`u(n, day)`);
+  - the weights in tonnes and the forecast range (`.range` on a pair of
+    quantities);
+  - the count of truckloads, as a project unit `load`.
+
+  Two claims were rewritten against `dict$…`. The garden-waste report sets
+  `unit_form: name` in its front matter so that weights still print "tonnes".
+  A ladder, `unit="kg|t"`, was tried on the outgoing weight.
+- **Chapter.**
+  - A `dict.yml` of eight entries: the burn-extent threshold, as a quantity in
+    `percent`; six years (the bounds of two calibration windows, the fire
+    season and the first year after it), as `year`; and a fire date, as `date`.
+  - Four `units:` rows in `_weft.yml`: site, point, grade and family.
+  - About 15 code edits, to read the years and the threshold from `dict$`.
+  - 13 prose edits: three "N points", one "N grades", two "N families", one
+    span of years, one count of sites, four uses of the threshold, and one
+    window in prose.
+  - Two table labels that had the threshold typed in them.
+  - A glossary section that calls `dict_glossary()`.
+
+  After the fixes below, the text is identical to the stage 1 text, except for
+  no-break spaces between numbers and unit names and the new glossary.
+- **Left typed in the chapter:** the calibration window appears in about 20
+  strings: list names used as keys (`scored[["<window>, reference + …"]]`),
+  captions, subtitles and comments. The dictionary can hold the years, but
+  every one of those strings would have to be rebuilt with `paste0()`.
+
+**Timings.** Wall time of one render; daily reports are the median of three
+runs, the chapter the median of three `quarto render` runs.
+
+| Document | stock | stage 2, no ledger | stage 2, with ledger |
+|---|---|---|---|
+| rain report | 2.9 s | 3.1 s | 3.1 s |
+| garden-waste report | 3.1 s | 3.4 s | 3.4 s |
+| chapter | 10.8 s | 14.2 s | 14.2 s |
+
+The originals of the daily reports cannot run here, so "stock" for them is
+the stage 1 converted document with `weft_setup()` removed. The ledger adds
+nothing measurable. On the chapter, weft's cost has grown from about 0.4 s
+(Report 3) to about 3.4 s, and the stage 1 converted chapter on this build
+takes the same 14 s. See "What broke". `changes()` takes about 1.3 s on the
+daily project.
+
+### What was awkward
+
+1. **A quantity cannot be used as a number in the code around it (rule
+   4.4.5).**
+   - Every comparison or sum of a quantity and a bare number failed with the
+     `units` package's message, "both operands of the expression should be
+     "units" objects". The message names neither weft nor the fix.
+   - Places this happened:
+     - `ifelse()`, which strips the unit;
+     - `filter(prop_burnt > burn_thr)`, where the data hold fractions and the
+       dictionary holds per cent;
+     - the forecast table's arithmetic on the left-over weight;
+     - `claim(x, . > 0)`.
+   - Inside `claim()` the message is good: "state the check's unit, as in
+     . < u(0.45, ug)". Outside a claim the author gets the `units` message.
+   - The fixes were `u()` on the other side, or a bare-number twin kept beside
+     the quantity (`burn_frac <- as.numeric(units::set_units(dict$burn_thr,
+     1))`, a twin for the left-over weight, `drop_units()` on the load weight).
+     Twins are the drift risk of Report 2 again.
+2. **A bare quantity drops its unit, silently (rule 4.4.10).** I deleted the
+   typed unit word after a value and forgot `{.num}` in six places. The prose
+   then read "over N of their area", "at least N on", "N of N (N%)" for sites,
+   and "(≥N)" inside `weft_str()`. Nothing warned; only the diff against the
+   last text caught them. Deleting the unit word and leaving the value bare is
+   the natural edit.
+3. **A unit name typed in an arm is printed twice (rule 4.4.4).** "N family
+   family", "N years years", "N loads loads" and "seven days days" came from
+   `[# family | # families]{n=…}` spans and from a `.word` value followed by
+   "days", once the value became a quantity. That is four places, with no
+   warning.
+4. **Count nouns as units need `symbol: false` on every row.** A `units:` row
+   with `name:` and no `symbol:` prints its key as the symbol after digits, so
+   the noun is never plural: "N site", "N point", "N site were". Every
+   count-noun row needed `symbol: false`. A key that had to be renamed (see
+   item 5) printed the new key as text, "N sf_grade", until it had
+   `symbol: false` too.
+5. **`grade` is silently an angle.** `u(x, grade)` is accepted, prints
+   "grades", and converts to degrees (udunits' gon). Writing a `units:` row
+   for `grade` is refused ("`is` cannot redefine `grade` … choose another
+   key"), which is how I found out. It is not in the list rule 4.4.20 refuses
+   (`mt`, `kt`, `kph`); a score's "grade" is the same kind of misreading.
+6. **`mm/hr` prints as "mm/h".** The token was not kept as written (rule
+   4.4.20 says it is), so the hourly sentences changed until I added
+   `units: mm/hr: symbol: mm/hr`.
+7. **House spacing cannot be kept.** The rain report wrote "≥Nmm" in one place
+   and "N mm/hr" in another. `space:` is one setting per unit, so I took the
+   SI space, which changes every daily rainfall line.
+8. **`.pct` on a quantity in per cent is a value error.** The message says
+   "give it a number with no unit". That steers the author to
+   `drop_units()` and `.pct`, when the simpler fix is to drop `.pct`, since
+   the unit prints "%".
+9. **`u()` refuses a logical.** `u(NA, mm)` and `u(logical(0), mm)` both fail
+   with "must be a number or a units value, not a logical". `ifelse()` on a
+   data frame with no rows returns `logical(0)`, so the no-forecast case
+   stopped with an R error: not a collected failure, and not rescued by draft
+   mode. Workaround: `as.numeric()`.
+10. **`_weft.yml` is both the units table and the switch for the ledger.** A
+    file that exists turns the ledger on (`is_set_up()`), so an author who
+    only needs `units:` rows gets a ledger written at every render. The same
+    rows in front matter under `weft: units:` do work, but then they must be
+    repeated in every document.
+11. **Typed constants inside strings.** The table labels ("Burnt >N% in …")
+    had to be rebuilt as `paste0("Burnt >", fmt_num(burn_thr), …)`. The
+    hourly sentences needed `` `r dict$…`{.num} `` written inside a
+    `paste0()` string for `weft_str()`, which takes careful quoting.
+12. **A useful surprise.** Making "load" a unit showed that the report uses the
+    word for two things: one delivery ("N loads were delivered") and a
+    truckload of fixed weight ("at least N loads waiting"). The glossary would
+    show it; nothing in weft could.
+
+### What broke
+
+1. **Rule 1.5.20 removes a space in a chain of alternative spans.**
+   - `A: [x|]{if="FALSE"}[y|]{if="TRUE"}.` prints "A: y.".
+   - `A: [x|]{if="FALSE"}[q|]{if="FALSE"}[y|]{if="TRUE"}.` prints "A:y.".
+   - The second empty span takes away the space before the first. The rule
+     says "otherwise nothing is removed", and the space is not beside it.
+   - In the rain report this is the rainfall line of every day whose wording
+     is not the first case. It regressed from stage 1.
+2. **Reads in the chunk that calls `weft_setup()` are not recorded in the
+   ledger header.** The hooks are installed by that chunk, so its own code is
+   never scanned for `dict$key` or `tar_read()`.
+   - Garden-waste report: the two item names read in the setup chunk were
+     missing from the header. Changing one in `dict.yml` did not mark the
+     ledger as not re-rendered, while a change to a key read in a later chunk
+     did.
+   - Pipeline report: `targets: {}`, though it reads two targets in its setup
+     chunk. Moving the reads into a second chunk recorded them.
+   - Most documents read their constants in the setup chunk.
+3. **The chapter's targets are invisible to the ledger.**
+   - The chapter reads the store through a wrapper,
+     `tr <- function(name) tar_read_raw(name, store = here::here("_targets"))`.
+     The walker follows the function, but `name` is a variable and `store` is
+     not a literal, so none of the nine reads was recorded.
+   - Instead it recorded one target from a function of the sourced data layer,
+     with the default store taken from the knit's working directory
+     (`chapters/_targets`), which does not exist.
+   - `changes()` says so honestly ("the store chapters/_targets does not
+     exist; the pipeline was not checked").
+   - The effect is that rules 7.2 (not re-rendered since a target changed) and
+     7.4.1 (the conditions of targets read) do nothing for this book. The
+     book's model fits are targets, so the severity list's singular-fit
+     pattern never sees them either.
+4. **`weft_setup()` now costs about 2.3 s per render**, even in a document
+   with no quantity. A profile of the chapter's knit put about 0.8 s in
+   reading the units tables (`read_units_tables`, `units::valid_udunits`) and
+   about 1.3 s in scanning the file (`new_file_state`, `scan_block`). The
+   first `u()` in a session costs about 1 s on its own. For a three-second
+   daily report this is most of weft's cost.
+5. **A failed render under `tar_quarto()` hides weft's report.** A weft failure
+   in a report the pipeline renders comes back from `tar_make()` as "Error
+   running quarto CLI … Rerun with `quiet = FALSE`". The real project gives
+   exactly this as its reason not to use `tar_quarto()`.
+
+### What the rules got wrong
+
+1. **Rule 1.5.20, for chains** (above). A chain of alternative `if` spans is
+   the ordinary way to write a three- or four-way choice, and the space before
+   the chain belongs to the text before it.
+2. **A ladder picks the first rung for an exact zero (rule 4.4.13).**
+   "Weighing 0.0 tonnes in total, and 0 kilograms went out." A zero has no
+   natural rung, and the smallest rung reads as a different measurement beside
+   its neighbour. The unit the quantity is held in, or the last rung, would
+   read better.
+3. **A bare quantity printing without its unit (rule 4.4.10)** keeps stock
+   behaviour for values stock never had. A quantity the author made with `u()`
+   or read from the dictionary has a unit on purpose. It should print it, or
+   be a warned check.
+4. **"Crosses 1.0" applies to quantities (rule 7.3.4).** An observed rainfall
+   that moved below one millimetre was ranked structural, "crosses 1.0, order
+   of magnitude". Crossing 1.0 means something for a ratio, not for a number
+   in mm.
+5. **Number words count as claim words.** Entries were ranked for the claim
+   words "four" and "seven", which were the printed counts themselves, and
+   "least" (from "at least"). Every sentence with a spelled count ranks above
+   the others, so the ranking below the structural changes was mostly noise.
+6. **"Crossing a dictionary threshold" cannot see a threshold used in code.**
+   The rain report's most important event, a day's forecast moving into
+   "very heavy", came through only as arm flips of the tier wording, which did
+   rank first. The forecast value itself was listed with no reason, because
+   its expression does not name `dict$`.
+7. **Rule 4.6.3, "a new key re-runs none", has an exception.** A target that
+   reads `dict[[k]]` with a variable key is taken to read every entry. It
+   re-ran when a key was added and on every value change of any key: here, a
+   function that looks up two labels.
+8. **An arm that prints nothing is shown as the next sentence.** In
+   `changes()`, a governed span whose new arm printed nothing showed the
+   following sentence as its "after" text. Another one showed an empty line.
+   "(prints nothing)" would not mislead.
+
+### What was missing
+
+1. **A check for a unit name repeated after `#` or after a value** ("days
+   days", "family family"), and for a bare quantity whose unit is dropped.
+   Between them they caught every conversion mistake I made.
+2. **A range or vector type in the dictionary.** Calibration windows are pairs,
+   band probabilities and index breaks are vectors. I split each window into
+   two `year` keys. The glossary then shows a window by its first year only,
+   and the code writes `c(dict$cal_start, dict$cal_end)` everywhere.
+3. **A way to name the store a document reads.** A `_weft.yml` setting, or
+   following a wrapper's `store =` argument. Without it the ledger cannot link
+   this book's chapters to the pipeline.
+4. **`dict_seed()` that sees inline literals and constant targets.**
+   - On the whole book (all chapters, the pipeline functions and
+     `_targets.R`) it proposed 4 names: two label vectors, a list of site
+     codes and a list of parameter names.
+   - It did not see the two constants that most need a dictionary: the
+     burn-extent threshold, typed inline in comparisons in four chapters and
+     three times in the pipeline code, and the calibration window, typed in
+     19 files.
+   - It did not see the constants that are targets (`tar_target(x, <a number>)` and
+     named vectors).
+   - On the two daily reports it found nothing with the default
+     `min_files = 2`. With `min_files = 1` it proposed a list of packages and
+     a vector of colours along with the thresholds, and missed the inline UV
+     thresholds and the site code written into `filter()` calls.
+5. **A per-chapter glossary.** `dict_glossary()` lists the whole project
+   dictionary, which for a book means every chapter's terms in every chapter.
+   Entries with no `term` show their key in code (`cal_end`, `fire13_date`),
+   which a reader of a report should not see.
+6. **A ledger switch separate from `_weft.yml`**, and a word about `.weft/`.
+   That folder appeared untracked in every project (stamps, a network cache),
+   and nothing says to ignore it.
+7. **A short form of `changes()` for a run nobody watched**: the structural
+   changes and the new conditions only.
+
+### For a dynamic report in particular
+
+- **The ledger of a daily report.** The rain report's ledger is 148 entries,
+  about 74 KB; the garden-waste report's is 18 entries, about 6 KB. On an
+  ordinary day the condition log is a header line. One day to the next, the
+  git diff of the ledgers was about 120 KB (85 lines added and 101 removed in
+  the rain report).
+- **The diff is not readable.** Every entry stores its whole sentence, and in
+  this report a "sentence" is a long run of HTML (`<span style=…>`, `<br>`).
+  `<br>` is not a sentence boundary, and the day headings, made in a
+  `knit_child()`, are glued to the first sentence ("Today *…*<br>**Dust**:
+  …"). One changed number rewrites every entry whose sentence holds it: 14 of
+  18 lines in the garden-waste ledger changed. `changes()` is the only
+  readable view.
+- **`changes()` after a second day.** It listed 38 changed and 16 removed
+  entries.
+  - The structural section (9 entries) was the right list to read first:
+    risk tiers moving up or down, the "vehicle still on site" sentence going
+    away, the fire-danger line, and the observed rainfall (for the wrong
+    reason, rule 7.3.4).
+  - The 29 ranked below it were mostly noise (number words as claim words).
+  - The "removed" entries were constructs inside arms not chosen that day,
+    such as the thresholds inside a rainfall sentence. They had not left the
+    document; they just did not print.
+- **Rolling day sections are compared by position.** All four day sections are
+  one section to the ledger (their headings come from one chunk), so entries
+  are keyed by their order in the loop. When the days roll forward, each
+  section's day name is reported as changed.
+- **A dictionary edit that emptied the report.** Changing one item name in
+  `dict.yml` made the garden-waste report say that no garden waste was
+  delivered. The render passed: the checks allow no deliveries when something
+  went out. `changes()` put it first, as five structural changes. This is the
+  strongest case for running `changes()` after an unattended run. The
+  not-re-rendered check missed the same edit, because of the setup-chunk gap
+  in "What broke".
+- **A check that errors before it runs passes the render.** A claim whose
+  first argument raised an error (a quantity minus a bare number), in the
+  report's `error=TRUE` checks chunk, printed the error into the report body.
+  The render passed. It was logged, and `changes()` listed it as a new
+  condition, so it is not lost, but the check did not run.
+- **Who commits?** Committing is the acceptance (rule 7.3.7). An unattended
+  service would have to commit the ledger itself every day, about 74 KB of
+  churn for the rain report. Someone has to read `changes()` before that
+  commit, or the ledger only records what was sent.
+- **Empty and all-missing data.** The no-forecast case broke on `u()` given
+  `logical(0)` (see "What was awkward"). In the all-missing case the
+  failure markers no longer carry the typed "tonnes", which is better.
+
+### For a long report in particular
+
+- **The units a scientific chapter has are mostly count nouns** (sites,
+  samples, families, score points, grades, years), not physical units. Each
+  one needs a `units:` row with `symbol: false`. The `n` spans already
+  handled plurals, so where units really gained was small: `.word` on
+  `u(n, year)` printing "twelve years", and a per-cent threshold that prints
+  its own "%". Each quantity cost arithmetic friction in the code around it.
+- **The real gain is constants typed in many files.** The burn-extent
+  threshold is typed in four chapters and three times in the pipeline's
+  functions; the calibration window is typed in 19 files.
+  - With a dictionary in the chapter only, changing the threshold changed only
+    the printed threshold in four sentences. `changes()` listed four ordinary
+    changes, and nothing said that the model fits in the store were computed
+    with the old value.
+  - The dictionary has to be read by the pipeline too (`tar_dict()`). Even
+    then, the ledger cannot tell the chapter is stale, because of the store
+    gap in "What broke".
+- **The real pipeline's shape.**
+  - **There are no parallel workers.** There is no `crew` controller in
+    `_targets.R`, `targets-src/` or `_targets.yaml`, and `crew` is not
+    installed. The only parallelism is inside three targets' functions: a
+    permutation test with `parallel = 4`, which forks on macOS.
+  - The other features `tar_dict()` must handle:
+    - `tar_source("targets-src")`;
+    - a custom `tar_format()` (qs2) set as the default format;
+    - targets generated by `lapply()` with `tar_target_raw(substitute(…))`;
+    - constants held as targets (whole numbers and named vectors);
+    - `error = "stop"`.
+  - The chapters are not targets. `tar_quarto()` is ruled out on purpose, and
+    the `.qmd` files are hashed as a file target. A chapter reads the store
+    through a `tar_read_raw()` wrapper, so `tar_dict_deps()`' report support
+    does not apply to this book. The link from the dictionary to a chapter is
+    only the ledger's not-re-rendered check.
+- **The trial pipeline** (`dev/trials/pipeline/`, its own store) copied that
+  shape with made-up data: `tar_source()` functions that read `dict$`, a qs2
+  default format, `lapply()`-generated targets, a `tar_map()`, a constant
+  moved from a target to `dict.yml`, a `tar_quarto()` report and a
+  `tar_render()` report.
+  - `tar_dict()` and `tar_dict_deps()` handled all of it. The `dict_<key>`
+    targets were stored under the custom format without trouble, and the edges
+    were exactly the entries each target reads.
+  - What re-ran, and whether it matched what I expected as an author:
+    - a value: exactly its readers and their downstream targets, plus the
+      variable-key reader (rule 4.6.3 above);
+    - a definition, or the order of the file: no target downstream;
+    - a new key: none downstream except the variable-key reader;
+    - a key only the report reads: the report alone.
+
+    That was what I expected, except the variable-key reader. Any edit to
+    `dict.yml` rebuilds every `dict_<key>` target: cheap, but all of them show
+    as completed in the progress output.
+- **Glossary.** `dict_glossary()` rendered in the chapter, as a definition list
+  of 8 entries, sorted with terms and bare keys mixed. A window's "term" sits
+  on its first year alone.
+- **Ledger for the chapter.** 177 entries, about 72 KB. A dictionary edit made
+  without re-rendering was reported correctly: "not re-rendered; dict$… changed;
+  the chapter changed". A sentence edit with no value change is not a change
+  (rule 7.1.7). It rewrote every ledger line in that sentence (19 lines with
+  the dictionary edit), but `changes()` lists nothing for it.
