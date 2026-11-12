@@ -318,7 +318,8 @@ its rounding. Rounding is half away from zero on the number as written: 0.15
 prints "0.2" and 2.5 prints "3". A number that rounds to zero prints with no
 minus sign. A number whose absolute value is below 1e-9 is zero: it prints "0"
 ("0%" under `.pct`, judged on the percentage), however it was computed, so
-`0.1 + 0.2 - 0.3` prints "0". A number that is not zero and prints with no
+`0.1 + 0.2 - 0.3` prints "0". This does not apply to a quantity: a small
+quantity goes through the zero rule of 4.4.13. A number that is not zero and prints with no
 digit other than 0 under the default digits prints so ("0.04" prints "0.0",
 "-0.04" prints "0.0"), and a warned check is recorded (2.6.11). `digits` or
 `sigfig` on the construct or the call silences it. A project default `digits`
@@ -396,7 +397,8 @@ source, as are two unit classes, `.usym` with `.no`, `.word` or `.count`
 its "%" alone.
 
 **1.4.20** `.cap` never changes a unit's symbol, because the case of a symbol
-is its meaning: `fmt_cap(fmt_unit(u(5, mL)))` is "mL", not "ML". It capitalises
+is its meaning: `fmt_cap(fmt_unit(u(5, mL)))` is "mL", not "ML". This holds
+on every route: after a text class, and after `[`. It capitalises
 a name: with `unit_form = "name"` the same call is "Millilitres". `.ord` on a
 quantity that has a unit is a value error.
 
@@ -1175,7 +1177,10 @@ evaluated and logged with its line. It never appears in the document.
 ### 2.9 Caching and freeze
 
 **2.9.1** Under knitr's chunk cache the prose hooks still run on every render,
-and check the cached values.
+and check the cached values. A cached chunk replays the constructs it recorded
+into the ledger, as it replays its conditions (7.4.1). Stage 1 refuses a
+caption construct in a cached chunk, so what is replayed is the chunk's
+`weft_str()` strings.
 
 **2.9.2** A document served from Quarto's `freeze` is not executed, and none
 of its checks run. Every executed document writes a stamp. After an ordinary
@@ -1639,7 +1644,9 @@ reach_len:
 
 `dict$reach_len` is 2 km. `.num` prints "2 km", `.uname` "2 kilometres", and
 `{unit="m"}` "2,000 m". Arithmetic, checks, `#`, `units::drop_units()` and the
-pipeline all see km. The `display` unit is registered as `unit` is (4.4.7).
+pipeline all see km. The `display` unit is registered as `unit` is (4.4.7). The
+glossary prints the held unit when `display` would print the value as zero
+(4.7.1).
 
 `display:` takes one unit. A ladder (4.4.23) in it, written as a `|` string
 (`display: m|km`) or as a list of more than one item (`display: [m, km]`), is a
@@ -1734,7 +1741,8 @@ space rule below says otherwise, and its symbol text is Pandoc markdown, as
 "1.2 m²" is written `1.2 m^2^`; a negative exponent uses the minus sign
 U+2212 (`m^−3^`); a product is written with the middle dot U+00B7 (`kg·m`).
 A unit with a numerator keeps its quotient (`mg/L`, `m/s^2^`); a unit with no
-numerator is written with negative powers (`m^−3^`), not "1/m^3^". Anything
+numerator is written with negative powers (`m^−3^`), not "1/m^3^", however it
+was typed: `1/s` prints `s^−1^`. Anything
 else is written as `units` writes it (`°C`, `sites/ha`). Characters that
 markdown reads (`_`, `*`, `~`, `^`, `[`, `]`, `` ` ``, `\`) are escaped, except
 the superscript marks weft writes. A value with no unit left, such as a
@@ -1745,7 +1753,9 @@ unit's symbol, so `kilometre` prints `km` and `microgram` `µg`; a token typed
 as a symbol prints as typed (`ug`). A unit with no symbol prints its name, in
 the plural in a numerator and the singular in a denominator ("10 years",
 "5 kg/year"); a prefixed unit of such a row prints its symbol, as typed
-("3,000 Myr"). A `symbol:` in `units:` (9.1.7) replaces its unit's text, whole
+("3,000 Myr"). A row of `units:` whose `symbol` is `false` has no symbol in any
+form: a prefixed token of it prints by name where a name is allowed, and is a
+value error that says it has no symbol where it is not. A `symbol:` in `units:` (9.1.7) replaces its unit's text, whole
 or one factor, as written.
 
 **The space.** The space is between the number and the unit on whichever side the
@@ -1761,7 +1771,9 @@ as written.
 The number stage gives a project formatter (1.4.8) the bare number, and weft
 adds the unit after it. A project collapse formatter receives each element
 with its unit. A quantity with a text class, `.strong` for one, keeps its
-unit inside the markup (`**3 m**`).
+unit inside the markup (`**3 m**`), on every route. Text classes nest as they
+are applied (`fmt_em(fmt_strong(x))`), the unit stays inside the markup of
+each, and the same class applied twice applies once.
 
 `.pct`, `.p` and `.date` given a quantity that has a unit are a value error:
 dropping the unit would be the silent error of 4.4.5. A quantity with no unit
@@ -1807,7 +1819,9 @@ number and the unit joined by a no-break space, and with `.word` it prints
 "five metres were". The printed record (1.4.11) holds the number, not the
 unit. An author who wants the name with digits writes `.uname`, and the number
 alone writes `.nounit` (1.4.19), or gives the number alone with
-`units::drop_units()`.
+`units::drop_units()`. A `unit=`, one unit or a ladder, on a span governed by a
+formatter's text that carries a quantity acts on that text, on every route
+above.
 
 **4.4.9** A quantity that governs a span contributes its number. Selection
 sees the number as it prints, as for any governor (1.5.9), after any
@@ -1863,7 +1877,10 @@ volt-ampere and the watt alike, though each group measures different things. A
 unit that a project defines as a twin is one too. `u(2, Sv)` with `unit="Gy"` and
 `u(2, Bq/L)` with `unit="Hz/L"` are refused, with any prefix and alone or in a
 compound. A conversion within one of them (`mSv` to `Sv`) and to the SI
-definition (`Sv` to `J/kg`) is allowed. `of_n()`, `about()` and `claim()` given
+definition (`Sv` to `J/kg`) is allowed. A conversion between a frequency or
+activity unit (`Hz`, `Bq` and their prefixes) and a unit of angle per time
+(`rpm`, `rad/s`, `degree/s`) is a value error too, as the twins are, because
+`units` reads a hertz as a radian per second. `of_n()`, `about()` and `claim()` given
 a comparison of twins raise the same error; a `claim()` raises it, and it is not
 a failed check. Arithmetic between twins is the `units` package's own, so a
 ratio of two of them is a plain number. `display:` (4.2.7) follows the same
@@ -1909,7 +1926,9 @@ the database's plural name (`_` as a space), else the English rule on the last
 word: "es" after s, x, z, ch and sh; consonant and "y" to "ies"; otherwise "s".
 A project `name` given with no `plural` takes the English rule. A prefix goes
 before the plural ("milligrams", "millidegrees Celsius"), and a name that holds
-" per " takes its plural before it.
+" per " takes its plural before it. A prefix is joined only to a one-word name:
+where the language's name has more than one word (en-US "metric ton"), the
+prefixed unit takes the default name ("megatonne").
 
 **4.4.17** `units` keeps each token as written: `u(10, year)` holds `year`,
 `u(2, kilometre)` `kilometre`, `u(5, metre)` `m`, and `u(150, "CFU/100 mL")`
@@ -2002,7 +2021,9 @@ judged on the classes, not on the data: `.no`, `.word`, `.count` or a project
 wording formatter on a quantity may print a name, so under `auto` the unit
 needs one even when every number in the vector prints in digits, and under
 `symbol` the wording class is the error of 4.4.15. Neither error comes and goes
-with the data. The message names the unit as `units` writes it and says why it
+with the data. Under a ladder (4.4.23) each is judged on every rung, before the
+pick: a name for each rung under a wording or `.uname` class, the symbol form
+with a spelled number, and the `lang` rule. The message names the unit as `units` writes it and says why it
 has no name, shows how to add it to `_weft.yml` under `units:` with a YAML
 example keyed by it (9.1.7), and offers `.usym` or `.nounit` instead.
 
@@ -2030,6 +2051,9 @@ valid one. weft cannot detect a misreading in general; it knows a list. Under
   nothing in its place has the token refused;
 - `mt` is refused: `units` reads a millitonne, which is a kilogram, and the
   author means a tonne;
+- `kt` is refused: `units` reads a knot, and the author may mean a kilotonne.
+  The advice names `knot` for the knot and a project unit for the kilotonne, as
+  the units database has no `kn`;
 - a prefix on the phot or the are, other than `ha`, is refused (`kph`, `Ga`,
   `ca`): the author means "per hour" or "a billion years";
 - a token that a row in force defines, the project's or the document's, is never
@@ -2142,7 +2166,9 @@ not undone during the session; `false` removes only their names. A read that
 fails removes every token installed since it began and returns the session to
 mode `weft` with the default rows only; it does not restore an earlier
 project's. When the package is unloaded, what it installed is
-removed (the base registrations apart) and `gal` is restored.
+removed (the base registrations apart) and `gal` is restored. A project unit
+defined as a unit with a non-ASCII symbol is refused before anything is
+installed, and the units database is left as it was.
 
 *A unit installed by someone else.* When `units` already maps a token that a row
 defines, weft accepts it if it reads as the row says: a row with `is:` and a
@@ -2222,7 +2248,7 @@ weft never picks a unit the author did not name (4.4.14).
   one rung is a value error that names the rung, since a ratio window means
   nothing across an offset. `.nounit`, or `unit_form="none"`, with a ladder of
   more than one rung is a value error, since the reader could not tell which
-  unit the number is in.
+  unit the number is in. So is `.sci` with a ladder of more than one rung.
 - Compound units, the default table's units, project units and a unit written
   before the number are rungs like any other. The picked rung prints exactly as
   `unit="<rung>"` would: its symbol as typed (`ug/L`), name, plural, space and
@@ -2454,7 +2480,9 @@ core length (0.5 m)
   the marks, the minus sign, `thousands_from`, the unit form and the `units:`
   table. It keeps the decimals it was written with: `value: 0.50` prints
   "0.50". The decimals a value was written with are held in the attribute
-  `decimals` of the dictionary. A quantity that `display:` converts prints as `fmt_num()` prints it.
+  `decimals` of the dictionary. A quantity that `display:` converts prints as `fmt_num()` prints it, except
+  that an entry whose `display` unit prints its value as zero is printed in the
+  entry's own `unit`, with no warning.
   A date prints through `fmt_date()` and a string as written.
 - The definition and a string value have each run of white space, newlines
   included, made one space; the markdown is printed as written. A definition
@@ -2462,7 +2490,8 @@ core length (0.5 m)
 - Entries are in alphabetical order of the term, or of the key without its
   backticks, ignoring case, ties by key; `sort = FALSE` keeps file order.
 - The string starts and ends with a blank line, so that the text above and
-  below the chunk stays out of the list. An empty dictionary gives `""`.
+  below the chunk stays out of the list: the paragraph after the chunk is its own
+  paragraph. An empty dictionary gives `""`.
 
 **4.7.2** `dict_vale(dict = NULL, path = "styles/Weft/Terms.yml", level =
 "warning")` writes one Vale `substitution` rule from the `avoid` fields (4.7.4).
@@ -2919,8 +2948,16 @@ commit net out. The trailer is lost when commits are squashed.
 
 **7.1.1** The `text` hook records every value, governed span and `cite` span
 as it renders: its key (7.1.4), its expression, its printed text with its
-relation, its raw value, its file and section, and for a governed span the
-arm chosen.
+relation, its raw value, its file and section, its sentence as printed, the
+dictionary entries its expression names, and for a governed span the arm
+chosen, recorded by its role (`one`, `other`, `true`, `always` and so on). The
+raw value is the expression's own, before any formatter or unit conversion. A
+construct that failed in draft mode is recorded with its failure kind, and has
+no printed text, arm or raw value. The sentence is found by sentence-boundary
+rules for the document's language. It is for display (7.3.3) and ranking, and
+never decides whether an entry has changed. A failure marker inside a stored
+sentence has no line number. A footnote's definition marker is not part of its
+sentence.
 
 **7.1.2** Every inline R value is recorded, with or without an attribute
 block. A bare value is not a construct (1.1.8), but it prints in the
@@ -2928,21 +2965,45 @@ document. It has no printed record (1.4.11), so its entry holds the text
 knitr printed.
 
 **7.1.3** The ledger is one JSON-lines file per source file and output, at
-`generated/ledger/<source file>/<output name>.jsonl`. The output name is the
-output file's name without its extension. A document rendered with different
-`params` to different outputs keeps a ledger for each, and a render that
-overwrites an output overwrites its ledger. The ledger is committed.
+`_weft/ledger/<source file>/<output name>.jsonl`. The condition log (7.4.1) is
+beside it, at `<output name>.conditions.jsonl`. The source file is the file
+that was knitted, relative to the project root, as the author named it: under
+`rmarkdown::render()` not rmarkdown's copy of it, and an `.Rmd` is taken as a
+`.qmd` only when Quarto is running the knit. The output name is the output
+file's name without its folder or its extension. The output name is that of the
+output file; under Quarto's `-o`, which weft cannot see, it is the source's
+unless `WEFT_OUTPUT` names it, and the knit warns that other outputs will
+overwrite this ledger. Quarto gives no `output-file` for `gfm` and `typst`, and
+for those the source's name is used without the warning. An output name that
+ends `.conditions` is refused: nothing is written, and one warning says why. A
+document rendered with different `params` to different outputs keeps a ledger
+for each, and a render that overwrites an output overwrites its ledger. The
+ledger is committed. It is written when the knit reaches the end of the
+document and its output is written: in draft mode, with each failed construct
+marked; not by a render that stops on its failures.
 
-**7.1.4** An entry is keyed on its `#id` where it has one. Otherwise it is
-keyed on four things: the anchor of its section; its kind (a value, an `n`,
-`if` or `sign` span, or a `cite` span); its expression; and its occurrence
-index among the entries in that section with the same kind and expression.
+**7.1.4** An entry is keyed on its `#id` where it has one, with the id's
+occurrence. Otherwise it is keyed on five things: the file the construct is
+written in; the anchor of its section; its kind (a value, an `n`, `if` or
+`sign` span, or a `cite` span); its expression; and its occurrence index among
+the entries in that file and section with the same kind and expression.
 The expression of a value is its inline R, parsed, so spacing and line
 breaks do not count. That of a governed span is the value of its key,
-parsed. That of a `cite` span is its keys and its bracket text. Formatter
-classes and arm text are not part of the key. Line numbers are not stored.
+parsed. That of a `cite` span is its keys and its bracket text, written
+`keys | bracket text`. Formatter classes and arm text are not part of the key.
+Line numbers are not stored.
 
-**7.1.5** Lines are sorted by key, one entry per line, so a merge conflict is
+The anchor of a section is its heading's `{#id}` where it has one, kept as
+written, repeated or not. Otherwise it is Pandoc's identifier rule applied to
+the heading's source text, from which inline code, attribute blocks, link
+targets, footnote references, raw HTML and emphasis markers are first removed.
+A heading in an HTML comment is not a heading. The anchor is `""` above the
+first heading and in front matter. A caption, a string and a child's text are
+in the section of their chunk. A construct inside a heading takes that
+heading's anchor.
+
+**7.1.5** Lines are sorted on file, section, kind, expression and occurrence,
+ids included, one entry per line, so a merge conflict is
 local to the entries both sides changed. The ledger is output: a conflict is
 resolved by rendering the chapter again, never by hand.
 
@@ -2955,11 +3016,25 @@ it.
 **7.1.7** An entry has **changed** when its printed text or its chosen arm
 differs from the entry with the same key at the comparison point (7.3.2).
 Raw values are stored to a fixed number of significant figures, and are used
-only to rank changes.
+only to rank changes. The raw value of an `integer64` is its value when a
+double holds it exactly, else none.
 
 **7.1.8** A changed expression is a changed key. The entry under the old key
 is removed, one under the new key is added, and `changes()` lists both
 (7.3.5). A check loosened inside a value's expression shows this way.
+
+**7.1.9** Both files are UTF-8 with `\n` line ends on every platform. Besides
+`"`, `\` and the control characters, these invisible characters are written as
+`\uXXXX` escapes: U+0085, U+00A0, U+00AD, U+061C, U+2000 to U+200F, U+2028,
+U+2029, U+202A to U+202F, U+205F, U+2060, U+2066 to U+2069 and U+FEFF. Every
+other character is written as itself. Nothing is written
+in a session whose locale is not UTF-8, and one warning names the locale.
+Nothing is written through a symbolic link: when `_weft`, `_weft/ledger`, the
+source's folder under it, or either file is a link, neither file is written
+and one warning names the link. A file that cannot be written is one warning,
+and the render carries on. A render started inside a chunk is its own top-level
+knit and writes its own files; when it ends the outer knit's state is as it
+was.
 
 ### 7.2 Three states
 
@@ -3027,8 +3102,11 @@ sorted. Nothing is listed by hand as known.
 
 **7.4.4** A condition that the log at the comparison point (7.3.2) does not
 hold is **new**. It shows as an added line in the log's diff, and `changes()`
-lists it. An ordinary render reports it and carries on. A new condition
-fails nothing.
+lists it. An ordinary render reports it and carries on, comparing against
+`HEAD` when git is available, else against the log of the previous render, and
+the report says which. A log that git does not track (ignored, or in no commit)
+is compared with the previous render. Outside a repository with no log on disk
+yet there is no earlier render, and no report. A new condition fails nothing.
 
 **7.4.5** A condition in one render is matched to one in another by its
 source (chunk label or target name), its class (warning, message or error)
@@ -3042,9 +3120,14 @@ and its text after normalising. Normalising, in order:
    their ASCII forms
 5. collapse every run of whitespace, including line breaks, to one space
 
+The source of a condition from prose, or from a chunk with no label, is its
+file and section in the log; the line of 2.8.2 stays in the knit's own
+records.
+
 **7.4.6** The log keeps the text as first seen beside the normalised form,
-so a reader sees a real message. A later render carries that text forward
-while the normalised form matches, so a changed number in a message does not
+so a reader sees a real message, cut to 1,000 characters. A later render
+carries that text forward, from the log in the working tree, while the
+normalised form matches, so a changed number in a message does not
 change its line.
 
 **7.4.7** Two limits are accepted. Messages that differ only in a number
@@ -3431,7 +3514,8 @@ accepts may still be refused.
 variable `WEFT_DRAFT=1`.
 
 **9.4.2** In draft mode nothing fails the render. The markers appear in the
-output, the failures are listed in the knit log, and in a project that has
+output, the failures are listed in the knit log, the ledger is written with
+each failed construct marked (7.1.3), and in a project that has
 been set up they are written to a JSON file beside the document,
 `<document>.weft-failures.json`. A warned check (2.6.10) is in that file too,
 with `"level": "warn"`.

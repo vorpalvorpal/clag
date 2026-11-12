@@ -35,7 +35,11 @@ Newest state first. Read this before anything else after a context reset.
 | Stage 2g, weft's default units (`dev/design-2g.md`) | Added on Robin's instruction of 12 November 2026. Designed, built (827e80f), reviewed (`dev/review-2g.md`, rulings in `dev/design-2g.md`), fixed (818020e) |
 | Stage 2h, the unit ladder (`dev/design-2h.md`) | Added on Robin's approval of 12 November 2026 (completes decision 51, entry 52). Designed, built (80d3ff9), reviewed (`dev/review-2h.md`, rulings in `dev/design-2h.md`). Regression tests written (27 failing before the fix), fixes built. Finding 6 was re-ruled as decision 54 on the test-writer's report; decision 53 removed ladders from `display:` |
 | `PACKAGE-SCOPING.md` for 2c, 2g and 2h | Amended to state all three as built, with the rulings after the reviews of 2c and 2g (rule 4.4.23 is new), and again for the rulings on the review of 2h (rules 4.2.1, 4.2.7, 4.4.13, 4.4.23) |
-| Stages 2d, 2e | Not started |
+| Stage 2d, the ledger and the condition log (`dev/design-2d.md`) | Designed, tests written, built, reviewed (`dev/review-2d.md`, 11 findings, rulings in `dev/design-2d.md`), review fixes built. Not yet reviewed again |
+| Review of the stage 2 fix rounds (`dev/review-2-fixes.md`) | Done: 9 findings, all fixed; rulings at the end of that file |
+| Stage 2e-1, the pipeline (`dev/design-2e.md`) | Tests written (f2b6d86); build in progress |
+| Stage 2e-2, `changes()` and the third state (`dev/design-2e.md`) | Built (a22c9e5); review in progress |
+| `PACKAGE-SCOPING.md` for 2d and the stage 2 fix rounds | Amended to state the ledger (7.1, `_weft/ledger/`), the condition log (7.4), 2.9.1 and 9.4.2 as built, and the rulings on the reviews of 2d and of the fix rounds (rules in 1.4.13, 1.4.20, 4.2.7, 4.4.1, 4.4.4, 4.4.8, 4.4.13, 4.4.14, 4.4.16, 4.4.19 to 4.4.21, 4.4.23, 4.7.1) |
 | Suite | 1,908 tests at the code of 818020e, the last whole-suite run; five test faults in it have since been corrected. 2h added 160 tests, not yet run as a whole suite |
 | Stages 0, 3, 4 | not started |
 | Usage | weekly window 81% at 08:00; stopped here rather than start stage 2 with too little left to finish a review round |
@@ -48,6 +52,17 @@ Newest state first. Read this before anything else after a context reset.
 - The cost of 54: under `mm|km`, 940 m prints "940,000 mm", not "0.9 km". The
   rule keeps every digit of a long number rather than lose the digits of a short
   one.
+
+## For Robin (from 2d and 2e)
+
+- Decisions 55 and 56 were taken by the orchestrator under delegation, not by
+  Robin. Their Q/E question lists are in `dev/design-2d.md` and
+  `dev/design-2e.md`.
+- The sentence stored in the ledger is to be split with `stringi` (ICU), not
+  with the abbreviation list the build has now. Pending; the spec says only that
+  the sentence is found by sentence-boundary rules for the document's language
+  and is never used to decide "changed" (7.1.1).
+- Three behaviours were left as built and are in `dev/open-findings.md`.
 
 ## How to run things
 
