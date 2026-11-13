@@ -3,7 +3,8 @@
 # `n` span runs, and written to tests/testthat/_conformance/. A test compares
 # the live rows with the files on every run: the files are the definition of
 # "what weft prints". Regenerate them after a deliberate change with
-#   weft:::conformance_write("tests/testthat/_conformance")
+#   weft:::conformance_write("tests/testthat/_conformance",
+#                            sets = c("numbers", "words", "lists", weft:::CONF_NEW_SETS))
 # and review the diff.
 
 conf_cols <- c("value", "classes", "keys", "text", "record")
@@ -483,9 +484,11 @@ conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NE
   out[conf_cols]
 }
 
-conformance_write <- function(dir) {
+# Writes `sets`: by default the three first sets, as it did before 6f (test-lua-num.R pins that); the
+# six sets of 6f are written with `sets = c("numbers", "words", "lists", CONF_NEW_SETS)`.
+conformance_write <- function(dir, sets = c("numbers", "words", "lists")) {
   paths <- character()
-  for (s in c("numbers", "words", "lists", CONF_NEW_SETS)) {
+  for (s in sets) {
     d <- conformance_rows(s)
     lines <- c(paste(conf_cols, collapse = "\t"),
                do.call(paste, c(unname(as.list(d)), sep = "\t")))

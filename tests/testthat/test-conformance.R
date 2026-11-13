@@ -363,9 +363,8 @@ test_that("5h corpus, lists: the text is what the public formatter prints", {
 test_that("5h: conformance_write() writes exactly the committed files, byte for byte", {
   out <- file.path(withr::local_tempdir(), "regen")
   paths <- weft:::conformance_write(out)
-  # package 6f writes six more sets (test-conformance-6f.R checks them)
-  expect_setequal(list.files(out), paste0(c(CONF_SETS, CONF_6F), ".tsv"))
-  expect_setequal(basename(unlist(paths)), paste0(c(CONF_SETS, CONF_6F), ".tsv"))
+  expect_setequal(list.files(out), paste0(CONF_SETS, ".tsv"))
+  expect_setequal(basename(unlist(paths)), paste0(CONF_SETS, ".tsv"))
   for (s in CONF_SETS) {
     p <- conf_path(s)
     expect_true(file.exists(p), info = p)

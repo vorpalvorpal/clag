@@ -176,9 +176,9 @@ test_that("6f corpus, sci: digits 0 to 4, sigfig 1 to 5, a mantissa that rounds 
   sig <- unlist(lapply(keys, function(k) k$opts$sigfig))
   for (k in 0:4) expect_true(as.character(k) %in% dig, info = paste("digits", k))
   for (k in 1:5) expect_true(as.character(k) %in% sig, info = paste("sigfig", k))
-  expect_true(any(grepl("^1.0 × 10\\^6\\^$", d$text[d$value %in% c("999000", "9.99e5")])), info = "9.99 rounds to ten")
-  expect_true(any(grepl("−", d$text)), info = "a minus")
-  expect_true(any(grepl("10\\^−[0-9]+\\^", d$text)), info = "a negative exponent")
+  expect_true(any(grepl("^1.0 \u00d7 10\\^6\\^$", d$text[d$value %in% c("999000", "9.99e5")])), info = "9.99 rounds to ten")
+  expect_true(any(grepl("\u2212", d$text)), info = "a minus")
+  expect_true(any(grepl("10\\^\u2212[0-9]+\\^", d$text)), info = "a negative exponent")
   expect_true(any(grepl("\\^[0-9]{3}\\^", d$text)), info = "a three-digit exponent")
 })
 
@@ -206,9 +206,9 @@ test_that("6f corpus, collapse: pairs, range, sep, last, trunc 1 to 5, none, ser
   expect_true(any(ser & has("last")), info = "serial comma with last")
   expect_true(any(grepl("^[a-e], [a-e], [a-e], and [a-e]$", d$text)), info = "a, b, c, and d")
   expect_true(any(d$text == "a, b, and 2 others"), info = "the tail counts as an item (1.4.15)")
-  expect_true(any(grepl("−[0-9.]+ to −[0-9.]+", d$text)), info = "negative range with to")
-  expect_true(any(grepl("^[0-9.,]+–[0-9.,]+$", d$text)), info = "range with an en dash")
-  expect_true(any(d$classes == "range" & d$text %in% c("5", "2.5", "−3")), info = "a range that collapses")
+  expect_true(any(grepl("\u2212[0-9.]+ to \u2212[0-9.]+", d$text)), info = "negative range with to")
+  expect_true(any(grepl("^[0-9.,]+\u2013[0-9.,]+$", d$text)), info = "range with an en dash")
+  expect_true(any(d$classes == "range" & d$text %in% c("5", "2.5", "\u22123")), info = "a range that collapses")
   expect_true(any(grepl(" and [0-9]+ others?$", d$text)), info = "trunc tail")
   expect_true(any(grepl("^[A-Za-z]+ \\([0-9.,]+\\)", d$text[d$classes == "pairs"])), info = "pairs")
   expect_true(all(d$text != ""))
@@ -257,16 +257,19 @@ test_that("6f corpus, governors: n, sign and list with every arm count, ids asid
               info = "empty arms (1.5.12)")
   expect_true(any(d$text == "# one"), info = "a doubled # is the literal character (1.5.12)")
   expect_true(any(d$text == "1.0 sites"), info = "a printed 1.0 takes the other arm (1.5.9)")
-  expect_true(any(d$text == "3–5 sites") && any(d$text == "1 site" & d$classes == "n range"))
+  expect_true(any(d$text == "3\u20135 sites") && any(d$text == "1 site" & d$classes == "n range"))
   expect_true(any(d$text == "No sites were") && any(d$text == "3 sites: a, b and c"))
   expect_true(any(grepl("^rose by ", d$text)) && any(grepl("^fell by ", d$text)))
 })
 
 # ---- regeneration -------------------------------------------------------------------------------------
 
-test_that("6f: conformance_write() writes the nine files, and the six new ones byte for byte as committed", {
+test_that("6f: conformance_write() writes the three first sets by default and, asked, the six new ones byte for byte as committed", {
+  dflt <- file.path(withr::local_tempdir(), "dflt")
+  weft:::conformance_write(dflt)
+  expect_setequal(list.files(dflt), c("numbers.tsv", "words.tsv", "lists.tsv"))
   out <- file.path(withr::local_tempdir(), "regen")
-  paths <- weft:::conformance_write(out)
+  paths <- weft:::conformance_write(out, sets = c("numbers", "words", "lists", C6))
   want <- paste0(c("numbers", "words", "lists", C6), ".tsv")
   expect_setequal(list.files(out), want)
   expect_setequal(basename(unlist(paths)), want)
