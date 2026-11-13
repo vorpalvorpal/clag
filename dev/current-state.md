@@ -218,6 +218,32 @@ it is not pushed until those land.
   build (after 6k); then 6f, 6g, 6e, 6h, 6i, 6j; an independent review
   of stage 6; Jupyter in the check workflow.
 
+## Robin's instructions for after stage 6 (13 Nov, verbatim)
+
+"Once you are finished:
+
+1. Refactor sweep: what can be simplified, improved, made more robust
+or optimised. As before, profile before optimising, and only target
+actual problems. Code quality beats optimisation.
+
+2. Think thru any ways that the lua path could be brought closer to
+parity with the R path (lua claim, more comparators in if, ==,!=,
+and/or). Take any obvious wins. Raise other possibilities with me.
+
+3. Run weft on some of the healthy waterways material. Think thru what
+works and what doesn't. Where is there room for improvement? What parts
+of the existing system for managing the document have been superceeded
+by weft? What hasn't, and could it (and should it) be incorporated in
+some form? Take obvious wins, but raise any major changes with me.
+
+4. Check documentation is up to date and then release v0.1"
+
+Notes: item 4 lifts "no release" for a v0.1 release on GitHub only (not
+CRAN). Item 3 keeps the trial rules: the project is read-only, copies
+go in git-ignored `dev/trials/`, no data values or names of people in
+committed notes, never `tar_make()` against the real store, no hooks,
+filters or `.Rprofile` lines installed into the real project.
+
 ## Queue
 
 1. Waiting items W1 to W4 (decision 63): units cache on by default;
