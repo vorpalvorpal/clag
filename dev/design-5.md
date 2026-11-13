@@ -1008,3 +1008,39 @@ and tested here after 5d; if not, 5J waits as recommended.
 
 The exact-integer defect in `round_half_away()` (5a) is a fault in
 weft for R values too, so it goes first and does not wait on the rest.
+
+## Amendment after the scoping of architecture (c) (orchestrator, 13 Nov)
+
+`dev/languages-c-scoping.md` asks that three things be shaped now so a
+later resolver filter is not made harder. Ruled, under delegation:
+
+1. **The typed record is the reader's product (5b).** The Python
+   reader returns, for each value, a record: one of bool, int (as a
+   digit string), float (shortest round-trip text), decimal (as
+   written), string, date (ISO), list of one type, missing (with why),
+   or error (with why). The record is turned into an R value in one
+   function, and the refusals of V2 and V3 live there. Alternatives:
+   convert inside the reader (smaller now, and the big integer is lost
+   before anything could print it); carry digit strings through
+   `format.R` now (the scoping's stage 0 in full, days more, and a new
+   number type through every formatter). Chosen: the record now, the
+   refusal kept, the digit-string printer left to the filter stage,
+   because a refusal is honest and the record is what keeps that later
+   step small.
+2. **Rule 1.4.13 past 15 significant digits (5a).** A double is read to
+   15 significant digits, so the digits after the fifteenth print as
+   zeros: `2^70` prints "1,180,591,620,717,410,000,000", not the
+   binary expansion. Alternatives: refuse (breaks `1e23`, which is
+   right as written); leave (false digits). This replaces the answer
+   to O4.
+3. **A conformance table (new package 5h, after 5a).** R writes value,
+   classes, keys and printed text for a fixed corpus (numbers first,
+   then `.word`, `.and`, `n`) to `tests/testthat/_conformance/`; a
+   test compares on every run. It is a regression net for `format.R`
+   now and the definition of "what weft prints" for any second
+   formatter. The scoping's literal Lua port matched R on 67,060 rows.
+
+Also reserved, with nothing built: the class `weft-values`, the named
+value form (a code span holding one name, with a class) and the class
+`val`. `weft-check.lua` already fails on a code span carrying a weft
+class, which stays the right error until a resolver exists.
