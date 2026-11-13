@@ -336,7 +336,7 @@ label_seed <- function(paths = NULL, min_count = 2) {
                                 where = character(), stringsAsFactors = FALSE)
   root <- normalizePath(find_project_root(getwd()), winslash = "/", mustWork = FALSE)
   if (is.null(paths)) {
-    rel <- lint_files_under(root)
+    items <- lapply(lint_files_under(root), function(f) list(root = root, rel = f))
   } else {
     if (!is.character(paths) || anyNA(paths)) tool_abort("label_seed(): `paths` must be file names.")
     gone <- paths[!file.exists(paths)]
@@ -353,12 +353,17 @@ label_seed <- function(paths = NULL, min_count = 2) {
       tool_abort(sprintf("label_seed(): %s is not a .qmd or .Rmd file.", odd[[1L]]))
     }
     full <- normalizePath(paths, winslash = "/", mustWork = TRUE)
-    rel <- sort(unique(vapply(full, lint_rel_path, "", root = root, USE.NAMES = FALSE)), method = "radix")
+    # each document is read with the settings of its own project, not the working folder's
+    roots <- vapply(full, function(p) normalizePath(find_project_root(p), winslash = "/", mustWork = FALSE), "",
+                    USE.NAMES = FALSE)
+    rels <- mapply(lint_rel_path, full, roots, USE.NAMES = FALSE)
+    o <- order(rels, roots, method = "radix")
+    keep <- !duplicated(paste(roots, rels, sep = "\n")[o])
+    items <- Map(function(r, f) list(root = r, rel = f), roots[o][keep], rels[o][keep])
   }
   hits <- list()
-  for (f in rel) {
-    path <- if (grepl("^(/|[A-Za-z]:)", f)) f else file.path(root, f)
-    src <- lint_read(path, root, lint_config(root, doc_front(path)))
+  for (it in items) {
+    src <- lint_open(it$root, it$rel)
     if (isTRUE(src$invalid)) next
     h <- label_hits(src)
     if (nrow(h)) hits[[length(hits) + 1L]] <- h

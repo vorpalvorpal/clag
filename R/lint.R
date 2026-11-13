@@ -236,7 +236,7 @@ lint_config <- function(root, front = list()) {
   }
   cfg <- merge_config(cfg, proj)
   cfg <- merge_config(cfg, w)
-  cfg$formatters <- tryCatch(check_formatters(cfg$formatters), error = function(e) cfg$formatters)
+  cfg$formatters <- check_formatters(cfg$formatters)
   validate_lint_config(cfg, raw)
   cfg
 }
@@ -270,6 +270,18 @@ lint_files_under <- function(root, ext = DOC_EXT_RE, underscore = FALSE) {
   project_doc_paths(root, if (underscore) "anchors" else "lint", ext)
 }
 
+# The folder whose `_weft.yml` governs a document: the innermost one from the
+# document's folder up to `root`, as in the gate (review 4, #7); `root` when
+# none lies below it.
+settings_root <- function(root, rel) {
+  d <- dirname(rel)
+  while (!identical(d, ".") && nzchar(d)) {
+    if (file.exists(file.path(root, d, "_weft.yml"))) return(file.path(root, d))
+    d <- dirname(d)
+  }
+  root
+}
+
 # The front matter of a file, read cheaply (for its `weft:` settings).
 doc_front <- function(path) {
   text <- tryCatch(read_source_text_or_null(path), error = function(e) NULL)
@@ -294,7 +306,7 @@ lint_read <- function(path, root, cfg) {
 # One document, read with its own settings.
 lint_open <- function(root, rel) {
   path <- file.path(root, rel)
-  cfg <- lint_config(root, doc_front(path))
+  cfg <- lint_config(settings_root(root, rel), doc_front(path))
   lint_read(path, root, cfg)
 }
 
