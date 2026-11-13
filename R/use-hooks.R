@@ -10,8 +10,9 @@
 #' The script is POSIX `sh`, written to the repository's hooks folder (the one
 #' `git rev-parse --git-path hooks` names, so a linked worktree uses the main
 #' repository's). It records the `Rscript` and the library paths of the session
-#' that ran `use_hooks()`, and runs R with `--no-init-file`, so the project's
-#' `.Rprofile` (renv, [weft_setup()]) is not read by the hook. When R or weft
+#' that ran `use_hooks()`, and runs R with `--no-init-file --no-environ`, so the
+#' project's `.Rprofile` (renv, [weft_setup()]) and `.Renviron` (which could
+#' replace the recorded library paths) are not read by the hook. When R or weft
 #' cannot be found the commit fails with a message that names `use_hooks()` and
 #' `git commit --no-verify`; the latter skips the hook for one commit.
 #'

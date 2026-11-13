@@ -37,8 +37,9 @@ running it again changes nothing. \code{suppressMessages()} silences it.
 The script is POSIX \code{sh}, written to the repository's hooks folder (the one
 \verb{git rev-parse --git-path hooks} names, so a linked worktree uses the main
 repository's). It records the \code{Rscript} and the library paths of the session
-that ran \code{use_hooks()}, and runs R with \code{--no-init-file}, so the project's
-\code{.Rprofile} (renv, \code{\link[=weft_setup]{weft_setup()}}) is not read by the hook. When R or weft
+that ran \code{use_hooks()}, and runs R with \code{--no-init-file --no-environ}, so the
+project's \code{.Rprofile} (renv, \code{\link[=weft_setup]{weft_setup()}}) and \code{.Renviron} (which could
+replace the recorded library paths) are not read by the hook. When R or weft
 cannot be found the commit fails with a message that names \code{use_hooks()} and
 \verb{git commit --no-verify}; the latter skips the hook for one commit.
 \itemize{
