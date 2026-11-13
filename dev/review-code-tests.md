@@ -437,3 +437,15 @@ All seventeen proposals are accepted. Order and readings:
 - Duplicated fixture builders and helper files (the duplication and
   structure items) are merged last, after the refactor of `R/`, so the
   two do not collide.
+
+## State after the first pass (13 Nov)
+
+Done: 1 (33 assertions given a class), 2 (skips that hid regressions
+are now expectations; `helper-skips.R`), 7 (wall-clock bounds are now
+ratios of processor time; `helper-perf.R`), 8 (fixtures reach what
+their titles name). No finding against the code came out of it.
+
+Left: 3 (git under an isolated configuration, one helper), 4 (the
+gate edits share one repository), 5 and 6 (renders in process or
+shared), 9 to 17 (helper structure, duplicated builders, gaps, dead
+helpers), after the structure pass on `R/`.
