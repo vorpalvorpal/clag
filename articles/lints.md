@@ -68,6 +68,10 @@ lint_rules()[, c("id", "tier", "scope", "what")]
 #> 31         engine    1 project                     A document with constructs that is not knitr's.
 #> 32         figure    1    file                        A figure with no label, caption or alt text.
 #> 33  table-caption    1    file                                            A table with no caption.
+#> 34   guest-inline    1    file          Inline code in another language, which knitr does not run.
+#> 35     guest-call    1    file                    A weft function called from Python through `r.`.
+#> 36     guest-read    2    file         A value read from Python or Julia that weft does not check.
+#> 37      ojs-value    2    file               An Observable value computed in the reader's browser.
 ```
 
 A rule’s **scope** is `file` when it reads one document at a time, and
@@ -278,6 +282,22 @@ when the heading’s words change.
 | `file-link` | a link or image to a file that is not there |
 | `config-place` | a `weft:` key in `_quarto.yml`, or a project setting in a document |
 | `read` | a file that is not UTF-8 |
+
+## Python, Julia and Observable
+
+A document that mixes languages reaches prose through R. These rules
+find the ways a value from another language goes wrong on the way.
+
+| Rule | Tier | Finds |
+|----|----|----|
+| `guest-inline` | 1 | inline code in another language, such as `` `{python} depth` ``, in a document knitr knits: knitr does not run it, so it prints as code |
+| `guest-call` | 1 | `r.fmt_num(` and the like in a Python chunk, which pass arguments through reticulate and can turn a Python integer into a wrong number; `from weft import fmt_num` is safe |
+| `guest-read` | 2 | `py$n` in R chunk code, and `py_eval()`, `py_call()`, `julia_eval()` and the like in a value, which weft does not check; [`py_value()`](https://vorpalvorpal.github.io/weft/reference/py_value.md) and `jl_value()` are the guarded reads |
+| `ojs-value` | 2 | an inline `` `{ojs} total` `` or a `${total}` in an Observable `md` or `html` template, which the reader’s browser computes after weft’s checks have run |
+
+The first two block a commit like any tier-1 finding. The `engine` rule
+also says which engine Quarto would pick for a Python or Julia document
+and what to write instead.
 
 ## Tier-2 heuristics
 

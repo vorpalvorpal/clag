@@ -162,7 +162,11 @@ weft</td>
 <span><span class="co">#&gt; 30   config-place    1 project             A project setting in a place that is not the project's.</span></span>
 <span><span class="co">#&gt; 31         engine    1 project                     A document with constructs that is not knitr's.</span></span>
 <span><span class="co">#&gt; 32         figure    1    file                        A figure with no label, caption or alt text.</span></span>
-<span><span class="co">#&gt; 33  table-caption    1    file                                            A table with no caption.</span></span></code></pre></div>
+<span><span class="co">#&gt; 33  table-caption    1    file                                            A table with no caption.</span></span>
+<span><span class="co">#&gt; 34   guest-inline    1    file          Inline code in another language, which knitr does not run.</span></span>
+<span><span class="co">#&gt; 35     guest-call    1    file                    A weft function called from Python through `r.`.</span></span>
+<span><span class="co">#&gt; 36     guest-read    2    file         A value read from Python or Julia that weft does not check.</span></span>
+<span><span class="co">#&gt; 37      ojs-value    2    file               An Observable value computed in the reader's browser.</span></span></code></pre></div>
 <p>A rule’s <strong>scope</strong> is <code>file</code> when it reads
 one document at a time, and <code>project</code> when it reads them all,
 as cross-references do.</p>
@@ -455,6 +459,60 @@ setting in a document</td>
 </tr>
 </tbody>
 </table>
+</div>
+<div class="section level2">
+<h2 id="python-julia-and-observable">Python, Julia and Observable<a class="anchor" aria-label="anchor" href="#python-julia-and-observable"></a>
+</h2>
+<p>A document that mixes languages reaches prose through R. These rules
+find the ways a value from another language goes wrong on the way.</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>Rule</th>
+<th>Tier</th>
+<th>Finds</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>guest-inline</code></td>
+<td>1</td>
+<td>inline code in another language, such as
+<code>`{python} depth`</code>, in a document knitr knits: knitr does not
+run it, so it prints as code</td>
+</tr>
+<tr class="even">
+<td><code>guest-call</code></td>
+<td>1</td>
+<td>
+<code>r.fmt_num(</code> and the like in a Python chunk, which pass
+arguments through reticulate and can turn a Python integer into a wrong
+number; <code>from weft import fmt_num</code> is safe</td>
+</tr>
+<tr class="odd">
+<td><code>guest-read</code></td>
+<td>2</td>
+<td>
+<code>py$n</code> in R chunk code, and <code>py_eval()</code>,
+<code>py_call()</code>, <code>julia_eval()</code> and the like in a
+value, which weft does not check; <code><a href="../reference/py_value.html">py_value()</a></code> and
+<code>jl_value()</code> are the guarded reads</td>
+</tr>
+<tr class="even">
+<td><code>ojs-value</code></td>
+<td>2</td>
+<td>an inline <code>`{ojs} total`</code> or a <code>${total}</code> in
+an Observable <code>md</code> or <code>html</code> template, which the
+reader’s browser computes after weft’s checks have run</td>
+</tr>
+</tbody>
+</table>
+<p>The first two block a commit like any tier-1 finding. The
+<code>engine</code> rule also says which engine Quarto would pick for a
+Python or Julia document and what to write instead.</p>
 </div>
 <div class="section level2">
 <h2 id="tier-2-heuristics">Tier-2 heuristics<a class="anchor" aria-label="anchor" href="#tier-2-heuristics"></a>

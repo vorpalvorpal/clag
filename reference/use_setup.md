@@ -57,8 +57,11 @@ It writes:
   front matter.
 
 - `engine: knitr` in each `.qmd` that has no `engine:` or `jupyter:` key
-  and is not another engine's alone (a Python-only page stays Jupyter),
-  except files and folders whose names start with `_` or `.` (includes).
+  and is not another engine's alone, except files and folders whose
+  names start with `_` or `.` (includes). A page of Python or Julia
+  chunks alone gains the line only when it holds a weft construct (a
+  value, a count, a governor, a sign or a list); without one it stays as
+  it is.
 
 - for an `.Rmd` outside a Quarto project, `weft-check.lua` beside the
   document (weft's own file: kept when identical, replaced when it

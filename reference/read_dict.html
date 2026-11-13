@@ -88,8 +88,8 @@ decision, why, line and display), <code>registered</code> and <code>local_keys</
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
     <p>Units a quantity names that the <code>units</code> package does not know are
-installed with <code><a href="https://r-quantities.github.io/units/reference/install_unit.html" class="external-link">units::install_unit()</a></code> as the file is read, for the whole
-session (rule 4.4.7); a unit already known is not installed again. A read
+installed with <code><a href="https://r-quantities.github.io/units/reference/install_unit.html" class="external-link">units::install_unit()</a></code> as the file is read, for as long as
+that project's configuration stays in force (rule 4.4.7); a unit already known is not installed again. A read
 that reports a problem installs no unit. The attribute <code>registered</code> holds
 the units the dictionary needs that <code>udunits</code> does not ship, whenever and
 by whomever they were installed, so two reads of one file give the same

@@ -31,11 +31,12 @@ decision, why, line and display), `registered` and `local_keys`.
 Units a quantity names that the `units` package does not know are
 installed with
 [`units::install_unit()`](https://r-quantities.github.io/units/reference/install_unit.html)
-as the file is read, for the whole session (rule 4.4.7); a unit already
-known is not installed again. A read that reports a problem installs no
-unit. The attribute `registered` holds the units the dictionary needs
-that `udunits` does not ship, whenever and by whomever they were
-installed, so two reads of one file give the same `registered`, and
+as the file is read, for as long as that project's configuration stays
+in force (rule 4.4.7); a unit already known is not installed again. A
+read that reports a problem installs no unit. The attribute `registered`
+holds the units the dictionary needs that `udunits` does not ship,
+whenever and by whomever they were installed, so two reads of one file
+give the same `registered`, and
 [`print()`](https://rdrr.io/r/base/print.html) lists them.
 
 The units installed are removed when another project's configuration is

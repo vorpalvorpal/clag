@@ -9,6 +9,8 @@ manuscripts. Every construct is markdown that 'knitr', 'Pandoc' and
 
 Useful links:
 
+- <https://vorpalvorpal.github.io/weft/>
+
 - <https://github.com/vorpalvorpal/weft>
 
 - Report bugs at <https://github.com/vorpalvorpal/weft/issues>

@@ -36,7 +36,7 @@ tar_dict_deps(targets, path = "dict.yml")
 ## Value
 
 `targets`, in the same structure. The target objects are changed in
-place.
+place, with the hooks of `tarchetypes`, which this function needs.
 
 ## Details
 
