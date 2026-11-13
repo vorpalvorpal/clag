@@ -32,7 +32,7 @@ rows6k <- function(df, label) {
   df[df$chunk %in% label, , drop = FALSE]
 }
 
-det6k <- function(df) vapply(df$detail, msg5, "")
+det6k <- function(df) vapply(df$detail, msg5, "", USE.NAMES = FALSE)
 
 pc6k <- function(label, ..., opts = "error=TRUE") pychunk(label, c(...), opts)
 

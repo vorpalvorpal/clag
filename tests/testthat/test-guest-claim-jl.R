@@ -63,7 +63,7 @@ test_that("N60 R6: `using Weft` in a Julia chunk of a weft knit loads the packag
 
 test_that("N60: weft puts its julia folder on LOAD_PATH once, at the end, however many knits ran", {
   jl_doc_w()
-  jl_stop("@claim t_6k_n > 1;", NULL)           # a second knit in this process
+  jl_doc_w()                                   # a second knit in this process
   mine <- normalizePath(system.file("julia", package = "weft"), mustWork = FALSE)
   lp <- JuliaCall::julia_eval("String[string(p) for p in LOAD_PATH]")
   lp <- vapply(lp, normalizePath, "", mustWork = FALSE, USE.NAMES = FALSE)
