@@ -2084,6 +2084,10 @@ local function write_stamp(run)
       for _, w in ipairs(old.writers) do if w == "filter" then merge = false end end
     end
   end
+  -- a knitr document whose hooks wrote no stamp in this run, and nothing of the filter's own to record:
+  -- it was served from freeze. Its old stamp, or the lack of one, is what the post-render notice reads
+  -- (N121); a stamp of this run would hide both.
+  if S.knitr and not merge and S.nblocks == 0 and #S.entries == 0 and #S.fails == 0 then return end
   local failures, writers = {}, { "knit" }
   local s = { source = S.src_rel, run = run, named = named }
   if merge then
