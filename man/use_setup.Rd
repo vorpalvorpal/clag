@@ -42,12 +42,16 @@ library). A file that already calls \code{weft::weft_setup()} is kept.
 in each document's front matter.
 \item \code{engine: knitr} in each \code{.qmd} that has no \verb{engine:} or \verb{jupyter:} key and
 is not another engine's alone, except files and folders whose names start
-with \verb{_} or \code{.} (includes). A page of Python or Julia chunks alone gains
-the line only when it holds a weft construct (a value, a count, a
-governor, a sign or a list); without one it stays as it is.
-\item for an \code{.Rmd} outside a Quarto project, \code{weft-check.lua} beside the
-document (weft's own file: kept when identical, replaced when it differs)
-and, under each format of \verb{output:}, \verb{pandoc_args: ["--lua-filter", "weft-check.lua"]}.
+with \verb{_} or \code{.} (includes). A page of another engine's chunks alone gains
+the line only when it holds an R construct: an R value (\verb{`r x`\{.num\}})
+or a span whose governor is outside the grammar of the filter. A page of
+named values (\verb{`depth`\{.num\}}) and spans of that grammar, or with no
+construct, stays as it is.
+\item for an \code{.Rmd} outside a Quarto project, \code{weft.lua}, \code{weft-check.lua} and
+the folder \verb{weftlib/} beside the document (weft's own files: kept when
+identical, replaced when they differ) and, under each format of
+\verb{output:}, \verb{pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]}. A document set up before named values, which names
+only \code{weft-check.lua}, gets \code{weft.lua} named before it.
 }
 
 Front matter is edited as text and checked by parsing it again. When an

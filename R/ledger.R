@@ -337,8 +337,11 @@ in_front_matter <- function(F, line) {
 
 # ---- expressions (D9) ---------------------------------------------------------
 
-expr_key <- function(code) {
+# The ledger key of an expression (D9). A named value's key is its NAME as written (N149), so it is not
+# parsed; a filter span's is its governor value with runs of spaces made one, unparsed (`unparsed`).
+expr_key <- function(code, unparsed = FALSE) {
   code <- trimws(as.character(code)[1L])
+  if (unparsed) return(gsub("[ \t\r\n]+", " ", code))
   if (is_backref(code) || identical(code, ".")) return(code)
   e <- tryCatch(parse(text = code, keep.source = FALSE), error = function(err) NULL)
   if (is.null(e)) return(gsub("[ \t\r\n]+", " ", code))
