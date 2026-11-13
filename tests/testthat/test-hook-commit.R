@@ -215,7 +215,10 @@ test_that("4b G21: a recorded Rscript that is gone falls back to the Rscript on 
   h4_hooks(dir, rscript = gone)
   g_apply(dir, list("ch1.qmd" = g_bad_doc()))
   g_add(dir)
-  r <- h4_commit(dir)
+  # the real R bin folder first, so the Rscript found on the PATH is this R's, not the stub folder that
+  # R CMD check puts at the head of the PATH
+  path <- paste(c(R.home("bin"), Sys.getenv("PATH")), collapse = .Platform$path.sep)
+  r <- withr::with_envvar(c(PATH = path), h4_commit(dir))
   expect_identical(r$status, 1L)
   expect_match(r$out, "commit-msg: 1 construct error", fixed = TRUE)
   expect_false(grepl("cannot find R", r$out, fixed = TRUE))

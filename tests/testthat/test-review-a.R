@@ -298,6 +298,8 @@ test_that("review A #26: a very large ordinal prints no base warnings", {
 
 test_that("review A #28: scan time grows about linearly with the text", {
   skip_on_cran()
+  # a wall-clock test: under R CMD check (which sets _R_CHECK_PACKAGE_NAME_) the machine is often loaded
+  skip_if(nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_")), "timing test: not run under R CMD check")
   unit <- "Para `r x`{.num} and `r y`{.num} text `r z` and [a | b]{if=\"q\"}.\n\n"
   small <- strrep(unit, 1000L)
   big <- strrep(unit, 4000L)
