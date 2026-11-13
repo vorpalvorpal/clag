@@ -47,22 +47,25 @@ jobs:
           extra-packages: any::rcmdcheck, any::reticulate, any::JuliaCall
           needs: check
 
-      # Julia 1.13.3 segfaults (exit status 139) as soon as it loads RCall
-      # on this runner's R 4.6 / Ubuntu 26.04: the libstdc++ Julia bundles
-      # is older than the one libR.so was built against. Preloading the
-      # system libstdc++ for the later steps is the standard cure.
-      - name: Preload the system libstdc++ for Julia
-        run: echo "LD_PRELOAD=$(g++ -print-file-name=libstdc++.so.6)" >> "$GITHUB_ENV"
+      # Probe runs (ubuntu-latest and ubuntu-24.04, R 4.6.2) showed Julia 1.12
+      # and 1.13 working with JuliaCall/RCall once R's own lib directory is on
+      # LD_LIBRARY_PATH, and Julia 1.10 and 1.11 segfaulting (exit 139)
+      # whatever was set. Preloading the system libstdc++ made no difference
+      # either way. So keep Julia '1' and export R's lib directory for all
+      # later steps, including the tests, which start Julia from R.
+      - name: Put R's lib directory on LD_LIBRARY_PATH for Julia
+        run: echo "LD_LIBRARY_PATH=$(R RHOME)/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
 
       # weft and the tests start Julia with install = FALSE, so JuliaCall
       # installs its Julia package RCall here, once, before the tests.
       - name: Install RCall for JuliaCall
         # JuliaCall's own installer failed on a fresh runner ("Package
         # Suppressor not found"), so its Julia packages are added first.
+        # The final probe makes the step fail loudly if Julia crashes.
         run: |
           export R_HOME="$(R RHOME)"
           julia -e 'using Pkg; Pkg.add(["Suppressor", "RCall"])'
-          Rscript -e 'JuliaCall::julia_setup(installJulia = FALSE)'
+          Rscript -e 'JuliaCall::julia_setup(installJulia = FALSE); stopifnot(JuliaCall::julia_eval("1+1") == 2)'
 
       - uses: quarto-dev/quarto-actions/setup@v2
 
