@@ -1,27 +1,27 @@
-value	classes	keys	text
-"apples"	and		apples
-c("apples", "pears")	and		apples and pears
-c("apples", "pears", "plums")	and		apples, pears and plums
-c("apples", "pears", "plums", "figs")	and		apples, pears, plums and figs
-5	and		5
-c(1, 2.5)	and		1 and 2.5
-c(1, 2.5, 1000)	and		1, 2.5 and 1,000
-c(0.15, 2, 1234567, -3)	and		0.2, 2, 1,234,567 and −3
-1:4	and		1, 2, 3 and 4
-c(0.1 + 0.2, 2^53)	and		0.3 and 9,007,199,254,740,992
-"apples"	or		apples
-c("apples", "pears")	or		apples or pears
-c("apples", "pears", "plums")	or		apples, pears or plums
-c("apples", "pears", "plums", "figs")	or		apples, pears, plums or figs
-5	or		5
-c(1, 2.5)	or		1 or 2.5
-c(1, 2.5, 1000)	or		1, 2.5 or 1,000
-c(0.15, 2, 1234567, -3)	or		0.2, 2, 1,234,567 or −3
-1:4	or		1, 2, 3 or 4
-c(0.1 + 0.2, 2^53)	or		0.3 or 9,007,199,254,740,992
-character(0)	and	none=nobody	nobody
-numeric(0)	and	none=nobody	nobody
-c("apples", "pears")	and	none=nobody	apples and pears
-character(0)	or	none=nobody	nobody
-numeric(0)	or	none=nobody	nobody
-c("apples", "pears")	or	none=nobody	apples or pears
+value	classes	keys	text	record
+"apples"	and		apples	{"t":"string","v":"apples"}
+c("apples", "pears")	and		apples and pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+c("apples", "pears", "plums")	and		apples, pears and plums	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"},{"t":"string","v":"plums"}],"of":"string","keys":null}
+c("apples", "pears", "plums", "figs")	and		apples, pears, plums and figs	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"},{"t":"string","v":"plums"},{"t":"string","v":"figs"}],"of":"string","keys":null}
+5	and		5	{"t":"float","v":"5"}
+c(1, 2.5)	and		1 and 2.5	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"}],"of":"float","keys":null}
+c(1, 2.5, 1000)	and		1, 2.5 and 1,000	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"},{"t":"float","v":"1000"}],"of":"float","keys":null}
+c(0.15, 2, 1234567, -3)	and		0.2, 2, 1,234,567 and −3	{"t":"list","v":[{"t":"float","v":"0.15"},{"t":"float","v":"2"},{"t":"float","v":"1234567"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+1:4	and		1, 2, 3 and 4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"2"},{"t":"int","v":"3"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(0.1 + 0.2, 2^53)	and		0.3 and 9,007,199,254,740,992	{"t":"list","v":[{"t":"float","v":"0.30000000000000004"},{"t":"float","v":"9007199254740992"}],"of":"float","keys":null}
+"apples"	or		apples	{"t":"string","v":"apples"}
+c("apples", "pears")	or		apples or pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+c("apples", "pears", "plums")	or		apples, pears or plums	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"},{"t":"string","v":"plums"}],"of":"string","keys":null}
+c("apples", "pears", "plums", "figs")	or		apples, pears, plums or figs	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"},{"t":"string","v":"plums"},{"t":"string","v":"figs"}],"of":"string","keys":null}
+5	or		5	{"t":"float","v":"5"}
+c(1, 2.5)	or		1 or 2.5	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"}],"of":"float","keys":null}
+c(1, 2.5, 1000)	or		1, 2.5 or 1,000	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"},{"t":"float","v":"1000"}],"of":"float","keys":null}
+c(0.15, 2, 1234567, -3)	or		0.2, 2, 1,234,567 or −3	{"t":"list","v":[{"t":"float","v":"0.15"},{"t":"float","v":"2"},{"t":"float","v":"1234567"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+1:4	or		1, 2, 3 or 4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"2"},{"t":"int","v":"3"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(0.1 + 0.2, 2^53)	or		0.3 or 9,007,199,254,740,992	{"t":"list","v":[{"t":"float","v":"0.30000000000000004"},{"t":"float","v":"9007199254740992"}],"of":"float","keys":null}
+character(0)	and	none=nobody	nobody	{"t":"list","v":[],"of":"string","keys":null}
+numeric(0)	and	none=nobody	nobody	{"t":"list","v":[],"of":"float","keys":null}
+c("apples", "pears")	and	none=nobody	apples and pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+character(0)	or	none=nobody	nobody	{"t":"list","v":[],"of":"string","keys":null}
+numeric(0)	or	none=nobody	nobody	{"t":"list","v":[],"of":"float","keys":null}
+c("apples", "pears")	or	none=nobody	apples or pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}

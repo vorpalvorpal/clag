@@ -6,12 +6,63 @@
 #   weft:::conformance_write("tests/testthat/_conformance")
 # and review the diff.
 
-conf_cols <- c("value", "classes", "keys", "text")
+conf_cols <- c("value", "classes", "keys", "text", "record")
 
 conf_frame <- function(value, classes, keys, text) {
   data.frame(value = as.character(value), classes = as.character(classes),
              keys = as.character(keys), text = as.character(text),
-             stringsAsFactors = FALSE)
+             record = rep("", length(value)), stringsAsFactors = FALSE)
+}
+
+# The JSON record (schema 1, N22 and N47) of an R value, for the `record` column. A stand-in
+# for the general record maker of R/values.R: only what the conformance corpus needs (scalars
+# and atomic vectors). A float's text is the shortest of 15, 16 and 17 significant digits that
+# reads back as the same double.
+conformance_record <- function(x) {
+  kind <- function(e) {
+    if (is.factor(e)) e <- as.character(e)
+    if (is.logical(e)) "bool"
+    else if (is.integer(e)) "int"
+    else if (is.double(e)) "float"
+    else if (is.character(e)) "string"
+    else if (inherits(e, "Date")) "date"
+    else "missing"
+  }
+  scalar <- function(e) {
+    if (is.factor(e)) e <- as.character(e)
+    if (length(e) == 1L && !is.na(e) && !(is.double(e) && !is.finite(e))) {
+      return(switch(kind(e),
+        bool = paste0("{\"t\":\"bool\",\"v\":", if (e) "true" else "false", "}"),
+        int = paste0("{\"t\":\"int\",\"v\":\"", sprintf("%d", e), "\"}"),
+        float = {
+          s <- sprintf("%.17g", e)
+          for (f in c("%.15g", "%.16g", "%.17g")) {
+            s <- sprintf(f, e)
+            if (as.numeric(s) == e) break
+          }
+          paste0("{\"t\":\"float\",\"v\":\"", s, "\"}")
+        },
+        string = paste0("{\"t\":\"string\",\"v\":", json_string(e), "}"),
+        date = paste0("{\"t\":\"date\",\"v\":\"", format(e), "\"}")))
+    }
+    why <- if (is.double(e) && is.nan(e)) "NaN"
+           else if (is.double(e) && is.infinite(e)) { if (e > 0) "Inf" else "-Inf" }
+           else "NA"
+    paste0("{\"t\":\"missing\",\"why\":\"", why, "\"}")
+  }
+  if (length(x) == 1L) return(scalar(x))
+  elems <- vapply(seq_along(x), function(i) scalar(x[[i]]), "")
+  keys <- if (is.null(names(x))) "null" else
+    paste0("[", paste(vapply(names(x), json_string, ""), collapse = ","), "]")
+  paste0("{\"t\":\"list\",\"v\":[", paste(elems, collapse = ","), "],\"of\":\"", kind(x),
+         "\",\"keys\":", keys, "}")
+}
+
+conf_add_records <- function(d) {
+  d$record <- vapply(d$value, function(v) {
+    conformance_record(eval(parse(text = v), envir = baseenv()))
+  }, "", USE.NAMES = FALSE)
+  d
 }
 
 # the keys of a row as formatter arguments
@@ -85,7 +136,7 @@ conf_numbers_rows <- function() {
     suppressWarnings(conf_text(fs[[d$classes[i]]], d$value[i], d$keys[i]))
   }, "")
   rownames(d) <- NULL
-  d
+  conf_add_records(d)
 }
 
 # a plural form printed by an `n` span, as weft_str() resolves it
@@ -115,7 +166,7 @@ conf_words_rows <- function() {
   }
   d <- conf_unique(d)
   rownames(d) <- NULL
-  d
+  conf_add_records(d)
 }
 
 conf_lists_rows <- function() {
@@ -132,7 +183,7 @@ conf_lists_rows <- function() {
   fs <- list(and = fmt_and, or = fmt_or)
   d$text <- vapply(seq_len(nrow(d)), function(i) conf_text(fs[[d$classes[i]]], d$value[i], d$keys[i]), "")
   rownames(d) <- NULL
-  d
+  conf_add_records(d)
 }
 
 conformance_rows <- function(set = c("all", "numbers", "words", "lists")) {
