@@ -1,0 +1,99 @@
+value	classes	keys	text
+0	word		zero
+1	word		one
+2	word		two
+3	word		three
+4	word		four
+5	word		five
+6	word		six
+7	word		seven
+8	word		eight
+9	word		nine
+10	word		ten
+11	word		eleven
+12	word		twelve
+13	word		thirteen
+14	word		fourteen
+15	word		fifteen
+16	word		sixteen
+17	word		seventeen
+18	word		eighteen
+19	word		nineteen
+20	word		twenty
+25	word		twenty-five
+99	word		ninety-nine
+100	word		100
+1000	word		1,000
+1234567	word		1,234,567
+0	ord		0th
+1	ord		1st
+2	ord		2nd
+3	ord		3rd
+4	ord		4th
+10	ord		10th
+11	ord		11th
+12	ord		12th
+13	ord		13th
+14	ord		14th
+20	ord		20th
+21	ord		21st
+22	ord		22nd
+23	ord		23rd
+24	ord		24th
+31	ord		31st
+99	ord		99th
+100	ord		100th
+101	ord		101st
+102	ord		102nd
+111	ord		111th
+112	ord		112th
+113	ord		113th
+121	ord		121st
+1000	ord		1,000th
+1001	ord		1,001st
+1234567	ord		1,234,567th
+0	count		zero
+1	count		one
+2	count		two
+3	count		three
+4	count		four
+5	count		five
+6	count		six
+7	count		seven
+8	count		eight
+9	count		nine
+10	count		10
+11	count		11
+12	count		12
+13	count		13
+14	count		14
+15	count		15
+99	count		99
+100	count		100
+1000	count		1,000
+1234567	count		1,234,567
+0	no		no
+1	no		1
+2	no		2
+3	no		3
+9	no		9
+10	no		10
+11	no		11
+12	no		12
+100	no		100
+0	n	singular=site plural=sites	0 sites
+1	n	singular=site plural=sites	1 site
+2	n	singular=site plural=sites	2 sites
+3	n	singular=site plural=sites	3 sites
+11	n	singular=site plural=sites	11 sites
+21	n	singular=site plural=sites	21 sites
+100	n	singular=site plural=sites	100 sites
+1000000	n	singular=site plural=sites	1,000,000 sites
+0	n	singular=child plural=children	0 children
+1	n	singular=child plural=children	1 child
+2	n	singular=child plural=children	2 children
+3	n	singular=child plural=children	3 children
+11	n	singular=child plural=children	11 children
+21	n	singular=child plural=children	21 children
+100	n	singular=child plural=children	100 children
+1000000	n	singular=child plural=children	1,000,000 children
