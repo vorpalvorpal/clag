@@ -1,8 +1,8 @@
 # `weft` — package scoping
 
 **Date:** 2026-11-11
-**Status:** scoping. Nothing in this design is built. The syntax and the
-runtime were exercised with throwaway stand-ins; Part 3 says exactly what was
+**Status:** Stages 0 to 4 of §22 are built. The syntax and the
+runtime were first exercised with throwaway stand-ins; Part 3 says exactly what was
 run and what was not. Integration facts were checked against knitr 1.51 and
 Quarto 1.11.9 (Pandoc 3.10) on macOS.
 
@@ -3053,51 +3053,86 @@ with a digit depends on what it prints.
 
 **6.1.2** It compares each staged file that weft reads with its version in
 `HEAD`. A new file has an empty `HEAD` version, and a deleted file an empty
-staged one. The files weft reads are the documents and the project files the
-lints read (5.4.4, §5.8).
+staged one. A renamed file is compared with the file it was renamed from
+(`git diff -M`). The files weft reads are the documents and the project files
+the lints read (5.4.4, §5.8). It judges each project of the repository on its
+own: a project is a folder that holds `_weft.yml`, on either side, at any
+depth. A repository with none passes, with a note. A document belongs to the
+innermost project that holds it, for its findings and for its constructs.
 
-**6.1.3** It reads the staged version from the index (`git show :<file>`),
-not the worktree. It reads the commit message's trailers with
-`git interpret-trailers --parse`.
+**6.1.3** It reads the staged version from the index, not the worktree, and
+changes nothing in the repository. It reads the commit message's trailers with
+`git interpret-trailers --parse`. `gate()` runs the same comparison by hand,
+with no message or with the path of one.
 
 **6.1.4** It runs static checks only. It does not knit, and it does not use
 the network.
 
-**6.1.5** `use_hooks()` records the paths of R and of Pandoc, and the hook
-uses those. It calls the Pandoc binary itself, not `quarto pandoc`.
+**6.1.5** `use_hooks()` records the path of R and the library paths of the
+session that ran it, and the hook uses those. The lints call no Pandoc, so no
+path to it is recorded. The hook starts R with `--no-init-file --no-environ`,
+so that the project's `.Rprofile` and `.Renviron` are not read. When the
+recorded R has gone the hook uses the `Rscript` on the `PATH`. When there is
+none, or weft is not installed for the R it finds, the hook fails the commit,
+with a message that names `use_hooks()` and `git commit --no-verify`. It does
+not pass.
 
-**6.1.6** Each file's scan is cached under `.git/`, keyed on the file's git
-blob hash. The `HEAD` version of a file, and what the hook needs from the
-files not staged (the anchors and reference labels of 5.7, the citation keys
-of 5.4), come from that cache when they are in it.
+**6.1.6** Each file's scan is cached in the git directory
+(`<git common dir>/weft/cache/`). A source is keyed on its blob id, the
+blobs of `_weft.yml` and `_quarto.yml`, and the versions of weft and R. The
+results of the file rules and of the project rules are keyed also on the
+blobs and paths of the other project files that the side holds. Every key
+carries the identity of the installed weft code: the md5 of its
+`R/weft.rdb`, or under `load_all()` the newest modification time of its
+sources. A reinstall at the same version therefore starts with a cold cache.
+The `HEAD` version of a file, and what the hook needs from the files not
+staged (the anchors and reference labels of 5.7, the citation keys of 5.4),
+come from the cache when they are in it. An entry that will not read is
+a miss. The cache is pruned to 800 entries when it passes 1,000. When the
+folder cannot be written the gate runs without it and says so.
+`use_hooks(remove = TRUE)` deletes it.
 
 **6.1.7** The hook prints one report, listing every reason the commit failed,
-each with its file and line. It prints how long it took.
+each with its file and line. It prints how long it took. A passing run prints
+one line.
 
-**6.1.8** `--no-verify` skips the hook. Draft mode does not affect it
-(9.4.3).
+**6.1.8** `git commit --no-verify` skips the hook, and git records nothing of
+it. Draft mode does not affect it (9.4.3). Git ignores a hook that is not
+executable, so `status()` reports one as `outdated` and `use_hooks()` repairs
+its mode (9.5.3). `git cherry-pick` and `git rebase` do not run the hook:
+`verify(since = )` in CI is the check there (8.4.1).
 
 ### 6.2 What stops a commit
 
 **6.2.1** A commit fails on three things (tier 1):
 
-1. a construct error (§5.3) in a staged file, whenever it is present
+1. a construct error (§5.3), the rules `construct`, `block-start` and `read`,
+   in a changed document (a document whose staged version differs from
+   `HEAD`), whenever it is present
 2. a finding the commit adds (6.2.2)
 3. constructs removed without saying so (§6.3)
 
 **6.2.2** Every other tier-1 static rule is judged against `HEAD`: typed
 numerals (5.2), literal values (5.6.1), marker spans and citations (5.4),
 cross-references (5.7), hygiene (5.8), and figures and tables (5.9). The
-commit fails when the staged files hold more instances of a finding than
-their `HEAD` versions did.
+commit fails when the project holds more instances of a finding than it did
+in `HEAD`. The hygiene rule on target names (`tar-name`, 5.8) is not judged
+here: it reads the targets store, a build product that a commit does not
+hold. `verify()` judges it (8.1.1).
 
-**6.2.3** Instances are counted by rule and by the finding's text (the
-numeral, the expression, the key, the anchor), summed over all the files in
-the commit. Moving a paragraph from one file to another adds nothing.
+**6.2.3** Instances are counted by rule and by the finding's text, with
+white space collapsed (the numeral, the expression, the key, the anchor),
+over the whole project on each side. Files the commit does not change give the
+same findings on both sides, so this is a sum over the commit. Moving a
+paragraph from one file to another adds nothing. A renamed file holds the
+findings it held under its old name: the finding that a document lacks
+`engine: knitr` is keyed without the file's name.
 
-**6.2.4** The rules that read across files (5.4.1, 5.4.3, 5.7.1) count over
-the whole project, with the files not staged read from the cache (6.1.6).
+**6.2.4** The rules that read across files (5.4.1, 5.4.3, 5.7.1) read the
+whole project, with the files not staged read from the cache (6.1.6).
 Removing an anchor that another chapter cites adds a finding in that chapter.
+A change to a project file counts in the same way: dropping a label word from
+`_weft.yml` adds the numerals it exempted.
 
 **6.2.5** What a document already held when weft was adopted is tolerated,
 because it is in `HEAD`. Nothing lists it. `verify()` reports how many
@@ -3108,21 +3143,43 @@ elsewhere in one commit nets to zero.
 
 **6.2.7** The hook judges no tier-2 rule (5.1.2).
 
+**6.2.8** The comparison holds in these cases:
+
+- *The first commit* of a repository, with no `HEAD`: its findings are not
+  compared, so it is the starting point (6.2.5), and nothing is counted as
+  removed. Construct errors still fail. The report says so.
+- *A merge* (git runs the hook with `MERGE_HEAD` present): the commit is
+  compared with each parent. A finding counts as added over the parent that
+  held most instances of it, and the removal count (6.3.2) is taken against
+  the parent that held fewest constructs. A merge fails for what its
+  resolution added, not for what the other branch brought.
+- *An amend*: git gives the hook nothing to tell it from a commit, so it is
+  compared with `HEAD`, the commit being replaced. Only the amendment is
+  judged. A trailer left over from the commit being replaced that no longer
+  matches fails, and the report gives the number to write.
+- *A `_weft.yml` that does not read*: on the staged side the commit fails
+  with the configuration error. At `HEAD` the findings of that project are
+  not compared, and the removal count still runs.
+- *Draft mode*: neither `draft` nor `WEFT_DRAFT` changes anything (9.4.3).
+
 ### 6.3 Constructs removed
 
-**6.3.1** The hook counts three things in every staged file and in its
+**6.3.1** The hook counts three things in every changed document and in its
 `HEAD` version: inline R values, with or without an attribute block; weft
 spans (1.1.5); and `claim()` calls anywhere in the file, chunk code
-included. A value whose expression holds a `claim()` counts once as a value
-and once as a call.
+included, whatever the chunk's `eval` says. A value whose expression holds a
+`claim()` counts once as a value and once as a call.
 
-**6.3.2** When the total over the commit is lower than the total in `HEAD`
-by N, the commit message must carry the trailer `Weft-Removed: N`. Without
-it, or with a different number, the commit fails.
+**6.3.2** There are two totals in each project: calls to `claim()`, and
+values and spans together. N is the sum over the projects of the amount by
+which each total is lower than it was in `HEAD`, counting a total only when it
+fell. When N is above 0 the commit message must carry the trailer
+`Weft-Removed: N`. Without it, or with a different number, the commit fails.
 
-**6.3.3** There is one total. Turning a value into a span, renaming a
-variable in forty expressions, or changing a bound changes no count, and
-costs nothing. A changed expression is not a removal.
+**6.3.3** Turning a value into a span, renaming a variable in forty
+expressions, or changing a bound changes no count, and costs nothing. A
+changed expression is not a removal. Claims are counted apart, so that a
+deleted `claim()` is not hidden by a value added in the same commit.
 
 **6.3.4** The failure lists what is gone, each with its text and its line in
 `HEAD`, and prints the exact trailer line to add. What is gone is every
@@ -3146,7 +3203,11 @@ commit-msg: 0.8 s
 ```
 
 **6.3.5** A `Weft-Removed` trailer on a commit that removes nothing is
-ignored.
+ignored. The trailer is read as git reads trailers: its key in any letter
+case, with or without a space after the colon, the last one when there are
+several. A value that is not a whole number in digits is a wrong number. The
+failure also prints `git commit --trailer "Weft-Removed: N"`, and when the
+message holds a wrong number it says `Change that line to:`.
 
 **6.3.6** Two limits are accepted. A removal and an unrelated addition in one
 commit net out. The trailer is lost when commits are squashed.
@@ -3461,24 +3522,37 @@ new condition.
 ### 8.1 What it runs
 
 **8.1.1** `verify()` is the one entry point for everything that needs a
-render. It runs, in order:
+render. It has four parts, and runs them in this order:
 
-1. every static lint, at every tier (§5), and the comparison of §6 (8.2.2)
-2. the `decision:` pointers (4.5.2)
-3. the render, re-executing every document it verifies (§8.3)
-4. the knit-time results: failed checks, unevaluated constructs, documents
-   served from freeze, and conditions on the severity list (§2.6, 2.5.2,
-   2.9.3, 7.4.2)
-5. the ledger: entries not re-rendered (7.2.3)
+1. `lints`: every static lint (§5) and the comparison of §6 (8.2.2). It fails
+   on a construct error, on a tier-1 finding added since the comparison
+   commit (6.2.2; the count is the excess of each finding, the instances are
+   listed), on every instance of a strict rule (8.1.3), and on a
+   `tar-name` finding (5.8), which it judges whatever `HEAD` held. It lists,
+   and fails nothing for, the constructs removed (8.2.2), the tier-2 findings
+   on lines added since the comparison commit (every line when there is none),
+   and the totals of 8.1.2.
+2. `decisions`: the `decision:` pointers of `dict.yml` (4.5.2). A pointer that
+   does not resolve fails; one that could not be checked is listed. A
+   `dict.yml` that will not read fails. Skipped when there is no `dict.yml`.
+3. `render`: the render, re-executing every document it verifies (§8.3), and
+   the knit-time results (8.3.4): failed checks, unevaluated constructs,
+   documents served from freeze, and conditions on the severity list (§2.6,
+   2.5.2, 2.9.3, 7.4.2). It needs a set-up project (9.3.2).
+4. `ledger`: the entries not re-rendered (7.2.3). Every stale ledger of a
+   verified document fails, with its reasons.
 
 **8.1.2** It reports the total of every tolerated finding (6.2.5), rule by
 rule, without failing on them: "412 typed numerals remain".
 
-**8.1.3** A per-rule setting in `_weft.yml` makes a rule strict (9.1.2).
-Then any instance of that rule's finding fails `verify()`, whether or not
-`HEAD` held it. An author turns it on when adoption of that rule is finished.
+**8.1.3** The `strict` setting in `_weft.yml` (9.1.2) lists tier-1 rules. Then
+any instance of such a rule's finding fails `verify()`, whether or not `HEAD`
+held it. An author turns it on when adoption of that rule is finished. A rule
+of tier 2 cannot be made strict.
 
-**8.1.4** Each part can be switched off in the configuration. `verify()`
+**8.1.4** Each part can be switched off with `verify_skip` in `_weft.yml`,
+which names `lints`, `decisions`, `render` or `ledger`. `static = TRUE` skips
+`render` and `ledger`, and `ledger: false` (9.1.9) skips `ledger`. `verify()`
 reports which parts were skipped, and why.
 
 **8.1.5** `verify()` refuses to run in draft mode (§9.4).
@@ -3486,41 +3560,87 @@ reports which parts were skipped, and why.
 **8.1.6** Rendering needs no wrapper: `quarto render`, an editor's Render
 button and `rmarkdown::render()` all run the hooks.
 
+**8.1.7** `verify()` prints a report: the verdict, one line for each part, the
+sections that have content, the tolerated totals and the time. When it fails
+it signals a `weft_verify_error`, so that `Rscript -e 'weft::verify()'` exits
+1; the result is in the error's `$result`. It writes only inside the project
+and to the cache of 6.1.6, and not to the units cache of 9.1.10. It warns when
+the version recorded in `_weft.yml` differs from the installed one (9.5.4).
+
 ### 8.2 Arguments
 
 **8.2.1** `verify(files = )` renders and judges only the named files.
-Documents it was not given, served from freeze or not, are not its concern.
+Documents it was not given, served from freeze or not, are not its concern,
+and the freeze backup holds only the entries of the named documents (8.3.1).
 The rules that read across files (6.2.4) still read the whole project.
 
 **8.2.2** `verify(since = "<commit>")` runs the hook's comparison (§6)
 between that commit and the working tree. It fails on findings added
 (6.2.2). It reports constructs removed (§6.3), and does not fail on them,
 because trailers may not survive. With no `since`, it compares with `HEAD`.
+Without git, or with no commit, there is nothing to compare with: findings
+are counted and not compared, with a note, and a `since` given without git is
+an error. When the project's `_weft.yml` does not exist at `since`, that
+commit is the baseline: nothing counts as added, and the report says so. When
+it does not read there, the findings are not compared and the constructs
+removed are still reported.
 
-**8.2.3** `verify(static = TRUE)` runs only what needs no render: steps 1 and
-2 of 8.1.1.
+**8.2.3** `verify(static = TRUE)` runs only what needs no render: the parts
+`lints` and `decisions`.
 
 ### 8.3 The render
 
-**8.3.1** Under Quarto, the render step re-executes each document once:
+**8.3.1** Under Quarto, the render step re-executes each verified document
+once. The documents it verifies are those `quarto inspect` lists as rendered
+by the project; a document outside that list is linted, is not expected to have
+run, and is named in the report as not in the render list. A project with a
+`_quarto.yml` is rendered by one `quarto render`, or, when `files` is given,
+by one `quarto render <file>` for each named file. A folder with no
+`_quarto.yml` is rendered one document at a time, each by name. The render
+carries a run id in the environment (`WEFT_RUN`), which the knit writes into
+each document's stamp (2.9.2). With a `_freeze` folder:
 
-1. if a backup from an earlier run exists, restore it first
-2. copy the documents' entries in `_freeze` to a backup, and remove the
-   originals
-3. run one ordinary project render
-4. on success, delete the backup; on failure, restore it
+1. if a backup from an earlier run exists, restore it first, for each
+   document unless the document's stamp carries a run id other than the one
+   in the backup's manifest: a later complete render made the current entry,
+   so the entry is kept, that document's backup is discarded, and a note says
+   so
+2. move the entries of the verified documents in `_freeze` to
+   `.weft/freeze-backup/`, with a manifest that records the run id and the
+   documents; a document's entries are everything under `_freeze/<stem>/`
+   except a folder that is another document's own stem. Every move is
+   checked. A move that fails stops `verify()` before the render with a
+   `weft_verify_error`, after putting back what was already moved
+3. run the render
+4. on success, delete the backup; on failure, or on an interrupt, restore it.
+   The restore never deletes what the backup does not hold
 
-**8.3.2** The freezer is left holding the verified results, so the next
-ordinary render serves what was checked.
+A run that is killed is restored by the next one's first step. There is no
+lock: two `verify()` in one project at once are not supported.
 
-**8.3.3** Under rmarkdown, `verify()` renders each `.Rmd` with
-`rmarkdown::render()`. There is no freeze step.
+**8.3.2** After a passing run the freezer holds the fresh results of the
+verified documents, so the next ordinary render serves what was checked.
+
+**8.3.3** Under rmarkdown, `verify()` renders each `.Rmd` once, with
+`rmarkdown::render()` in a fresh R process started at the project root, so that
+the project's `.Rprofile` is read. There is no freeze step.
+
+**8.3.4** The knit-time results come from the stamps in `.weft/stamps/`. A
+stamp counts when its run id is this run's. A failure in such a stamp fails
+`verify()`. A verified document that holds a construct and has no stamp of
+this run fails: it was served from freeze, or knit without weft active. A
+render that exits non-zero with no failure in a stamp fails with the lines of
+its log from the first `weft:` line.
 
 ### 8.4 CI
 
 **8.4.1** `use_ci()` writes a workflow that runs
 `verify(static = TRUE, since = <the merge base>)` on a pull request. GitHub
-Actions is the default.
+Actions is the default. The workflow sits at the top of the repository, the
+only place GitHub reads workflows from, even when the project is a subfolder,
+and it checks that folder. It installs weft from `github::vorpalvorpal/weft`
+until weft is on CRAN. The project's path reaches R through an environment
+variable, not through the text of the command.
 
 ---
 
@@ -3555,14 +3675,14 @@ rule 8), and its message names `_weft.yml`.
 | `decisions` (project only where `_weft.yml` exists): where `decision:` pointers resolve | 4.5.3, 9.1.4, 9.1.8 |
 | project formatters: class name, function, stage | 1.4.8 |
 | the severity list | 7.4.2 |
-| the rules made strict (none unless set) | 8.1.3 |
+| `strict`: the tier-1 rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
 | the claim-word lexicon, words added and dropped; the cap on listed sentences | 5.5.4, 5.5.3 |
 | the word count above which a guarded bracket is listed | 3.1.9 |
 | whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
-| parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
-| the package version | 9.5.4 |
+| `verify_skip`: the parts of `verify()` switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
+| `weft_version`: the weft version that set the project up | 9.5.4 |
 
 **9.1.5** The settings built so far have these keys and defaults, in
 `_weft.yml` and under a document's `weft:` key alike. A project is "set up"
@@ -3593,11 +3713,19 @@ claim_words: {add: [], drop: []}   # 5.5.4
 claim_cap: 20          # 5.5.3: claim-word sentences listed per file by changes()
 guard_words: 25        # 3.1.9: words in the longest arm of an `if` before it is listed
 expected_names: []     # 5.3.3: classes (".foo") and keys ("foo") the project expects
+strict: []             # 8.1.3: tier-1 rule ids whose every instance fails verify()
+verify_skip: []        # 8.1.4: parts of verify() switched off: lints, decisions, render, ledger
+weft_version: null     # 9.5.4: the weft version that set the project up
 ```
 
 A wrong value for `label_words`, `numeral_years`, `claim_words`, `claim_cap`,
-`guard_words` or `expected_names` is a `weft_config_error` naming the setting
-and the rule.
+`guard_words`, `expected_names`, `strict`, `verify_skip` or `weft_version` is a
+`weft_config_error` naming the setting and the rule. `strict` takes the ids of
+tier-1 rules (`lint_rules()` lists them); an id that is not a rule is an
+error that offers the nearest, and a tier-2 id is an error, since tier 2 blocks
+nothing. `verify_skip` takes some of `lints`, `decisions`, `render` and
+`ledger`. `weft_version` is one string; `null` and an absent key both mean no
+record.
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
 `false`, and so is `ledger`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
@@ -3704,7 +3832,7 @@ name, and the default row's `is` still applies.
 **9.1.3** The configuration is read when a knit is initialised (2.1.5), not
 when the hooks are installed.
 
-**9.1.4** `draft` and the parts switched off are project settings. Where a
+**9.1.4** `draft` and `verify_skip` (the parts switched off) are project settings. Where a
 `_weft.yml` exists, either one in a document's front matter is an error,
 found from the source (5.8 rule 8) and when the knit is initialised. A single
 document with no `_weft.yml` may set them in its front matter. `WEFT_DRAFT=1`
@@ -3773,7 +3901,7 @@ knitr:
 | Where | What is written | Covers |
 |---|---|---|
 | the document's front matter | `knitr:` / `opts_knit:` / `weft: !expr weft::weft_setup()` | one document, under Quarto and rmarkdown |
-| `.Rprofile` at the project root | `if (requireNamespace("weft", quietly = TRUE)) weft::weft_setup()` | every document in a Quarto project that is knit (9.2.8), wherever it sits |
+| `.Rprofile` at the project root | `if (requireNamespace("weft", quietly = TRUE)) weft::weft_setup()` (9.2.9) | every document in a Quarto project that is knit (9.2.8), wherever it sits |
 | a setup chunk | `weft::weft_setup()` | the prose below that chunk |
 
 **9.2.2** The `weft:` key under `knitr: opts_knit:` only carries the
@@ -3794,6 +3922,18 @@ setup chunk activates nothing.
 in its front matter (2.5.3). `use_setup()` writes the filter line beside the
 activating one.
 
+**9.2.9** R reads one profile: the project's `.Rprofile` instead of
+`~/.Rprofile`. A new project `.Rprofile` that `use_setup()` writes therefore
+first sources `~/.Rprofile` when it exists, and says so in its comments. An
+existing `.Rprofile` that holds no uncommented line calling
+`weft::weft_setup()` gains a comment and the activating line after its last
+line, so after renv's `source("renv/activate.R")` and weft is found in renv's
+library. One that holds the call is kept. The route works only when R reads that
+file: with `R_PROFILE_USER` set R reads that file instead, and `status()` marks
+the activation `off` (9.5.3). The route is tested from the command line; the
+Render and Knit buttons of RStudio and Positron, chunks run interactively and a
+real renv library are not (Q2).
+
 ### 9.3 Installers
 
 **9.3.1** Every file the package places exists because a `use_*()` function
@@ -3802,14 +3942,14 @@ says what it will write before it writes it.
 
 | Function | Writes |
 |---|---|
-| `use_weft()` | everything below, with a summary first |
-| `use_setup()` | the `.Rprofile` line (Quarto project) or the front-matter line (single document); `engine: knitr` in the front matter of the document, or of each `.qmd` a Quarto project renders (9.2.8); `_weft.yml`; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
+| `use_weft()` | everything below except `dict_vale()`, with a summary first (9.3.6) |
+| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`; `_weft.yml`, with the `weft_version` line; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
-| `use_hooks()` | the `commit-msg` shim, with the paths of R and Pandoc (6.1.5) |
-| `use_ci()` | the CI workflow (8.4.1) |
+| `use_hooks()` | the `commit-msg` hook, with the path of R and its libraries (6.1.5) |
+| `use_ci()` | the CI workflow, at the top of the repository (8.4.1) |
 | `use_dictionary()` | `dict.yml` when absent (a starter that reads as no keys, with two examples commented out) and `_weft/dict.schema.json` |
 | `dict_vale()` | one Vale rule file, `styles/Weft/Terms.yml` unless `path` says otherwise (4.7.2) |
-| `use_agent_docs()` | agent-facing conventions and the Claude skill |
+| `use_agent_docs()` | an `AGENTS.md` block of agent-facing conventions, and the Claude skill (9.3.5) |
 
 **9.3.2** The hooks alone write nothing. The condition log, the ledger, the
 freeze stamps (2.9.2) and the failure files are written only in a project
@@ -3826,7 +3966,8 @@ list, and the Claude skill. The skill says:
 - a failed claim is a finding to report to the author, not an error to clear
 - do not change or remove a check to make a render pass unless asked
 - when a commit removes constructs on purpose, add the `Weft-Removed` trailer
-  with the count the hook gives
+  with the count the hook gives, and do not use `--no-verify` to get past the
+  hook
 - the `dict_local` rules (§4.3)
 
 **9.3.4** `use_dictionary(path = ".")` writes under the project root: the folder
@@ -3856,6 +3997,90 @@ $schema=_weft/dict.schema.json` points at it. It accepts every dictionary that
 letter outside A to Z (`café`, which R reads in a UTF-8 locale and not in
 others). `read_dict()` refuses more than a schema can say, so a file the schema
 accepts may still be refused.
+
+**9.3.5** `use_setup(path = ".", route = c("auto", "rprofile", "front-matter"))`
+takes a folder or one `.qmd`, `.Rmd` or `.rmd` file. A folder with a
+`_quarto.yml`, here or above it, is a Quarto project and is set up at its root;
+`auto` is `rprofile` there and `front-matter` otherwise. A folder with none is a
+set of single documents. It writes the files of the `use_setup()` row of 9.3.1.
+A new `_weft.yml` holds a comment and a `weft_version:` line; one that lacks the
+line gains it, and an existing line is left as it is (9.5.4). A `.qmd` with no
+front matter gains `---`, `engine: knitr`, `---` as its first lines, and one
+that holds only another engine's chunks keeps its engine. Under rmarkdown, a
+`weft-check.lua` is copied beside the document, replaced when it differs, and
+named under each format of `output:`; with no `output:` one is written. Front
+matter is edited as text and checked by parsing it again. When an edit cannot
+be made safely (flow style, a YAML anchor, another `weft:` value under
+`opts_knit`), or a link or folder is in a file's place, nothing is written and a
+`weft_tool_error` prints the lines to add by hand. A second run says nothing
+changes. It returns, invisibly, the paths it wrote.
+
+**9.3.6** A whole file weft writes (the hook, the workflow, the skill) carries a
+line `weft-file: <function> <version> <hash>` in a comment: line 2 of the hook,
+line 1 of the workflow, the last line of the skill. The hash is the md5 of the
+file's other lines joined by a newline. A block weft writes in an author's
+file (`AGENTS.md`) carries the same fields on its start line, and its hash
+covers the lines up to its end line. A file or block is in one of these states:
+
+- absent: it is written
+- marker present and hash matching: weft's own and unedited. It is kept when
+  it is identical to what would be written, and replaced when it differs (the
+  `outdated` state of `status()`)
+- marker present and hash not matching: `edited`. It is left as it is, with a
+  message, unless `overwrite = TRUE`
+- no marker: another author's file. It is never replaced, `overwrite = TRUE`
+  included
+
+The files weft edits by line (`.Rprofile`, front matter, `_weft.yml`) only gain
+lines, apart from the `weft_version:` line, which `use_weft()` updates. An
+installer that rewrites a file keeps its line endings. The files `use_quarto()`
+installs carry no marker and are replaced when they differ, so an edit to them
+is lost.
+
+**9.3.7** `use_hooks()` needs a project (`_weft.yml`) in a git work tree. It
+writes `commit-msg`, mode 755, to the hooks folder that
+`git rev-parse --git-path hooks` names (a linked worktree uses the main
+repository's), from the template in `inst/hooks/`, with the path of the R that
+ran it and that session's library paths (6.1.5). It finds weft in those
+libraries or stops. Under 9.3.6, a hook weft wrote and nobody edited is
+rewritten or kept, and a hook that has lost its execute bit is repaired. Another
+tool's hook, or any `core.hooksPath` (a hook manager), is left alone, also under
+`overwrite = TRUE`: the script is written to `<git common dir>/weft/commit-msg`,
+and the call prints the line to add to the hook the setup runs,
+`sh "$(git rev-parse --git-common-dir)/weft/commit-msg" "$1"`, and, when a
+`.pre-commit-config.yaml` exists, a `repo: local` entry that uses the same form.
+`use_hooks(remove = TRUE)` deletes the hook when it is weft's, edited or not, and
+`<git common dir>/weft/` with it.
+
+**9.3.8** `use_agent_docs()` writes `.claude/skills/weft/SKILL.md` and a block in
+`AGENTS.md` at the project root, between `<!-- weft:start use_agent_docs <version>
+<hash> -->` and `<!-- weft:end -->`. `AGENTS.md` is created when absent, and
+the block is appended after its last line with one blank line before it;
+the rest of the file is never touched, and a block with a start line and no end
+line is left alone. When `CLAUDE.md` exists and does not hold `@AGENTS.md`, the
+call says to add that line. The block names the weft package in two sentences,
+then gives the four rules of 9.3.3, and points to the skill. The skill's name is
+`weft`; it adds how to read a failed-claim report (say which of the sentence, the
+check and the value is wrong, and leave the decision), the trailer with
+`git commit --trailer "Weft-Removed: N"`, how each finding added at commit is
+fixed (a value, the dictionary, `.weft-literal` with a real `why`), `dict_local`,
+that draft mode passes nothing and `verify()` refuses it, and to run `lints()`
+before a commit and `verify()` before handing back. `use_ci()` is under 8.4.1.
+
+**9.3.9** `use_weft(path = ".")` runs, in order, `use_setup()`, `use_quarto()`
+(a Quarto project only), `use_dictionary()`, `use_hooks()` (in a git work tree;
+else skipped), `use_ci()` (when `origin` is on github.com; else skipped) and
+`use_agent_docs()`, and then sets the `weft_version` line to the installed
+version, updating an existing line in place. It plans every step first and prints
+`weft will set up <root>:` and one line for each step; then it writes. When a
+step cannot be done safely (a `_quarto.yml` or front matter it cannot edit, a link
+or folder in a file's place) it writes nothing and stops with that step's
+message. When a step fails while writing (a folder that cannot be written to) it
+undoes the earlier steps: files it created are removed, files it changed are put
+back from copies it took, and the message says what was undone. It never says
+nothing was written unless that is true. It never asks, interactive or not: the
+call is the consent (P10). Run it again after updating weft to bring what it
+installed up to date. It returns, invisibly, the paths it wrote.
 
 ### 9.4 Draft mode
 
@@ -3915,10 +4140,32 @@ extension is a `weft_tool_error`, and so is a `min_files` that is not a whole
 number from 1.
 
 **9.5.3** `status()` reports which parts are installed, which are switched
-off, and what the next step is.
+off, and what the next step is. It writes nothing, starts no R process and uses
+no network. It returns a `weft_status`, a table of `part`, `state` and `detail`,
+with the next step in its `next` attribute. The parts are `setup`, `activation`,
+`quarto`, `dictionary`, `hooks`, `ci`, `agent docs`, `draft`, `verify_skip` and
+`strict`. A state is one of:
 
-**9.5.4** The configuration records the package version. `verify()` warns on
-a mismatch.
+- `ok`
+- `missing`
+- `outdated`: a file weft wrote is from another version or its hash does not
+  match its text as weft would write it, the hook's recorded `Rscript` has gone,
+  or the hook is not executable
+- `edited`: a file weft wrote has been changed by hand. It is left alone and
+  never makes a next step
+- `off`: draft mode is on, `verify_skip` is not empty, or R will not read the
+  project `.Rprofile` because `R_PROFILE_USER` is set
+- `n/a`: `quarto` outside a Quarto project, and `hooks` and `ci` without git
+
+`next` is the first part, in the order of 9.3.9, that is `missing` or
+`outdated`, as a sentence naming the `use_*()` function; with none it says there
+is nothing to install and to run `verify()`.
+
+**9.5.4** The configuration records the package version in `weft_version`.
+`use_setup()` writes it, and `use_weft()` updates it. `verify()` warns when the
+record is present and differs from the installed version in either direction,
+and says to run `use_weft()`. An absent record is no warning, and `status()` says
+that it is not recorded.
 
 **9.5.5** `label_seed()` counts each capitalised word followed by a numeral
 ("Site 3", "Zone 2", "Stage 1") in the existing prose, and proposes the words
@@ -4930,15 +5177,22 @@ every commit and blocks nothing is not read: "warnings shown when building
 are often ignored" (Tricorder, `dev/research-checks.md` §3).
 
 **6.1.5** A git hook started from an editor or a GUI client does not have the
-shell's `PATH`. `quarto pandoc` costs about 0.15 s more per call than the
-binary it wraps.
+shell's `PATH`, so the hook records R's path and its libraries. It does not run
+the project's `.Rprofile`, which would start renv and call `weft_setup()`, or
+its `.Renviron`, which could replace the recorded libraries. A gate that
+passes when it cannot run is no gate, so a missing R or weft fails the commit
+and names the one command that repairs it and the one flag that skips it for a
+commit. Pandoc's path is not recorded because the lints call no Pandoc by
+default, and the gate must not depend on which Pandoc is installed.
 
 **6.1.6** A book of twenty chapters took about nine seconds to scan in full
 (§18), which is too long to do on every commit. The `HEAD` version of a file
 was usually the staged version at the previous commit, so its scan is
 usually in the cache already.
 
-**6.1.8** Correct. See §14.
+**6.1.8** Correct. See §14. Git runs no `commit-msg` hook for a cherry-pick or
+a rebase (measured), and a commit that git does not run the hook for is
+judged where every collaborator's work passes through (§14).
 
 **6.2.1, 6.2.2** A construct error is never right, so it fails wherever it
 is. Any other finding fails only when the commit adds it. Adopting weft then
@@ -4966,6 +5220,17 @@ case the limit lets through, the same text removed in one place and typed
 again in another, is rare, and the second one is still counted by
 `verify()`.
 
+**6.2.8** An unborn `HEAD` would make every finding added, and adoption in a
+new repository would fail on what the documents already held (6.2.5). A merge
+is judged for what its resolution did, since each side was judged on its own
+branch. `commit-msg` cannot tell an amend from a commit (`prepare-commit-msg`
+cannot tell `--amend` from `-c HEAD`), so an amend is judged against the commit
+it replaces: an amend that removes one more construct than the commit it
+replaces is asked for `Weft-Removed: 1`, although the final commit removes more
+from its parent. This is accepted for now. A `_weft.yml` that does not read at
+`HEAD` must not turn off the removal count, or a commit could remove
+constructs with no trailer.
+
 **6.3.1, 6.3.2** A deletion is the change that leaves nothing to look at
 afterwards (B1). Every removal is allowed; the commit says how many. The
 hook prints the line, so the author or the agent copies one line into a
@@ -4981,7 +5246,9 @@ paragraph, a re-wrap that breaks a line directly after `` `r `` (5.3.4), a
 heredoc that overwrites a chapter. Counts per kind or per expression would
 charge for renames and conversions, and a charge paid on every commit is
 paid without reading (Chrome's one-click warning was clicked through 70% of
-the time: `dev/research-checks.md` §3).
+the time: `dev/research-checks.md` §3). Claims are the exception. A deleted
+check is the removal the trailer exists for, and with one net total it could
+be hidden by adding any value in the same commit.
 
 **6.3.5** A stale trailer, left in a message after the removal was undone,
 harms nothing.
@@ -5068,18 +5335,49 @@ every existing instance (Google CACM 2018, `dev/research-checks.md` §3).
 freeze, so a `verify(files = )` that judged them failed every time.
 
 **8.2.2** A squash, a rebase or a hosting service's merge may drop the
-trailer, so over a range the removals are reported, not judged.
+trailer, so over a range the removals are reported, not judged. A project that
+did not exist at the comparison commit has nothing to be compared with; counting
+every tolerated finding as added made a new project in an old repository fail
+`verify()`, so that commit is the baseline, as the first commit is the gate's
+(6.2.8). The count of findings added is the excess of each finding over the
+comparison commit; the instances are listed separately.
 
 **8.2.3, 8.4.1** A clean clone usually lacks the data to render, and the
 static checks and the comparison with the merge base need only the sources. A
 clone does not install the hook, so the checks run again where every
-collaborator's work passes through (§14).
+collaborator's work passes through (§14). GitHub reads workflows nowhere but the
+repository's top. Weft is installed from GitHub until it is on CRAN. A project
+path put into the text of the command would be read by the shell and by R, so a
+folder named with a quote or `$(` would break or run something; an environment
+variable carries it as data.
 
 **8.3.1** Overriding `freeze` from the command line (`-M freeze:false`, or a
 profile) also re-executes everything, but removes `_freeze`, and the next
-ordinary render then executes everything again. A single render keeps the
-single end-of-book report, which separate renders of each file would not. The
-backup is restored first because an interrupted run leaves the freezer empty.
+ordinary render then executes everything again. A whole project is one render
+because that keeps the single end-of-book report, which separate renders of
+each file would not. `quarto render a.qmd b.qmd` renders `a.qmd` and hands
+`b.qmd` to Pandoc as an argument, so named files are rendered one at a time.
+With no `_quarto.yml`, `quarto render` with no input renders nothing, so each
+document is rendered by name. A book renders only the chapters it lists, so a
+document outside the list could never be stamped, and expecting it to have run
+would fail every such project. Quarto keeps a document's freeze at
+`_freeze/<stem>/`, and the folder of one document holds the folders of documents
+under it, so the backup moves a document's own entries and nothing else;
+moving the folder whole destroyed the frozen results of a document that was not
+verified. Every move is checked, because an unchecked failed move followed by a
+restore emptied both documents' results. An interrupted run leaves the freezer
+empty, so its backup is restored first. It is not restored over a later
+complete render, which the document's stamp shows by carrying another run id:
+file times cannot decide it, since the killed run's half-written files are
+newer than its manifest.
+
+**8.1.1** (the `tar-name` check) The targets store is a build product, which a
+fresh clone does not have, so the gate cannot judge it and `verify()` does.
+
+**8.1.7** Reading the configuration installs the units tables and may write
+the cache of 9.1.10, outside the project. A check that reports on a project
+should not, so `verify()`, `gate()`, `status()` and the installers read the
+settings without writing it.
 
 **8.3.3** rmarkdown has no freezer, and each `.Rmd` renders on its own.
 
@@ -5101,6 +5399,21 @@ not announce.
 matters, so it is listed with every assignment. `.R` files are read only when
 named, because a project's scripts are many and are not chapters. An `eval =
 FALSE` chunk is example code, and not a definition.
+
+**9.3.6** A marker and a hash tell a file weft wrote and nobody edited from an
+old template and from an author's own work without a second record to keep,
+and a file with no marker is never touched.
+
+**9.3.7** A hook manager owns the hooks folder, so weft leaves its files alone
+and prints the one line to add. A hook git ignores for lack of its execute bit
+stops the gate with no sign that it has stopped, which is why `status()` reports
+it and `use_hooks()` repairs it.
+
+**9.3.8** `AGENTS.md` is read by several agents, and the line `@AGENTS.md`
+brings it into Claude Code. The block leaves the author's text alone.
+
+**9.3.9** A prompt in a script is a hang. A half-installed project that reported
+that nothing was written would mislead, so a failed run is undone.
 
 **9.3.3** (the skill) Agents edit checks to get past them. In ImpossibleBench,
 Claude models cheated mostly by editing tests, and letting an agent flag a
@@ -5148,6 +5461,11 @@ knitr; `engine: knitr` is written on every route so that one line, the same
 everywhere, says the file is knit. Three backstops catch a file without it:
 the hygiene rule at commit (5.8 rule 9), the `pre-render` check before
 anything renders (2.5.4), and the filter after (2.5.3).
+
+**9.2.9** R reads one of `~/.Rprofile` and the project's `.Rprofile`, so a new
+project file that did not source the other would silently hide an author's
+own. The activating line follows renv's, which owns that file, so that weft is
+found in renv's library.
 
 **9.2.1** The front-matter form works because R evaluates `!expr` when it
 reads the document's own YAML. The first two routes run before any prose is
@@ -5571,26 +5889,31 @@ form:
   1.6.8)
 - the condition sources beyond the `evaluate` wrapper (7.4.1), and the
   committed condition log with its carried-forward text (7.4.3, 7.4.6)
-- the backup-and-restore sequence of `verify()` as a whole (8.3.1); only the
-  freeze behaviour it relies on was run
 
-**Parts of the design with no stand-in at all:** every lint; judging
-findings against `HEAD` (§6.2); the single total of constructs and the
-failure report that lists what is gone (6.3.1, 6.3.4); the hook's cache
-(6.1.6); the ledger, its key and its file per output (7.1.3, 7.1.4);
-`changes()`; `verify()`'s `files`, `since` and `static` arguments, its
-totals and strict rules (§8.1, §8.2); `verify()` under rmarkdown (8.3.3);
-`use_ci()`; `arms()` and `rehearse()` (§3.7); `u()` and the registering of
+**Parts of the design with no stand-in at all:** every lint (built in stage 3,
+with its own tests); the gate, `verify()` and the installers (built in stage 4,
+with their own tests, and not part of the stand-in evidence); the ledger, its key
+and its file per output (7.1.3, 7.1.4); `changes()`; `arms()` and `rehearse()`
+(§3.7); `u()` and the registering of
 units when the dictionary is read (4.4.6, 4.4.7); the `decision:` resolver;
 `dict` and `dict_local` as objects (the `targets` side was run); the adoption
 helpers of §9.5, `label_seed()` among them. Of the gate, the timings, a count
 of constructs per identity (§18), and a `commit-msg` hook that reads a
 trailer were run.
 
-**git operations the hook was not run under.** `git commit --amend`: the hook
-compares with the commit being amended, so its count is of the new changes
-only. Merge commits. `git rebase` and `git cherry-pick`, which may not run
-the hook at all (Q17).
+**Stage 4 not run.** The workflow `use_ci()` writes, on GitHub Actions itself;
+CI services other than GitHub Actions; the hook and the `verify()` freeze
+sequence on Windows (the hook's `sh` and `Rscript.exe`, passing an environment
+variable to a child process, `file.rename()` of `_freeze` entries, tracked file
+names Windows cannot hold); `verify()` after an R error part-way through a render
+(Q3); the Render and Knit buttons, chunks run interactively and a real renv
+library under the `.Rprofile` route (Q2); and edits taken from a real
+manuscript's history (Q18).
+
+**git operations.** The hook was run under `git commit --amend`, a merge,
+`git cherry-pick` and `git rebase` in a scratch repository. Git runs it
+for an amend and a merge, and for neither a cherry-pick nor a rebase (6.1.8,
+6.2.8).
 
 **Installation not checked.** That the CRAN binary of `units` for Windows,
 like the one for macOS, needs nothing else installed; the udunits-2 system
@@ -5631,8 +5954,9 @@ the inline preview behave with the hooks loaded. Also `.Rprofile` activation
 beside `renv`, which owns that file.
 
 **Q3 — A render that fails part-way through `verify()`.** What `_freeze` holds
-after a chunk errors mid-render is untested, and the restore step of 8.3.1
-depends on it.
+after a chunk errors mid-render is untested as such. The restore step of 8.3.1
+is tested for a render that exits non-zero and for a killed process, not for an R
+error part-way through the render.
 
 **Q4 — Quarto 2 execution.** It hands knitr text re-serialised from its parsed
 tree. Whether the hooks then see the constructs unchanged is untested.
@@ -5676,8 +6000,10 @@ paragraph matcher the hook no longer runs. The cost follows the size of the
 files touched, not the size of the change. About one second for a commit that
 touches one chapter looks reachable. Whether the cache of 6.1.6 holds the
 `HEAD` version of most files, and keeps the book-wide rules of 6.2.4 off
-every commit, is not known. No budget is set, and the timings were taken on
-a machine under load.
+every commit, is not known. The build set a budget: a commit that changes one 300-line
+chapter of a ten-chapter project, with the cache warm, in 1.5 s end to end. Its
+test allows 3 s, and is skipped on CRAN and CI. No measured time is recorded
+here, and the earlier timings were taken on a machine under load.
 
 **Q13 — Conditions whose number is the point.** Rule 7.4.7 accepts that
 "Removed 5 rows" and "Removed 5000 rows" match. Nine of 58 real messages were
@@ -5694,10 +6020,11 @@ rule 2.1.7 now gives the cause and the remedy.
 
 
 **Q17 — The hook under other git operations.** On `git commit --amend` the
-hook compares with the commit being amended, so a removal made in the
-original commit is no longer counted, and the original trailer may no longer
-match. How it behaves on a merge commit, and whether `git rebase` and
-`git cherry-pick` run it at all, is untested.
+hook cannot tell the amend from a commit, so it compares with the commit being
+amended: a removal made in the original commit is no longer counted, and the
+original trailer may no longer match (6.2.8). A merge commit is compared with each
+parent (6.2.8). `git rebase` and `git cherry-pick` do not run the hook, as
+measured; `verify(since = )` is the check there.
 
 **Q18 — Netting.** Two limits are accepted: a finding removed and the same
 text added elsewhere in one commit nets to zero (6.2.6), and a removal and an
@@ -5779,8 +6106,16 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   missing value renders in draft mode with a marker for each, and the filter
   reports instead of failing.
 - **`verify()`.** The backup-and-restore sequence against a render that
-  succeeds, one that fails, and one that is killed (Q3). In a frozen project,
-  `verify(files = )` passes when the named files pass (8.2.1). A tolerated
+  succeeds, one that fails, and one that is killed (Q3). A killed run's backup
+  is put back, unless a later complete render made the entry (8.3.1). Nested
+  documents (`chapters.qmd` and `chapters/c.qmd`) lose no frozen entry, whether
+  one is verified or both, and a failed move stops the run with everything put
+  back. In a frozen project, `verify(files = )` passes when the named files
+  pass (8.2.1), with several files rendered one at a time. A folder with no
+  `_quarto.yml` is rendered by name, and a document outside a book's render list
+  is not expected to have run (8.3.1). A project that did not exist at `since`
+  adds nothing (8.2.2). Reading the settings writes nothing to the user's cache
+  (8.1.7). A tolerated
   finding is counted and fails nothing until its rule is made strict (8.1.2,
   8.1.3). `verify(static = TRUE)` renders nothing. `verify(since = )` fails on
   a finding added and reports, without failing, a removal with no trailer
@@ -5800,10 +6135,16 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   `HEAD` line and prints the trailer line. A value turned into a span, a
   variable renamed in forty expressions, a bound changed, a paragraph moved
   between files, and a file renamed each pass with no trailer. A trailer on a
-  commit that removes nothing is ignored. A new file and a deleted file are
-  compared with an empty version. The spike's 72 scripted edits (§18) are
-  kept as a fixture, and edits taken from a real manuscript's history are
-  added to them (Q18).
+  commit that removes nothing is ignored. A deleted `claim()` needs a trailer
+  although a value is added in the same commit (6.3.2). A new file and a
+  deleted file are compared with an empty version. A file renamed keeps its
+  findings, and a rename of a document that lacks `engine: knitr` adds none
+  (6.2.3). Two projects, one inside the other, count each finding and each
+  removal once (6.1.2). The first commit, a merge and an amend are judged as
+  6.2.8 says. A reinstall of weft at one version does not serve the cache's old
+  verdicts (6.1.6). The spike's 72 scripted edits (§18) are to be kept as a
+  fixture, re-answered for the two totals of 6.3.2; they are not yet ported.
+  Edits taken from a real manuscript's history are to be added to them (Q18).
 - **Ledger and `changes()`.** A bare value is recorded with the text knitr
   printed. Renders of one document to two outputs with different `params`
   keep two ledgers (7.1.3). A changed expression lists one entry removed and
@@ -5953,7 +6294,8 @@ audit. It can show a major problem: a lint that reproduces none of the
 findings, or one that flags nearly everything. Either sends that lint back to
 design before it is built. Stage 0 does not rank layers and does not remove
 one: one corpus is not evidence enough for either, and the package is for
-more than one project (P12).
+more than one project (P12). It has run, over one manuscript's audit, and it
+sent the claim-word list back to design (decision 66).
 
 **Stage 1 — the prose core.** Usable alone. It is built in six steps. Each
 step ends when its fixtures pass under Quarto and rmarkdown and a real chapter
@@ -6003,8 +6345,9 @@ were built straight after the kernel.
   wrapper; `weft_str()`
 - constructs in front-matter fields and in a late metadata block
 - `.Rprofile` activation and `use_setup()`, with the filter under rmarkdown.
-  These wait until the hooks have been run under the Render buttons of
-  RStudio and Positron, and with chunks run interactively (Q2)
+  They were built with stage 4 (see there) and are tested from the command line
+  only; the Render buttons of RStudio and Positron and chunks run interactively
+  are still not run (Q2)
 
 *1d — phrases and lists.*
 
@@ -6040,7 +6383,7 @@ were built straight after the kernel.
 - conditions read from `tar_meta()`, which needs the ledger's record of the
   targets each chapter reads
 
-**Stage 3 — static lints.**
+**Stage 3 — static lints.** Built.
 
 - the scanner over source files, chunk-option captions and `weft_str()`
   strings; the masked Pandoc read; the citation pattern
@@ -6051,15 +6394,18 @@ were built straight after the kernel.
   in values, the three warnings of 5.3.3, unreferenced anchors), which
   `changes()` lists
 
-**Stage 4 — the gate.**
+**Stage 4 — the gate.** Built.
 
 - findings judged against `HEAD`, and the construct count with its trailer
-  (§6.2, §6.3)
+  (§6.2, §6.3), as `gate()`
 - the `commit-msg` hook, its cache, and `use_hooks()`
 - `verify()`, with the freeze sequence, the totals and strict rules, and its
-  `files`, `since` and `static` arguments
+  `files`, `since` and `static` arguments; the settings `strict`,
+  `verify_skip` and `weft_version`
 - `use_ci()`; `use_agent_docs()` and the skill; `use_weft()`; `status()` and
   the version check (9.5.3, 9.5.4)
+- `use_setup()` and the `.Rprofile` activation held back from 1c (9.2.9,
+  9.3.5)
 
 Stage 2 comes before stage 3 because the numerals rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
