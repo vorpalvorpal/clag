@@ -341,18 +341,39 @@ local function block_failure(el, ctx, detail)
   record(S.fails, "construct error", info, detail)
 end
 
+-- set below, once the path helpers exist: a values file's text by its path as written, or nil and why (N30)
+local values_file_text
+
 local function read_block(el, ctx)
   local text = el.text
-  if el.attributes["file"] then
-    block_failure(el, ctx, "a weft-values block with `file=` is not available in this version of weft.lua (rule 2.13.10).")
-    return
+  local from_file = el.attributes["file"]
+  local fpath = from_file
+  if from_file then
+    local reason
+    if text:find("%S") then
+      reason = "the block has a body, and a block with `file=` must be empty"
+    else
+      text, reason = values_file_text(fpath)
+    end
+    if not text then
+      block_failure(el, ctx, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason))
+      return
+    end
   end
   if #text > 5000000 then
-    block_failure(el, ctx, string.format("a weft-values block of %d bytes; the limit is 5000000 (rule 2.13.1).", #text))
+    if from_file then
+      block_failure(el, ctx, string.format("the values file %s cannot be read: %d bytes, and the limit is 5000000 (rule 2.13.10).", fpath, #text))
+    else
+      block_failure(el, ctx, string.format("a weft-values block of %d bytes; the limit is 5000000 (rule 2.13.1).", #text))
+    end
     return
   end
   local ok, d = pcall(pandoc.json.decode, text, false)
   local function bad(reason)
+    if from_file then
+      block_failure(el, ctx, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason))
+      return
+    end
     block_failure(el, ctx, string.format("a weft-values block that does not read: %s (rule 2.13.1).", reason))
   end
   if not ok or d == nil or d == pandoc.json.null then return bad("not JSON") end
@@ -1998,6 +2019,47 @@ local function root_rel(abs)
   return abs and base_of(abs) or nil
 end
 
+-- N30: the text of a values file. A path is relative to the document's folder, or to the project root when it
+-- starts with `/`; the root is the folder holding _weft.yml, else _quarto.yml, else the document's folder. The
+-- path is normalised (`.` and `..` collapsed, no symlinks followed: pure Lua cannot) and must stay inside the
+-- root, else it is refused. A file read is kept for the ledger's header (N112).
+values_file_text = function(path)
+  if path == "" then return nil, "the path is empty" end
+  if path:find("%z") then return nil, "the path is not a path" end
+  if path:match("^%a:") or path:sub(1, 2) == "\\\\" or path:sub(1, 2) == "//" then
+    return nil, "the path is outside the project"
+  end
+  local root = S.root
+  if not root and S.main_dir then
+    local q = config.find_upward(S.main_dir, "_quarto.yml")
+    root = q and normpath(dir_of(normpath(q))) or S.main_dir
+  end
+  if not root then return nil, "the project's folder is not known" end
+  root = normpath(root)
+  local joined
+  local p = path:gsub("\\", "/")
+  if p:sub(1, 1) == "/" then
+    joined = root .. p
+  elseif S.main_dir then
+    joined = S.main_dir .. "/" .. p
+  else
+    return nil, "the document's folder is not known"
+  end
+  local abs = normpath(joined)
+  local pre = root:gsub("/+$", "") .. "/"
+  if abs:sub(1, #pre) ~= pre then return nil, "the path is outside the project" end
+  local f, err = io.open(abs, "rb")
+  if not f then
+    return nil, (err and err:find("No such file", 1, true)) and "no such file" or (err and err:gsub("^.-: ", "") or "cannot open")
+  end
+  local text, rerr = f:read("a")
+  f:close()
+  if not text then return nil, (rerr and rerr:gsub("^.-: ", "") or "cannot read") end
+  S.values_files = S.values_files or {}
+  S.values_files[#S.values_files + 1] = abs
+  return text
+end
+
 -- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
 -- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
 -- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown.
@@ -2125,6 +2187,7 @@ local function write_ledger()
   end
   add(S.src_abs)
   if S.src then for _, f in ipairs(S.src.files) do add(abs_path(f)) end end
+  for _, f in ipairs(S.values_files or {}) do add(f) end
   local list = {}
   for _, e in ipairs(S.entries) do
     local abs = S.src_abs
