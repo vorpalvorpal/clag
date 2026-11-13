@@ -10,3 +10,4 @@
 ^docs$
 ^pkgdown$
 ^\.github$
+^inst/python/__pycache__$

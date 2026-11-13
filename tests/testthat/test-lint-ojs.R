@@ -41,7 +41,8 @@ test_that("5f G42: `{ojs} total` in prose of a .qmd is a tier-2 finding, exact m
 
 test_that("5f G42: it is tier 2, so absent from lints() by default", {
   root <- lint_proj(list("a.qmd" = "The total is `{ojs} total` items."))
-  expect_identical(nrow(lints(root, rules = "ojs-value")), 0L)
+  # a rule named in `rules` runs whatever its tier (review 3 #9), so "by default" means no `rules`
+  expect_identical(sum(lints(root)$rule == "ojs-value"), 0L)
   expect_identical(nrow(lints(root, rules = "ojs-value", tier = 2)), 1L)
 })
 

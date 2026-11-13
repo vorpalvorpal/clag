@@ -15,3 +15,5 @@ docs/
 /doc/
 /Meta/
 inst/doc/
+inst/python/__pycache__/
+*.pyc

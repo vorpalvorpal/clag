@@ -95,7 +95,8 @@ test_that("5e J24: a julia_eval() in R chunk code is not a finding (V21)", {
 
 test_that("5e J24: tier 2, so absent from lints() by default", {
   root <- lint_proj(list("a.Rmd" = "A value `r julia_eval(\"x\")` here."))
-  expect_identical(nrow(lints(root, rules = "guest-read")), 0L)
+  # a rule named in `rules` runs whatever its tier (review 3 #9), so "by default" means no `rules`
+  expect_identical(sum(lints(root)$rule == "guest-read"), 0L)
   expect_identical(nrow(lints(root, rules = "guest-read", tier = 2)), 1L)
 })
 
