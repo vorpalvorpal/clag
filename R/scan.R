@@ -795,16 +795,39 @@ block_errors <- function(S, blk, kind) {
     fm <- intersect(cls, formatter_classes(S$reg))
     # a text-stage class acts on the chosen arm's final text (1.5.7, 1.4.8)
     is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text & !(fm %in% c(".em", ".strong", UNIT_CLASSES))]
+    fm <- fm[!is_text & !(fm %in% c(".em", ".strong", ".plus", UNIT_CLASSES))]
     ky <- intersect(lc, RENDERER_KEYS)
     if (length(fm) || length(ky)) {
       e <- c(e, sprintf("A formatter on an `if` span is an error (rule 1.5.7): %s.",
                         paste(c(fm, ky), collapse = " ")))
     }
   }
-  if (length(intersect(cls, c(".p", ".date"))) && any(c("digits", "sigfig") %in% lc)) {
-    e <- c(e, sprintf("`digits` and `sigfig` do not apply to `%s` (rule 1.4.7).",
-                      intersect(cls, c(".p", ".date"))[1L]))
+  if (".date" %in% cls && any(c("digits", "sigfig") %in% lc)) {
+    e <- c(e, "`digits` and `sigfig` do not apply to `.date` (rule 1.4.7).")
+  }
+  if (".p" %in% cls) {
+    if ("sigfig" %in% lc) e <- c(e, "`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17).")
+    dv <- blk$values[lc == "digits"]
+    if (length(dv)) {
+      pd <- tryCatch({ p_digits_value(trim_ws(dv[1L])); NULL }, weft_construct_error = function(err) conditionMessage(err))
+      if (!is.null(pd)) e <- c(e, pd)
+    }
+  }
+  if (kind %in% c("value", "named") && "label" %in% tolower(blk$names) && !".p" %in% cls) {
+    e <- c(e, "`label` applies to `.p` only (rule 1.4.17).")
+  }
+  if (".plus" %in% cls) {
+    clash <- c(intersect(cls, PLUS_CLASH),
+               intersect(cls, names(S$reg))[vapply(intersect(cls, names(S$reg)), function(k) {
+                 identical(S$reg[[k]][["stage"]] %||% "number", "number")
+               }, NA)])
+    if (length(clash)) {
+      e <- c(e, sprintf(paste0("`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` ",
+                               "prints (rule 1.4.21)."), clash[1L]))
+    }
+    if (length(gov)) {
+      e <- c(e, sprintf("`.plus` does not apply to a span with `%s=` (rule 1.4.21).", gov[1L]))
+    }
   }
   if (kind == "sign" && !S$filter_doc && length(blk$values[lc == "sign"]) &&
       identical(trim_ws(blk$values[lc == "sign"][1L]), ".")) {
@@ -833,7 +856,7 @@ block_errors <- function(S, blk, kind) {
   if (kind == "cite") {
     fm <- intersect(cls, formatter_classes(S$reg))
     is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text & !(fm %in% UNIT_CLASSES)]
+    fm <- fm[!is_text & !(fm %in% c(".plus", UNIT_CLASSES))]
     if (length(fm)) {
       e <- c(e, sprintf("A formatter class on a cite span is an error (rule 1.8.7): %s.",
                         paste(fm, collapse = " ")))

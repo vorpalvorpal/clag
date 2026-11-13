@@ -9,12 +9,12 @@ NUMBER_CLASSES <- c(".num", ".pct", ".sci", ".p", ".date")
 WORDING_CLASSES <- c(".word", ".count", ".ord")
 COLLAPSE_CLASSES <- c(".and", ".or", ".pairs", ".range", ".ul", ".ol", ".dl")
 TEXT_CLASSES <- c(".a", ".cap", ".strong", ".em")
-RENDERER_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none")
+RENDERER_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none", "label")
 LIST_CLASSES <- c(".ul", ".ol", ".dl")
 
 shipped_classes <- function() {
   c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, UNIT_CLASSES, TEXT_CLASSES,
-    ".weft-literal")
+    ".plus", ".weft-literal")
 }
 
 # The at-most-one group of a class, `NA` when it has none. `reg` is the
@@ -34,7 +34,19 @@ class_group <- function(cls, reg = list()) {
 
 # Every formatter class: those that make a construct a formatted one.
 formatter_classes <- function(reg = list()) {
-  c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, UNIT_CLASSES, names(reg))
+  c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, UNIT_CLASSES, ".plus", names(reg))
+}
+
+# The classes `.plus` cannot go with (N8, E1): those that print something other
+# than a number `.num` or `.pct` prints.
+PLUS_CLASH <- c(".sci", ".p", ".date", ".no", ".word", ".count", ".ord")
+
+# E3: a flag argument is TRUE or FALSE.
+check_flag <- function(x, name) {
+  if (!is.logical(x) || length(x) != 1L || is.na(x)) {
+    construct_error(sprintf("`%s` must be TRUE or FALSE.", name))
+  }
+  invisible(x)
 }
 
 # ---- the printed record -------------------------------------------------
@@ -219,7 +231,8 @@ zero_noise <- function(p, cfg, keep = 15L) {
 # one that would print as zero prints as written (stage 1i). The result
 # carries `zero` when a number that is not zero printed as zero under default
 # digits: the elements, the first value and what printed.
-format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE, quantity = FALSE) {
+format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE, quantity = FALSE,
+                           plus = FALSE) {
   whole <- if (quantity) is_whole_q else is_whole
   digits <- key_number(keys, "digits")
   sigfig <- key_number(keys, "sigfig")
@@ -251,6 +264,8 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
         shown[i] <<- trimws(format(signif(sv, 12), scientific = FALSE, drop0trailing = TRUE))
       }
     }
+    # `.plus` (N2 to N4): a number printed above zero takes `+` where the minus would stand
+    if (plus && p$number > 0) p$text <- paste0("+", p$text)
     if (class == ".pct") p$text <- paste0(p$text, "%")
     p
   }
@@ -388,14 +403,46 @@ format_dates <- function(x, fmt) {
   }, "")
 }
 
-# A p-value (1.4.3, dev/design-1f.md): "p < 0.001" below 0.001, three
+# The `digits` of a `.p` (N20), from a key or a setting: a whole number from 1 to 6, else E5.
+# The text of the error is the value as it was written.
+p_digits_value <- function(v) {
+  if (is.null(v)) return(NULL)
+  out <- suppressWarnings(as.numeric(v))
+  if (length(out) != 1L || is.na(out) || out < 1 || out > 6 || out != round(out)) {
+    construct_error(sprintf("`digits` on `.p` must be a whole number from 1 to 6 (got `%s`) (rule 1.4.17).",
+                            paste(format(v), collapse = " ")))
+  }
+  as.integer(out)
+}
+
+# A p-value (1.4.3, dev/design-1f.md, N21 to N23): "p < 0.001" below 0.001, three
 # decimals when the value rounded to three decimals is below 0.1, two from
-# there, "p > 0.99" above 0.99.
-print_p <- function(p, cfg) {
+# there, "p > 0.99" above 0.99. With `digits` d (the key, else the setting
+# `p_digits`): "<" below 10^-d, ">" when the value rounds to 1 at d decimals, else d decimals. `label` is
+# the text before the relation ("" prints none).
+print_p <- function(p, cfg, digits = NULL, label = NULL) {
   dm <- cfg$decimal_mark
+  label <- label %||% cfg$p_label %||% "p"
   mk <- function(str, rel, num) {
-    list(text = paste0("p ", rel, " ", sub(".", dm, str, fixed = TRUE)),
+    lead <- if (nzchar(label)) paste0(label, " ", rel, " ") else if (rel == "=") "" else paste0(rel, " ")
+    list(text = paste0(lead, sub(".", dm, str, fixed = TRUE)),
          number = num, decimals = TRUE, relation = rel)
+  }
+  d <- p_digits_value(digits %||% cfg$p_digits)
+  if (!is.null(d)) {
+    unit <- 10^-d
+    if (p < unit * (1 - 1e-9)) {
+      s <- paste0("0.", strrep("0", d - 1L), "1")
+      return(mk(s, "<", as.numeric(s)))
+    }
+    # above 1 - 10^-d, as printed: a value that rounds to 1 (0.9996 at d = 3), not one that rounds
+    # to 1 - 10^-d (0.9994), which prints as it is
+    if (round_half_away(p, d) >= 1) {
+      s <- paste0("0.", strrep("9", d))
+      return(mk(s, ">", as.numeric(s)))
+    }
+    s <- sprintf(paste0("%.", d, "f"), round_half_away(p, d))
+    return(mk(s, "=", as.numeric(s)))
   }
   if (p < 0.001) return(mk("0.001", "<", 0.001))
   if (p > 0.99) return(mk("0.99", ">", 0.99))
@@ -408,12 +455,17 @@ print_p <- function(p, cfg) {
   mk(s, "=", as.numeric(s))
 }
 
-format_p <- function(value, cfg) {
+format_p <- function(value, cfg, keys = list()) {
   if (any(value < 0 | value > 1)) {
     value_error(sprintf("`.p` needs a value from 0 to 1; got %s.",
                         format(value[value < 0 | value > 1][1L])))
   }
-  res <- lapply(as.numeric(value), print_p, cfg = cfg)
+  label <- keys$label
+  if (!is.null(label) && (!is.character(label) || length(label) != 1L || is.na(label))) {
+    construct_error("`label` must be one string (rule 1.4.17).")
+  }
+  digits <- keys$digits
+  res <- lapply(as.numeric(value), print_p, cfg = cfg, digits = digits, label = label)
   new_weft_text(
     vapply(res, `[[`, "", "text"),
     number = vapply(res, `[[`, 0, "number"),
@@ -435,7 +487,7 @@ vowel_sound <- function(text, minus = "\u2212", decimal_mark = ".", big_mark = "
   orig <- text
   # emphasis marks and a minus sign do not count: "a \u22128", "an **8**"
   text <- sub("^[*_~]*", "", text)
-  for (mk in c(minus, "-")) {
+  for (mk in c(minus, "-", "+")) {
     if (nzchar(mk) && startsWith(text, mk) && grepl("^[0-9]", substring(text, nchar(mk) + 1L))) {
       return(FALSE)
     }
@@ -486,7 +538,7 @@ capitalise <- function(text) {
 
 # The collapse of `.range` (1.4.4): one number when both ends print the
 # same, " to " when either end is negative, an en dash otherwise.
-collapse_range <- function(text, number, cfg, raw = NULL) {
+collapse_range <- function(text, number, cfg, raw = NULL, plus = FALSE) {
   if (length(text) != 2L) {
     value_error(sprintf(
       "`.range` needs a value of length 2; this has %d (rule 5.3.2).", length(text)))
@@ -497,7 +549,8 @@ collapse_range <- function(text, number, cfg, raw = NULL) {
                         text[1L], text[2L]))
   }
   if (identical(text[1L], text[2L])) return(text[1L])
-  neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus))
+  neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus)) ||
+    (plus && any(startsWith(text, "+")))
   paste0(text[1L], if (neg) " to " else "\u2013", text[2L])
 }
 
@@ -643,7 +696,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # the result of of_n(), about(), ci() or pm() is finished wording: a number
   # or wording class on it is a value error (1.4.1, 1.4.12)
   if (isTRUE(attr(value, "phrase"))) {
-    bad_cls <- c(intersect(classes, c(NUMBER_CLASSES, ".no", WORDING_CLASSES)),
+    bad_cls <- c(intersect(classes, c(NUMBER_CLASSES, ".no", WORDING_CLASSES, ".plus")),
                  intersect(classes, names(reg))[vapply(intersect(classes, names(reg)), function(k) {
                    !identical(reg[[k]][["stage"]] %||% "number", "text")
                  }, NA)])
@@ -672,10 +725,24 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!is.null(keys$digits) && !is.null(keys$sigfig)) {
     construct_error("`digits` and `sigfig` together are an error (rule 1.4.7).")
   }
-  if (length(intersect(classes, c(".p", ".date"))) &&
-      (!is.null(keys$digits) || !is.null(keys$sigfig))) {
-    construct_error(sprintf("`digits` and `sigfig` do not apply to `%s`.",
-                            intersect(classes, c(".p", ".date"))[1L]))
+  if (".date" %in% classes && (!is.null(keys$digits) || !is.null(keys$sigfig))) {
+    construct_error("`digits` and `sigfig` do not apply to `.date`.")
+  }
+  if (".p" %in% classes) {
+    if (!is.null(keys$sigfig)) {
+      construct_error("`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17).")
+    }
+    p_digits_value(keys$digits)
+  }
+  if (!is.null(keys$label) && !".p" %in% classes) {
+    construct_error("`label` applies to `.p` only (rule 1.4.17).")
+  }
+  if (".plus" %in% classes) {
+    clash <- c(intersect(classes, PLUS_CLASH), proj("number"))
+    if (length(clash)) {
+      construct_error(sprintf(
+        "`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` prints (rule 1.4.21).", clash[1L]))
+    }
   }
   unit_cls <- intersect(classes, c(".pct", ".sci"))
   wording_cls <- c(intersect(classes, WORDING_CLASSES), proj("wording"))
@@ -729,7 +796,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # stage i: number. `digits`, `sigfig`, `unit` and a unit class imply `.num` (1.4.7).
   ncls <- c(intersect(classes, NUMBER_CLASSES), proj("number"))
   if (!length(ncls) && (!is.null(keys$digits) || !is.null(keys$sigfig) || !is.null(keys$unit) ||
-                        !is.na(unit_class_form(classes)))) {
+                        !is.na(unit_class_form(classes)) || ".plus" %in% classes)) {
     ncls <- ".num"
   }
 
@@ -822,11 +889,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       if (cls %in% names(reg)) {
         rec <- apply_project(reg[[cls]], value, value)
       } else if (cls == ".p") {
-        rec <- format_p(value, cfg)
+        rec <- format_p(value, cfg, keys)
       } else {
         bound <- if (!is.null(clamp_rel) && length(clamp_rel) == length(value)) clamp_rel != "="
         rec <- format_numbers(value, cls, keys, cfg, bound, range = ".range" %in% classes && cls == ".num",
-                              quantity = !is.null(un))
+                              quantity = !is.null(un), plus = ".plus" %in% classes)
         # a value a formatter already warned about is not warned about twice
         zero <- attr(rec, "zero")
         if (was_warned && is.null(clamp_rel)) zero <- NULL
@@ -843,7 +910,8 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     rec <- if (pass_text) orig_text else value
   } else if (is.numeric(value)) {
     # `.range` prints both ends to the same number of decimals (1.4.4)
-    rec <- format_numbers(value, ".num", keys, cfg, range = ".range" %in% classes, quantity = !is.null(un))
+    rec <- format_numbers(value, ".num", keys, cfg, range = ".range" %in% classes, quantity = !is.null(un),
+                          plus = ".plus" %in% classes)
     zero <- attr(rec, "zero")
     attr(rec, "zero") <- NULL
   } else {
@@ -972,7 +1040,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (".range" %in% classes) {
       lf <- forms[n_el]
       one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
-      text <- collapse_range(text, number, cfg, raw)
+      text <- collapse_range(text, number, cfg, raw, plus = ".plus" %in% classes)
       out_suffix <- suffix_of(lf, !one_printed)
       out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
       out_forms <- lf
@@ -1002,7 +1070,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       } else if (cl == ".range") {
         lf <- forms[n_el]
         one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
-        text <- collapse_range(text, number, cfg, raw)
+        text <- collapse_range(text, number, cfg, raw, plus = ".plus" %in% classes)
         out_suffix <- suffix_of(lf, !one_printed)
         out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
         out_forms <- lf
@@ -1167,6 +1235,15 @@ apply_project <- function(spec, x, number_source) {
 #'   `fmt_no()`, `fmt_word()` and `fmt_count()`, and `"name"` when the
 #'   document's `lang` is not English. A form other than `"auto"` on a value
 #'   with no unit is a `weft_value_error`. `fmt_pct()` and `fmt_p()` take none.
+#' @param plus `TRUE` to print a number above zero with a plus sign (`fmt_num()`,
+#'   `fmt_pct()`, `fmt_range()`; the class `.plus`, rule 1.4.21). Zero and a number
+#'   that prints as zero have no sign; a negative number prints the `minus`
+#'   setting. Anything but `TRUE` or `FALSE` is a `weft_construct_error`.
+#' @param label For `fmt_p()`, the text before the relation: "q" prints "q =
+#'   0.046", `""` prints "0.046". `NULL` takes the setting `p_label` (default
+#'   "p"). With `digits`, `fmt_p()` takes a whole number from 1 to 6 (and
+#'   the setting `p_digits`): below 10^-digits it prints "p < 0.001", above 1
+#'   less that "p > 0.999", else that many decimals (rule 1.4.17).
 #' @param sep The text between items of a collapse.
 #' @param last The text before the final item of a collapse. The default is
 #'   " and " (" or " for `fmt_or()`), with a comma before it when the
@@ -1232,15 +1309,18 @@ NULL
 
 #' @rdname fmt
 #' @export
-fmt_num <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL) {
+fmt_num <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE) {
   check_unit_form(unit_form, "fmt_num")
-  apply_formatters(x, ".num", list(digits = digits, sigfig = sigfig, unit = unit), unit_form = unit_form)
+  check_flag(plus, "plus")
+  apply_formatters(x, c(".num", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit),
+                   unit_form = unit_form)
 }
 
 #' @rdname fmt
 #' @export
-fmt_pct <- function(x, digits = NULL, sigfig = NULL, unit = NULL) {
-  apply_formatters(x, ".pct", list(digits = digits, sigfig = sigfig, unit = unit))
+fmt_pct <- function(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE) {
+  check_flag(plus, "plus")
+  apply_formatters(x, c(".pct", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit))
 }
 
 #' @rdname fmt
@@ -1299,7 +1379,9 @@ fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_f
 
 #' @rdname fmt
 #' @export
-fmt_p <- function(x) apply_formatters(x, ".p")
+fmt_p <- function(x, digits = NULL, label = NULL) {
+  apply_formatters(x, ".p", list(digits = digits, label = label))
+}
 
 #' @rdname fmt
 #' @export
@@ -1307,9 +1389,11 @@ fmt_date <- function(x) apply_formatters(x, ".date")
 
 #' @rdname fmt
 #' @export
-fmt_range <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL) {
+fmt_range <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE) {
   check_unit_form(unit_form, "fmt_range")
-  apply_formatters(x, ".range", list(digits = digits, sigfig = sigfig, unit = unit), unit_form = unit_form)
+  check_flag(plus, "plus")
+  apply_formatters(x, c(".range", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit),
+                   unit_form = unit_form)
 }
 
 #' @rdname fmt

@@ -24,9 +24,16 @@
 \alias{fmt_em}
 \title{Formatter functions}
 \usage{
-fmt_num(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
+fmt_num(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  unit_form = NULL,
+  plus = FALSE
+)
 
-fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL)
+fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE)
 
 fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
 
@@ -49,11 +56,18 @@ fmt_and(
 
 fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL)
 
-fmt_p(x)
+fmt_p(x, digits = NULL, label = NULL)
 
 fmt_date(x)
 
-fmt_range(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
+fmt_range(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  unit_form = NULL,
+  plus = FALSE
+)
 
 fmt_pairs(
   x,
@@ -115,6 +129,11 @@ alone). Anything else is a \code{weft_construct_error}, and so is \code{"symbol"
 document's \code{lang} is not English. A form other than \code{"auto"} on a value
 with no unit is a \code{weft_value_error}. \code{fmt_pct()} and \code{fmt_p()} take none.}
 
+\item{plus}{\code{TRUE} to print a number above zero with a plus sign (\code{fmt_num()},
+\code{fmt_pct()}, \code{fmt_range()}; the class \code{.plus}, rule 1.4.21). Zero and a number
+that prints as zero have no sign; a negative number prints the \code{minus}
+setting. Anything but \code{TRUE} or \code{FALSE} is a \code{weft_construct_error}.}
+
 \item{sep}{The text between items of a collapse.}
 
 \item{last}{The text before the final item of a collapse. The default is
@@ -128,6 +147,12 @@ given here is used as it is.}
 length zero (\code{fmt_and()}, \code{fmt_or()}, \code{fmt_pairs()}, \code{fmt_ul()},
 \code{fmt_ol()}, \code{fmt_dl()}). The default, \code{NULL}, makes an empty vector a
 \code{weft_no_value} error. \code{NULL} itself is always an error.}
+
+\item{label}{For \code{fmt_p()}, the text before the relation: "q" prints "q =
+0.046", \code{""} prints "0.046". \code{NULL} takes the setting \code{p_label} (default
+"p"). With \code{digits}, \code{fmt_p()} takes a whole number from 1 to 6 (and
+the setting \code{p_digits}): below 10^-digits it prints "p < 0.001", above 1
+less that "p > 0.999", else that many decimals (rule 1.4.17).}
 }
 \value{
 A \code{weft_text}.

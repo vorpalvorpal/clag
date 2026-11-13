@@ -41,3 +41,150 @@ value	classes	keys	text	record
 2/3	p		p = 0.67	{"t":"float","v":"0.6666666666666666"}
 0.0123456	p		p = 0.012	{"t":"float","v":"0.0123456"}
 0.1 + 0.2	p		p = 0.30	{"t":"float","v":"0.30000000000000004"}
+0	p	digits=1	p < 0.1	{"t":"float","v":"0"}
+1e-10	p	digits=1	p < 0.1	{"t":"float","v":"1e-10"}
+0.00004	p	digits=1	p < 0.1	{"t":"float","v":"4e-05"}
+0.0004	p	digits=1	p < 0.1	{"t":"float","v":"0.0004"}
+0.004	p	digits=1	p < 0.1	{"t":"float","v":"0.004"}
+0.04	p	digits=1	p < 0.1	{"t":"float","v":"0.04"}
+0.046	p	digits=1	p < 0.1	{"t":"float","v":"0.046"}
+0.05	p	digits=1	p < 0.1	{"t":"float","v":"0.05"}
+0.12	p	digits=1	p = 0.1	{"t":"float","v":"0.12"}
+0.125	p	digits=1	p = 0.1	{"t":"float","v":"0.125"}
+0.25	p	digits=1	p = 0.3	{"t":"float","v":"0.25"}
+0.375	p	digits=1	p = 0.4	{"t":"float","v":"0.375"}
+0.5	p	digits=1	p = 0.5	{"t":"float","v":"0.5"}
+0.625	p	digits=1	p = 0.6	{"t":"float","v":"0.625"}
+0.75	p	digits=1	p = 0.8	{"t":"float","v":"0.75"}
+0.9	p	digits=1	p = 0.9	{"t":"float","v":"0.9"}
+0.96	p	digits=1	p > 0.9	{"t":"float","v":"0.96"}
+0.99	p	digits=1	p > 0.9	{"t":"float","v":"0.99"}
+0.9994	p	digits=1	p > 0.9	{"t":"float","v":"0.9994"}
+0.9996	p	digits=1	p > 0.9	{"t":"float","v":"0.9996"}
+0.99996	p	digits=1	p > 0.9	{"t":"float","v":"0.99996"}
+0.01	p	digits=1	p < 0.1	{"t":"float","v":"0.01"}
+0.1	p	digits=1	p = 0.1	{"t":"float","v":"0.1"}
+0.15	p	digits=1	p = 0.2	{"t":"float","v":"0.15"}
+0.95	p	digits=1	p > 0.9	{"t":"float","v":"0.95"}
+0.91	p	digits=1	p = 0.9	{"t":"float","v":"0.91"}
+1	p	digits=1	p > 0.9	{"t":"float","v":"1"}
+1L	p	digits=1	p > 0.9	{"t":"int","v":"1"}
+0	p	digits=2	p < 0.01	{"t":"float","v":"0"}
+1e-10	p	digits=2	p < 0.01	{"t":"float","v":"1e-10"}
+0.00004	p	digits=2	p < 0.01	{"t":"float","v":"4e-05"}
+0.0004	p	digits=2	p < 0.01	{"t":"float","v":"0.0004"}
+0.004	p	digits=2	p < 0.01	{"t":"float","v":"0.004"}
+0.04	p	digits=2	p = 0.04	{"t":"float","v":"0.04"}
+0.046	p	digits=2	p = 0.05	{"t":"float","v":"0.046"}
+0.05	p	digits=2	p = 0.05	{"t":"float","v":"0.05"}
+0.12	p	digits=2	p = 0.12	{"t":"float","v":"0.12"}
+0.125	p	digits=2	p = 0.13	{"t":"float","v":"0.125"}
+0.25	p	digits=2	p = 0.25	{"t":"float","v":"0.25"}
+0.375	p	digits=2	p = 0.38	{"t":"float","v":"0.375"}
+0.5	p	digits=2	p = 0.50	{"t":"float","v":"0.5"}
+0.625	p	digits=2	p = 0.63	{"t":"float","v":"0.625"}
+0.75	p	digits=2	p = 0.75	{"t":"float","v":"0.75"}
+0.9	p	digits=2	p = 0.90	{"t":"float","v":"0.9"}
+0.96	p	digits=2	p = 0.96	{"t":"float","v":"0.96"}
+0.99	p	digits=2	p = 0.99	{"t":"float","v":"0.99"}
+0.9994	p	digits=2	p > 0.99	{"t":"float","v":"0.9994"}
+0.9996	p	digits=2	p > 0.99	{"t":"float","v":"0.9996"}
+0.99996	p	digits=2	p > 0.99	{"t":"float","v":"0.99996"}
+0.001	p	digits=2	p < 0.01	{"t":"float","v":"0.001"}
+0.01	p	digits=2	p = 0.01	{"t":"float","v":"0.01"}
+0.015	p	digits=2	p = 0.02	{"t":"float","v":"0.015"}
+0.995	p	digits=2	p > 0.99	{"t":"float","v":"0.995"}
+0.991	p	digits=2	p = 0.99	{"t":"float","v":"0.991"}
+1	p	digits=2	p > 0.99	{"t":"float","v":"1"}
+1L	p	digits=2	p > 0.99	{"t":"int","v":"1"}
+0	p	digits=3	p < 0.001	{"t":"float","v":"0"}
+1e-10	p	digits=3	p < 0.001	{"t":"float","v":"1e-10"}
+0.00004	p	digits=3	p < 0.001	{"t":"float","v":"4e-05"}
+0.0004	p	digits=3	p < 0.001	{"t":"float","v":"0.0004"}
+0.004	p	digits=3	p = 0.004	{"t":"float","v":"0.004"}
+0.04	p	digits=3	p = 0.040	{"t":"float","v":"0.04"}
+0.046	p	digits=3	p = 0.046	{"t":"float","v":"0.046"}
+0.05	p	digits=3	p = 0.050	{"t":"float","v":"0.05"}
+0.12	p	digits=3	p = 0.120	{"t":"float","v":"0.12"}
+0.125	p	digits=3	p = 0.125	{"t":"float","v":"0.125"}
+0.25	p	digits=3	p = 0.250	{"t":"float","v":"0.25"}
+0.375	p	digits=3	p = 0.375	{"t":"float","v":"0.375"}
+0.5	p	digits=3	p = 0.500	{"t":"float","v":"0.5"}
+0.625	p	digits=3	p = 0.625	{"t":"float","v":"0.625"}
+0.75	p	digits=3	p = 0.750	{"t":"float","v":"0.75"}
+0.9	p	digits=3	p = 0.900	{"t":"float","v":"0.9"}
+0.96	p	digits=3	p = 0.960	{"t":"float","v":"0.96"}
+0.99	p	digits=3	p = 0.990	{"t":"float","v":"0.99"}
+0.9994	p	digits=3	p = 0.999	{"t":"float","v":"0.9994"}
+0.9996	p	digits=3	p > 0.999	{"t":"float","v":"0.9996"}
+0.99996	p	digits=3	p > 0.999	{"t":"float","v":"0.99996"}
+0.0001	p	digits=3	p < 0.001	{"t":"float","v":"0.0001"}
+0.001	p	digits=3	p = 0.001	{"t":"float","v":"0.001"}
+0.0015	p	digits=3	p = 0.002	{"t":"float","v":"0.0015"}
+0.999	p	digits=3	p = 0.999	{"t":"float","v":"0.999"}
+0.9995	p	digits=3	p > 0.999	{"t":"float","v":"0.9995"}
+0.9991	p	digits=3	p = 0.999	{"t":"float","v":"0.9991"}
+1	p	digits=3	p > 0.999	{"t":"float","v":"1"}
+1L	p	digits=3	p > 0.999	{"t":"int","v":"1"}
+0	p	digits=4	p < 0.0001	{"t":"float","v":"0"}
+1e-10	p	digits=4	p < 0.0001	{"t":"float","v":"1e-10"}
+0.00004	p	digits=4	p < 0.0001	{"t":"float","v":"4e-05"}
+0.0004	p	digits=4	p = 0.0004	{"t":"float","v":"0.0004"}
+0.004	p	digits=4	p = 0.0040	{"t":"float","v":"0.004"}
+0.04	p	digits=4	p = 0.0400	{"t":"float","v":"0.04"}
+0.046	p	digits=4	p = 0.0460	{"t":"float","v":"0.046"}
+0.05	p	digits=4	p = 0.0500	{"t":"float","v":"0.05"}
+0.12	p	digits=4	p = 0.1200	{"t":"float","v":"0.12"}
+0.125	p	digits=4	p = 0.1250	{"t":"float","v":"0.125"}
+0.25	p	digits=4	p = 0.2500	{"t":"float","v":"0.25"}
+0.375	p	digits=4	p = 0.3750	{"t":"float","v":"0.375"}
+0.5	p	digits=4	p = 0.5000	{"t":"float","v":"0.5"}
+0.625	p	digits=4	p = 0.6250	{"t":"float","v":"0.625"}
+0.75	p	digits=4	p = 0.7500	{"t":"float","v":"0.75"}
+0.9	p	digits=4	p = 0.9000	{"t":"float","v":"0.9"}
+0.96	p	digits=4	p = 0.9600	{"t":"float","v":"0.96"}
+0.99	p	digits=4	p = 0.9900	{"t":"float","v":"0.99"}
+0.9994	p	digits=4	p = 0.9994	{"t":"float","v":"0.9994"}
+0.9996	p	digits=4	p = 0.9996	{"t":"float","v":"0.9996"}
+0.99996	p	digits=4	p > 0.9999	{"t":"float","v":"0.99996"}
+0.00001	p	digits=4	p < 0.0001	{"t":"float","v":"1e-05"}
+0.0001	p	digits=4	p = 0.0001	{"t":"float","v":"0.0001"}
+0.00015	p	digits=4	p = 0.0002	{"t":"float","v":"0.00015"}
+0.9999	p	digits=4	p = 0.9999	{"t":"float","v":"0.9999"}
+0.99995	p	digits=4	p > 0.9999	{"t":"float","v":"0.99995"}
+0.99991	p	digits=4	p = 0.9999	{"t":"float","v":"0.99991"}
+1	p	digits=4	p > 0.9999	{"t":"float","v":"1"}
+1L	p	digits=4	p > 0.9999	{"t":"int","v":"1"}
+0.046	p	label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	label=q	q > 0.99	{"t":"float","v":"0.995"}
+0.12	p	label=q	q = 0.12	{"t":"float","v":"0.12"}
+0.046	p	label=	0.046	{"t":"float","v":"0.046"}
+0.0004	p	label=	< 0.001	{"t":"float","v":"0.0004"}
+0.995	p	label=	> 0.99	{"t":"float","v":"0.995"}
+0.12	p	label=	0.12	{"t":"float","v":"0.12"}
+0.046	p	digits=3 label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	digits=3 label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.12	p	digits=3 label=q	q = 0.120	{"t":"float","v":"0.12"}
+0.9996	p	digits=3 label=q	q > 0.999	{"t":"float","v":"0.9996"}
+0.046	p	digits=3 label=	0.046	{"t":"float","v":"0.046"}
+0.0004	p	digits=3 label=	< 0.001	{"t":"float","v":"0.0004"}
+0.12	p	digits=3 label=	0.120	{"t":"float","v":"0.12"}
+0.9996	p	digits=3 label=	> 0.999	{"t":"float","v":"0.9996"}
+0.046	p	cfg.p_digits=3	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	cfg.p_digits=3	p < 0.001	{"t":"float","v":"0.0004"}
+0.12	p	cfg.p_digits=3	p = 0.120	{"t":"float","v":"0.12"}
+0.9996	p	cfg.p_digits=3	p > 0.999	{"t":"float","v":"0.9996"}
+0.046	p	cfg.p_label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	cfg.p_label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	cfg.p_label=q	q > 0.99	{"t":"float","v":"0.995"}
+0.046	p	cfg.p_label=	0.046	{"t":"float","v":"0.046"}
+0.995	p	cfg.p_label=	> 0.99	{"t":"float","v":"0.995"}
+0.12	p	cfg.p_digits=3 cfg.p_label=q	q = 0.120	{"t":"float","v":"0.12"}
+0.046	p	cfg.p_digits=3 cfg.p_label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.12	p	digits=2 cfg.p_digits=3	p = 0.12	{"t":"float","v":"0.12"}
+0.0004	p	digits=2 cfg.p_digits=3	p < 0.01	{"t":"float","v":"0.0004"}
+0.046	p	label=p cfg.p_label=q	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	label=p cfg.p_label=q	p < 0.001	{"t":"float","v":"0.0004"}
+0.046	p	label= cfg.p_label=q	0.046	{"t":"float","v":"0.046"}
+0.0004	p	label= cfg.p_label=q	< 0.001	{"t":"float","v":"0.0004"}

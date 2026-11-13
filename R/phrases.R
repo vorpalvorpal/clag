@@ -42,8 +42,9 @@ one_number <- function(x, fn, arg, unit_ok = TRUE) {
 }
 
 # A number as `.num` prints it, under the project's settings.
-print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
-  format_numbers(x, ".num", list(digits = digits, sigfig = sigfig), cfg)
+print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config(), plus = FALSE,
+                      class = ".num") {
+  format_numbers(x, class, list(digits = digits, sigfig = sigfig), cfg, plus = plus)
 }
 
 #' Phrase functions
@@ -61,8 +62,12 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #'   `tolerance` from `to` is a value error, because the sentence would be
 #'   false. The default tolerance is the setting `about_tolerance`
 #'   (0.05).
-#' * `ci(est, lo, hi, level, digits, sigfig)` prints "2.1 (95% CI 1.3 to
-#'   2.9)". The default level is the setting `ci_level` (0.95).
+#' * `ci(est, lo, hi, level, digits, sigfig, plus, pct, short)` prints "2.1
+#'   (95% CI 1.3 to 2.9)". The default level is the setting `ci_level` (0.95).
+#'   `plus = TRUE` signs the three numbers as `.plus` does; `pct = TRUE`
+#'   prints each as `.pct` does; `short = TRUE` (default: the setting
+#'   `ci_short`) leaves out "95% CI", and a `level` given with the short form
+#'   is a `weft_value_error`.
 #' * `pm(est, se, digits, sigfig)` prints the estimate, a plus-minus sign
 #'   and the standard error.
 #'   When `digits` and `sigfig` are not given and a number of `ci()` or
@@ -88,6 +93,7 @@ print_num <- function(x, digits = NULL, sigfig = NULL, cfg = current_config()) {
 #' @param tolerance The largest distance from `to` that `about()` accepts.
 #' @param est,lo,hi,se Numbers.
 #' @param level The confidence level of `ci()`, as a proportion.
+#' @param plus,pct,short `TRUE` or `FALSE` (`short` also `NULL`) for `ci()`; see above.
 #' @param digits,sigfig Decimal places or significant figures, as for
 #'   [fmt_num()].
 #' @param floor,ceiling The bounds of `clamp()`; `NULL` for none.
@@ -182,12 +188,24 @@ about <- function(x, to = 1 / 2, tolerance = NULL) {
 
 #' @rdname phrases
 #' @export
-ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
+ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL, plus = FALSE, pct = FALSE,
+               short = NULL) {
   check_english("ci")
+  check_flag(plus, "plus")
+  check_flag(pct, "pct")
+  if (!is.null(short) && (!is.logical(short) || length(short) != 1L || is.na(short))) {
+    construct_error("`short` must be TRUE, FALSE or NULL.")
+  }
   est <- one_number(est, "ci", "est", FALSE)
   lo <- one_number(lo, "ci", "lo", FALSE)
   hi <- one_number(hi, "ci", "hi", FALSE)
   cfg <- current_config()
+  short <- short %||% isTRUE(cfg$ci_short)
+  if (short && !is.null(level)) {
+    value_error(sprintf(paste0("ci(): the short form prints no level, and `level = %s` was given; ",
+                               "give `short = FALSE` to print it, or drop `level` (rule 3.5.3)."),
+                        paste(format(level), collapse = " ")))
+  }
   level <- one_number(level %||% cfg$ci_level %||% 0.95, "ci", "level")
   if (level <= 0 || level >= 1) value_error("`level` of ci() must be between 0 and 1.")
   if (lo > hi) value_error(sprintf("ci(): `lo` (%s) is more than `hi` (%s).", format(lo), format(hi)))
@@ -195,13 +213,17 @@ ci <- function(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL) {
     value_error(sprintf("ci(): `est` (%s) is outside the interval %s to %s.",
                         format(est), format(lo), format(hi)))
   }
-  pe <- print_num(est, digits, sigfig, cfg)
-  pl <- print_num(lo, digits, sigfig, cfg)
-  ph <- print_num(hi, digits, sigfig, cfg)
+  cls <- if (pct) ".pct" else ".num"
+  pe <- print_num(est, digits, sigfig, cfg, plus, cls)
+  pl <- print_num(lo, digits, sigfig, cfg, plus, cls)
+  ph <- print_num(hi, digits, sigfig, cfg, plus, cls)
   note_zero_parts(list(pe, pl, ph))
   lv <- format(round(level * 100, 6), trim = TRUE)
-  txt <- sprintf("%s (%s%% CI %s to %s)", as.character(pe), lv, as.character(pl),
-                 as.character(ph))
+  txt <- if (short) {
+    sprintf("%s (%s to %s)", as.character(pe), as.character(pl), as.character(ph))
+  } else {
+    sprintf("%s (%s%% CI %s to %s)", as.character(pe), lv, as.character(pl), as.character(ph))
+  }
   as_phrase(new_weft_text(txt, number = attr(pe, "number"), decimals = attr(pe, "decimals"),
                           relation = "=", raw = est))
 }

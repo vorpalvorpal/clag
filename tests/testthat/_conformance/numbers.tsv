@@ -458,3 +458,22 @@ pi	num	sigfig=5	3.1416	{"t":"float","v":"3.141592653589793"}
 99.5	pct	sigfig=3	9,950%	{"t":"float","v":"99.5"}
 1234.5	pct	sigfig=3	123,000%	{"t":"float","v":"1234.5"}
 0.5	pct	sigfig=3	50.0%	{"t":"float","v":"0.5"}
+1.25	num plus		+1.3	{"t":"float","v":"1.25"}
+-1.25	num plus		−1.3	{"t":"float","v":"-1.25"}
+0	num plus		0	{"t":"float","v":"0"}
+-0	num plus		0	{"t":"float","v":"-0"}
+0.04	num plus		0.0	{"t":"float","v":"0.04"}
+-0.04	num plus		0.0	{"t":"float","v":"-0.04"}
+1e-10	num plus		0	{"t":"float","v":"1e-10"}
+1234.5	num plus		+1,234.5	{"t":"float","v":"1234.5"}
+0.999	num plus	digits=2	+1.00	{"t":"float","v":"0.999"}
+0.12	pct plus		+12%	{"t":"float","v":"0.12"}
+-0.12	pct plus		−12%	{"t":"float","v":"-0.12"}
+1.25	pct plus		+125%	{"t":"float","v":"1.25"}
+-1.25	pct plus		−125%	{"t":"float","v":"-1.25"}
+0	pct plus		0%	{"t":"float","v":"0"}
+-0	pct plus		0%	{"t":"float","v":"-0"}
+0.04	pct plus		+4%	{"t":"float","v":"0.04"}
+-0.04	pct plus		−4%	{"t":"float","v":"-0.04"}
+1e-10	pct plus		0.0%	{"t":"float","v":"1e-10"}
+1234.5	pct plus		+123,450%	{"t":"float","v":"1234.5"}

@@ -44,7 +44,7 @@ p7_zero_warnings <- function(expr) {
 
 # the construct errors the scanner finds in a source text
 p7_scan_errs <- function(text) {
-  r <- weft:::scan_text(text)
+  r <- weft:::scan_text(text, config = weft:::current_config())
   as.character(r$error[!is.na(r$error)])
 }
 
@@ -56,6 +56,8 @@ p7_knit <- function(lines, yml = character(), may_fail = FALSE) {
   out <- file.path(res$dir, "doc.md")
   res$text <- if (file.exists(out)) {
     x <- readLines(out, warn = FALSE, encoding = "UTF-8")
+    # knitr::knit() keeps the YAML header that write_doc() puts on top: drop it
+    if (length(x) && identical(x[1L], "---") && sum(x == "---") >= 2L) x <- x[-seq_len(which(x == "---")[2L])]
     x[nzchar(trimws(x))]
   } else {
     character()

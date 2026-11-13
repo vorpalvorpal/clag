@@ -13,7 +13,17 @@ of_n(k, n, singular, plural)
 
 about(x, to = 1/2, tolerance = NULL)
 
-ci(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL)
+ci(
+  est,
+  lo,
+  hi,
+  level = NULL,
+  digits = NULL,
+  sigfig = NULL,
+  plus = FALSE,
+  pct = FALSE,
+  short = NULL
+)
 
 pm(est, se, digits = NULL, sigfig = NULL)
 
@@ -37,6 +47,8 @@ clamp(x, floor = NULL, ceiling = NULL)
 \item{digits, sigfig}{Decimal places or significant figures, as for
 \code{\link[=fmt_num]{fmt_num()}}.}
 
+\item{plus, pct, short}{\code{TRUE} or \code{FALSE} (\code{short} also \code{NULL}) for \code{ci()}; see above.}
+
 \item{floor, ceiling}{The bounds of \code{clamp()}; \code{NULL} for none.}
 }
 \value{
@@ -58,8 +70,12 @@ compared as percentages rounded to whole numbers. An \code{x} further than
 \code{tolerance} from \code{to} is a value error, because the sentence would be
 false. The default tolerance is the setting \code{about_tolerance}
 (0.05).
-\item \code{ci(est, lo, hi, level, digits, sigfig)} prints "2.1 (95\% CI 1.3 to
-2.9)". The default level is the setting \code{ci_level} (0.95).
+\item \code{ci(est, lo, hi, level, digits, sigfig, plus, pct, short)} prints "2.1
+(95\% CI 1.3 to 2.9)". The default level is the setting \code{ci_level} (0.95).
+\code{plus = TRUE} signs the three numbers as \code{.plus} does; \code{pct = TRUE}
+prints each as \code{.pct} does; \code{short = TRUE} (default: the setting
+\code{ci_short}) leaves out "95\% CI", and a \code{level} given with the short form
+is a \code{weft_value_error}.
 \item \code{pm(est, se, digits, sigfig)} prints the estimate, a plus-minus sign
 and the standard error.
 When \code{digits} and \code{sigfig} are not given and a number of \code{ci()} or

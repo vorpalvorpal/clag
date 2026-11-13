@@ -134,8 +134,15 @@ conf_numbers_rows <- function() {
   pk <- c("0.15", "2.5", "1/3", "12.5", "-3.456", "99.5", "1234.5", "0.5")
   for (k in 0:3) d <- rbind(d, conf_frame(pk, "pct", paste0("digits=", k), ""))
   for (k in 1:3) d <- rbind(d, conf_frame(pk, "pct", paste0("sigfig=", k), ""))
+  # an explicit plus sign (design-7 N14)
+  plus_vals <- c("1.25", "-1.25", "0", "-0", "0.04", "-0.04", "1e-10", "1234.5")
+  d <- rbind(d, conf_frame(plus_vals, "num plus", "", ""),
+             conf_frame("0.999", "num plus", "digits=2", ""),
+             conf_frame(c("0.12", "-0.12", plus_vals), "pct plus", "", ""))
   d <- conf_unique(d)
-  fs <- list(num = fmt_num, pct = fmt_pct)
+  fs <- list(num = fmt_num, pct = fmt_pct,
+             `num plus` = function(x, ...) fmt_num(x, ..., plus = TRUE),
+             `pct plus` = function(x, ...) fmt_pct(x, ..., plus = TRUE))
   d$text <- vapply(seq_len(nrow(d)), function(i) {
     suppressWarnings(conf_text(fs[[d$classes[i]]], d$value[i], d$keys[i]))
   }, "")
@@ -319,7 +326,31 @@ conf_p_rows <- function() {
             "0.04949", "0.0499", "0.05", "0.0504", "0.0995", "0.09949", "0.0996", "0.1", "0.104",
             "0.105", "0.15", "0.155", "0.2", "0.5", "0.985", "0.989", "0.99", "0.9901", "0.995",
             "1", "0L", "1L", "1/3", "2/3", "0.0123456", "0.1 + 0.2")
-  conf_finish(conf_frame(vals, "p", "", ""))
+  out <- conf_frame(vals, "p", "", "")
+  # digits, a label and the settings (design-7 N28): each threshold, a tie, and 1 - 10^-d exactly
+  for (d in 1:4) {
+    lo <- 10^-d
+    hi <- 1 - lo
+    pv <- c("0", "1e-10", "0.00004", "0.0004", "0.004", "0.04", "0.046", "0.05", "0.12", "0.125", "0.25",
+            "0.375", "0.5", "0.625", "0.75", "0.9", "0.96", "0.99", "0.9994", "0.9996", "0.99996",
+            format(lo / 10, scientific = FALSE), format(lo, scientific = FALSE),
+            format(lo * 1.5, scientific = FALSE), format(hi, digits = 15),
+            format(hi + lo / 2, digits = 15), format(hi + lo / 10, digits = 15), "1", "1L")
+    out <- rbind(out, conf_frame(unique(pv), "p", paste0("digits=", d), ""))
+  }
+  out <- rbind(out,
+    conf_frame(c("0.046", "0.0004", "0.995", "0.12"), "p", "label=q", ""),
+    conf_frame(c("0.046", "0.0004", "0.995", "0.12"), "p", "label=", ""),
+    conf_frame(c("0.046", "0.0004", "0.12", "0.9996"), "p", "digits=3 label=q", ""),
+    conf_frame(c("0.046", "0.0004", "0.12", "0.9996"), "p", "digits=3 label=", ""),
+    conf_frame(c("0.046", "0.0004", "0.12", "0.9996"), "p", "cfg.p_digits=3", ""),
+    conf_frame(c("0.046", "0.0004", "0.995"), "p", "cfg.p_label=q", ""),
+    conf_frame(c("0.046", "0.995"), "p", "cfg.p_label=", ""),
+    conf_frame(c("0.12", "0.046"), "p", "cfg.p_digits=3 cfg.p_label=q", ""),
+    conf_frame(c("0.12", "0.0004"), "p", "digits=2 cfg.p_digits=3", ""),
+    conf_frame(c("0.046", "0.0004"), "p", "label=p cfg.p_label=q", ""),
+    conf_frame(c("0.046", "0.0004"), "p", "label= cfg.p_label=q", ""))
+  conf_finish(out)
 }
 
 conf_collapse_rows <- function() {
@@ -345,6 +376,9 @@ conf_collapse_rows <- function() {
           "c(5L, 9L)", "c(2.5, 2.5)", "c(1234, 56789)", "c(0.15, 0.25)", "c(10, 10.04)",
           "c(-3, -3)", "c(0, 0)", "c(1e6, 2e6)")
   add(rv, "range")
+  # an explicit plus sign (design-7 N14)
+  add(c("c(1.2, 3.4)", "c(-0.5, 1.2)", "c(0, 1.2)", "c(1.2, 1.2)", "c(-3, -1)", "c(0, 0)", "c(3, 5)",
+        "c(0.04, 1.2)", "c(1000, 2500)"), "range plus")
   for (k in 0:2) add(rv[c(3, 6, 7, 10)], "range", paste0("digits=", k))
   for (k in 1:3) add(rv[c(3, 6, 7, 10)], "range", paste0("sigfig=", k))
   # .and and .or: sep, last, trunc, serial_comma
@@ -392,6 +426,7 @@ conf_text_rows <- function() {
   add(an[an %in% c("0", "1", "2", "3", "8", "9", "10", "11", "12", "18", "19", "80", "81", "89",
                    "90", "100", "800", "1000")], "ord a")
   add(an[c(5, 8, 10, 14, 17, 21, 22, 25, 29, 30)], "num a", "digits=1")
+  add(c("8", "3", "11", "18", "-8", "1.25", "0", "80"), "num plus a")
   add(c("\"eight\"", "\"one\"", "\"eleven\"", "\"eighteen\"", "\"eighty\"", "\"ten\"", "\"hundred\"",
         "\"thousand\"", "\"Eight\""), "a")
   # .cap

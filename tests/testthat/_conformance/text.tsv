@@ -94,6 +94,14 @@ value	classes	keys	text	record
 100000	num a	digits=1	a 100,000.0	{"t":"float","v":"100000"}
 11e6	num a	digits=1	an 11,000,000.0	{"t":"float","v":"11000000"}
 18e9	num a	digits=1	an 18,000,000,000.0	{"t":"float","v":"18000000000"}
+8	num plus a		a +8	{"t":"float","v":"8"}
+3	num plus a		a +3	{"t":"float","v":"3"}
+11	num plus a		a +11	{"t":"float","v":"11"}
+18	num plus a		a +18	{"t":"float","v":"18"}
+-8	num plus a		a −8	{"t":"float","v":"-8"}
+1.25	num plus a		a +1.3	{"t":"float","v":"1.25"}
+0	num plus a		a 0	{"t":"float","v":"0"}
+80	num plus a		a +80	{"t":"float","v":"80"}
 "eight"	a		an eight	{"t":"string","v":"eight"}
 "one"	a		a one	{"t":"string","v":"one"}
 "eleven"	a		an eleven	{"t":"string","v":"eleven"}

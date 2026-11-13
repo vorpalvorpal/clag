@@ -30,6 +30,15 @@ c(10, 10.04)	range		10.0	{"t":"list","v":[{"t":"float","v":"10"},{"t":"float","v
 c(-3, -3)	range		−3	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-3"}],"of":"float","keys":null}
 c(0, 0)	range		0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
 c(1e6, 2e6)	range		1,000,000–2,000,000	{"t":"list","v":[{"t":"float","v":"1000000"},{"t":"float","v":"2000000"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus		+1.2 to +3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus		−0.5 to +1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(0, 1.2)	range plus		0.0 to +1.2	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 1.2)	range plus		+1.2	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(-3, -1)	range plus		−3 to −1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 0)	range plus		0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(3, 5)	range plus		+3 to +5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(0.04, 1.2)	range plus		0.0 to +1.2	{"t":"list","v":[{"t":"float","v":"0.04"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1000, 2500)	range plus		+1,000 to +2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
 c(-5, -3)	range	digits=0	−5 to −3	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
 c(1.25, 3.5)	range	digits=0	1–4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
 c(1000, 2500)	range	digits=0	1,000–2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
