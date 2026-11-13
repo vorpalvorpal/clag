@@ -178,7 +178,11 @@ install_hooks <- function() {
   })
   wrap_hook("text", function(prev) {
     function(x, ...) {
+      s <- ensure_knit()
+      # the names published so far go in a block before the prose that may use them (N43)
+      blk <- values_pending_for(s, x)
       y <- resolve_text(x)
+      if (!is.null(blk)) y <- paste0(blk, "\n", y)
       if (is.function(prev)) prev(y, ...) else y
     }
   })
@@ -189,7 +193,11 @@ install_hooks <- function() {
   wrap_hook("document", function(prev) {
     function(x, ...) {
       if (is.function(prev)) x <- prev(x, ...)
-      if (!is_child_knit()) finish_document()
+      if (!is_child_knit()) {
+        s <- active_state()
+        if (!is.null(s)) x <- values_append(s, x)
+        finish_document()
+      }
       x
     }
   })
@@ -486,14 +494,16 @@ finish_document <- function() {
                         conditionMessage(e)))
   })
   for (F in s$files) {
-    if (is.null(F$expected) || !nrow(F$expected)) next
-    want <- paste(F$expected$kind, F$expected$line)
+    # a named value is the filter's to resolve (N130h)
+    exp <- F$expected[F$expected$kind != "named", , drop = FALSE]
+    if (is.null(exp) || !nrow(exp)) next
+    want <- paste(exp$kind, exp$line)
     have <- F$recorded
     # knit_exit() ends the document: what is below the point where the knit
     # stopped is not part of the check (2.5.2)
     below <- rep(FALSE, length(want))
     if (isTRUE(s$exited) && F$cursor <= length(F$orig)) {
-      below <- F$expected$line >= F$orig[F$cursor]
+      below <- exp$line >= F$orig[F$cursor]
     }
     for (k in seq_along(want)) {
       if (below[k]) next
@@ -502,10 +512,10 @@ finish_document <- function() {
         have <- have[-i]
         next
       }
-      ml <- map_lines(F, F$expected$line[k])
+      ml <- map_lines(F, exp$line[k])
       add_failure(s, "unevaluated", file = ml$file, line = ml$line,
-                  expr = sprintf("a `%s` construct", F$expected$kind[k]),
-                  detail = unevaluated_detail(F$expected$context[k]))
+                  expr = sprintf("a `%s` construct", exp$kind[k]),
+                  detail = unevaluated_detail(exp$context[k]))
     }
   }
   fr <- failures_frame(s)

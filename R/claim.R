@@ -59,38 +59,11 @@ claim <- function(x, ..., level = c("fail", "warn")) {
       "argument, for example `claim(x, . > 0)`."), "weft_claim_no_check")
   }
   value <- x
-  env <- new.env(parent = parent.frame())
-  assign(".", value, envir = env)
-  # a comparison of two quantities in twin units (Sv and Gy) is a value error, not a failed check (4.4.14)
-  for (op in c(">", "<", ">=", "<=", "==", "!=")) assign(op, twin_safe_compare(op), envir = env)
-  bad <- integer()
-  errs <- character()
-  lens <- integer()
-  hints <- character()
-  for (k in seq_along(checks)) {
-    res <- tryCatch(eval(checks[[k]], env), error = function(e) e)
-    if (inherits(res, "weft_unit_twin")) stop(res)
-    if (inherits(res, "error")) {
-      # a check that raises an error is a failed check (2.6.1)
-      bad <- c(bad, k)
-      errs <- c(errs, conditionMessage(res))
-      lens <- c(lens, NA_integer_)
-      hints <- c(hints, if (grepl("both operands of the expression should be \"units\" objects",
-                                  conditionMessage(res), fixed = TRUE)) {
-        "state the check's unit, as in . < u(0.45, ug) (rule 4.4.5)"
-      } else NA_character_)
-      next
-    }
-    ok <- is.logical(res) && length(res) == 1L && !is.na(res) && res
-    if (!ok) {
-      bad <- c(bad, k)
-      errs <- c(errs, NA_character_)
-      hints <- c(hints, NA_character_)
-      # a check that returns a vector is not a single TRUE (3.1.3): say how
-      # many values it returned
-      lens <- c(lens, if (length(res) != 1L) length(res) else NA_integer_)
-    }
-  }
+  res <- claim_run_checks(checks, value, parent.frame())
+  bad <- which(!res$ok)
+  errs <- res$errs[bad]
+  lens <- res$lens[bad]
+  hints <- res$hints[bad]
   if (length(bad)) {
     claim_fail(list(
       checks = written_checks(frames, checks, weft_env$inline$expr)[bad],
@@ -101,6 +74,44 @@ claim <- function(x, ..., level = c("fail", "warn")) {
     ), level)
   }
   value
+}
+
+# Run each check of a `claim()` on `value`, in a child of `penv` where `.` is the
+# value. Returns, for every check, whether it passed (`ok`), the message of the
+# error it raised (`errs`), the length of a result that was not a single value
+# (`lens`) and a hint (`hints`); the last three are NA where they do not apply.
+# `weft_put()` runs the checks of a claim it captures by this same function.
+claim_run_checks <- function(checks, value, penv) {
+  env <- new.env(parent = penv)
+  assign(".", value, envir = env)
+  # a comparison of two quantities in twin units (Sv and Gy) is a value error, not a failed check (4.4.14)
+  for (op in c(">", "<", ">=", "<=", "==", "!=")) assign(op, twin_safe_compare(op), envir = env)
+  n <- length(checks)
+  ok <- rep(TRUE, n)
+  errs <- rep(NA_character_, n)
+  lens <- rep(NA_integer_, n)
+  hints <- rep(NA_character_, n)
+  for (k in seq_len(n)) {
+    res <- tryCatch(eval(checks[[k]], env), error = function(e) e)
+    if (inherits(res, "weft_unit_twin")) stop(res)
+    if (inherits(res, "error")) {
+      # a check that raises an error is a failed check (2.6.1)
+      ok[k] <- FALSE
+      errs[k] <- conditionMessage(res)
+      if (grepl("both operands of the expression should be \"units\" objects",
+                conditionMessage(res), fixed = TRUE)) {
+        hints[k] <- "state the check's unit, as in . < u(0.45, ug) (rule 4.4.5)"
+      }
+      next
+    }
+    if (!(is.logical(res) && length(res) == 1L && !is.na(res) && res)) {
+      ok[k] <- FALSE
+      # a check that returns a vector is not a single TRUE (3.1.3): say how
+      # many values it returned
+      if (length(res) != 1L) lens[k] <- length(res)
+    }
+  }
+  list(ok = ok, errs = errs, lens = lens, hints = hints)
 }
 
 # The comparison `op`, which refuses two quantities in units the units package defines alike.

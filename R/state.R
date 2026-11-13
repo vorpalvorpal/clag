@@ -36,6 +36,14 @@ new_state <- function() {
   s$exited <- FALSE
   s$dict <- NULL
   s$dict_local <- NULL
+  # values by name (N42, N43): the names waiting for the next block of prose, the
+  # label of the chunk that put them, the names the source names, and the last
+  # record read of each
+  s$waiting <- list()
+  s$waiting_cell <- NULL
+  s$names <- character()
+  s$names_paths <- character()
+  s$auto <- list()
   s
 }
 
