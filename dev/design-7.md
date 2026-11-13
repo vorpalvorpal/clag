@@ -89,8 +89,8 @@ knitr and rmarkdown as installed. Scripts under the scratchpad (`e1.*` to
 | F7 `decision=` on literals, `cite` spans and `claim()` | 7g | build |
 | F7 on Python and Julia `claim()` | | out, later |
 | F8 `range` dictionary type and `in_range()` | 7h | build |
-| F9 checks of one value compared: the reader, implication, the gate's lines, `checks()` | 7j | build |
-| F9 for Python and Julia checks, value expressions as operands, two checks combined, `verify(since =)` | | out (N147, D38; §9 q4) |
+| F9 checks of one value compared: the reader (value expressions as operands, N149 to N151), implication, the gate's lines, `checks()` | 7j | build |
+| F9 for Python and Julia checks, reasoning about arithmetic in an expression, two checks combined, `verify(since =)` | | out (N147, D38, D53) |
 | Spec, articles and the three documentation items (§6, §7a) | 7i | build, last |
 | `pm(plus=)`; `.plus` on `.sci`; a plus-glyph setting | | out (D3, D4) |
 | A citation check in the output; parity of numbering between formats; alt text; inventories; typesetting | | out (D13) |
@@ -556,7 +556,9 @@ conditions, where deleting the strictest check loosens the document without
 anyone seeing it. Three parts: the gate says, for each check that is gone,
 whether a check that remains implies it; a report function groups checks by
 value; the claims article recommends checking once where the value is made
-(7i). Only checks the static tools can read are reasoned about.
+(7i). Only checks the static tools can read are reasoned about. A value
+expression such as `max(turb)` is read as an operand (ruled 14 Nov, §9 q4;
+N149 to N151, D50 to D54).
 
 ```
 The site [exceeded the trigger]{if="turb_max > trigger"} on most days.   line 12, and 8 more like it
@@ -567,7 +569,8 @@ In March it [reached the trigger]{if="turb_max >= trigger"}.             line 64
 n_up <- claim(sum(trend$up), . >= 10)    # reads as n_up >= 10
 claim(n_sites, . > 5, level = "warn")    # n_sites > 5, warned
 x |> claim(. < u(50, NTU))               # x < u(50, NTU)
-claim(max(turb), . < u(50, NTU))         # not read: its value is a call
+claim(max(turb), . < u(50, NTU))         # max(turb) < u(50, NTU)
+claim(diffs, all(. > 0))                 # not read: the check is a call
 ```
 
 Deleting line 64 loses nothing: `turb_max > trigger` implies
@@ -584,22 +587,24 @@ commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6
 
 ```
 
-The same mirror document, with three claims on `n_up` and one claim that is
-not read, before the deletion:
+The same mirror document, with three claims on `n_up`, one on `max(turb)`
+and one claim that is not read, before the deletion:
 
 ```r
 checks()
-#> weft checks: 14 checks of 2 values in 1 document; 1 value flagged
+#> weft checks: 15 checks of 3 values in 1 document; 1 value flagged
 #>
 #> report.qmd
 #>   n_up
-#>     n_up >= 10           3  lines 8, 44, 90
+#>     n_up >= 10              3  lines 8, 44, 90
 #>       checked in 3 places with the same condition: check it once where the value is made
 #>   turb_max  [operators]
-#>     turb_max >= trigger  9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
-#>     turb_max > trigger   1  line 64
+#>     turb_max >= trigger     9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
+#>     turb_max > trigger      1  line 64
+#>   max(turb)
+#>     max(turb) < u(50, NTU)  1  line 120
 #>   not read
-#>     claim(max(turb), . < u(50, NTU))  1  line 120
+#>     claim(diffs, all(. > 0))  1  line 126
 #>
 ```
 
@@ -628,14 +633,22 @@ checks()
 - **N121. Readable.** A check is readable when, after removing parentheses
   that enclose the whole of it, it is
   - `A OP B`, `OP` one of `< <= > >= == !=`, each side an operand of N122,
-    at least one side a name or a dictionary read, the two sides not the
-    same operand; or
-  - a name, or `!` directly before a name (a bool check).
+    at least one side a value operand (`name`, `dict` or `expr`), the two
+    sides not the same operand (the same kind and the same text in normal
+    form); or
+  - a name, or `!` directly before a name (a bool check). An expression is
+    never a bool check: `all(x)`, `is.na(x)`, `!any(x)` and `claim(all(x), .)`
+    are not readable (D54).
 
   In a document the filter resolves, every guard part that is not a
-  construct error has one of these forms. In R code anything else is not
-  readable: `&&`, `||`, a call (`all()`, `is.na()`), arithmetic, indexing
-  other than a dictionary read, `%in%`. In both, an ordering operator (`<`,
+  construct error has one of these forms; its grammar has no calls, so a
+  guard there is read exactly as before (a part such as `max(x) > 5` is a
+  construct error, 1.12.4, and its row is not readable). In R code anything
+  else is not readable: `&&`, `||` or `%in%` at the top of the check, a call
+  as the whole check (`all(. > 0)`, `is.na(x)`), arithmetic or indexing as
+  the whole check with no comparison at its top. A call, arithmetic or
+  indexing on one side of a comparison is an operand of kind `expr` (N122):
+  `max(x) > 5`, `x[1] > 5` and `x < 2 * lim` are readable. In both, an ordering operator (`<`,
   `<=`, `>`, `>=`) against a `string` or `bool` literal is not readable (the
   filter raises a value error on it at render unless the other side is a
   date, which nothing static knows), nor is a comparison of two literals
@@ -659,7 +672,83 @@ checks()
     literal);
   - `quantity`: `u(<number>, <unit>)` in R with a number literal of this list
     and a unit written as a symbol or a string; its kind carries the unit as
-    written, white space removed (`quantity NTU`).
+    written, white space removed (`quantity NTU`);
+  - `expr` (R only): any other R expression, when it is usable (N150); its
+    identity is its normal form (N149). `max(turbidity)`, `x[1]`,
+    `2 * lim`, `nrow(subset(d, flow > 2))`. A singleton is read like any
+    other: an expression that occurs once in the document is a group of one
+    (D51).
+
+  The kinds are tried in the order listed, so `u(50, NTU)` is a quantity
+  and `-2L` a number, never an `expr`. An operand that is none of them is not
+  an operand, and its check is not readable (`x > Inf`, `x > NULL`). A
+  *value operand* is one of kind `name`, `dict` or `expr`; where N124 and
+  N127 to N131 say "name" they mean any value operand.
+- **N149. An expression's normal form.** The operand node's source text
+  (`node_text()`), parsed alone with `parse(text = , keep.source = FALSE)`;
+  calls to `(` that enclose the whole expression removed; then
+  `deparse(e, width.cutoff = 500L)`, each line trimmed and the lines joined
+  by one space. So these are one expression, `max(turbidity)`:
+  `max( turbidity )`, `(max(turbidity))`, the call written over two lines
+  with a comment, and `turbidity |> max()` (R's parser rewrites the native
+  pipe, and its `_` placeholder, before anything is deparsed). Deparsing also
+  writes every string in double quotes (`f('a')` is `f("a")`) and a number as
+  R prints it (`f(5.0)` is `f(5)`, `f(1e3)` is `f(1000)`; `5L` stays `5L`).
+  Not normalised: parentheses inside (`max((x))` is not `max(x)`), a package
+  prefix (`base::max(x)` is not `max(x)`), the order of arguments
+  (`max(a, b)` is not `max(b, a)`), named and positional arguments
+  (`round(x, 1)` is not `round(x, digits = 1)`), `%>%` against nesting
+  (`x %>% max()` is not `max(x)`), `T` against `TRUE`, `dict$"k"` against
+  `dict$k` inside the expression, and arithmetic (`2 * lim` is not
+  `lim * 2`, nor `lim + lim`). Two texts with one normal form are one
+  operand; nothing else is. Each distinct source text is parsed once per
+  read of a document (memoised); this parse of one operand is the only
+  parse the reader adds to `code_pieces()`'s.
+- **N150. A usable expression.** Over the operand's subtree in the parse
+  data, its *names read* are its `SYMBOL` tokens other than the one after
+  `$` or `@`; its *functions called* are its `SYMBOL_FUNCTION_CALL` tokens,
+  with the package when written `pkg::f` or `pkg:::f`. It is usable unless
+  1. it reads no name (`1/3`, `2 * 25`, `Inf`, `0x10`, `c(1, 2)`,
+     `runif(1)`): `x > 1/3` is not readable; write the literal;
+  2. a name read is `.` (a placeholder of `%>%`, or a claim's `.` inside an
+     operand: `claim(x, mean(.) > 3)`, `x %>% max(.)`);
+  3. it holds an assignment or a definition: a `LEFT_ASSIGN`,
+     `RIGHT_ASSIGN` or `EQ_ASSIGN` token (`<-`, `<<-`, `->`, `->>`, `=`
+     outside an argument list, `:=`), or a `FUNCTION` or `'\\'` token
+     (`function`, `\(`);
+  4. it holds `{`, `if`, `for`, `while`, `repeat`, `break` or `next`;
+  5. it calls a function through anything but a plain or `pkg::` name
+     (`obj$size()`, `f()()`, `fs[[1]](x)`): such a call may be a method
+     with effects, and `call_info()` gives it no `fn`;
+  6. it calls, with or without a package prefix, a function of the
+     constant `CHECK_UNSAFE_FNS` in `R/checks.R`, which is exactly:
+     - random draws: `sample`, `sample.int`, `set.seed`, `rbeta`, `rbinom`,
+       `rcauchy`, `rchisq`, `rexp`, `rf`, `rgamma`, `rgeom`, `rhyper`,
+       `rlnorm`, `rlogis`, `rmultinom`, `rnbinom`, `rnorm`, `rpois`,
+       `rsignrank`, `rt`, `runif`, `rweibull`, `rwilcox`;
+     - the clock and the session: `Sys.time`, `Sys.Date`, `date`,
+       `proc.time`, `Sys.getenv`, `Sys.getpid`, `tempfile`, `getwd`;
+     - input: `readline`, `readLines`, `scan`, `menu`, `file.choose`;
+     - reads the parse data cannot see, and effects: `get`, `get0`, `mget`,
+       `exists`, `eval`, `evalq`, `assign`, `rm`, `source`, `library`,
+       `require`, `attach`, `options`, `Sys.setenv`, `setwd`,
+       `parent.frame`, `sys.call`, `sys.function`, `environment`;
+  7. it holds a dictionary read `dict$k` of a key `k` the document also
+     defines locally (N122's ambiguity, applied inside).
+
+  An expression that is not usable is not an operand, so its check is not
+  readable and is grouped by text, as before. A function the document
+  defines is not looked into (§8, flag 8). Rebinding does not make an
+  expression unusable: it is *rebound* (N125) as a name is, and is then
+  never covered nor covers (N131), which is the owner's condition.
+- **N151. Where an expression is read.** As either side of `A OP B` in a
+  guard of a document the hooks resolve, and in a check argument of an R
+  `claim()`, including as the claim's value bound to `.` (N123, rule 4).
+  Nowhere in a document the filter resolves (N121). Arithmetic on either
+  side is in, as an operand compared by its normal form only:
+  `x < 2 * lim` is the pair `x`, `2 * lim`; it implies `x <= 2 * lim` by
+  N128, and nothing about `x < lim` or `x < 3 * lim` (no arithmetic is
+  reasoned about, N147).
 - **N123. The claim's `.`** stands for its value (3.1.2), and is bound to:
   1. the value expression when it is a name or a dictionary read:
      `claim(foo, . > bar)` reads `foo > bar`;
@@ -669,9 +758,20 @@ checks()
   3. else the name the result is assigned to, when the claim call (or the
      pipe that ends in it) is the whole right side of `<-`, `=` or `<<-`, or
      the whole left side of `->`: `n_up <- claim(sum(trend$up), . >= 10)`
-     reads `n_up >= 10` (`claim()` returns its value unchanged, 3.1.1).
+     reads `n_up >= 10` (`claim()` returns its value unchanged, 3.1.1);
+  4. else the value expression, or the piped value when the claim is the
+     right side of a pipe, when it is a usable `expr` (N150), in its normal
+     form (N149): `claim(max(turbidity), . < u(50, NTU))` and
+     `turbidity |> max() |> claim(. < u(50, NTU))` both read
+     `max(turbidity) < u(50, NTU)`.
 
-  Otherwise a check that holds `.` is not readable. A check without `.` is
+  The assigned name comes before the expression, so
+  `n <- claim(max(turbidity), . < 5)` reads `n < 5` (D42), and is a check
+  of another value than a bare `claim(max(turbidity), . < 5)` elsewhere.
+  `.` is bound only where it is a whole operand; a `.` inside an operand
+  makes that operand unusable (N150). Otherwise a check that holds `.` is
+  not readable (`claim(5, . > 3)` is two literals; `claim(runif(1), . < 1)`
+  has an unusable value). A check without `.` is
   read as written: `claim(x, y > 3)` reads `y > 3`. A claim anywhere inside a
   function definition (`function(v) ...`, `\(v) ...`) is not readable: its
   names are the function's.
@@ -681,13 +781,19 @@ checks()
     written. It is not `x == TRUE`: in R, `x == TRUE` passes on the number
     1 and the bare `x` does not (a check passes only on a single logical
     `TRUE`, 3.1.3);
-  - a name or dictionary read against a literal: the name on the left,
+  - a value operand against a literal: the value operand on the left,
     the operator mirrored when the sides swap (`<` and `>`, `<=` and `>=`;
-    `==` and `!=` unchanged): `5 < x` is `x > 5`;
-  - two names: the check's *key* orders them by their text (byte order),
-    mirroring the operator; the *display* keeps the orientation of the
+    `==` and `!=` unchanged): `5 < x` is `x > 5`, `50 > max(t)` is
+    `max(t) < 50`;
+  - two value operands: the check's *key* orders them by their text (byte
+    order; an expression by its normal form), mirroring the operator; the
+    *display* keeps the orientation of the
     check on that pair that comes first in the document (line, then
-    column), and every check on the pair is shown in it;
+    column), and every check on the pair is shown in it (`x < 2 * lim` is
+    keyed `2 * lim > x`, `"2"` sorting before `"x"`, and shown as written);
+  - an expression is written in its normal form (N149), with no other
+    change: the literals inside it are as `deparse()` writes them, not as
+    the next item writes a literal operand;
   - a literal is written canonically: a number as its exact decimal with no
     `+`, no leading zeros, no trailing zeros after the point, no exponent and
     `0` for `-0` (`5.0` is `5`, `1e3` is `1000`, `.50` is `0.5`, `-2L` is
@@ -710,8 +816,13 @@ checks()
 
   Not counted: `weft_put()`, a `weft-values` block, a values file, a
   `source()`d script, `list2env()`, `<<-` inside a function. A dictionary
-  read is never rebound. A check is *rebound* when a name among its operands
-  is.
+  read is never rebound. An `expr` operand is *rebound* when one of its
+  names read (N150) is, or one of its functions called that has no package
+  prefix is, each counted by the rules above (a function the document
+  defines twice, `f <- function(...)` in two places, is rebound;
+  `base::max` never is; `dict` and `dict_local` never are). A check is
+  *rebound* when a name among its operands is, or an `expr` among them is.
+  E87 then names the first rebound name in the check's text.
 - **N126. Runs always.** A check *runs always* unless its construct sits in an
   arm of a span with more than one arm (`n`, `if`, `sign`, `list`), or the
   claim sits under an R `if`, `else`, `for`, `while` or `repeat`. A check
@@ -721,9 +832,12 @@ checks()
 
 - **N127. Which checks relate.** A check A *implies* a check B when every
   value that passes A passes B. weft decides it only between two readable
-  checks on the same *pair*: the same two operands of kind `name` or `dict`
-  in either orientation, or the same operand against literals of the same
-  kind (for `quantity`, the same unit). Between any other two checks the only
+  checks on the same *pair*: the same two value operands (`name`, `dict` or
+  `expr`, N122) in either orientation, or the same value operand against
+  literals of the same kind (for `quantity`, the same unit). Two
+  expressions are the same operand only when their normal forms are equal
+  (N149): `max(t) < 5` and `max(t, na.rm = TRUE) < 5` are on two pairs, and
+  neither implies the other. Between any other two checks the only
   implication is identity (the same key).
 - **N128. Two names.** With A and B oriented the same way, A implies B in
   exactly these 10 cells (✓):
@@ -791,7 +905,8 @@ checks()
   - A's level is `fail`, or B's level is `warn` (a warned check fails
     nothing, so it covers only a warned one; a level `unknown` counts as
     `warn` when it covers and as `fail` when it is gone); and
-  - B's names are not rebound in D on the new side (N125).
+  - B is not rebound in D on the new side (N125: neither its names nor
+    the names and functions its expressions read).
 
   One check must do it alone: two checks are never combined (`x >= 5` and
   `x != 5` do not cover `x > 5`) and implications are not chained (`x > y`
@@ -802,7 +917,8 @@ checks()
 **The gate** (new spec 6.3.7)
 
 - **N132. Reading.** On each side the gate reads the checks of every
-  document with the reader of N120 to N126, from the same source it counts
+  document with the reader of N120 to N126 and N149 to N151, from the same
+  source it counts
   constructs on (`gate_reader()`, the parse trees `code_pieces()` already
   built for `inert-check`), and keeps them in the per-file cache entry beside
   `findings` and `constructs` (6.1.6). An entry without `checks` is a miss.
@@ -827,7 +943,8 @@ checks()
   1. `deleted`: its document is not on the new side (deleted or renamed).
      Its rows print as one line, E86;
   2. `rebound`: B is readable, the new side of D holds a check on B's pair,
-     and one of B's names is rebound there: E87;
+     and B is rebound there (N125; for an expression, a name or function it
+     reads): E87;
   3. `same`: covered (N131) by a check with B's key: E81;
   4. `implied`: covered by a check with another key: E82;
   5. `warned`: a check of D on the new side implies B and runs always, but
@@ -847,8 +964,9 @@ checks()
   constructs removed (or the findings block, when there is none) and comes
   before the notes and the time line: per file, in path order, the line
   `  <file>, as in HEAD`, then each gone row in line order as
-  `sprintf("    %5d  %s", line, shown)`, `shown` being `cond` or the text cut
-  at 70 characters as 6.3.4 cuts it, then its verdict on the next line,
+  `sprintf("    %5d  %s", line, shown)`, `shown` being `cond` or the text,
+  either cut at 70 characters as 6.3.4 cuts it (a `cond` holding a long
+  expression is cut too), then its verdict on the next line,
   indented 11 spaces (under `shown`); a blank line after each file. A
   deleted document's heading is followed by E86 alone, indented four
   spaces.
@@ -872,16 +990,16 @@ checks()
   `path` and `files` are read as `lints()` reads them, with its errors
   (5.1.1). `repeats` is a whole number from 2, else E91, a `weft_lint_error`.
   Each document of the report set is read through `lint_open()`, the reader
-  `lints()` uses, and its checks by N120 to N126 from the same parse trees
-  (`code_pieces()`); nothing is run. The gate's cache does not apply: it is
+  `lints()` uses, and its checks by N120 to N126 and N149 to N151 from the
+  same parse trees (`code_pieces()`); nothing is run. The gate's cache does not apply: it is
   keyed on index and commit blobs, and `checks()` reads the work tree. A
   document that is not valid UTF-8 is skipped with a note.
 - **N142. The value.** A data frame of class `weft_checks`, one row per
   check of N120 (all three roles), sorted by file, line and column, with
   the columns `file`, `line` (integers from 1), `role` (`guard`, `claim`,
   `branch`), `level` (`fail`, `warn`, `unknown`; NA for a branch),
-  `value`, `op`, `other`, `cond` (N124 display orientation; NA when not
-  readable), `text` (as written, white space collapsed), `always` (N126),
+  `value`, `op`, `other` (an expression in its normal form, N149), `cond`
+  (N124 display orientation; NA when not readable), `text` (as written, white space collapsed), `always` (N126),
   `rebound` (N125), `flag` and `repeated`; the attribute `notes`.
 - **N143. Flags.** A *group* is the readable rows with one `file` and one
   `value`. Every row of a group carries the group's `flag`: `""`, or
@@ -902,7 +1020,10 @@ checks()
 - **N145. Printing.** E92, a blank line, then per file in path order: the
   file's path; per value in order of first line, two spaces, the value, and
   `  [<flag>]` when flagged, and `  (assigned in more than one place)` when
-  its rows are rebound; per distinct (`cond`, kind) in order of first line,
+  its rows are rebound (for a value that is an expression,
+  `  (reads a name assigned in more than one place)`); a value that is an
+  expression with no other check in the file is a group of one, printed
+  like any other (`max(turb)` in §2I); per distinct (`cond`, kind) in order of first line,
   kind being `check` (fail-level guards and claims), `warn` (warned or
   unknown), or `branch`, the line
   `sprintf("    %-*s  %*d  %s%s", w, cond, wn, n, where, tag)`: `w` the
@@ -912,18 +1033,27 @@ checks()
   for `check`, "  (warn)" or "  (branch)". Under a `check` line with `n` at
   least `repeats`, E93 indented six spaces. Then, when the file has checks
   that are not readable, `  not read` and one line per distinct text, cut at
-  60 characters, in the same layout. A blank line after each file. With no
+  60 characters, in the same layout. A value heading and a `cond` longer
+  than 60 characters (a long expression) are cut the same way, and `w` is
+  taken after cutting. A blank line after each file. With no
   checks: E92's second form only. In E92 the checks are the rows, the values
   the groups (a value in two documents counts twice) and the flagged values
   the groups with a flag.
 - **N146. Cost.** One read and one parse per document, as `lints()`; the
-  reader adds a walk of the parse trees `inert-check` already walks. In the
-  gate the rows are cached per blob with the rest of the file's entry.
+  reader adds a walk of the parse trees `inert-check` already walks, and one
+  `parse()` and `deparse()` per distinct expression text (N149), memoised for
+  the read. In the gate the rows are cached per blob with the rest of the
+  file's entry, so a warm run parses no expression.
 
 **Edges, limits and effects**
 
 - **N147. Out of scope:** any claim about an R expression other than N121's
-  forms (the approved scope: other checks are grouped by text); a value expression other than a name as an operand (§9 q4);
+  forms (the approved scope: other checks are grouped by text); arithmetic
+  and any meaning of an expression beyond its normal form (`x < 2 * lim`
+  says nothing about `x < lim`; `max(t)` is not related to `max(t, u)`; the
+  forms N149 does not normalise are different operands); an expression as a
+  bool check, or with `.` inside it (D54); what a function the document
+  defines reads, or whether it draws random numbers (§8, flag 8);
   combining or chaining checks (D38); the class of an R value (a
   character or factor value compared with numbers, N129); coverage across
   documents, the same
@@ -986,7 +1116,7 @@ checks()
 | D39 | Integers or reals | integers when the value looks whole; reals | reals (N129) | nothing static knows a value is whole; `x > 4` read as `x >= 5` would cover a check that fails on 4.5 |
 | D40 | Scope of "remaining" | the project; the values that reach the name; the document | the document (N131, N147) | the same name in two knitr documents is two values, and the filter publishes per document (2.13.10); a dictionary read is one value, but a check of `x` against `dict$k` is about `x` |
 | D41 | A name assigned twice | positions within the document; ignore; no coverage | no coverage, verdict `rebound` (N125, N135) | the lines of a check in `HEAD` and of one in the commit are in two revisions, so positions do not compare without a diff of meaning; the syntactic count is cheap and errs to "not covered" |
-| D42 | What `.` stands for | the value expression only; also the piped value; also the assigned name | all three, in that order (N123) | `n <- claim(expr, . >= 10)` is exactly "check it where it is made", which the article recommends (7i); a reader that could not read it would list the recommended form as not read |
+| D42 | What `.` stands for | the value expression only; also the piped value; also the assigned name | all three, in that order (N123); since D50, a usable value expression fourth (N123, rule 4) | `n <- claim(expr, . >= 10)` is exactly "check it where it is made", which the article recommends (7i); a reader that could not read it would list the recommended form as not read; the name comes before the expression so that the recommended form groups under the name used in the prose |
 | D43 | Two-arm `if` conditions | ignore; count as checks; report only | `checks()` only, role `branch` (N120) | a branch fails nothing, so removing it loosens nothing; but `[above]` at `x > lim` beside `[above]` at `x >= lim` is the same sloppiness the owner described, at the boundary |
 | D44 | The function's name and arguments | `check_report()`; `claims()`; `checks()`; `root =` | `checks(path, files, repeats)` (N141) | a plural noun as `lints()` and `changes()`; it reports guards too, so not `claims()`; `path` and `files` as `lints()` takes them; the name is free in the namespace |
 | D45 | Quantity literals | not read; read in one unit; convert units | one unit (N122) | `. < u(50, NTU)` is weft's own idiom (the gate article's example); same-unit comparison needs no units data, conversion would |
@@ -994,6 +1124,11 @@ checks()
 | D47 | Which gone row is listed | the last, as 6.3.4; those on deleted lines first | deleted lines first (N134) | of nine identical checks the one shown should be the one the commit touched; the gate already runs the diff (G16) |
 | D48 | Literal comparison | exact decimals; doubles; exact decimals, and doubles too for a strict relation in R | the last (N130) | the filter compares decimals (1.12.5) and R compares doubles; requiring both for a strict cell keeps every implication true under either evaluator, and never matters below 16 significant digits |
 | D49 | When two conditions are flagged | any two conditions differ; same direction only | same direction (N143) | `x > 0` with `x < 10` is a range, written on purpose; a flag on every range would bury the `>`/`>=` case |
+| D50 | A value expression as an operand (§9 q4; ruled by the owner, 14 Nov: "should the check comparison also group a repeated expression - yes") | out, grouped by text; read only a claim's value; read as either side of a comparison in a claim or a hooks guard | either side, in claims and in guards of documents the hooks resolve; not in the filter, whose grammar has no calls (N122, N151) | `claim(max(turbidity), . < u(50, NTU))` is weft's own idiom (flag 7); one rule for both sides keeps N124 and N127 to N129 as they are, with "name" read as any value operand; a guard and a claim on one expression must compare, as a guard and a claim on one name do |
+| D51 | An expression that occurs once | not read until its text recurs in the document; read, a group of one | a group of one (N122) | readability must be a property of the check alone: if it hung on a count, deleting one of two copies would change the key of the copy that remains, and the gate would report a gone key that is not gone; a group of one compares nothing, so reading it claims nothing |
+| D52 | An expression's identity | the text with white space collapsed; the parse data's tokens joined; `deparse()` of the parsed operand | `deparse()`, outer parentheses removed (N149) | white space, line breaks, comments, quote marks and the native pipe stop mattering, in a few lines; normalising argument order, prefixes or arithmetic would need knowledge of each function, and an unnormalised form errs to "two values", the safe side; the extra parse is of one short text, once per distinct text |
+| D53 | When an expression is usable, and arithmetic | the owner's wording only (recurs, no symbol rebound); a list of safe functions; a rule and a list of unsafe ones; arithmetic out | a rule and the list `CHECK_UNSAFE_FNS` (N150); rebinding as for a name (N125); arithmetic in, by identity only (N151) | a safe list would leave most of R unread; the rule catches what the parse data shows (assignment, definitions, blocks, method calls, a `.`), the list the common calls whose value changes between two evaluations or hides what it reads; rebound expressions stay readable but never cover or are covered (N131, N135), which is the owner's condition with the machinery names already have; `x < 2 * lim` read by identity is sound, and refusing it would need a second rule |
+| D54 | An expression as a bool check, and `.` inside an operand | read both; read neither | neither (N121, N150) | `all(x)` as a bool check implies only itself, which the text key already gives; `mean(.) > 3` would need `.` substituted into an expression, and the case is rare beside `m <- mean(x)`, which reads |
 
 ## 4. Work packages
 
@@ -1012,12 +1147,13 @@ Each package is one implementer session; its test-writer works from §2 and
 | **7f** F6 | | `inst/quarto/weft.lua` (pre-pass over the blocks; fallback; E40 to E42), `R/resolve.R` (hint E43) | `test-filter-forward.R`, `test-forward-knit.R` |
 | **7g** F7 | | `R/scan.R` (E50, E51), `R/resolve.R` (strip `decision`), `R/claim.R` (N103), `R/constructs.R` (pointer rows from claims), `R/decisions.R` and `R/verify.R` (document pointers), `inst/quarto/weft.lua` (N106) | `test-decision-pointers.R`, `test-filter-decision.R` |
 | **7i** spec and articles (§6, §7a) | | `dev/PACKAGE-SCOPING.md`, vignettes | none |
-| **7j** F9 | `R/checks.R` (the reader of N120 to N126 over `src$rows` and `code_pieces()`; `dec_cmp()`; the relation of N127 to N130; coverage, N131; `checks()` and `print.weft_checks()`; E91 to E93) | `R/gate.R` (`checks` in the file cache entry and in `gate_fallback_constructs()`'s fallback; gone keys and verdicts in `gate_judge_project()`; `checks` in `gate_assemble()`; the block of N137 and the notes of N138 in `gate_report_lines()`; E80 to E90), `R/gate-git.R` (`git_added_lines()` also returns the deleted lines of the `-` side) | `test-checks-read.R`, `test-checks-imply.R`, `test-checks-report.R`, `test-gate-checks.R`; one line of `test-gate-sides.R` |
+| **7j** F9 | `R/checks.R` (the reader of N120 to N126 over `src$rows` and `code_pieces()`; expression operands, N149 to N151, with `CHECK_UNSAFE_FNS` and the memoised normal form; `dec_cmp()`; the relation of N127 to N130; coverage, N131; `checks()` and `print.weft_checks()`; E91 to E93) | `R/gate.R` (`checks` in the file cache entry and in `gate_fallback_constructs()`'s fallback; gone keys and verdicts in `gate_judge_project()`; `checks` in `gate_assemble()`; the block of N137 and the notes of N138 in `gate_report_lines()`; E80 to E90), `R/gate-git.R` (`git_added_lines()` also returns the deleted lines of the `-` side) | `test-checks-read.R`, `test-checks-imply.R`, `test-checks-report.R`, `test-gate-checks.R`; one line of `test-gate-sides.R` |
 
 Sizes, in lines of code without tests: 7s 80; 7a 250; 7b 200; 7c 250; 7d
 400; 7e 120; 7h 200; 7f 120; 7g 250.
-7j (F9) 600: reader 250, relation and coverage 120, gate 130, `checks()`
-and print 100.
+7j (F9) 690: reader 340 (of which expression operands 90: normal form 25,
+usability and the list 45, `.` binding and rebinding 20), relation and
+coverage 120, gate 130, `checks()` and print 100.
 
 **Order and parallel groups.**
 
@@ -1036,7 +1172,8 @@ and print 100.
 **7j** (F9, approved after this order was set) edits files no other
 package edits (`R/gate.R`, `R/gate-git.R`, a new `R/checks.R`) and only
 reads `R/scan.R` (`COND_RE`, `cond_parts()`), `R/lint-code.R`
-(`code_pieces()`, `pd_tree()`, `call_info()`, `dict_reads()`) and
+(`code_pieces()`, `pd_tree()`, `node_text()`, `subtree()`, `pipe_lhs()`,
+`call_info()`, `dict_reads()`) and
 `R/constructs.R` (`claim_calls()`); it reads no setting. It must follow
 7a, which edits `R/scan.R`, whose functions it calls. It runs beside 7g in
 step 5: 7g edits `R/scan.R` and `R/constructs.R` only by adding errors and
@@ -1065,7 +1202,13 @@ are F1 and F2, 7c is C, 7d is D, 7e is A.
 - 7j: `test-gate-perf.R`'s ratio fails once checks are read, or the parity
   cases of `test-gate-cache.R` give different `checks` from a cold and a warm
   cache. Stop and report the timings or the rows: the reader must take its
-  parse trees from `code_pieces()`, not parse again.
+  parse trees from `code_pieces()`, not parse a piece again; the only parse
+  it adds is of one expression operand's text, once per distinct text
+  (N149). Also stop and report if the source text of a native pipe's left
+  side (`pipe_lhs()`, `node_text()`) does not parse alone, or if
+  `deparse()` gives two texts for one expression within one session
+  (a non-ASCII string, a long call broken over lines): N149's identity
+  rests on both.
 
 ## 5. Tests
 
@@ -1183,7 +1326,8 @@ filled.
   document and in a filter document (two readable rows each, the same);
   `if="y <= 'a'"` in both (one row, not readable); a branch `[a | b]{if="x > 5"}`; `claim(foo, . > bar)`,
   `foo |> claim(. > 0)`, `n_up <- claim(sum(z), . >= 10)`,
-  `claim(sum(z), . >= 10) -> n_up`, `claim(sum(z), . >= 10)` (not readable),
+  `claim(sum(z), . >= 10) -> n_up`, `claim(sum(z), . >= 10)` (reads
+  `sum(z) >= 10`),
   `claim(x, y > 3)`, `claim(x, . > 0, level = "warn", decision = 31)` (one
   row, `warn`), `claim(x, . > 0, level = lv)` (`unknown`),
   `function(v) claim(v, . > 0)` (not readable); `5 < x` as `x > 5`; `x >= 5.0`,
@@ -1194,14 +1338,40 @@ filled.
   `x < u(50, NTU)`; `dict$k`, `dict[["k"]]` and `dict$"k"` all `dict$k`, and
   `dict$k` in a document with a local `k` not readable; two names keyed in
   byte order and shown in the first occurrence's orientation; not readable:
-  `all(x)`, `x > 5 && y`, `x %in% s`, `x[1] > 5`, `x > Inf`, `x > 0x10`,
-  `'a' < x`, `x > x`; a claim in an `eval: false` chunk and in indented code
+  `all(x)`, `x > 5 && y`, `x %in% s`, `x > Inf`, `x > 0x10`, `x > NULL`,
+  `x > 1/3`, `'a' < x`, `x > x`, `max(x) > max( x )`; a claim in an `eval: false` chunk and in indented code
   (no row); a Python `claim(` (one row, not readable); `always` FALSE for a
   guard in an arm of a two-arm span and for a claim under `if (ok)` and in a
   `for` body; `rebound` for `x <- 1` and `x <- 2`, for `x$a <- 2` after
   `x <- 1`, for one `for (x in s)`, for two Python `x = ` lines, and not for
   one assignment with a `weft_put()` beside it, nor for `x == 1` lines in
-  Python.
+  Python. Expression operands (N122, N123 rule 4, N149 to N151):
+  `claim(max(turbidity), . < u(50, NTU))` reads `max(turbidity)`, `<`,
+  `u(50, NTU)`; so do `turbidity |> max() |> claim(. < u(50, NTU))`,
+  `claim(max( turbidity ), ...)`, `claim((max(turbidity)), ...)` and the
+  call over two lines with a comment between them; `claim(f('a'), . > 0)`
+  has `value` `f("a")`, `claim(f(5.0), . > 0)` `f(5)`; each of `max((t))`,
+  `base::max(t)`, `round(t, 1)`, `round(t, digits = 1)`,
+  `t %>% max()` and `max(t, na.rm = TRUE)` a value of its own;
+  `n <- claim(max(t), . < 5)` reads `n < 5`; a single expression check in a
+  document gives one readable row; a hooks guard `if="max(t) < 50"` reads as
+  the claim does, and the same guard in a filter document gives one row,
+  not readable; `x[1] > 5`, `x + 1 > 5` and `-x < 0` readable with `value`
+  `x[1]`, `x + 1`, `-x`; `x < 2 * lim` keyed `2 * lim > x` and shown
+  `x < 2 * lim`; `50 > max(t)` as `max(t) < 50`; `max(a) > min(b)` (two
+  expressions); not readable, one case for each item of N150:
+  `1/3 < x` and `claim(rnorm(1), . < 0.5)` (no name read),
+  `claim(runif(n), . < 0.5)`, `claim(base::sample(s, 1), . > 0)`,
+  `Sys.time() - t0 > 5`, `claim(readLines(f)[1], . == 'y')`, `get(nm) > 5`,
+  `claim(x, mean(.) > 3)`, `x %>% max(.) %>% claim(. < 5)`,
+  `claim((y <- f(x)), . > 0)`, `claim(sapply(s, \(v) v + 1), . > 0)`,
+  `claim({ f(x) }, . > 0)`, `claim(obj$size(), . > 0)`,
+  `max(dict$k) > 5` in a document with a local `k`; `claim(all(x), .)`
+  and `claim(max(x), !.)` (an expression is not a bool check);
+  `rebound` TRUE for `max(turbidity) < 5` when `turbidity` is assigned twice,
+  when `turbidity[3] <- NA` follows one assignment, and when `f` is defined
+  twice for `f(t) < 5`; FALSE for `base::max(t) < 5` beside `max <- 1` and
+  `max <- 2`, and for `max(dict$k) < 5`.
 - `test-checks-imply.R` (7j, the internal relation, no files): all 36 cells
   of N128 (10 true); all 36 cells of N129 for each of a < b, a = b and a > b (108
   cases), on numbers, and the same 108 on dates and on quantities of one
@@ -1214,6 +1384,11 @@ filled.
   check, a warned one covering only a warned one, an `unknown` level both
   ways, a check that does not run always covering nothing, `x >= 5` with
   `x != 5` not covering `x > 5`, `x > y` with `y > 5` not covering `x > 5`.
+  Expression operands (N127, N151): `max(t) < lim` implies `max(t) <= lim`
+  and `max(t) != lim`; `max(t) < u(50, NTU)` implies `max(t) <= u(60, NTU)`;
+  `x < 2 * lim` implies `x <= 2 * lim` and nothing about `x < lim`,
+  `x < 3 * lim` or `x < lim * 2`; `max(t) < 5` and `max(t, na.rm = TRUE) < 5`
+  unrelated both ways; a rebound `max(t) < 5` covering nothing (N131).
 - `test-checks-report.R` (7j): `checks()` on a project of two documents:
   the columns and types of N142 and the sort; each flag of N143 and each "not
   flagged" case; `repeated` and E93 at `repeats = 3` with three identical
@@ -1222,7 +1397,15 @@ filled.
   document (two values, one flagged, a hint, a `(warn)` line, a `(branch)`
   line, a `not read` block, a value with eleven lines); E91 for `repeats = 1`,
   `2.5`, `"3"`; `files` errors with `lints()`'s texts; a project with no checks
-  prints E92's second form.
+  prints E92's second form. The print of §2I byte for byte (its `max(turb)`
+  group of one and its `not read` line). Expressions: three
+  `claim(max(turbidity), . < u(50, NTU))` and one
+  `claim(max( turbidity ), . <= u(50, NTU))` form one group `max(turbidity)`
+  flagged `operators`, and `repeated` 3 with E93; `max(t)` and
+  `base::max(t)` two groups; a rebound expression's heading with
+  `  (reads a name assigned in more than one place)`; an expression of 80
+  characters cut at 60 in its heading and in its line, `w` measured after
+  cutting.
 - `test-gate-checks.R` (7j, git through `g_scenario()` and `g_gate()` of
   `helper-4a.R`): the owner's case, nine `foo > bar` guards and one
   `foo >= bar`, deleting the `>=` sentence: verdict `implied`, E82; the
@@ -1239,6 +1422,17 @@ filled.
   trailer wanted identical to a run without F9 on every edit of
   `_gate/edits.R` (N139); `res$checks` columns of N140, empty on a first
   commit; a second run served from the cache gives identical `checks`.
+  Expressions (N149 to N151), each in a document of
+  `claim(max(turbidity), ...)` inline values: deleting one of three
+  identical claims: `same`, E81; deleting the `< u(40, NTU)` claim while
+  `< u(50, NTU)` claims remain: `looser`, E83 naming
+  `` `max(turbidity) < u(50, NTU)` `` among what remains; deleting a `<= u(50, NTU)`
+  claim while a `< u(50, NTU)` claim remains: `implied`, E82; respacing
+  `max( turbidity )` or rewriting it as `turbidity |> max()`: nothing gone;
+  rewriting it as `base::max(turbidity)`: gone, `none` when no other check
+  on `max(turbidity)` remains (the safe side, N149); `turbidity` assigned in
+  two chunks: `rebound`, E87 naming `turbidity`; a deleted
+  `claim(runif(n), . < 0.5)`: `unread`, E88 with its new text.
   `test-gate-sides.R`'s set of `weft_gate` names gains `checks` (the one
   existing test 7j changes, by its test writer).
 
@@ -1266,7 +1460,8 @@ filled.
 - **11** layer L13 (rendered output) now has a counterpart: 2.5.5.
 - **New 3.10** "Checks compared": N120 to N131 (what a check is, readable
   forms, operands, `.`, the normal form, rebound names, runs always, the two
-  tables, comparing literals, covered) and `checks()`, N141 to N146. **3.1**
+  tables, comparing literals, covered), N149 to N151 (value expressions as
+  operands, with the list of unsafe calls) and `checks()`, N141 to N146. **3.1**
   a pointer to 3.10, and the recommendation to check a value once where it is
   made. **New 6.3.7** N132 to N140, with the example of §2I and E80 to E90.
   **6.3.3** a changed bound still costs nothing, and prints a note when it
@@ -1320,12 +1515,12 @@ filled.
 - **E80** "commit-msg: %s gone since HEAD (information: what still checks each; rule 6.3.7)" (%s: "1 check" or "%d checks")
 - **E81** "covered: the same check remains, at line %d%s" (%s: "" or " and %d other place%s")
 - **E82** "covered: `%s` at line %d implies it"
-- **E83** "looser: nothing that remains implies it; remaining on %s against %s: %s" (the value; the other operand, or "a number", "a date", "a string", "TRUE or FALSE", "a quantity in %s"; the list of N136)
+- **E83** "looser: nothing that remains implies it; remaining on %s against %s: %s" (the value, an expression cut at 60 characters as N145 cuts it; the other operand, or "a number", "a date", "a string", "TRUE or FALSE", "a quantity in %s"; the list of N136)
 - **E84** "looser: only a warned check implies it, `%s` at line %d, and a warned check fails nothing"
 - **E85** "looser: no check of %s against %s remains in %s" (as E83; the file)
 - **E86** "the document is gone, and its %d check%s with it"
-- **E87** "not judged: `%s` is assigned in more than one place in %s, so no other check is taken to cover this one"
-- **E88** "not read: weft compares only comparisons of names and literals (rule 3.10)"
+- **E87** "not judged: `%s` is assigned in more than one place in %s, so no other check is taken to cover this one" (the first rebound name in the check's text, N125; for an expression, a name or function it reads)
+- **E88** "not read: weft compares only comparisons whose sides are names, dictionary reads, value expressions or literals (rule 3.10)"
 - **E89** "commit-msg: note: %s:%d in HEAD, `%s`, is gone and nothing that remains covers it (rule 6.3.7)" (file, line, `shown`)
 - **E90** "commit-msg: note: and %d more check%s gone with nothing that remains covering %s; gate() lists them in `checks`" ("it" or "them")
 - **E91** "`repeats` must be a whole number from 2."
@@ -1377,21 +1572,42 @@ filled.
    on the construct rows. It reads checks of its own on both sides (N132),
    kept in the gate's cache; counts check keys over the project (N133); and
    takes the rows to list from the diff the gate already runs (N134). That
-   makes 7j about 600 lines, the largest package of the stage. The rows
+   makes 7j about 690 lines with value expressions (D50), the largest package of the stage. The rows
    listed stay approximate when identical checks sit on lines the commit did
    not touch; the verdicts do not depend on which row is listed.
-7. **F9: much of weft's own idiom is not readable** under the agreed scope.
-   The gate article's example, `` `r claim(max(turbidity), . < u(50, NTU))` ``,
-   checks a call, not a name, so it is grouped by text and nothing is said
-   about it. Quantity literals are read in one unit (D45), which helps once
-   the value is a name; reading a repeated value expression as an operand
-   would help more (§9, question 4). The article's advice (check once, bind
-   a name) also makes checks readable.
+7. **F9: what stays unreadable once value expressions are read** (D50,
+   ruled 14 Nov). The gate article's example,
+   `` `r claim(max(turbidity), . < u(50, NTU))` ``, now reads, and so does
+   any comparison with a call, arithmetic or indexing on a side. Still not
+   read, and grouped by text: a check that is itself a call (`all(. > 0)`,
+   `is.na(.)`, `in_range(., r)`), `&&`, `||` and `%in%` at its top, an
+   expression as a bool check (D54), a `.` inside an operand
+   (`mean(.) > 3`), a value expression that reads no name, and an expression
+   that assigns, defines a function, holds a block or a loop, calls a
+   method, or calls a function of `CHECK_UNSAFE_FNS` (N150). Read, but
+   compared only by identity: two spellings N149 does not normalise
+   (`base::max(t)` and `max(t)`, `t %>% max()` and `max(t)`, argument order)
+   are two values, and arithmetic is not reasoned about (`x < 2 * lim` says
+   nothing about `x < lim`). A rewrite of an expression the normal form does
+   not cover therefore shows in the gate as a gone check (`none` or
+   `looser`), the safe side. The article's advice (check once, bind a name)
+   remains the way to have every check on a value grouped under one name:
+   `n <- claim(max(turbidity), ...)` is the value `n`, not `max(turbidity)`
+   (N123), so a bare `claim(max(turbidity), ...)` elsewhere is another group.
 8. **F9: a name assigned twice in a document is never covered** (D41). The
    count is syntactic and misses `assign()` with a computed name, a loop
    over `list2env()`, a value published only by `weft_put()`; a document
    that rebinds that way can see a check reported as covered by a check on
-   another value. This is the cost of judging a document statically.
+   another value. This is the cost of judging a document statically. Value
+   expressions (D50) widen it: an expression is judged by the names it shows,
+   so a function the document defines that reads a rebound name or draws
+   random numbers (`f <- function(v) v + runif(1)`, then `f(x) < 0.5` in two
+   places),
+   a value changed in place without an assignment (`data.table`'s `set()`,
+   an environment or R6 object), or a data file read twice that changes
+   between the two reads, can make two checks of `f(x)` look like checks of
+   one value. The verdicts decide nothing (D36), so the cost is a wrong
+   `same` or `implied` line, not a wrong commit.
 
 ## 9. Open questions for the owner
 
@@ -1402,6 +1618,9 @@ filled.
    same expression text recurs in one document and no symbol in it is
    rebound (`claim(max(turbidity), . < u(50, NTU))` in three sentences would
    then group and compare). It goes beyond "plain comparisons of names and
-   literals", so it is out until you say so.
+   literals", so it is out until you say so. (Answered, 14 Nov: yes, "should
+   the check comparison also group a repeated expression - yes". Built as
+   N122's `expr` and N149 to N151, D50 to D54; a single occurrence is read
+   too, D51.)
 5. F9: the default of `repeats`, the count at which `checks()` suggests
    checking once at the source: 3 (chosen) or another.

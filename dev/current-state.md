@@ -423,3 +423,21 @@ or hold); no answer yet.
   must be rebuilt before the next whole-suite run.
 - Uncommitted survivors: stage 7 test files for 7a, 7c, 7d (never run),
   and feature F9 half-appended to `dev/design-7.md`.
+
+## Position and rulings (14 Nov, midday; read this first)
+
+- `main` pushed at 9ac933b: CI repair merged (Julia off on the runner,
+  finding 22), F9 designed (package 7j), 7s built. Whole suite on the
+  Mac at 9ac933b: 54,796 expectations, 0 failed, 93 skipped.
+- Stage 7 order from here: 7a (in hand), 7c, 7d, then 7b, 7e, 7h, 7f,
+  7g, 7j, 7i. One heavy agent at a time.
+- Robin, verbatim: "should the check comparison also group a repeated
+  expression - yes". F9 reads a repeated value expression as an operand;
+  the design is being amended (§9 question 4 answered).
+- Robin, verbatim, on Julia on CI (finding 22): "Move before release."
+  The Julia crash on the Linux runner is to be diagnosed and fixed, or
+  at least understood, before v0.1 is tagged. Next step per the finding:
+  core dump and backtrace, or Julia 1.10 LTS. Work by probe branch and
+  ordinary pushes only; delete the probe branch after.
+- Still open with Robin: `repeats` default of 3 in `checks()`; the list
+  in "More rulings" above.
