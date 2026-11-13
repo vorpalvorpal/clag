@@ -1,0 +1,64 @@
+# R CMD check, with Python (numpy, pandas), Julia and Quarto set up so that
+# the Python, Julia and Quarto tests run instead of skipping. One Ubuntu job
+# on R release, to keep it cheap. The suite takes about 20 minutes.
+# Based on check-standard in https://github.com/r-lib/actions/tree/v2/examples
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+
+name: R-CMD-check
+
+permissions: read-all
+
+jobs:
+  R-CMD-check:
+    runs-on: ubuntu-latest
+    env:
+      GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
+      R_KEEP_PKG_SOURCE: yes
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: r-lib/actions/setup-pandoc@v2
+
+      - uses: r-lib/actions/setup-r@v2
+        with:
+          r-version: release
+          use-public-rspm: true
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.x'
+
+      - name: Install numpy and pandas
+        run: python -m pip install numpy pandas
+
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+
+      - name: Install udunits
+        run: sudo apt-get update && sudo apt-get install -y libudunits2-dev
+
+      - uses: r-lib/actions/setup-r-dependencies@v2
+        with:
+          extra-packages: any::rcmdcheck, any::reticulate, any::JuliaCall
+          needs: check
+
+      # weft and the tests start Julia with install = FALSE, so JuliaCall
+      # installs its Julia package RCall here, once, before the tests.
+      - name: Install RCall for JuliaCall
+        run: Rscript -e 'JuliaCall::julia_setup(installJulia = FALSE)'
+
+      - uses: quarto-dev/quarto-actions/setup@v2
+
+      - uses: r-lib/actions/check-r-package@v2
+        env:
+          RETICULATE_PYTHON: ${{ env.pythonLocation }}/bin/python
+          RETICULATE_USE_MANAGED_VENV: 'no'
+        with:
+          upload-snapshots: true
+          build_args: 'c("--no-manual", "--compact-vignettes=gs+qpdf")'
+          error-on: '"error"'
