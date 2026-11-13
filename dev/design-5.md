@@ -1044,3 +1044,18 @@ Also reserved, with nothing built: the class `weft-values`, the named
 value form (a code span holding one name, with a class) and the class
 `val`. `weft-check.lua` already fails on a code span carrying a weft
 class, which stays the right error until a resolver exists.
+
+## Julia is installed: 5J is built here (orchestrator, 13 Nov)
+
+Robin had Julia installed so that stage (a) is built with it: Julia
+1.13.3 (Homebrew), the R package JuliaCall, and RCall under
+`~/.julia`. A first session ran; `big(2)^70` stopped with an
+`InexactError` in RCall's conversion, which is loud, unlike Python's.
+
+This replaces V15 and the answer to O8. Before the 5J tests are
+written, section J gets the same treatment section B got: the
+conversions are measured here (`Int64` at and past 2^53, `BigInt`,
+`Rational`, `missing`, `nothing`, `NaN`, empty and mixed arrays,
+`Date`, `Dict`, a `Float32`), each rule is restated as testable with
+its message, and the Julia tests skip only where Julia or JuliaCall is
+truly absent. 5J follows 5b and 5d, which it mirrors.
