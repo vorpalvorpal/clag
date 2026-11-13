@@ -82,7 +82,7 @@ test_that("N5, 1.1.9: a code span with no weft class or key stays code, with a n
   res <- filter_md(md)
   expect_identical(res$status, 0L)
   expect_match(res$output, "<code>f1</code>", fixed = TRUE)
-  expect_match(res$output, '<code class="python">f1</code>', fixed = TRUE)
+  expect_match(res$output, '<code class="sourceCode python">f1</code>', fixed = TRUE)
   expect_match(res$output, '<code id="d">f1</code>', fixed = TRUE)
   expect_match(res$output, '<code class="compact">f1</code>', fixed = TRUE)
   expect_match(res$output, "named 3.14159.", fixed = TRUE)

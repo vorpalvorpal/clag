@@ -52,7 +52,7 @@ test_that("N86, 2.6.8: one of each kind: the markers in the text and the report'
 })
 
 test_that("N86: without draft mode the same document fails the render", {
-  res <- filter_cases(report_cases, list(report_block()))
+  res <- filter_md(fm_doc(report_cases, list(report_block()), character())$md, to = "plain")
   expect_identical(res$status, 1L)
   expect_match(fm_headings(res$stderr), rx_claims(1), all = FALSE)
 })
@@ -153,8 +153,8 @@ test_that("N25b: a check's own line locates it; why, null ok, warn level and a p
 
 test_that("2.6.8, N86: a marker names the line, else the chunk, else nothing", {
   md <- c(report_block(), "",
-          "::: {#cell-lab .cell}", "Printed ``miss``{.num} here.", ":::", "",
-          "Outside ``miss``{.num} here.", "",
+          "::: {#cell-lab .cell}", "Printed ``missp``{.num} here.", ":::", "",
+          "Outside ``misso``{.num} here.", "",
           "Located `miss`{.num} here.")
   res <- filter_md(md, to = "plain", env = c(WEFT_DRAFT = "1"))
   expect_identical(res$status, 0L)
@@ -163,9 +163,9 @@ test_that("2.6.8, N86: a marker names the line, else the chunk, else nothing", {
   expect_identical(paras, c("Printed <<weft: no value, chunk lab>> here.", "Outside <<weft: no value>> here.",
                             sprintf("Located <<weft: no value, line %d>> here.", line_of)))
   e <- fm_entry(res$stderr, "^  doc\\.md chunk lab  ")
-  expect_identical(e$head, "  doc.md chunk lab  [no value] `miss`{.num}")
+  expect_identical(e$head, "  doc.md chunk lab  [no value] `missp`{.num}")
   e <- fm_entry(res$stderr, "^  doc\\.md  \\[no value\\]")
-  expect_identical(e$head, "  doc.md  [no value] `miss`{.num}")
+  expect_identical(e$head, "  doc.md  [no value] `misso`{.num}")
 })
 
 test_that("N87: a construct as shown: a named value with its id, classes and keys; a span with its text cut at 60", {

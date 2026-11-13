@@ -27,7 +27,7 @@ test_that("N9, N10: conditions on names, number and string literals, and commas,
     "n_gap > 10" = TRUE, "n_gap>10" = TRUE, "n_gap >10" = TRUE, "n_gap >= 12" = TRUE, "n_gap>=12" = TRUE,
     "n_gap <= 11" = FALSE, "n_gap<=12" = TRUE, "n_gap < 12" = FALSE, "n_gap == 12" = TRUE,
     "n_gap != 12" = FALSE, "10 < n_gap" = TRUE, "n_gap > n_sites" = TRUE, "n_gap > -1" = TRUE,
-    "n_gap < 1e2" = TRUE, "n_gap > 1.5E+1" = FALSE, "  n_gap > 10  " = TRUE,
+    "n_gap < 1e2" = TRUE, "n_gap > 1.5E+1" = FALSE,
     "n_gap > 10, n_sites >= 3" = TRUE, "n_gap > 10, n_sites >= 4" = FALSE, "a, f" = FALSE,
     "a, a, a" = TRUE, "a , a" = TRUE, "sc == 'a,b'" = TRUE, "sc == 'a,b', n_gap > 1" = TRUE,
     "sc == 'a,b', n_gap > 100" = FALSE,
@@ -113,7 +113,7 @@ test_that("1.5.5: a one-arm guard always prints its phrase; a condition that is 
   expect_true(grepl("optional text is written [phrase | ]{if=\"", res$stderr, fixed = TRUE))
   expect_true(grepl("n_gap > 100", res$stderr, fixed = TRUE))
   # the failing guard is a failure in a render without draft mode
-  res2 <- filter_cases(cases[c("holds", "fails")], list(if_block()))
+  res2 <- filter_md(fm_doc(cases[c("holds", "fails")], list(if_block()), character())$md, to = "plain")
   expect_identical(res2$status, 1L)
 })
 

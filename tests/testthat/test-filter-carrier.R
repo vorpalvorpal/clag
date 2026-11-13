@@ -98,7 +98,7 @@ test_that("N24: a fenced block with another class holding the same JSON is code 
   md <- c("```json", json, "```", "", "Depth `depth`{.val}.")
   res <- filter_md(md, env = draft1)
   expect_identical(res$status, 0L)
-  expect_match(res$output, '<pre class="json">', fixed = TRUE)
+  expect_match(res$output, '<pre class="sourceCode json">', fixed = TRUE)
   expect_match(strip_tags(res$output), "Depth &lt;&lt;weft: no value, line 5&gt;&gt;.", fixed = TRUE)
 })
 
@@ -146,7 +146,7 @@ test_that("N29, E13: a block of 5000001 bytes is malformed and adds no names; 50
   res <- filter_md(doc(big), to = "plain", env = draft1)
   expect_identical(res$status, 0L)
   expect_match(res$stderr, fm_msg$E13(5000001), fixed = TRUE)
-  expect_match(res$output, "Use <<weft: no value, line 5>>.", fixed = TRUE)
+  expect_match(res$output, "Use <<weft: no value, line 7>>.", fixed = TRUE)
   res2 <- filter_md(doc(ok), to = "plain")
   expect_identical(res2$status, 0L)
   expect_identical(trimws(res2$output), "Use 7.")

@@ -1510,3 +1510,47 @@ Every recommended answer is accepted.
 R6 is measured first in 6k: if `using Weft` does not load under
 JuliaCall from a package directory on `LOAD_PATH`, the Julia half
 stops and the orchestrator decides.
+
+## Rulings after 6c (orchestrator, 13 Nov, under delegation)
+
+The implementer of 6c chose these where the design was silent. All are
+accepted and are spec text for 6j unless noted.
+
+- Config problems (E33) are failures of kind "construct error": they
+  fail the render outside draft mode.
+- E19 names the kinds "integer", "number" (literals) and "list".
+  bool == bool is allowed; ordering bools, and a date against a string
+  literal, are E19.
+- An `n` governor that is not a number is a value error citing 1.5.11.
+  `pct_proportion: false` is a value error.
+- A named value with only a renderer key prints as `.num`, or `.pct`
+  when `governor_class` is `pct`. `digits` on `.val` is ignored.
+  `none` with no collapse class, and `sigfig` below 1, are construct
+  errors.
+- The printed-as-zero warning applies to float and decimal records,
+  not int. `#` and `##` are read only inside an `n` arm.
+- A guard's detail is "X was false" and the "optional text is
+  written" hint.
+- Until 6f: `sign`, `list` and `n=#id` give E20. Spans with only text
+  classes, and `cite`, are left alone. Until 6i: a block with `file=`
+  is a construct error.
+- The stale-run notice (E34) goes to stderr once and fails nothing.
+- An id on a named value goes on the pass-through span.
+- Front matter: only title, subtitle, abstract and description are
+  resolved.
+- A block's own check with no `line` and no enclosing cell shows the
+  file only. Reported paths are relative to the working folder when
+  under it.
+- Lines (N89): a construct's line is the next occurrence of its text
+  in the source. Text a chunk printed that also appears later in the
+  source therefore takes that later line. Accepted as a limit.
+- **Not yet built: N92.** The filter resolves every construct and does
+  not detect a knitr document, so a leftover span whose governor does
+  not fit N9/N12 is reported by `weft.lua`, not left for
+  `weft-check.lua`. 6g builds the detection with `test-coexist-knitr.R`.
+
+Seven 6c tests were amended: Pandoc writes `class="sourceCode json"`;
+one line number was miscounted; Pandoc does not read an attribute value
+with leading spaces as a span; a failing render writes no output, so
+two exit-1 checks run the document directly; and the stand-ins for
+chunk-printed text now use names the source line cannot match.
