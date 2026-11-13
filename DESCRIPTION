@@ -24,6 +24,7 @@ Suggests:
     curl,
     pkgload,
     quarto,
+    reticulate (>= 1.43.0),
     rmarkdown,
     tarchetypes,
     targets (>= 1.12.0),

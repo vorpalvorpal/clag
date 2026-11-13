@@ -199,7 +199,7 @@ stock_bare_text <- function(code, envir) {
   ev <- weft_env$stock_eval %||% dflt
   if (identical(ev, dflt)) {
     # as knitr's own hook evaluates, but the value is kept for the ledger's raw field
-    v <- withVisible(eval(parse(text = code, keep.source = FALSE), envir = envir))
+    v <- withVisible(guest_eval(code, envir))
     res <- if (v$visible) knitr::knit_print(v$value, inline = TRUE, options = knitr::opts_chunk$get())
     out <- finish_stock(res, code)
     weft_env$bare_aux <- list(value = v$value)
@@ -453,11 +453,15 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     file <- if (is.null(line_info)) R$file[k] else line_info$file
     line <- if (is.null(line_info)) R$line[k] else line_info$line
     vl <- if (is.null(line_info)) R$line_view[k] else (line_info$view %||% NA_integer_)
-    run_inline(s, file, line, label, expr, function() {
-      if (stock) stock_bare_text(expr, envir) else
-        eval(parse(text = expr, keep.source = FALSE), envir)
+    weft_env$guest_last <- NULL
+    on.exit(weft_env$guest_last <- NULL, add = TRUE)
+    ev <- run_inline(s, file, line, label, expr, function() {
+      if (stock) stock_bare_text(expr, envir) else guest_eval(expr, envir)
     }, chunk = chunk_label, option = if (is_str) ctx$option else NA_character_,
     live = !strict, where = function() ledger_where(s, F, file, vl, chunk_label))
+    # the kind a governor's one guest read had, before its R form (G13)
+    ev$guest <- weft_env$guest_last
+    ev
   }
 
   non_english <- function() {
@@ -829,6 +833,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is_backref(expr)) return(backref_value(k, expr, label, own_fmt))
     ev <- eval_expr(k, expr, gov_label(k))
     if (!ev$ok) return(list(stop = fail_from_error(k, ev$error, label)))
+    prob <- guest_governor_problem(ev$guest, R$kind[k])
+    if (!is.null(prob)) return(list(stop = record_fail(k, "value error", label, prob)))
     list(v = ev$value, claim_failed = ev$claim_failed)
   }
 
@@ -936,6 +942,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
     ev <- eval_expr(k, R$expr[k], gov_label(k))
     if (!ev$ok) return(fail_from_error(k, ev$error, label))
+    prob <- guest_governor_problem(ev$guest, "list")
+    if (!is.null(prob)) return(record_fail(k, "value error", label, prob))
     v <- ev$value
     claim_failed <- ev$claim_failed
     if (is.null(v) || !is.atomic(v) || !is.null(dim(v))) {
@@ -992,10 +1000,17 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (is.null(parts)) return(construct_fail(k, "The condition list does not parse (rule 5.3.5)."))
     truth <- logical(length(parts$exprs))
     claim_failed <- FALSE
+    guest_marker <- NULL
     for (i in seq_along(parts$exprs)) {
       ev <- eval_expr(k, parts$texts[i], label)
       if (!ev$ok) return(fail_from_error(k, ev$error, label))
       claim_failed <- claim_failed || ev$claim_failed
+      # a guest value of the wrong kind: each condition is judged on its own (G13)
+      prob <- guest_governor_problem(ev$guest, "if")
+      if (!is.null(prob)) {
+        guest_marker <- record_fail(k, "value error", label, prob)
+        next
+      }
       v <- ev$value
       if (length(v) == 0L || (length(v) == 1L && is.na(v))) {
         return(record_fail(k, "no value", label,
@@ -1007,6 +1022,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       }
       truth[i] <- v
     }
+    if (!is.null(guest_marker)) return(guest_marker)
     guard_ids <- integer()
     if (narms == 1L) {
       if (strict && any(!truth)) {
