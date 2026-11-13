@@ -41,8 +41,10 @@ library). A file that already calls \code{weft::weft_setup()} is kept.
 \item route \code{"front-matter"}: \verb{knitr: opts_knit: weft: !expr weft::weft_setup()}
 in each document's front matter.
 \item \code{engine: knitr} in each \code{.qmd} that has no \verb{engine:} or \verb{jupyter:} key and
-is not another engine's alone (a Python-only page stays Jupyter), except
-files and folders whose names start with \verb{_} or \code{.} (includes).
+is not another engine's alone, except files and folders whose names start
+with \verb{_} or \code{.} (includes). A page of Python or Julia chunks alone gains
+the line only when it holds a weft construct (a value, a count, a
+governor, a sign or a list); without one it stays as it is.
 \item for an \code{.Rmd} outside a Quarto project, \code{weft-check.lua} beside the
 document (weft's own file: kept when identical, replaced when it differs)
 and, under each format of \verb{output:}, \verb{pandoc_args: ["--lua-filter", "weft-check.lua"]}.

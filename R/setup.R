@@ -64,8 +64,10 @@ FM_FILTER_ARGS <- "pandoc_args: [\"--lua-filter\", \"weft-check.lua\"]"
 #' * route `"front-matter"`: `knitr: opts_knit: weft: !expr weft::weft_setup()`
 #'   in each document's front matter.
 #' * `engine: knitr` in each `.qmd` that has no `engine:` or `jupyter:` key and
-#'   is not another engine's alone (a Python-only page stays Jupyter), except
-#'   files and folders whose names start with `_` or `.` (includes).
+#'   is not another engine's alone, except files and folders whose names start
+#'   with `_` or `.` (includes). A page of Python or Julia chunks alone gains
+#'   the line only when it holds a weft construct (a value, a count, a
+#'   governor, a sign or a list); without one it stays as it is.
 #' * for an `.Rmd` outside a Quarto project, `weft-check.lua` beside the
 #'   document (weft's own file: kept when identical, replaced when it differs)
 #'   and, under each format of `output:`, `pandoc_args: ["--lua-filter",
@@ -296,7 +298,17 @@ qmd_needs_engine <- function(fm_names, body) {
   chunks <- sub("^\\s*`{3,}\\s*\\{\\s*([A-Za-z0-9_]+).*$", "\\1",
                 grep("^\\s*`{3,}\\s*\\{\\s*[A-Za-z0-9_]+", body, value = TRUE))
   chunks <- tolower(chunks)
-  !(any(chunks %in% c("python", "julia")) && !("r" %in% chunks))
+  # a document of another engine's chunks alone is left as it is unless it holds a weft construct (G41)
+  if (length(chunks) && !("r" %in% chunks) && any(chunks %in% c("python", "julia"))) {
+    return(lines_hold_construct(body))
+  }
+  TRUE
+}
+
+# Does the text hold a weft construct: a scanner row other than bare, link or literal.
+lines_hold_construct <- function(lines) {
+  rw <- tryCatch(scan_document(lines, file = NA_character_), error = function(e) NULL)
+  !is.null(rw) && nrow(rw) > 0L && any(!rw$kind %in% c("bare", "link", "literal"))
 }
 
 # front matter lines (may be empty) -> list(lines =, what =) with what weft needs
