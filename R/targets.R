@@ -273,7 +273,14 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
              any(vapply(as.list(a)[-1L], is_string_dict, NA)))) st$all <- TRUE
       }
     }
-    if (bname %in% c("source", "sys.source") && n >= 2L) {
+    # reticulate::source_python() and py_run_file(), with or without the prefix (G31)
+    rname <- hname
+    if (is.call(head) && length(head) == 3L && is.symbol(head[[1L]]) &&
+        as.character(head[[1L]]) %in% c("::", ":::") && is.symbol(head[[2L]]) &&
+        identical(as.character(head[[2L]]), "reticulate") && is.symbol(head[[3L]])) {
+      rname <- as.character(head[[3L]])
+    }
+    if ((bname %in% c("source", "sys.source") || rname %in% c("source_python", "py_run_file")) && n >= 2L) {
       an <- names(x)
       if (is.null(an)) an <- rep("", n)
       k <- which(an == "file")[1L]
@@ -819,6 +826,12 @@ rel_path <- function(root, path) {
 
 # The code, `eval` and child of a chunk the option hook sees, children's and
 # cached chunks included.
+# Is a chunk's engine R? A chunk with no engine is R's.
+is_r_engine <- function(engine) {
+  engine <- as.character(engine %||% "R")[1L]
+  is.na(engine) || tolower(engine) == "r"
+}
+
 note_chunk_code <- function(s, options) {
   ch <- options$child
   child <- NULL
@@ -835,7 +848,8 @@ note_chunk_code <- function(s, options) {
     }, "", USE.NAMES = FALSE)
     child <- child[!is.na(child)]
   }
-  s$chunks[[length(s$chunks) + 1L]] <- list(code = options$code, eval = options$eval, child = child)
+  s$chunks[[length(s$chunks) + 1L]] <- list(code = options$code, eval = options$eval, child = child,
+                                            engine = options$engine)
   invisible()
 }
 
@@ -852,7 +866,8 @@ chapter_reads <- function(s) {
   if (is.null(keys)) keys <- character()
   w <- reads_walker(knitr::knit_global(), keys)
   for (ch in s$chunks) {
-    if (!identical(ch$eval, FALSE)) w$add(ch$code)
+    # only R code is read for reads (G32): another engine's code is not R
+    if (!identical(ch$eval, FALSE) && is_r_engine(ch$engine)) w$add(ch$code)
   }
   es <- ledger_entries(s)
   for (e in es) w$add(as.character(e$expr %||% NA_character_))
@@ -874,6 +889,8 @@ chapter_reads <- function(s) {
   for (p in w$source_files()) {
     files <- c(files, rel_path(root, norm_path(if (is_abs_path(p)) p else file.path(norm_path(getwd()), p))))
   }
+  # the project's Python modules loaded by the end of the knit (G30)
+  files <- c(files, guest_project_modules(root))
   files <- unique(enc2utf8(files[!is.na(files) & nzchar(files)]))
   files <- files[files == src | file.exists(file.path(root, files))]
   files <- sort(files, method = "radix")

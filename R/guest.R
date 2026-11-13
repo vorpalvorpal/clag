@@ -193,6 +193,74 @@ guest_chunk_start <- function() {
   invisible()
 }
 
+# ---- what Python raised (G25, G27) and what it loaded (G30) ------------------------------------------------
+
+# Is weft's Python helper module loaded in a running Python? Never starts
+# Python and never loads reticulate.
+guest_running <- function() {
+  "reticulate" %in% loadedNamespaces() && isTRUE(weft_env$py_registered) &&
+    !is.null(weft_env$guest_mod) && !reticulate::py_is_null_xptr(weft_env$guest_mod) &&
+    isTRUE(tryCatch(reticulate::py_available(initialize = FALSE), error = function(e) FALSE))
+}
+
+# The warnings Python showed since the last call, each as "Category: message",
+# and the note of them cleared.
+guest_drain_warnings <- function() {
+  if (!guest_running()) return(character())
+  txt <- tryCatch(guest_json(reticulate::py_to_r(weft_env$guest_mod$drain_warnings())),
+                  error = function(e) list())
+  as.character(unlist(txt))
+}
+
+# The error a Python chunk with `error: true` left, as "Type: message", or
+# NULL; reticulate's note of it is cleared.
+guest_take_error <- function() {
+  if (!guest_running()) return(NULL)
+  e <- tryCatch(reticulate::py_last_error(), error = function(e) NULL)
+  if (is.null(e)) return(NULL)
+  tryCatch(reticulate::py_clear_last_error(), error = function(e) NULL)
+  sprintf("%s: %s", as.character(e$type)[1L], as.character(e$value)[1L])
+}
+
+# The modules of Python's sys.modules whose file lies in the project (G30), by
+# path relative to `root`. Starts no Python.
+guest_project_modules <- function(root) {
+  if (!guest_running()) return(character())
+  txt <- tryCatch(guest_json(reticulate::py_to_r(weft_env$guest_mod$project_modules(root))),
+                  error = function(e) list())
+  as.character(unlist(txt))
+}
+
+# Before a chunk runs: what Python noted earlier belongs to no chunk, and a
+# Python error left by an earlier chunk is not this chunk's.
+guest_chunk_begin <- function(s, options) {
+  if (!guest_running()) return(invisible())
+  guest_drain_warnings()
+  if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) guest_take_error()
+  s$guest_mark <- list(failures = length(s$failures), ledger = length(s$ledger))
+  invisible()
+}
+
+# After a Python chunk: its warnings and, under `error: true`, its error are
+# the chunk's conditions (G25, G27), kept for the cache as an R chunk's are.
+guest_chunk_end <- function(options) {
+  s <- active_state()
+  if (is.null(s)) return(invisible())
+  label <- options$label %||% NA_character_
+  mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
+  err <- guest_take_error()
+  if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
+  mark <- s$guest_mark %||% list(failures = length(s$failures), ledger = length(s$ledger))
+  nf <- length(s$failures)
+  fails <- if (nf > mark$failures) s$failures[(mark$failures + 1L):nf] else list()
+  record_chunk_conditions(s, label, mine, options, fails, ledger_since(s, mark$ledger))
+  # the chunk ran: it is not to be replayed from the cache
+  if (!is.null(s$pending_cache) && identical(s$pending_cache$label, label)) {
+    s$pending_cache$evaluated <- TRUE
+  }
+  invisible()
+}
+
 # ---- activation (G18) and the module `weft` (G19 to G23) -------------------------------------------------
 
 # Called by weft_setup(): register at once when Python is running, else hook

@@ -269,3 +269,36 @@ def drain_warnings():
     out = _json.dumps(_warnings_seen)
     del _warnings_seen[:]
     return out
+
+
+# ---- the project's modules (G30) -------------------------------------------------
+
+import os as _os
+
+_SKIP_DIRS = {"site-packages", "dist-packages", ".venv", "venv", "renv"}
+
+
+def project_modules(root):
+    """Paths, relative to root and with /, of the loaded modules whose file lies
+    in the project, as JSON text. A module under a folder named site-packages,
+    dist-packages, .venv, venv, renv, or starting with a dot, is not one."""
+    out = set()
+    try:
+        real_root = _os.path.realpath(root)
+    except Exception:
+        return _json.dumps([])
+    for mod in list(_sys.modules.values()):
+        try:
+            f = mod.__dict__.get("__file__")
+            if not isinstance(f, str):
+                continue
+            rel = _os.path.relpath(_os.path.realpath(f), real_root)
+        except Exception:
+            continue
+        if rel.startswith("..") or _os.path.isabs(rel):
+            continue
+        parts = rel.split(_os.sep)
+        if any(d in _SKIP_DIRS or d.startswith(".") for d in parts[:-1]):
+            continue
+        out.add("/".join(parts))
+    return _json.dumps(sorted(out))

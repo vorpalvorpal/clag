@@ -108,10 +108,14 @@ make_evaluate_hook <- function(prev) {
     note <- function(class, cond) {
       mine[[length(mine) + 1L]] <<- list(class = class, text = conditionMessage(cond))
     }
+    py_warnings <- function() {
+      for (t in guest_drain_warnings()) mine[[length(mine) + 1L]] <<- list(class = "warning", text = t)
+    }
     res <- tryCatch(
       do.call(prev, c(list(code, envir), args)),
       error = function(e) {
         note("error", e)
+        py_warnings()
         record_chunk_conditions(s, label, mine, opts, lrows = ledger_since(s, l0))
         stop(e)
       }
@@ -124,6 +128,7 @@ make_evaluate_hook <- function(prev) {
         if (!is.na(cl)) note(cl, el)
       }
     }
+    py_warnings()
     fails <- if (length(s$failures) > n0) s$failures[(n0 + 1L):length(s$failures)] else list()
     record_chunk_conditions(s, label, mine, opts, fails, ledger_since(s, l0))
     # what the author's settings say to hide is hidden, as evaluate() would

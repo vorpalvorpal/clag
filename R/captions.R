@@ -37,6 +37,7 @@ install_chunk_wrapper <- function() {
       for (o in CAPTION_NULLABLE) {
         if (o %in% names(options) && is.null(options[[o]])) options[[o]] <- NULL
       }
+      if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) guest_chunk_end(options)
       if (is.function(prev)) prev(x, options) else x
     }
   })

@@ -301,6 +301,7 @@ install_option_hook <- function() {
     install_chunk_wrapper()
     # the first Python chunk registers weft's Python helpers (G18)
     if (identical(options$engine, "python") && !isFALSE(options$python.reticulate)) guest_chunk_start()
+    guest_chunk_begin(s, options)
     # a rehearsal uses no chunk cache (3.7.2)
     if (rehearsing()) options$cache <- FALSE
     note_chunk_label(s, options$label)

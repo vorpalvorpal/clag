@@ -173,6 +173,7 @@ run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
     if (is.null(w)) src else where_label(w)
   }
   weft_env$bare_aux <- NULL
+  guest_drain_warnings()
   out <- withCallingHandlers(
     tryCatch(
       list(ok = TRUE, value = in_knit_dir(run())),
@@ -187,6 +188,10 @@ run_inline <- function(s, file, line, label, expr, run, chunk = NA_character_,
                     from = "prose", lsource = lsrc())
       invokeRestart("muffleMessage")
     })
+  # a warning Python showed while this code ran is the prose's (G25)
+  for (t in guest_drain_warnings()) {
+    log_condition(s, src, "warning", t, file = file, line = line, from = "prose", lsource = lsrc())
+  }
   out$claim_failed <- isTRUE(weft_env$inline$failed)
   out$aux <- weft_env$bare_aux
   out$quantity <- weft_env$bare_aux$value
