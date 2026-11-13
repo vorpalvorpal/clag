@@ -431,12 +431,7 @@ print.weft_status <- function(x, ...) {
 doc_files <- function(root) project_doc_paths(root, "setup")
 
 # the front-matter lines of a document (character() when it has none)
-use_doc_front <- function(lines) {
-  if (!length(lines) || !grepl("^---\\s*$", lines[1L])) return(character())
-  cl <- which(grepl("^(---|\\.\\.\\.)\\s*$", lines[-1L])) + 1L
-  if (!length(cl)) return(character())
-  lines[seq_len(cl[1L] - 1L)[-1L]]
-}
+use_doc_front <- function(lines) front_block(lines)
 
 # does a .qmd need `engine: knitr`: the rule of use_setup() (qmd_needs_engine()), on the parsed front
 # matter. Front matter that does not parse is not something use_setup() can fix, so it is not flagged.

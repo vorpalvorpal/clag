@@ -148,24 +148,8 @@ MSG_E62 <- paste0("Install the Julia package: using Pkg; ",
                   "package>:\"]}, that is a julia: key with an env: list holding JULIA_LOAD_PATH=, a folder and ",
                   "a trailing colon.")
 
-# Does Quarto run this .qmd on the jupyter engine (N74): `engine: jupyter` or a `jupyter:` key; with neither
-# an `engine:` key nor an executed {r} chunk, a {python} chunk. `engine: knitr` (or any other) is not.
-doc_is_jupyter <- function(lines) {
-  fm <- character()
-  if (length(lines) && grepl("^---[ \t\r]*$", lines[1L])) {
-    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
-    if (length(cl)) fm <- lines[seq_len(cl[1L] - 1L) + 1L]
-  }
-  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
-  if (length(eng)) {
-    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L]))
-    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
-    return(identical(v, "jupyter"))
-  }
-  if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
-  any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*python[ \t,}]", lines)) &&
-    !any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines))
-}
+# Does Quarto run this .qmd on the jupyter engine (N74)? The rule is in quarto_engine().
+doc_is_jupyter <- function(lines) quarto_engine(lines) == "jupyter"
 
 # Does any .qmd of the project below `root` run on the jupyter engine?
 project_has_jupyter_doc <- function(root) {
@@ -178,24 +162,8 @@ project_has_jupyter_doc <- function(root) {
   FALSE
 }
 
-# Does Quarto run this .qmd on the julia engine (N74): `engine: julia`; with no `engine:` or `jupyter:` key, a
-# {julia} chunk and no {r} or {python} chunk. `engine: knitr` (JuliaCall) or any other is not.
-doc_is_julia <- function(lines) {
-  fm <- character()
-  if (length(lines) && grepl("^---[ \t\r]*$", lines[1L])) {
-    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
-    if (length(cl)) fm <- lines[seq_len(cl[1L] - 1L) + 1L]
-  }
-  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
-  if (length(eng)) {
-    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L]))
-    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
-    return(identical(v, "julia"))
-  }
-  if (any(grepl("^jupyter[ \t]*:", fm))) return(FALSE)
-  chunk <- function(l) any(grepl(sprintf("^[ \t>]*`{3,}[ \t]*\\{[ \t]*%s[ \t,}]", l), lines, ignore.case = TRUE))
-  chunk("julia") && !chunk("r") && !chunk("python")
-}
+# Does Quarto run this .qmd on the julia engine (N74)? `engine: knitr` (JuliaCall) is not; see quarto_engine().
+doc_is_julia <- function(lines) quarto_engine(lines) == "julia"
 
 # Does any .qmd of the project below `root` run on the julia engine?
 project_has_julia_doc <- function(root) {

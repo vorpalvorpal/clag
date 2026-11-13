@@ -61,6 +61,15 @@ metadata_blocks <- function(lines) {
   data.frame(open = open, close = close)
 }
 
+# The lines of the front block: the first metadata block, when it opens on the
+# first line of the document, without its delimiters; character() when there is
+# none. One reading for every caller that wants the document's own fields.
+front_block <- function(lines) {
+  mb <- metadata_blocks(lines)
+  if (!nrow(mb) || mb$open[1L] != 1L) return(character())
+  lines[seq_len(mb$close[1L] - 1L)[-1L]]
+}
+
 # Whether the lines of a candidate metadata block are a YAML mapping, as Pandoc
 # requires: a `---` rule followed by text is a horizontal rule, not metadata
 # (2.5.2). A block that is broken YAML but starts with `key:` is still metadata
@@ -298,6 +307,33 @@ find_chunks <- function(lines) {
     k <- k + 1L
   }
   out
+}
+
+# The engine Quarto runs a document on: "knitr", "jupyter", "julia" or
+# "markdown". An `engine:` key decides (its mapping form, `engine:` then
+# `  julia: ...`, names the first key); then a `jupyter:` key means jupyter;
+# with neither, the executed chunks do: an {r} chunk is knitr, else {python}
+# is jupyter, else {julia} is julia. Only lower-case languages are executable
+# (Quarto's rule), and find_chunks() already leaves out fenced examples, so a
+# chunk shown inside a longer fence does not count.
+quarto_engine <- function(lines) {
+  fm <- front_block(lines)
+  k <- grep("^engine[ \t]*:", fm)
+  if (length(k)) {
+    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", fm[k[1L]]))
+    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
+    if (!nzchar(v) && k[1L] < length(fm)) {
+      nxt <- regmatches(fm[k[1L] + 1L], regexec("^[ \t]+([A-Za-z]+)[ \t]*:", fm[k[1L] + 1L]))[[1]]
+      if (length(nxt)) v <- tolower(nxt[2L])
+    }
+    return(if (v %in% c("knitr", "jupyter", "julia")) v else "markdown")
+  }
+  if (any(grepl("^jupyter[ \t]*:", fm))) return("jupyter")
+  langs <- vapply(find_chunks(lines), function(ch) ch$engine, "")
+  if ("r" %in% langs) return("knitr")
+  if ("python" %in% langs) return("jupyter")
+  if ("julia" %in% langs) return("julia")
+  "markdown"
 }
 
 # `lines` with the block-quote markers of a quoted chunk taken off its lines
@@ -755,19 +791,14 @@ has_child_chunk <- function(lines) any(grepl("child[ \t]*[=:]", lines))
 filter_resolves <- function(lines, file = NA_character_) {
   if (!is.na(file) && grepl("\\.rmd$", file, ignore.case = TRUE)) return(FALSE)
   n <- length(lines)
-  if (n && grepl("^---[ \t\r]*$", lines[1L])) {
-    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
-    if (length(cl)) {
-      fm <- lines[1L + seq_len(cl[1L] - 1L)]
-      eng <- grep("^engine[ \t]*:", fm, value = TRUE)
-      if (length(eng)) {
-        v <- trim_ws(sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L])))
-        v <- tolower(gsub("^[\"']|[\"']$", "", v))
-        return(!identical(v, "knitr"))
-      }
-      if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
-    }
+  fm <- front_block(lines)
+  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
+  if (length(eng)) {
+    v <- trim_ws(sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L])))
+    v <- tolower(gsub("^[\"']|[\"']$", "", v))
+    return(!identical(v, "knitr"))
   }
+  if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
   hdr <- grep("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines)
   for (k in hdr) {
     if (grepl("[ ,{]eval[ \t]*=[ \t]*(FALSE|F)[ \t]*[,}]", lines[k])) next
