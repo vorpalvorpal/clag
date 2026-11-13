@@ -288,17 +288,9 @@ block_start_r <- function(src) {
     lead <- substring(src$lines[ln], 1L, r$fstart[c1] - src$line_start[ln])
     cand <- ln > 1L & grepl("^( {4,}|\t)[ \t]*$", lead)
     if (any(cand)) {
-      lines <- src$lines
-      blank <- !grepl("[^ \t]", lines)
-      nl <- length(lines)
-      idx <- seq_len(nl)
-      prevblank <- c(TRUE, blank[-nl])
-      col0 <- grepl("^[^ \t]", lines)
-      marker <- grepl("^[ \t]*([-*+]|[0-9]{1,9}[.)])[ \t]+[^ \t]", lines)
-      last_reset <- cummax(ifelse(col0 & prevblank, idx, 0L))
-      last_set <- cummax(ifelse(marker, idx, 0L))
-      inlist <- last_set > 0L & last_set >= last_reset
-      cand <- cand & blank[pmax(ln - 1L, 1L)] & !inlist[ln]
+      blank <- !grepl("[^ \t]", src$lines)
+      # the one reading of indented code (it leaves fenced and metadata lines out of the list state)
+      cand <- cand & blank[pmax(ln - 1L, 1L)] & indented_code_lines(src)[ln]
       j <- c1[cand]
       if (length(j)) {
         txt <- src_substr(src, r$fstart[j], pmin(r$fend[j], r$fstart[j] + 79L))
