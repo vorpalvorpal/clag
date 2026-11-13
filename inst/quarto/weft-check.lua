@@ -177,8 +177,9 @@ end
 
 local function truthy(v)
   if v == nil then return false end
-  v = v:lower()
-  return v == "1" or v == "true" or v == "yes" or v == "on"
+  -- `true` and `false` only (9.4.3); the knit has already refused anything else
+  v = v:gsub("^[\"']", ""):gsub("[\"']$", ""):lower()
+  return v == "true"
 end
 
 local function dir_of(path)
@@ -215,7 +216,8 @@ local function find_upward(rel)
 end
 
 local function draft_mode()
-  if truthy(os.getenv("WEFT_DRAFT")) then return true end
+  local ev = os.getenv("WEFT_DRAFT")
+  if ev ~= nil and (ev:lower() == "1" or truthy(ev)) then return true end
   local f = find_upward("_weft.yml")
   if not f then return false end
   local draft = false

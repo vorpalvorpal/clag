@@ -128,6 +128,15 @@ read_config_ <- function(dir, front, doc) {
       "(rules 4.3.4, 9.1.2)."), "weft_config_error")
   }
   if (has_file) warn_unknown(proj, "_weft.yml")
+  # the draft setting is `true` or `false` and nothing else, in _weft.yml and in
+  # the variable alike; the Lua filter and the post-render script read it the
+  # same way (9.4.3, review A 4)
+  if (has_file && "draft" %in% names(proj) &&
+      !(is.logical(proj$draft) && length(proj$draft) == 1L && !is.na(proj$draft))) {
+    weft_abort(sprintf("The setting `draft` in _weft.yml must be true or false; got `%s`.",
+                       paste(as.character(unlist(proj$draft)), collapse = ", ")),
+               "weft_config_error")
+  }
   # `ledger: [true]` reads as TRUE; a list is not a logical (I10)
   if (has_file && "ledger" %in% names(proj)) {
     if (is.list(raw) && is.list(raw$ledger)) {
@@ -166,7 +175,16 @@ read_config_ <- function(dir, front, doc) {
   cfg$units_default <- ur$default
   weft_env$units <- cfg$units
   weft_env$units_default <- cfg$units_default
-  if (tolower(Sys.getenv("WEFT_DRAFT")) %in% c("1", "true")) cfg$draft <- TRUE
+  env_draft <- trimws(Sys.getenv("WEFT_DRAFT"))
+  if (nzchar(env_draft)) {
+    # `1` is kept as the long-standing spelling of true for the variable (the
+    # test suite and CI set it); `yes`, `on` and the rest are errors
+    if (!tolower(env_draft) %in% c("true", "false", "1")) {
+      weft_abort(sprintf("The environment variable WEFT_DRAFT must be true or false; got `%s`.", env_draft),
+                 "weft_config_error")
+    }
+    if (tolower(env_draft) %in% c("true", "1")) cfg$draft <- TRUE
+  }
   cfg
 }
 

@@ -30,10 +30,17 @@ local({
   unescape <- function(v) {
     # one left-to-right pass over the JSON escapes, so `\\n` (a backslash
     # then n) is not read as a newline
-    m <- gregexpr("\\\\(u[0-9a-fA-F]{4}|.)", v, perl = TRUE)
+    # a high-surrogate escape and the low one after it are one character
+    m <- gregexpr(paste0("\\\\u[dD][89abAB][0-9a-fA-F]{2}\\\\u[dD][c-fC-F][0-9a-fA-F]{2}",
+                         "|\\\\(u[0-9a-fA-F]{4}|.)"), v, perl = TRUE)
     tok <- regmatches(v, m)[[1]]
     if (!length(tok)) return(v)
     rep <- vapply(tok, function(t) {
+      if (nchar(t) == 12L) {
+        hi <- strtoi(substr(t, 3L, 6L), 16L)
+        lo <- strtoi(substr(t, 9L, 12L), 16L)
+        return(intToUtf8(0x10000 + (hi - 0xD800) * 1024 + (lo - 0xDC00)))
+      }
       ch <- substring(t, 2L)
       if (nchar(ch) == 5L && startsWith(ch, "u")) return(intToUtf8(strtoi(substring(ch, 2L), 16L)))
       switch(ch, n = "\n", r = "", t = "\t", b = "\b", f = "\f", ch)
@@ -212,10 +219,10 @@ local({
   if (!length(fails)) return(invisible())
 
   # draft mode reports and does not fail (9.4.3)
-  draft <- tolower(Sys.getenv("WEFT_DRAFT", "")) %in% c("1", "true", "yes", "on")
+  draft <- tolower(Sys.getenv("WEFT_DRAFT", "")) %in% c("true", "1")
   if (!draft && file.exists("_weft.yml")) {
     d <- grep("^draft:", readLines("_weft.yml", warn = FALSE), value = TRUE)
-    if (length(d)) draft <- tolower(trimws(sub("#.*$", "", sub("^draft:", "", d[length(d)])))) %in% c("true", "yes", "1")
+    if (length(d)) draft <- tolower(trimws(sub("#.*$", "", sub("^draft:", "", d[length(d)])))) == "true"
   }
   if (!draft) quit(save = "no", status = 1L)
 })
