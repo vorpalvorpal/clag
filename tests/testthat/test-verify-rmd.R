@@ -156,15 +156,36 @@ test_that("4c G29: verify(files =) renders the named .Rmd only", {
   expect_true(r$value$ok)
 })
 
-test_that("4c G30: a knit reads WEFT_RUN first: the stamp carries it, though .weft/run says otherwise", {
+# Stage 6 ruling 17 (D22) reversed the order this test first pinned: every reader takes `.weft/run`
+# before WEFT_RUN, so the stamp, the published block and the filter agree. verify() writes its run to
+# the file as well as the environment (next test), so a file left by an earlier render cannot mislead it.
+test_that("4c G30: a knit reads .weft/run first, and WEFT_RUN when no file holds a run", {
   rmd_need()
-  q <- v4_rproject(list("a.Rmd" = rmd_doc("a"), ".weft/run" = "run-stale"))
+  q <- v4_rproject(list("a.Rmd" = rmd_doc("a"), ".weft/run" = "run-from-file"))
   env <- u4_env(u4_home(), extra = c(WEFT_RUN = "run-from-env"))
   r <- u4_r(q$root, "rmarkdown::render('a.Rmd', quiet = TRUE)", env)
   expect_identical(r$status, 0L, info = r$out)
   f <- list.files(file.path(q$root, ".weft", "stamps"), pattern = "^a\\.", full.names = TRUE)
   expect_length(f, 1L)
-  expect_identical(jsonlite::fromJSON(f)$run, "run-from-env")
+  expect_identical(jsonlite::fromJSON(f)$run, "run-from-file")
+  q2 <- v4_rproject(list("a.Rmd" = rmd_doc("a")))
+  r2 <- u4_r(q2$root, "rmarkdown::render('a.Rmd', quiet = TRUE)", env)
+  expect_identical(r2$status, 0L, info = r2$out)
+  f2 <- list.files(file.path(q2$root, ".weft", "stamps"), pattern = "^a\\.", full.names = TRUE)
+  expect_identical(jsonlite::fromJSON(f2)$run, "run-from-env")
+})
+
+test_that("4c G30: verify() on an R Markdown project is not misled by a .weft/run left behind", {
+  rmd_need()
+  v4_env(libs = TRUE)
+  q <- v4_rproject(list("a.Rmd" = rmd_doc("a"), ".weft/run" = c("run-stale", "old.Rmd")))
+  r <- v4_verify(q$root)
+  expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "")
+  expect_true(r$value$ok)
+  f <- list.files(file.path(q$root, ".weft", "stamps"), pattern = "^a\\.", full.names = TRUE)
+  expect_false(identical(jsonlite::fromJSON(f)$run, "run-stale"))
+  # the file is put to this run for the render and stays the project's own
+  expect_true(file.exists(file.path(q$root, ".weft", "run")))
 })
 
 test_that("4c G30: with no WEFT_RUN the knit reads .weft/run, as before", {

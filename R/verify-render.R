@@ -160,6 +160,15 @@ freeze_backup <- function(root, stems, all_stems, run) {
 verify_run <- function(cmd, args, root, run, log) {
   old <- setwd(root)
   on.exit(setwd(old), add = TRUE)
+  # Every reader takes `.weft/run` before WEFT_RUN (stage 6 ruling 17, D22), so the run is written there
+  # too: a project with no pre-render script (an R Markdown one) may hold a file left by an earlier
+  # render, and its knits would stamp that run. A file verify() made is removed again.
+  f <- file.path(root, ".weft", "run")
+  had <- file.exists(f)
+  weft_state_dir(root)
+  old_run <- if (had) tryCatch(readLines(f, warn = FALSE), error = function(e) character()) else character()
+  write_lines_atomic(c(run, old_run[-1L]), f)
+  if (!had) on.exit(unlink(f), add = TRUE)
   # set here, not through system2()'s `env =`, which Windows ignores for most commands
   st <- withr::with_envvar(c(WEFT_RUN = run),
                            suppressWarnings(system2(cmd, shQuote(args), stdout = log, stderr = log)))
