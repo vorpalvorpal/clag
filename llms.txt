@@ -1,0 +1,326 @@
+# weft
+
+weft lets the prose of an R Markdown or Quarto document carry computed
+values, and wording that depends on those values. It checks that what a
+sentence says is still true of the data each time the document renders.
+For a long report or a book, it also stops the commits that would break
+the link between a number in the text and the analysis that produced it.
+
+Every weft construct is markdown that knitr, Pandoc and Quarto already
+accept. Nothing is compiled, and the file you edit is the file that
+renders.
+
+## An example
+
+A Quarto document. The front matter turns weft on for this one document.
+
+```` markdown
+---
+title: "Creek monitoring"
+engine: knitr
+knitr:
+  opts_knit:
+    weft: !expr weft::weft_setup()
+---
+
+```{r}
+#| label: data
+turbidity <- c(Upper = 4.2, Middle = 7.9, Lower = 12.6)
+n_high <- sum(turbidity > 10)
+change <- -0.084
+```
+
+We sampled `r length(turbidity)`{.word} sites.
+[No site | One site | # sites]{n="n_high"} read above the trigger.
+Mean turbidity [rose by # | fell by #]{.pct sign="change"} on last year,
+and the highest reading was `r claim(max(turbidity), . < 50)`{.num} NTU.
+````
+
+It renders as:
+
+> We sampled three sites. One site read above the trigger. Mean
+> turbidity fell by 8.4% on last year, and the highest reading was 12.6
+> NTU.
+
+If the data change so that no site reads above the trigger, the second
+sentence becomes “No site read above the trigger.” If the highest
+reading reaches 50, the render fails and names the line, instead of
+printing a sentence that has stopped being true.
+
+## Installation
+
+weft is not on CRAN. Install the development version from GitHub:
+
+``` r
+
+# install.packages("pak")
+pak::pak("vorpalvorpal/weft")
+```
+
+or
+
+``` r
+
+# install.packages("remotes")
+remotes::install_github("vorpalvorpal/weft")
+```
+
+weft uses the units package, which needs the udunits-2 library. The CRAN
+binaries for macOS and Windows include it. On Linux, install your
+distribution’s udunits-2 development package first (for example
+`libudunits2-dev` on Debian and Ubuntu).
+
+## The main ideas
+
+**Values and formatters.** Inline R with an attribute block, such as
+`` `r x`{.num} ``, prints a computed value through a formatter: a
+number, a percentage, a spelled count, a list joined with “and”. Inline
+R with no attribute block prints exactly as knitr prints it. See [Values
+and
+formatters](https://vorpalvorpal.github.io/weft/articles/values.html).
+
+**Wording that depends on a value.** A span such as
+`[a site | # sites]{n="k"}` chooses its words from a value: a plural
+form, a direction, a condition being true. Each case you expect gets its
+own wording. See [Value-dependent wording and
+claims](https://vorpalvorpal.github.io/weft/articles/wording.html).
+
+**Claims.** `claim(x, . > 10)` returns `x` unchanged and checks it. When
+a check fails, the render fails with a report that names the sentence,
+instead of printing a sentence the data no longer support. See
+[Value-dependent wording and
+claims](https://vorpalvorpal.github.io/weft/articles/wording.html).
+
+**Units and the dictionary.** `u(35, m)` makes a number with a unit, and
+weft prints the unit for you. The dictionary file `dict.yml` holds the
+values a project chose, such as a threshold or a reporting year, each
+with its definition. See [Units and the
+dictionary](https://vorpalvorpal.github.io/weft/articles/units.html) and
+[Using weft with
+targets](https://vorpalvorpal.github.io/weft/articles/targets.html).
+
+**Lints.**
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+reads a project’s documents without running them and lists typed
+numbers, construct errors and other problems. See [The static
+lints](https://vorpalvorpal.github.io/weft/articles/lints.html).
+
+**The commit gate and
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md).**
+A git hook refuses a commit that adds a typed number or a construct
+error, or that removes computed values without saying so.
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+renders the whole project and checks every claim before a release. See
+[The commit gate, the ledger and
+verify()](https://vorpalvorpal.github.io/weft/articles/gate.html).
+
+**Setting up a project.**
+[`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
+writes everything a project needs, and says what it will write first.
+See [Setting up a
+project](https://vorpalvorpal.github.io/weft/articles/setup.html). If an
+AI coding agent edits your documents, read [Working with coding
+agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
+
+Start with [Getting
+started](https://vorpalvorpal.github.io/weft/articles/weft.html).
+
+## Status
+
+weft is a development version (0.0.0.9001). It is not on CRAN, and its
+functions and file formats may still change. The design is in
+`dev/PACKAGE-SCOPING.md` in the repository. Please report problems at
+<https://github.com/vorpalvorpal/weft/issues>.
+
+# Package index
+
+## Activating weft
+
+- [`weft_setup()`](https://vorpalvorpal.github.io/weft/reference/weft_setup.md)
+  : Activate weft for a document
+
+## Values in prose
+
+Format computed values, with or without units.
+
+- [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_pct()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_sci()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_no()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_word()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_count()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_ord()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_and()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_or()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_p()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_date()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_range()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_pairs()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_ul()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_ol()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_dl()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_cap()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_a()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_strong()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  [`fmt_em()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) :
+  Formatter functions
+- [`fmt_unit()`](https://vorpalvorpal.github.io/weft/reference/fmt_unit.md)
+  : Print a unit alone
+- [`u()`](https://vorpalvorpal.github.io/weft/reference/u.md) : A number
+  with a unit
+- [`unit_defaults()`](https://vorpalvorpal.github.io/weft/reference/unit_defaults.md)
+  : The default units weft registers
+- [`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+  : Resolve markup in a string
+- [`glue_vec()`](https://vorpalvorpal.github.io/weft/reference/glue_vec.md)
+  : Join items into a phrase
+
+## Wording that depends on values
+
+- [`plural()`](https://vorpalvorpal.github.io/weft/reference/plural.md)
+  : Choose a plural form
+- [`lookup()`](https://vorpalvorpal.github.io/weft/reference/lookup.md)
+  [`brk()`](https://vorpalvorpal.github.io/weft/reference/lookup.md) :
+  Phrases chosen by key or by range
+- [`of_n()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
+  [`about()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
+  [`ci()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
+  [`pm()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
+  [`clamp()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
+  : Phrase functions
+- [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) :
+  Check a value in place
+
+## Checking wording
+
+See which arms a document can choose, and what the last knit did.
+
+- [`arms()`](https://vorpalvorpal.github.io/weft/reference/arms.md) :
+  List the arms of every governed span of a document
+- [`rehearse()`](https://vorpalvorpal.github.io/weft/reference/rehearse.md)
+  : Knit a document under several cases and see which arms they choose
+- [`last_knit()`](https://vorpalvorpal.github.io/weft/reference/last_knit.md)
+  : The records of the most recent knit
+
+## The dictionary
+
+- [`dict_file`](https://vorpalvorpal.github.io/weft/reference/dict_file.md)
+  : The dictionary file
+
+- [`read_dict()`](https://vorpalvorpal.github.io/weft/reference/read_dict.md)
+  : Read a dictionary file
+
+- [`` `$`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `[[`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `[`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `$<-`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `[[<-`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `[<-`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`` `names<-`( ``*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`names(`*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`as.list(`*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  [`print(`*`<weft_dict>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_dict.md)
+  : Methods for a dictionary
+
+- [`c(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`` `[`( ``*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`` `[[`( ``*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`rev(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`sort(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`unique(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`seq(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`Summary(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`Ops(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`Math(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`format(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  [`print(`*`<weft_year>`*`)`](https://vorpalvorpal.github.io/weft/reference/weft_year.md)
+  : A year in a dictionary
+
+- [`dict_glossary()`](https://vorpalvorpal.github.io/weft/reference/dict_glossary.md)
+  : The glossary of a dictionary
+
+- [`dict_seed()`](https://vorpalvorpal.github.io/weft/reference/dict_seed.md)
+  : Find constants a project defines in more than one document
+
+- [`dict_vale()`](https://vorpalvorpal.github.io/weft/reference/dict_vale.md)
+  :
+
+  A Vale rule from the dictionary's `avoid` fields
+
+## targets pipelines
+
+- [`tar_dict()`](https://vorpalvorpal.github.io/weft/reference/tar_dict.md)
+  : Targets for a project dictionary
+- [`tar_dict_deps()`](https://vorpalvorpal.github.io/weft/reference/tar_dict_deps.md)
+  : Add the dictionary entries a pipeline reads to its targets
+
+## Static lints
+
+- [`print(`*`<weft_findings>`*`)`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) :
+  Lint a project's documents without running them
+- [`lint_rules()`](https://vorpalvorpal.github.io/weft/reference/lint_rules.md)
+  : The static lints
+- [`label_seed()`](https://vorpalvorpal.github.io/weft/reference/label_seed.md)
+  : Propose label words from the prose
+- [`recall_check()`](https://vorpalvorpal.github.io/weft/reference/recall_check.md)
+  [`print(`*`<weft_recall>`*`)`](https://vorpalvorpal.github.io/weft/reference/recall_check.md)
+  : Check how well the lints reproduce recorded findings
+
+## Commit gate and release checks
+
+- [`gate()`](https://vorpalvorpal.github.io/weft/reference/gate.md)
+  [`print(`*`<weft_gate>`*`)`](https://vorpalvorpal.github.io/weft/reference/gate.md)
+  : The commit gate
+- [`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+  [`print(`*`<weft_changes>`*`)`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+  : What changed in the ledgers since a commit
+- [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  [`print(`*`<weft_verify>`*`)`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  : Check a project before release
+- [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  : What weft has installed in a project
+
+## Setting up a project
+
+- [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
+  : Set up a project for weft: every installer, from one plan
+- [`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md)
+  : Activate weft in a project's documents
+- [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+  : Set up a Quarto project for weft
+- [`use_dictionary()`](https://vorpalvorpal.github.io/weft/reference/use_dictionary.md)
+  : Set up the project dictionary
+- [`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md)
+  : Install the commit-msg hook that runs the commit gate
+- [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md)
+  : Write the GitHub Actions workflow that runs weft's static checks
+- [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
+  : Write the agent documents: an AGENTS.md block and a Claude skill
+
+# Articles
+
+### Writing
+
+- [Values and
+  formatters](https://vorpalvorpal.github.io/weft/articles/values.md):
+- [Value-dependent wording and
+  claims](https://vorpalvorpal.github.io/weft/articles/wording.md):
+- [Units and the
+  dictionary](https://vorpalvorpal.github.io/weft/articles/units.md):
+- [Using weft with
+  targets](https://vorpalvorpal.github.io/weft/articles/targets.md):
+
+### Checking
+
+- [The static
+  lints](https://vorpalvorpal.github.io/weft/articles/lints.md):
+- [The commit gate, the ledger and
+  verify()](https://vorpalvorpal.github.io/weft/articles/gate.md):
+
+### Projects
+
+- [Setting up a
+  project](https://vorpalvorpal.github.io/weft/articles/setup.md):
+- [Working with coding
+  agents](https://vorpalvorpal.github.io/weft/articles/agents.md):

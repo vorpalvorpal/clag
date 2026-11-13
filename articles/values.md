@@ -1,0 +1,432 @@
+# Values and formatters
+
+This article is for authors who already have weft turned on in a
+document (see
+[`vignette("weft", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/weft.md))
+and want to print numbers, counts, lists and dates the same way
+everywhere. After it you will know every formatter class, the keys that
+adjust them, how weft rounds, what it does with a missing value, and how
+to change the defaults for a project.
+
+## Bare values and formatted values
+
+A **bare value** is inline R with no attribute block: `` `r x` ``. weft
+leaves it alone, and it prints exactly as knitr prints it. weft still
+records it, and the static lints still count it as a computed number.
+
+A **formatted value** has an attribute block after the closing backtick,
+with nothing in between: `` `r x`{.num} ``. The block holds one or more
+**formatter classes**, and sometimes **keys** that adjust them. Under
+Quarto, `` `{r} x`{.num} `` behaves the same.
+
+The examples below come from one document. Its data chunk is:
+
+``` r
+
+mean_ntu <- 8.2333
+share <- 0.1234
+p_val <- 0.0462
+n_dry <- 0
+n_wet <- 12
+survey_no <- 3
+record_years <- 11
+sites <- c("Upper", "Middle", "Lower", "Estuary", "Mouth")
+means <- c(Upper = 4.2, Middle = 7.9, Lower = 12.6)
+depth_range <- c(0.4, 1.3)
+visit <- as.Date("2024-09-02")
+volume <- 1234567
+flagged <- character(0)
+```
+
+## Numbers
+
+``` markdown
+Mean turbidity was `r mean_ntu`{.num}, or `r mean_ntu`{.num digits="2"} to
+two places, or `r mean_ntu`{.num sigfig="1"} to one significant figure.
+
+`r share`{.pct} of samples exceeded the guideline (`r p_val`{.p}).
+
+The pond holds `r volume`{.num} L, `r volume`{.sci} L in scientific notation.
+```
+
+``` text
+Mean turbidity was 8.2, or 8.23 to two places, or 8 to one significant figure.
+
+12.3% of samples exceeded the guideline (p = 0.046).
+
+The pond holds 1,234,567 L, 1.2 × 10⁶ L in scientific notation.
+```
+
+| Class | Prints |
+|----|----|
+| `.num` | a number: a whole number with no decimals, any other to the default digits (one place unless set) |
+| `.pct` | a proportion as a percentage: 0.1234 prints “12.3%” |
+| `.sci` | scientific notation |
+| `.p` | a p-value: “p = 0.046”, “p \< 0.001”, “p \> 0.99”, never “p = 0.000” |
+| `.date` | a date, in the default format “2 September 2024” |
+
+`.num`, `.pct` and `.ord` put a thousands mark in numbers from 1,000 up.
+A year held as a plain number gets one too, so print a year as a bare
+value, or keep it in the dictionary as a `year` entry, which never gets
+a mark (see
+[`vignette("units", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/units.md)):
+
+``` r
+
+fmt_num(2024)
+#> <weft_text>
+#> [1] "2,024"
+```
+
+weft rounds half away from zero, on the number as written: 0.15 prints
+“0.2”. It prints the minus sign as the true minus (U+2212).
+
+## Counts and wording
+
+``` markdown
+`r n_dry`{.no .word .cap} sites were dry and `r n_wet`{.count} were wet.
+This is the `r survey_no`{.ord} survey.
+
+`r n_wet`{.word .cap} sites were wet. The logger gave
+`r record_years`{.num .a}-year record.
+```
+
+``` text
+No sites were dry and 12 were wet. This is the 3rd survey.
+
+Twelve sites were wet. The logger gave an 11-year record.
+```
+
+| Class | Prints |
+|----|----|
+| `.no` | a zero as “no” |
+| `.word` | a whole number spelled out (“three”), in digits from 100 up |
+| `.count` | a word below ten, digits from ten up (“three”, “12”) |
+| `.ord` | an ordinal (“3rd”) |
+| `.a` | “a” or “an” before a number, by its sound (“an 11”, “an 8”) |
+| `.cap` | a capital first letter |
+| `.strong`, `.em` | bold or italic |
+
+`.word`, `.count` and `.ord` need a whole number that is not negative. A
+decimal or a negative number is a **value error**: the render fails at
+the end and names the line.
+
+## Lists
+
+``` markdown
+We sampled `r sites`{.and trunc="3"}, or `r sites`{.or sep="; "}.
+
+Means were `r means`{.num .pairs}.
+
+Depths ranged over `r depth_range`{.range} m. The first visit was on
+`r visit`{.date}.
+
+Flagged sites: `r flagged`{.and none="none"}.
+```
+
+``` text
+We sampled Upper, Middle, Lower and 2 others, or Upper; Middle; Lower;
+Estuary or Mouth.
+
+Means were Upper (4.2), Middle (7.9) and Lower (12.6).
+
+Depths ranged over 0.4–1.3 m. The first visit was on 2 September 2024.
+
+Flagged sites: none.
+```
+
+| Class | Prints |
+|----|----|
+| `.and`, `.or` | the items joined with “and” or “or” |
+| `.pairs` | a named vector as “A (1.2), B (3.4) and C (5.6)” |
+| `.range` | two numbers as a range (“3–5”), or “−5 to −3” when an end is negative |
+| `.ul`, `.ol`, `.dl` | a bullet list, a numbered list or a definition list |
+
+A vector with no list class prints its items joined by “,”, as knitr
+prints a vector.
+
+`.ul`, `.ol` and `.dl` make a block, so the value must be alone in its
+paragraph, and not inside a list item, a block quote or a table cell:
+
+``` markdown
+The sites were:
+
+`r sites[1:3]`{.ul}
+```
+
+``` text
+The sites were:
+
+- Upper
+- Middle
+- Lower
+```
+
+## Keys
+
+Keys adjust a class. Write them inside the same attribute block, with
+the value in double quotes.
+
+| Key      | Sets                                                     |
+|----------|----------------------------------------------------------|
+| `digits` | decimal places                                           |
+| `sigfig` | significant figures (not with `digits`)                  |
+| `unit`   | the unit a quantity prints in (see the units article)    |
+| `sep`    | the text between list items                              |
+| `last`   | the text before the last item                            |
+| `trunc`  | how many items to show before “and N others”             |
+| `none`   | the text to print for an empty vector, with a list class |
+
+`digits`, `sigfig` or `unit` on a value with no number class imply
+`.num`.
+
+## Combining classes
+
+Classes act in four fixed stages, whatever order you write them in:
+
+1.  **Number**: at most one of `.num`, `.pct`, `.sci`, `.p`, `.date`.
+2.  **Wording**: `.no`, then at most one of `.word`, `.count`, `.ord`.
+3.  **List**: at most one of `.and`, `.or`, `.pairs`, `.range`, `.ul`,
+    `.ol`, `.dl`.
+4.  **Text**: `.a`, then `.cap`, then `.strong` or `.em`.
+
+So `{.num .pairs}` formats each number and then pairs them, and
+`{.no .word .cap}` turns 0 into “no”, then capitalises it. Two classes
+from one “at most one” group are a **construct error**, which stops the
+render at once and which the lints report without running anything.
+
+A class or key that weft does not own passes through to a Pandoc span
+around the output.
+[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md),
+described below, shows the markdown weft writes:
+
+``` r
+
+mean_ntu <- 8.2333
+weft_str("Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}.")
+#> [1] "Turbidity was **8.2** and [8.2]{.smallcaps}."
+```
+
+A misspelt class, such as `.nmu`, is therefore not an error. The tier-2
+lint `name` lists it (see
+[`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md)).
+
+## Numbers that print as zero
+
+A number that is not zero but rounds to “0.0” under the default digits
+is easy to miss. weft prints it, and records a **warned check**: the
+render does not fail, and the warning is printed at the end of the knit.
+Outside a knit it is an R warning:
+
+``` r
+
+fmt_num(0.04)
+#> Warning: weft: 0.04 printed as 0.0: add sigfig to show it, or digits to confirm
+#> it
+#> <weft_text>
+#> [1] "0.0"
+fmt_num(0.04, sigfig = 1)
+#> <weft_text>
+#> [1] "0.04"
+fmt_num(0.04, digits = 1)
+#> <weft_text>
+#> [1] "0.0"
+```
+
+Give `sigfig` to show the number, or `digits` to say that the zero is
+what you meant. Either one silences the warning.
+
+## Missing values
+
+`NA`, `NaN`, `Inf`, `-Inf` and a vector of length zero are **missing
+values**. Given to a formatter, a span or a phrase function, a missing
+value is a “no value” failure: the render fails at the end, and in draft
+mode the value prints as `<<weft: no value, line N>>`. A bare value with
+no attribute block prints `NA` as knitr does.
+
+A list class with `none` is the exception: an empty vector prints the
+`none` text, as in the “Flagged sites” example above.
+
+## Formatters in R code
+
+Every class `.x` has a function `fmt_x()`, for chunks, plot labels and
+table cells:
+
+``` r
+
+fmt_num(8.2333, digits = 2)
+#> <weft_text>
+#> [1] "8.23"
+fmt_pct(0.1234)
+#> <weft_text>
+#> [1] "12.3%"
+fmt_p(0.00002)
+#> <weft_text>
+#> [1] "p < 0.001"
+fmt_word(3)
+#> <weft_text>
+#> [1] "three"
+fmt_count(c(3, 12))
+#> <weft_text>
+#> [1] "three" "12"
+fmt_ord(3)
+#> <weft_text>
+#> [1] "3rd"
+fmt_and(c("Upper", "Middle", "Lower", "Estuary"), trunc = 2)
+#> <weft_text>
+#> [1] "Upper, Middle and 2 others"
+fmt_range(c(-5, -3))
+#> <weft_text>
+#> [1] "−5 to −3"
+fmt_date(as.Date("2024-09-02"))
+#> <weft_text>
+#> [1] "2 September 2024"
+fmt_cap(fmt_word(12))
+#> <weft_text>
+#> [1] "Twelve"
+fmt_a(fmt_num(11))
+#> <weft_text>
+#> [1] "an 11"
+```
+
+A formatter returns a `weft_text`: a character vector that carries its
+**printed record**, the number as printed, whether decimals show, and
+whether it is a bound such as “\< 0.01”. Pass one formatter’s result to
+another and the record goes with it:
+
+``` r
+
+fmt_pairs(fmt_num(c(Upper = 4.2, Middle = 7.9, Lower = 12.6)))
+#> <weft_text>
+#> [1] "Upper (4.2), Middle (7.9) and Lower (12.6)"
+```
+
+[`glue_vec()`](https://vorpalvorpal.github.io/weft/reference/glue_vec.md)
+is the joining engine behind `.and` and `.or`:
+
+``` r
+
+glue_vec(c("Upper", "Middle", "Lower"), last = " or ")
+#> <weft_text>
+#> [1] "Upper, Middle or Lower"
+```
+
+[`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
+resolves weft markup in a string, for text that no chunk option reaches:
+a `kable()` caption, a plot title, text written by a chunk with
+`results: asis`.
+
+``` r
+
+n_sites <- 3
+weft_str("Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU.")
+#> [1] "Turbidity at three sites, mean 8.2 NTU."
+```
+
+## Captions and front matter
+
+A construct works in a chunk’s caption. Write the caption as a YAML
+block scalar (`|`), because a construct in any other form of scalar is a
+construct error:
+
+```` markdown
+```{r}
+#| label: fig-depth
+#| fig-cap: |
+#|   Depth at [a site | # sites]{n="n_sites"}, mean `r mean(d)`{.num} m.
+d <- c(0.4, 0.7, 1.3)
+n_sites <- length(d)
+barplot(d)
+```
+````
+
+The caption is resolved after the chunk runs, so it sees objects the
+chunk made. The same works in `fig-alt`, `fig-subcap` and `tbl-cap`
+under Quarto, and in `fig.cap` and `fig.alt` under R Markdown. A
+construct in the caption of a chunk with `cache: true` or `eval: false`
+is a construct error: write that caption in a figure div instead.
+
+The front-matter fields `title`, `subtitle`, `abstract` and
+`description` take constructs too, when written as a block scalar. Front
+matter is read before any chunk runs, so a field that needs a chunk’s
+values goes in a second metadata block at the end of the document:
+
+``` markdown
+---
+abstract: |
+  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of
+  `r mean(d)`{.num} m.
+---
+```
+
+## Changing the defaults
+
+Project settings live in `_weft.yml` at the project root. A document
+overrides them with a `weft:` key in its own front matter. The settings
+for values are:
+
+| Setting | Default | Governs |
+|----|----|----|
+| `digits` | `1` | decimal places for a number that is not whole |
+| `decimal_mark` | `"."` | the decimal mark |
+| `big_mark` | `","` | the thousands mark |
+| `thousands_from` | `1000` | the smallest number that gets a thousands mark |
+| `serial_comma` | `false` | a comma before the final “and” or “or” of three or more items |
+| `minus` | `"−"` | the minus sign |
+| `pct_proportion` | `true` | whether `.pct` reads 0.12 as 12% |
+| `count_threshold` | `10` | where `.count` switches from words to digits |
+| `word_limit` | `100` | where `.word` switches to digits |
+| `date_format` | `"%-d %B %Y"` | the format of `.date` |
+| `governor_class` | `.num` | the class that formats the number of an `n` or `sign` span |
+
+With this `_weft.yml`:
+
+``` yaml
+digits: 2
+serial_comma: true
+count_threshold: 20
+formatters:
+  .millions:
+    function: in_millions
+    stage: number
+```
+
+and this document:
+
+```` markdown
+---
+title: "Settings"
+output: html_document
+knitr:
+  opts_knit:
+    weft: !expr weft::weft_setup()
+weft:
+  date_format: "%d/%m/%Y"
+---
+
+```{r data}
+in_millions <- function(x) paste(format(round(x / 1e6, 1), nsmall = 1), "million")
+mean_ntu <- 8.2333
+n_wet <- 12
+sites <- c("Upper", "Middle", "Lower")
+visit <- as.Date("2024-09-02")
+volume <- 1234567
+```
+
+Mean turbidity was `r mean_ntu`{.num}. `r n_wet`{.count .cap} sites were wet:
+`r sites`{.and}. The first visit was on `r visit`{.date}. The pond holds
+`r volume`{.millions} litres.
+````
+
+the paragraph renders as:
+
+``` text
+Mean turbidity was 8.23. Twelve sites were wet: Upper, Middle, and Lower.
+The first visit was on 02/09/2024. The pond holds 1.2 million litres.
+```
+
+The `formatters:` setting registers a **project formatter**: a class
+name, the function behind it (`pkg::fun`, or a name the document can
+see), and the stage it acts in (`number` unless given). It counts
+towards that stage’s “at most one” rule, and it may not reuse the name
+of a weft class.

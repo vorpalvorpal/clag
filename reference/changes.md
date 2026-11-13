@@ -1,0 +1,93 @@
+# What changed in the ledgers since a commit
+
+Compares the ledgers of a set-up project in the working tree with those
+at a git commit, and lists the entries that changed, were added or were
+removed, the conditions that are new, and the ledgers that are stale
+(rule 7.3, 7.2.1).
+
+## Usage
+
+``` r
+changes(since = "HEAD", path = ".", files = NULL)
+
+# S3 method for class 'weft_changes'
+print(x, brief = FALSE, ...)
+```
+
+## Arguments
+
+- since:
+
+  One string naming a commit (anything `git rev-parse` accepts).
+  `"HEAD"` in a repository with no commit compares with nothing, so
+  every ledger is new.
+
+- path:
+
+  A folder inside the project; the root is found as elsewhere in weft
+  and must hold `_weft.yml`.
+
+- files:
+
+  `NULL`, or source paths relative to the root; only their ledgers are
+  compared.
+
+- x:
+
+  A `weft_changes`.
+
+- brief:
+
+  If `TRUE`, print only the header line, the structural changes, the
+  ledgers not re-rendered and the new conditions.
+
+- ...:
+
+  Unused.
+
+## Value
+
+A `weft_changes`, a list of the tables `entries`, `conditions`, `stale`,
+`ledgers` and `findings`, with the attributes `since`, `commit` (the
+full hash, or `NA`) and `root`. It prints as plain text.
+
+## Details
+
+An entry is changed when its text or its arm differs; a different raw
+value alone is not a change. Changed entries are ranked: those with a
+structural reason (an arm change, a sign flip, a crossing of 0, 1.0 or a
+dictionary value, a change of an order of magnitude) first, then those
+beside a claim word, then by relative change. A ledger is stale when
+what its header recorded (targets in the store, dictionary entries,
+source files) differs now, so its entries were not re-rendered.
+
+`changes()` renders nothing, runs no pipeline and writes nothing. It
+reads git only. Because it runs no pipeline it does not see a store that
+is behind its code. `findings` lists the tier-2 lints of
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) over
+the lines added since the commit, with the columns `file`, `line`,
+`rule` and `message`; a file with more `claim-word` findings than its
+`claim_cap` gets one row that counts them. Ledgers are paired by path; a
+source that was renamed is paired with the old one when at least half of
+its entries match and the two output names are equal or each is its own
+source's base name; a ledger whose source is gone counts as the old one
+even while it is still in the working tree. Where one expression occurs
+several times in a section and the counts differ, the occurrences are
+lined up by their sentences, so a deleted one is reported as removed.
+Entries of a section whose heading was renamed are paired and marked
+`(section renamed from #old)`. A threshold from the dictionary that is a
+quantity is compared in its own unit, using the `unit` the ledger
+records beside `raw`; an entry from an older ledger, or a plain number,
+gives no such crossing. A note under "Ledgers" says so when git ignores
+`_weft/ledger/` (`git check-ignore -q`, the only git command added to
+`rev-parse`, `ls-tree` and `show`).
+
+The claim words are English only, so a chapter in another language gets
+no claim-word ranking, and the interim list is broad (it holds common
+words such as `no`, `all` and `more`, but not the number words `one` to
+`twelve`, `first`, `second` or `third`); stage 3's lexicon replaces it.
+A crossing of 1.0 is a reason only where the entry has no unit on either
+side (a ratio or a count).
+
+`print(x, brief = TRUE)` prints the header line, the structural changes,
+the ledgers not re-rendered and the new conditions, and nothing else.

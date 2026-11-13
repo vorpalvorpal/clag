@@ -1,0 +1,558 @@
+# The commit gate, the ledger and verify()
+
+This article is for authors who keep a weft project in git. It follows
+one small report from its first commit to a release check. After it you
+will know what the commit gate refuses and how to answer it, what the
+ledger records and how
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+reads it, and how
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+checks a project before you hand it on.
+
+The examples need git, Quarto and a project set up with
+[`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md),
+so they are not run when this article is built. Each command was run in
+a scratch project, and the output shown is what it printed. Paths have
+been shortened.
+
+## Three checks, at three moments
+
+weft checks a project at three moments:
+
+| When | What runs | What it reads |
+|----|----|----|
+| each commit | the commit gate, [`gate()`](https://vorpalvorpal.github.io/weft/reference/gate.md) | the static lints of the changed files, compared with `HEAD` |
+| each render | the checks in the document | the values, the spans and the claims as they knit |
+| before release | [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) | everything: lints, a full render, the ledgers |
+
+The **commit gate** is a `commit-msg` git hook that runs
+[`gate()`](https://vorpalvorpal.github.io/weft/reference/gate.md).
+[`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
+installs it, or
+[`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md)
+on its own. It compares what the commit will hold with `HEAD`, and
+refuses the commit for one of three reasons:
+
+1.  a **construct error** in a changed document, whatever `HEAD` held;
+2.  a **tier-1 finding that `HEAD` did not hold**, such as a newly typed
+    number;
+3.  weft constructs **removed**, when the commit message does not say
+    so.
+
+The gate runs no R code from the project and renders nothing. It reads
+git only, so it takes a fraction of a second.
+
+## A report before weft
+
+The report starts as an ordinary Quarto document, committed to git:
+
+```` markdown
+---
+title: "Creek report"
+---
+
+## Sites {#sec-sites}
+
+```{r}
+#| label: data
+turbidity <- c(Upper = 4.2, Middle = 7.9, Lower = 12.6)
+n_high <- sum(turbidity > 10)
+```
+
+We sampled three sites in 2024. One site read above the trigger of 10 NTU.
+````
+
+Then the author sets weft up:
+
+``` r
+
+weft::use_weft()
+#> weft will set up creek-report:
+#>   use_setup       .Rprofile (new), _weft.yml (new), report.qmd (edit)
+#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
+#>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
+#>   use_hooks       .git/hooks/commit-msg (new)
+#>   use_ci          skipped: origin is not on GitHub
+#>   use_agent_docs  AGENTS.md (new), .claude/skills/weft/SKILL.md (new)
+#> Wrote: .Rprofile, _weft.yml, report.qmd, ...
+```
+
+[`vignette("setup", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/setup.md)
+describes each of these files. The edit to `report.qmd` adds
+`engine: knitr` to its front matter.
+
+``` sh
+git add .Rprofile _weft.yml report.qmd _extensions _weft _quarto.yml \
+  dict.yml AGENTS.md .claude
+git commit -m "Set up weft"
+```
+
+``` text
+commit-msg: weft passed (1 changed file, 0.3 s)
+[main 780cac8] Set up weft
+ 12 files changed, 1041 insertions(+)
+```
+
+The report still holds two typed numbers, “2024” and “10”. The gate lets
+them through, because it refuses only findings that `HEAD` did not hold.
+A project can adopt weft without fixing every old number first.
+
+## A new typed number
+
+The author adds a sentence:
+
+``` markdown
+The highest reading was 12.6 NTU.
+```
+
+``` sh
+git add report.qmd
+git commit -m "Report the highest reading"
+```
+
+``` text
+commit-msg: 1 finding added that HEAD did not hold
+  report.qmd
+       15  numeral  "12.6" is a number typed in prose (rule 5.2.1).
+                    Write it as a value, put it in the dictionary, or mark it [12.6]{.weft-literal why="..."}.
+
+commit-msg: 0.3 s
+```
+
+The commit is refused. The hint lists the three fixes. Here the number
+is computed from data, so the author computes it. The trigger is a
+choice, so it goes in `dict.yml`:
+
+``` yaml
+trigger:
+  value: 10
+  type: quantity
+  unit: NTU
+  definition: "Turbidity above which a site is reported."
+```
+
+and the report becomes:
+
+```` markdown
+---
+title: "Creek report"
+engine: knitr
+---
+
+## Sites {#sec-sites}
+
+```{r}
+#| label: data
+turbidity <- u(c(Upper = 4.2, Middle = 7.9, Lower = 12.6), NTU)
+n_high <- sum(turbidity > dict$trigger)
+```
+
+We sampled three sites in 2024.
+[No site | One site | # sites]{n="n_high"} read above the trigger of `r dict$trigger`{.num}.
+The highest reading was `r claim(max(turbidity), . < u(50, NTU))`{.num}.
+````
+
+``` text
+$ git add report.qmd dict.yml
+$ git commit -m "Compute the highest reading"
+commit-msg: weft passed (1 changed file, 0.3 s)
+[main db9c980] Compute the highest reading
+```
+
+“2024” is still there and still tolerated.
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+lists every finding, old and new, if you want to see what remains (see
+[`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md)).
+
+## The ledger
+
+Each render of a set-up project writes a **ledger** for each document: a
+record of every value and every chosen arm the render printed, with the
+sentence it sat in. It lives in `_weft/ledger/`, one folder per source:
+
+``` text
+_weft/ledger/report.qmd/report.jsonl
+_weft/ledger/report.qmd/report.conditions.jsonl
+```
+
+Commit it with the source. Then git holds what each version of the
+report said, and
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+can compare them.
+
+``` sh
+quarto render report.qmd
+git add _weft/ledger
+git commit -m "Render the report"
+```
+
+The ledger is JSON Lines. The first line records what the render read:
+the dictionary entries, the source files and any targets, each with a
+hash. Each later line is one entry:
+
+``` text
+{"weft":"ledger","version":1,"source":"report.qmd","output":"report","dict":{"trigger":"8e71a4f3e615896d"},"files":{"report.qmd":"7f971c44b8bcdfd7"},"targets":{}}
+{"file":"report.qmd","section":"sec-sites","kind":"n","expr":"n_high","occ":1,"id":null,"context":"prose","text":"No site","arm":"zero","rel":"=","raw":0,"unit":null,"failed":null,"dict":[],"sentence":"No site read above the trigger of 10 NTU."}
+{"file":"report.qmd","section":"sec-sites","kind":"value","expr":"dict$trigger","occ":1,"id":null,"context":"prose","text":"10 NTU","arm":null,"rel":"=","raw":10,"unit":"NTU","failed":null,"dict":["dict$trigger"],"sentence":"No site read above the trigger of 10 NTU."}
+```
+
+An entry is keyed by its file, its section anchor and its expression.
+That is why the lints ask for a `{#id}` on each heading: the key stays
+the same when the heading’s words change.
+
+The **condition log**, `report.conditions.jsonl`, records each warning
+and error that a chunk or an inline expression raised during the render,
+and, for a document that reads targets, the ones recorded in the targets
+store. A new warning then shows in the diff, even when the output looks
+the same.
+
+## What changed: `changes()`
+
+New data arrive. The Lower reading was 9.6, not 12.6, and the author
+adds a nitrate column whose values came from a laboratory as text:
+
+``` r
+
+turbidity <- u(c(Upper = 4.2, Middle = 7.9, Lower = 9.6), NTU)
+n_high <- sum(turbidity > dict$trigger)
+nitrate <- as.numeric(c("0.8", "<0.5", "1.1"))
+```
+
+After a render,
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+compares the ledgers in the working tree with those in `HEAD`:
+
+``` r
+
+weft::changes()
+#> weft changes since HEAD (9e34dd7): 1 ledger compared; 2 changed, 0 added, 0 removed; 1 new condition
+#>
+#> Structural changes
+#>   ~ report.qmd#sec-sites  n  n_high  [arm one -> zero, crosses 0]
+#>       before: One site read above the trigger of 10 NTU.
+#>       after:  No site read above the trigger of 10 NTU.
+#>
+#> Other changes, ranked
+#>   ~ report.qmd#sec-sites  value  claim(max(turbidity), . < u(50, NTU))  [claim word "highest"]
+#>       before: The highest reading was 12.6 NTU.
+#>       after:  The highest reading was 9.6 NTU.
+#>
+#> New conditions
+#>   ! report.qmd  chunk data  warning: NAs introduced by coercion
+```
+
+Read it from the top:
+
+- **Structural changes** come first. An arm changed, a value changed
+  sign, crossed 0, 1 or a dictionary value, or moved by an order of
+  magnitude. These are the changes most likely to make a sentence
+  elsewhere wrong.
+- **Other changes, ranked** follow. A change beside a claim word, such
+  as “highest” or “all”, ranks above a plain change; then larger
+  relative changes rank higher.
+- **New conditions** lists warnings and errors the last committed render
+  did not raise. Here
+  [`as.numeric()`](https://rdrr.io/r/base/numeric.html) turned “\<0.5”
+  into `NA`, which the output alone would not show.
+- **Not re-rendered**, when present, lists ledgers whose inputs (a
+  dictionary entry, a source file, a target) changed after the render.
+  Their values are stale.
+
+A different value with the same printed text is not a change.
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+also lists tier-2 lint findings on lines added since the commit.
+
+`changes(since = )` compares with any commit, and
+`print(x, brief = TRUE)` prints only the header, the structural changes,
+the stale ledgers and the new conditions:
+
+``` r
+
+print(weft::changes(since = "9e34dd7"), brief = TRUE)
+#> weft changes since 9e34dd7 (9e34dd7): 1 ledger compared; 1 changed, 0 added, 1 removed; 1 new condition
+#>
+#> Structural changes
+#>   ~ report.qmd#sec-sites  n  n_high  [arm one -> zero, crosses 0]
+#>       before: One site read above the trigger of 10 NTU.
+#>       after:  No site read above the trigger of 10 NTU.
+#>
+#> New conditions
+#>   ! report.qmd  chunk data  warning: NAs introduced by coercion
+```
+
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+renders nothing and writes nothing.
+
+## Removing constructs
+
+A computed value, a span or a claim is a check. Deleting one is
+sometimes right, but it should never happen by accident. The author
+drops the sentence on the highest reading:
+
+``` text
+$ git commit -m "Drop the sentence on the highest reading"
+commit-msg: 2 weft constructs removed, and the message does not say so
+
+  report.qmd, as in HEAD
+       17  claim(max(turbidity), . < u(50, NTU))
+       17  `r claim(max(turbidity), . < u(50, NTU))`{.num}
+
+  If the removal is intended, add this line at the end of the commit
+  message, after a blank line:
+
+      Weft-Removed: 2
+
+  or commit with: git commit --trailer "Weft-Removed: 2"
+
+commit-msg: 0.2 s
+```
+
+The value and its claim count as two constructs. The removal is
+intended, so the author says so:
+
+``` text
+$ git commit -m "Drop the sentence on the highest reading" --trailer "Weft-Removed: 2"
+commit-msg: weft passed (1 changed file, 0.2 s)
+[main c2ba829] Drop the sentence on the highest reading
+```
+
+The trailer stays in the history, so a reviewer can find every commit
+that removed checks with `git log --grep "Weft-Removed"`. The number
+must match: a trailer that says 1 when 2 were removed is refused.
+
+## Construct errors
+
+A construct error is refused in any changed file, even one that held it
+before:
+
+``` text
+$ git commit -m "Say which way turbidity moved"
+commit-msg: 1 construct error
+  report.qmd
+       17  construct  A formatter on an `if` span is an error (rule 1.5.7): .num.
+
+commit-msg: 0.2 s
+```
+
+## Running the gate by hand
+
+[`gate()`](https://vorpalvorpal.github.io/weft/reference/gate.md) is the
+function the hook runs. Call it to judge what is staged without
+committing:
+
+``` r
+
+weft::gate()
+#> commit-msg: 1 finding added that HEAD did not hold
+#>   report.qmd
+#>        17  numeral  "3.4" is a number typed in prose (rule 5.2.1).
+#>                     Write it as a value, put it in the dictionary, or mark it [3.4]{.weft-literal why="..."}.
+#>
+#> commit-msg: 0.3 s
+```
+
+It returns, invisibly, a list with `ok` and the findings, so a script
+can test `weft::gate()$ok`. `gate(message = )` takes the path of a file
+holding a commit message, to check a `Weft-Removed` trailer. It judges
+the whole repository, including every subfolder that holds a
+`_weft.yml`.
+
+## The hook
+
+[`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md)
+writes `.git/hooks/commit-msg`. The script is POSIX `sh` and starts:
+
+``` sh
+#!/bin/sh
+# weft-file: use_hooks 0.0.0.9001 063f9359c3c3c3c91daa6def625f32d8
+# The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().
+# Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit
+# with: git commit --no-verify
+```
+
+It records the `Rscript` and the library paths of the R session that ran
+[`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md),
+and runs R without the project’s `.Rprofile` or `.Renviron`. If you
+upgrade R or move your library, run
+[`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md)
+again;
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+reports a hook whose `Rscript` has gone.
+
+When the repository already has a `commit-msg` hook from another tool,
+or uses a hook manager (`core.hooksPath`),
+[`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md)
+leaves it alone, writes its script to `.git/weft/commit-msg`, and prints
+the line to add to the hook you already run.
+
+`git commit --no-verify` skips every hook for one commit. It is there
+for emergencies, such as R being broken. It is not a way past a finding:
+answer the finding instead. `use_hooks(remove = TRUE)` removes the hook.
+
+## Before release: `verify()`
+
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) is
+the full check. It has four parts:
+
+| Part | What it does |
+|----|----|
+| `lints` | runs the tier-1 lints over the whole project and compares them with a commit |
+| `decisions` | checks the `decision` pointers in `dict.yml` |
+| `render` | renders every document with Quarto (or knits it, under R Markdown), backing up and restoring `_freeze`, and reads the record each render leaves to see that every check ran and passed |
+| `ledger` | checks that no ledger is stale |
+
+``` r
+
+weft::verify()
+#> weft verify: passed
+#>   lints      1 tolerated finding
+#>   decisions  0 pointers
+#>   render     1 document rendered
+#>   ledger     1 ledger checked
+#>
+#> Tolerated findings (rule 8.1.2); make a rule strict in _weft.yml when its count is 0:
+#>   numeral         1 remain
+#> weft verify: 4.7 s
+```
+
+The tolerated finding is the “2024” committed before weft. The count is
+a measure of how far adoption has come. When a rule’s count reaches 0,
+add it to `strict` in `_weft.yml`, and
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+then fails on any instance at all.
+
+A render re-writes the ledgers. Commit them after
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) if
+they changed.
+
+When something is wrong,
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+says what and fails. Here the Lower reading was mistyped as 79:
+
+``` r
+
+weft::verify()
+#> weft verify: failed
+#>   lints      1 tolerated finding
+#>   decisions  0 pointers
+#>   render     quarto exited with status 1; 1 failure, 0 not executed
+#>   ledger     1 ledger checked
+#>
+#> Knit-time failures
+#>   report.qmd
+#>        17  failed claim  . < u(50, NTU) was FALSE (value 79 [NTU])
+#>                          `r claim(max(turbidity), . < u(50, NTU))`
+#>
+#> Tier-2 findings on added lines
+#>   report.qmd
+#>        17  claim-word  Claim word "highest" in a sentence with a value; check that the value still bears it out, or guard the word with an `if` span (rule 5.5.1).
+#>
+#> Tolerated findings (rule 8.1.2); make a rule strict in _weft.yml when its count is 0:
+#>   numeral         1 remain
+#> weft verify: 4.9 s
+#> Error: verify() failed: 2 reason(s); the report is above (rule 8.1.1).
+```
+
+A failing
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+signals an error of class `weft_verify_error`, so
+`Rscript -e "weft::verify()"` exits with status 1. Tier-2 findings are
+listed for a reader and never fail it.
+
+Arguments narrow it:
+
+- `verify(static = TRUE)` runs the lints and the decision check only,
+  with no render. It takes a second, and needs no data.
+- `verify(files = "report.qmd")` renders and judges some documents only.
+- `verify(since = "v1.0")` compares the lints with another commit.
+
+``` r
+
+weft::verify(static = TRUE)
+#> weft verify: passed
+#>   lints      1 tolerated finding
+#>   decisions  0 pointers
+#>   render     skipped: static = TRUE
+#>   ledger     skipped: static = TRUE
+#>
+#> Tolerated findings (rule 8.1.2); make a rule strict in _weft.yml when its count is 0:
+#>   numeral         1 remain
+#> weft verify: 0.3 s
+```
+
+`verify_skip` in `_weft.yml` names parts to skip every time, for example
+`verify_skip: [render]` for a project whose data are not on every
+machine.
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+reports a skipped part as `off`.
+
+## On pull requests: `use_ci()`
+
+[`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md)
+writes `.github/workflows/weft.yml`, a GitHub Actions workflow that runs
+`weft::verify(static = TRUE)` on each pull request, compared with the
+branch it will merge into. It needs no data and no Quarto, so it runs
+for any project.
+[`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
+skips it unless `origin` is on GitHub.
+
+The workflow catches a commit made with `--no-verify`, or on a machine
+without the hook.
+
+## Draft mode
+
+While a chapter is half written, a failing claim or an unfinished span
+can get in the way. `draft: true` in `_weft.yml` (or the environment
+variable `WEFT_DRAFT=1`) makes a render report its failures and finish,
+with a marker such as `<<weft: failed claim, line 20>>` in the output in
+place of the value. See
+[`vignette("wording", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/wording.md).
+
+Draft mode does not change the commit gate, which still runs.
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+refuses to run in draft mode, because a draft render fails nothing:
+
+``` r
+
+weft::verify()
+#> Error: verify() does not run in draft mode (rule 8.1.5): draft is on in _weft.yml. A draft render fails nothing, so it can verify nothing.
+```
+
+Turn draft mode off before release.
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+shows it as `off` while it is on.
+
+## Seeing the set-up: `status()`
+
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+reports what weft has installed, and what is missing or out of date:
+
+``` r
+
+weft::status()
+#> weft status: creek-report
+#>   setup        ok        _weft.yml records weft 0.0.0.9001 (installed: 0.0.0.9001)
+#>   activation   ok        route found (the .Rprofile)
+#>   quarto       ok        extension, scripts and _quarto.yml entries are in place
+#>   dictionary   ok        dict.yml and its schema are in place
+#>   hooks        ok        the commit-msg hook is weft 0.0.0.9001, Rscript /usr/local/bin/Rscript
+#>   ci           n/a       origin is not on GitHub
+#>   agent docs   ok        the AGENTS.md block and the skill are current
+#>   draft        ok        draft mode is off
+#>   verify_skip  ok        verify() skips nothing
+#>   strict       ok        no rule is strict
+#> Nothing to install. Run weft::verify() to check the project.
+```
+
+It writes nothing and starts no R process.
+
+## A routine
+
+1.  Write. Render as often as you like.
+2.  Before each commit, read
+    [`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md).
+    Look at every structural change and every new condition.
+3.  Commit the source and the ledger together. Answer the gate if it
+    refuses: compute the number, fix the construct, or add the trailer.
+4.  Before you hand the report on, turn draft mode off and run
+    [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md).
