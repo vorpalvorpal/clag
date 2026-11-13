@@ -146,7 +146,7 @@ test_that("review-6 #4: .ord builds its digits and suffix from the exact integer
   res <- filter_cases(cases, list(blk), draft = TRUE)
   expect_cases(res, c(k_ord = "9,007,199,254,740,993rd", k_num = "9,007,199,254,740,993",
                       m_ord = "123,456,789,012,345,678,901st", e_ord = "9,007,199,254,740,994th",
-                      t_ord = "9,007,199,254,740,995th", h_ord = "9,007,199,254,740,912th",
+                      t_ord = "9,007,199,254,740,995th", h_ord = "9,007,199,254,741,012th",
                       big_ord = "100,000,000,000,000,011th"))
 })
 
