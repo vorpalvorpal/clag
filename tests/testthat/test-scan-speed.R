@@ -8,13 +8,18 @@ ss_doc <- function(paras) {
   rep(one, paras)
 }
 
-test_that("scan speed: a non-ASCII document of 8,000 blank lines scans in under two seconds", {
+# The cost of a construct is the same in either text (about 0.3 ms), so the measure is the non-ASCII
+# document against its ASCII twin, not a fixed time. Before the change the non-ASCII one took more than
+# twice as long (5.1 s against 2.3 s here).
+test_that("scan speed: a non-ASCII document scans about as fast as its ASCII twin", {
   skip_on_cran()
   lines <- ss_doc(4000L)
+  twin <- chartr("\u00e9\u4e2d\u6587\u2014", "ezw-", lines)
   got <- NULL
+  plain <- cpu_time(weft:::scan_document(twin, file = NA_character_))
   elapsed <- cpu_time(got <- weft:::scan_document(lines, file = NA_character_))
   expect_identical(sum(got$kind != "bare"), 8000L)
-  expect_lt(elapsed, 2)
+  expect_lt(elapsed, 1.5 * plain + 0.3)
 })
 
 test_that("scan speed: the rows of a non-ASCII document are those of its ASCII twin, position for position", {
