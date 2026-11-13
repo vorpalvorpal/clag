@@ -42,9 +42,10 @@ function M.spell_or(n, fallback)
   return s
 end
 
--- the ordinal suffix of a whole number, from its printed digits
+-- the ordinal suffix of a whole number, from its printed digits (a string of digits: no double decides it);
+-- a number is accepted and printed first
 function M.ordinal_suffix(n)
-  local ds = string.format("%.0f", n)
+  local ds = type(n) == "string" and n or string.format("%.0f", n)
   local last2 = math.tointeger(tonumber(ds:sub(math.max(#ds - 1, 1)))) or 0
   local last = last2 % 10
   if last2 >= 11 and last2 <= 13 then return "th"
@@ -73,7 +74,7 @@ end
 M.NUMBER_WORDS = {}
 for w in ([[zero one two three four five six seven eight nine ten eleven twelve thirteen fourteen fifteen
   sixteen seventeen eighteen nineteen twenty thirty forty fifty sixty seventy eighty ninety hundred thousand
-  million billion]]):gmatch("%S+") do
+  million billion]]):gmatch("[^ \t\r\n]+") do
   M.NUMBER_WORDS[w] = true
 end
 
@@ -196,14 +197,19 @@ function M.collapse_items(text, sep, last, trunc, serial)
   return M.glue(text, sep, last)
 end
 
--- `.range`: text is {a, b}, number the printed numbers (or nil), raw the numbers as given (or nil).
+-- `.range`: text is {a, b}, number the printed numbers (or nil), raw the numbers as given (or nil), exact_gt
+-- the order of the ends judged on their text (or nil).
 -- Returns the text, or nil and a message.
-function M.collapse_range(text, number, raw, minus)
+function M.collapse_range(text, number, raw, minus, exact_gt)
   if #text ~= 2 then
     return nil, string.format("`.range` needs a value of length 2; this has %d (rule 5.3.2).", #text)
   end
+  -- `exact_gt` (true or false) is the order of the two ends judged on the records' own text; the doubles
+  -- decide only when it is nil
   local ord = (raw and raw[1] and raw[2]) and raw or number
-  if ord and ord[1] and ord[2] and ord[1] > ord[2] then
+  local above = exact_gt
+  if above == nil then above = ord and ord[1] and ord[2] and ord[1] > ord[2] end
+  if above then
     return nil, string.format("`.range` needs its first end not above its second; got %s and %s.", text[1], text[2])
   end
   if text[1] == text[2] then return text[1] end

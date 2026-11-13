@@ -67,7 +67,9 @@ CLASSES["em"] = { group = "emphasis" }
 
 -- the governor keys, and the keys weft owns on a construct
 local GOVERNORS = { ["if"] = true, n = true, sign = true, list = true, cite = true }
-local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true }
+-- `unit` is a renderer key (N5, 6d): the filter has no units, so a named value with it fails (E20)
+local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true,
+                        unit = true }
 local OWNED_KEYS = { unit = true, level = true, ["weft-at"] = true, ["weft-cap"] = true }
 for k in pairs(GOVERNORS) do OWNED_KEYS[k] = true end
 for k in pairs(RENDERER_KEYS) do OWNED_KEYS[k] = true end
@@ -202,8 +204,33 @@ local function scalar_problem(r)
   return nil
 end
 
+-- nil when a `checks` member is an array of well-formed check objects, else what is wrong (N22, N23)
+local LEVELS = { fail = true, warn = true }
+local function checks_problem(ch)
+  if ch == nil or ch == pandoc.json.null then return nil end
+  if type(ch) ~= "table" or not is_array(ch) then return "`checks` is not an array" end
+  for i = 1, #ch do
+    local c = ch[i]
+    if type(c) ~= "table" or is_array(c) and next(c) ~= nil then return "check " .. i .. " is not an object" end
+    if type(c.text) ~= "string" then return "check " .. i .. " has no `text` string" end
+    -- `ok: null` is a check that could not be evaluated, and fails like a false one (N25a)
+    if type(c.ok) ~= "boolean" and c.ok ~= pandoc.json.null then
+      return "`ok` of check " .. i .. " is not true, false or null"
+    end
+    if c.level ~= nil and c.level ~= pandoc.json.null and not (type(c.level) == "string" and LEVELS[c.level]) then
+      return "`level` of check " .. i .. " is not \"fail\" or \"warn\""
+    end
+    if c.why ~= nil and c.why ~= pandoc.json.null and type(c.why) ~= "string" then
+      return "`why` of check " .. i .. " is not a string"
+    end
+  end
+  return nil
+end
+
 local function record_problem(r)
   if type(r) ~= "table" then return "it is not an object" end
+  local cp = checks_problem(r.checks)
+  if cp then return cp end
   if r.t == "list" then
     if type(r.v) ~= "table" or not is_array(r.v) then return "`v` of a list is not an array" end
     for i = 1, #r.v do
@@ -226,6 +253,16 @@ local function record_of(name)
   local problem = record_problem(raw)
   if problem then
     r = { t = "error", why = string.format("the record of `%s` does not read: %s (rule 2.13.1).", name, problem) }
+  elseif raw.t == "list" and #raw.v == 1 and raw.v[1].t ~= "missing" and raw.v[1].t ~= "error" then
+    -- N47 (6R): a vector of length 1 is a list of one with its key. The filter prints it as its element
+    -- under any class; `_keys` keeps the name for `.pairs` and `.dl`.
+    r = {}
+    for k, v in pairs(raw.v[1]) do r[k] = v end
+    r.checks = raw.checks
+    local keys = raw.keys
+    if type(keys) == "table" and keys ~= pandoc.json.null and #keys == 1 and type(keys[1]) == "string" then
+      r._keys = keys
+    end
   else
     r = raw
   end
@@ -235,8 +272,40 @@ end
 
 local function kind_name(r) return cond.kind_name(r.t) end
 
+-- A float's text in one form, whatever the writer wrote (1.12.8, N8): the shortest digits, no trailing `.0`,
+-- fixed notation for a decimal exponent from -4 to 14 and the exponent form of R (`1e+23`, `5e-324`) outside.
+local function float_text(v)
+  local neg = v:sub(1, 1) == "-"
+  local s = neg and v:sub(2) or v
+  local mant, ex = s:match("^([0-9.]+)[eE]([-+]?[0-9]+)$")
+  if not mant then mant, ex = s, "0" end
+  local ip, fp = mant:match("^([0-9]*)%.?([0-9]*)$")
+  if not ip then return v end
+  local digits = (ip .. fp):gsub("^0+", "")
+  local e10 = (math.tointeger(tonumber(ex)) or 0) - #fp
+  if digits == "" then return neg and "-0" or "0" end
+  local trimmed = digits:gsub("0+$", "")
+  e10 = e10 + (#digits - #trimmed)
+  digits = trimmed
+  local k = #digits
+  local x = e10 + k - 1
+  local out
+  if x >= 15 or x < -4 then
+    out = digits:sub(1, 1) .. (k > 1 and ("." .. digits:sub(2)) or "")
+    out = out .. string.format("e%s%02d", x < 0 and "-" or "+", math.abs(x))
+  elseif e10 >= 0 then
+    out = digits .. string.rep("0", e10)
+  elseif -e10 >= k then
+    out = "0." .. string.rep("0", -e10 - k) .. digits
+  else
+    out = digits:sub(1, k + e10) .. "." .. digits:sub(k + e10 + 1)
+  end
+  return (neg and "-" or "") .. out
+end
+
 local function scalar_text(r)
   if r.t == "bool" then return r.v and "true" or "false" end
+  if r.t == "float" and type(r.v) == "string" then return float_text(r.v) end
   return tostring(r.v)
 end
 
@@ -311,7 +380,7 @@ local function dir_up_find(rel)
   if S.main_dir then starts[#starts + 1] = S.main_dir end
   for _, d in ipairs(starts) do
     local cur = d
-    for _ = 1, 8 do
+    for _ = 1, 9 do
       local p = cur .. "/" .. rel
       local f = io.open(p, "r")
       if f then return f, p end
@@ -323,15 +392,16 @@ local function dir_up_find(rel)
   return nil
 end
 
+-- N91, N48: `.weft/run` in the document's folder or one of its 8 parents, else WEFT_RUN
 local function current_run()
-  local e = os.getenv("WEFT_RUN")
-  if e and e ~= "" then return e end
   local f = dir_up_find(".weft/run")
   if f then
     local l = f:read("l")
     f:close()
     if l and l ~= "" then return l end
   end
+  local e = os.getenv("WEFT_RUN")
+  if e and e ~= "" then return e end
   return nil
 end
 
@@ -350,7 +420,7 @@ local function read_block(el, ctx)
   local fpath = from_file
   if from_file then
     local reason
-    if text:find("%S") then
+    if text:find("[^ \t\r\n]") then
       reason = "the block has a body, and a block with `file=` must be empty"
     else
       text, reason = values_file_text(fpath)
@@ -380,6 +450,8 @@ local function read_block(el, ctx)
   if type(d) ~= "table" or getmetatable(d) ~= nil then return bad("not a JSON object") end
   if type(d.weft) ~= "number" or d.weft ~= 1 then return bad("`weft` is not 1") end
   if type(d.values) ~= "table" or getmetatable(d.values) ~= nil then return bad("no `values` object") end
+  local bp = checks_problem(d.checks)
+  if bp then return bad(bp) end
   local names = {}
   for k in pairs(d.values) do names[#names + 1] = k end
   table.sort(names)
@@ -390,15 +462,18 @@ local function read_block(el, ctx)
     S.values[k] = d.values[k]
     S.valid[k] = nil
   end
-  -- freshness (N91, N110)
-  local now = S.current_run
-  if now == nil then S.current_run = current_run() or false; now = S.current_run end
-  S.nblocks = S.nblocks + 1
-  if type(d.at) == "number" and (S.oldest_at == nil or d.at < S.oldest_at) then S.oldest_at = d.at end
-  if now and d.run ~= now then S.any_stale = true end
-  if now and S.stale == nil then
-    local run = d.run
-    if run ~= now then S.stale = { run = (type(run) == "string") and run or "null", current = now } end
+  -- freshness (N91, N110): an inline block only. A values file is computed before the render, by design (a
+  -- `targets` pipeline), so its own run is not compared with this one (review 6, #7)
+  if not from_file then
+    local now = S.current_run
+    if now == nil then S.current_run = current_run() or false; now = S.current_run end
+    S.nblocks = S.nblocks + 1
+    if type(d.at) == "number" and (S.oldest_at == nil or d.at < S.oldest_at) then S.oldest_at = d.at end
+    if now and d.run ~= now then S.any_stale = true end
+    if now and S.stale == nil then
+      local run = d.run
+      if run ~= now then S.stale = { run = (type(run) == "string") and run or "null", current = now } end
+    end
   end
   -- the block's own checks (N25b)
   if type(d.checks) == "table" then
@@ -440,7 +515,7 @@ local function cut(s, n)
 end
 
 local function shown_span(el, key, value)
-  local text = pandoc.utils.stringify(el.content):gsub("%s+", " ")
+  local text = pandoc.utils.stringify(el.content):gsub("[ \t\r\n]+", " ")
   text = text:gsub("^ ", ""):gsub(" $", "")
   return string.format('[%s]{%s="%s"}', cut(text, 60), key, value)
 end
@@ -661,7 +736,7 @@ local function check_construct(c)
     if has.range then
       return "construct error", "`none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
     end
-    if c.keys.none:match("^%s*$") then
+    if c.keys.none:match("^[ \t\r\n]*$") then
       return "construct error", "`none` must be one string that is not empty or only spaces (rule 1.4.14)."
     end
   end
@@ -793,6 +868,7 @@ local function is_numeric(e) return e.t == "int" or e.t == "float" or e.t == "de
 
 -- the record as a list of elements, and the names of a named vector (or nil)
 local function elements_of(rec)
+  if rec._keys then return { rec }, rec._keys end
   if rec.t == "list" then
     local keys = rec.keys
     if type(keys) ~= "table" or keys == pandoc.json.null or #keys ~= #rec.v then keys = nil end
@@ -821,7 +897,7 @@ local function print_elem(e, class, keys, warn)
   end
   local ok, text, info = pcall(num.format, e, class, keys, config_for_num())
   if not ok then vfail(tostring(text)) end
-  local p = { text = text, number = info.number, decimals = info.decimals, relation = "=" }
+  local p = { text = text, number = info.number, decimals = info.decimals, relation = "=", ip = info.ip }
   if warn and info.zero and e.t ~= "int" then
     local v = tonumber(e.v)
     if v ~= nil then
@@ -888,7 +964,7 @@ local function format_vector(name, rec, c, o)
   if has.range and (ncl == nil or ncl == "num") and not given then
     local all_whole = true
     for _, e in ipairs(elems) do
-      if is_numeric(e) then
+      if is_numeric(e) and e.t ~= "int" then
         local v = tonumber(e.v)
         if v == v and math.abs(v - math.floor(v + 0.5)) >= 1e-9 then all_whole = false end
       end
@@ -925,7 +1001,7 @@ local function format_vector(name, rec, c, o)
     elseif is_numeric(e) then
       it = { text = scalar_text(e), decimals = false, relation = "=" }
     elseif e.t == "bool" then
-      it = { text = e.v and "TRUE" or "FALSE", decimals = false, relation = "=" }
+      it = { text = e.v and "true" or "false", decimals = false, relation = "=" }
     else
       data = true
       it = { text = tostring(e.v), decimals = false, relation = "=" }
@@ -962,10 +1038,13 @@ local function format_vector(name, rec, c, o)
           if nk < cfg.word_limit then it.text = words.spell_or(nk, it.text) end
         elseif wording == "count" then
           if nk < cfg.count_threshold then it.text = words.spell_or(nk, it.text) end
+        elseif it.ip then
+          -- the number printer's own text and its whole part as digits: no double decides a digit (2.13.3)
+          it.text = it.text .. words.ordinal_suffix(it.ip)
         else
           local digits = string.format("%.0f", nk)
           if nk >= (cfg.thousands_from or 1000) then digits = group_int(digits, cfg.big_mark) end
-          it.text = digits .. words.ordinal_suffix(nk)
+          it.text = digits .. words.ordinal_suffix((digits:gsub("[^0-9]", "")))
         end
       end
     end
@@ -980,7 +1059,11 @@ local function format_vector(name, rec, c, o)
   local text
   if collapse == "range" then
     local number = { items[1] and items[1].number, items[2] and items[2].number }
-    local t, msg = words.collapse_range(texts, number, raw, cfg.minus)
+    local exact_gt
+    if n == 2 and is_numeric(elems[1]) and is_numeric(elems[2]) then
+      exact_gt = cond.num_cmp(elems[1].v, elems[2].v) > 0
+    end
+    local t, msg = words.collapse_range(texts, number, raw, cfg.minus, exact_gt)
     if not t then vfail(msg) end
     text = t
     local one_printed = n == 2 and texts[1] == texts[2] and items[1].number == 1 and not items[1].decimals
@@ -1016,8 +1099,9 @@ local function format_vector(name, rec, c, o)
     if n == 1 then P.number, P.decimals, P.relation = items[1].number, items[1].decimals, items[1].relation end
   end
 
-  -- stage iv: text
-  if not governor and not P.block then text = text_stage(text, has) end
+  -- stage iv: text (a `.val` text is data: its text classes are applied to the inlines, after)
+  if not governor and not P.block and not has.val then text = text_stage(text, has) end
+  if has.val and P.block then P.parts = { texts = texts, nms = nms, cls = collapse } end
   if text:find("\u{2212}", 1, true) then S.minus_used = true end
   P.text = text
   return P
@@ -1114,6 +1198,23 @@ local function governor_print(name, rec, c)
   return format_vector(name, rec, c, { governor = true, quiet = true })
 end
 
+-- `.ul`, `.ol` and `.dl` of a `.val`: the blocks, built from the texts as they are (they are data, not markdown)
+local function val_blocks(parts)
+  local function inl(t) return pandoc.Inlines({ pandoc.Str(t) }) end
+  local items = {}
+  if parts.cls == "dl" then
+    for i, t in ipairs(parts.texts) do
+      items[i] = { inl(parts.nms[i]), { { pandoc.Para(inl(t)) } } }
+    end
+    return pandoc.Blocks({ pandoc.DefinitionList(items) })
+  end
+  for i, t in ipairs(parts.texts) do items[i] = { pandoc.Plain(inl(t)) } end
+  if parts.cls == "ol" then
+    return pandoc.Blocks({ pandoc.OrderedList(items, pandoc.ListAttributes(1, "Decimal", "Period")) })
+  end
+  return pandoc.Blocks({ pandoc.BulletList(items) })
+end
+
 local function resolve_code_inner(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
@@ -1160,10 +1261,11 @@ local function resolve_code_inner(el, ctx, as_block)
     end
     local out
     if P.block then
+      if P.parts then return val_blocks(P.parts), true end
       return md_blocks(P.text), true
-    elseif has.val and not (has.a or has.cap or has.em or has.strong) and not P.none
-           and not (has["and"] or has["or"] or has.pairs or has.range) and rec.t ~= "list" then
+    elseif has.val and not P.none then
       out = pandoc.Inlines({ pandoc.Str(P.text) })
+      out = text_inlines(out, has)
     else
       out = md_inlines(P.text, P.data)
     end
@@ -1215,15 +1317,19 @@ local function split_arms(inlines)
   return arms
 end
 
+-- the value of a governor key is trimmed of white space at its ends, as R's scanner trims it (the leading
+-- kind never reaches here: Pandoc does not read such an attribute as a span, and weft-check.lua fails it)
+local function trim_ws(v) return (v:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
+
 local function governor_of(el)
-  local found
+  local found, raw
   for k, v in pairs(el.attributes) do
     if GOVERNORS[k:lower()] then
       if found then return found, nil, true end
-      found = k:lower()
+      found, raw = k:lower(), k
     end
   end
-  return found, found and el.attributes[found] or nil
+  return found, found and trim_ws(el.attributes[raw]) or nil
 end
 
 local function get_key(el, key)
@@ -1556,9 +1662,9 @@ local function resolve_cite(el, value, ctx, shown, info, c)
   end
   local with_at = value:find("@", 1, true) ~= nil
   if not with_at then
-    local ok = value:match("%S") ~= nil
+    local ok = value:match("[^ \t\r\n]") ~= nil
     for part in (value .. ";"):gmatch("(.-);") do
-      local key = part:gsub("^%s+", ""):gsub("%s+$", "")
+      local key = part:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
       if not key:match(CITE_KEY) then ok = false end
     end
     if not ok then
@@ -1592,7 +1698,7 @@ end
 
 local function resolve_text_span(el, ctx)
   local c = analyse(el)
-  local text = pandoc.utils.stringify(el.content):gsub("%s+", " ")
+  local text = pandoc.utils.stringify(el.content):gsub("[ \t\r\n]+", " ")
   local classes = {}
   for _, cl in ipairs(el.classes) do classes[#classes + 1] = "." .. cl end
   local info = info_of(el, ctx, string.format("[%s]{%s}", cut(text, 60), table.concat(classes, " ")))
@@ -1787,25 +1893,37 @@ local function list_class_code(el)
 end
 
 -- N57 (the julia engine): a failed @claim prints its carrier as text, because Quarto drops the displayed
--- block of a cell that raises. Such a block arrives as a CodeBlock inside a `cell-output-stdout` div whose
--- WHOLE text is one fenced `weft-values` block (a backtick or tilde fence); it is turned into a real
--- carrier block, which is then read and removed like any other. Any other code block is left alone.
+-- block of a cell that raises. Such a block arrives as a CodeBlock inside a `cell-output-stdout` div whose text
+-- ENDS with one fenced `weft-values` block (a backtick or tilde fence); whatever the cell printed before it
+-- stays as output. The fence is turned into a real carrier block, which is then read and removed like any
+-- other. A fence that something follows, and any other code block, is left alone. Returns the bodies of the
+-- carriers found at the end (in the order printed) and the text left before them, or nil.
 local function printed_carrier(el)
-  local text = el.text:gsub("[\r\n]+$", "")
+  local text = el.text:gsub("[ \t\r\n]+$", "")
   local lines = {}
   for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  if #lines < 3 then return nil end
-  local fence = lines[1]:match("^(`+)%s*{%.weft%-values}%s*$") or lines[1]:match("^(~+)%s*{%.weft%-values}%s*$")
-  if not fence or #fence < 3 then return nil end
-  local ch = fence:sub(1, 1)
-  local closer = lines[#lines]:match("^(%" .. ch .. "+)%s*$")
-  if not closer or #closer < #fence then return nil end
-  local body = {}
-  for i = 2, #lines - 1 do
-    if lines[i]:match("^%s*%" .. ch .. "%" .. ch .. "%" .. ch .. "+%s*$") then return nil end
-    body[#body + 1] = lines[i]
+  local bodies = {}
+  while #lines >= 3 do
+    local closer = lines[#lines]:match("^([`~]+)[ \t\r\n]*$")
+    if not closer or #closer < 3 then break end
+    local ch = closer:sub(1, 1)
+    local open_at
+    for i = #lines - 1, 1, -1 do
+      local l = lines[i]
+      local fence = l:match("^(" .. (ch == "`" and "`" or "~") .. "+)[ \t\r\n]*{%.weft%-values}[ \t\r\n]*$")
+      if fence then
+        if #fence >= 3 and #closer >= #fence then open_at = i end
+        break
+      end
+      if l:match("^[ \t\r\n]*%" .. ch .. "%" .. ch .. "%" .. ch .. "+[ \t\r\n]*$") then break end
+    end
+    if not open_at then break end
+    table.insert(bodies, 1, table.concat(lines, "\n", open_at + 1, #lines - 1))
+    for i = #lines, open_at, -1 do lines[i] = nil end
+    while #lines > 0 and lines[#lines]:match("^[ \t\r\n]*$") do lines[#lines] = nil end
   end
-  return table.concat(body, "\n")
+  if #bodies == 0 then return nil end
+  return bodies, table.concat(lines, "\n")
 end
 
 -- inside a list item, a block quote or a table cell a list class is an error: resolved as inline
@@ -1840,12 +1958,21 @@ resolve_blocks = function(blocks, ctx)
     Div = function(el)
       if el.classes:includes("weft-literal") then el.attributes["why"] = nil end
       if el.classes:includes("cell-output-stdout") then
-        for i, b in ipairs(el.content) do
-          if b.t == "CodeBlock" and not b.classes:includes("weft-values") then
-            local body = printed_carrier(b)
-            if body then el.content[i] = pandoc.CodeBlock(body, pandoc.Attr("", { "weft-values" })) end
+        local content, changed = pandoc.Blocks({}), false
+        for _, b in ipairs(el.content) do
+          local bodies, before
+          if b.t == "CodeBlock" and not b.classes:includes("weft-values") then bodies, before = printed_carrier(b) end
+          if bodies then
+            changed = true
+            if before ~= "" then content:insert(pandoc.CodeBlock(before, b.attr)) end
+            for _, body in ipairs(bodies) do
+              content:insert(pandoc.CodeBlock(body, pandoc.Attr("", { "weft-values" })))
+            end
+          else
+            content:insert(b)
           end
         end
+        if changed then el.content = content end
       end
       if el.classes:includes("cell") then
         el.content = resolve_blocks(el.content, with(ctx, "cell", cell_label(el)))
@@ -1949,8 +2076,8 @@ local function tag(el)
         if TEXT_CLASS[cl] then needle = "." .. cl; break end
       end
     else
-      local rawkey = get_key(el, key)
-      needle = string.format('%s="%s"', rawkey, value)
+      local rawkey, rawvalue = get_key(el, key)
+      needle = string.format('%s="%s"', rawkey, rawvalue)
     end
   else
     return nil
@@ -1982,12 +2109,24 @@ end
 
 -- ---- the run -------------------------------------------------------------------------------------------
 
+-- N89, N110, N112: rmarkdown hands Pandoc `doc.knit.md`; the source, its lines, its stamp and its ledger are the
+-- `.Rmd` (or `.Rmarkdown`) beside it, when there is one
+local function map_knit(path)
+  local base = path:match("^(.*)%.[Kk][Nn][Ii][Tt]%.[Mm][Dd]$")
+  if not base then return path end
+  for _, ext in ipairs({ ".Rmd", ".Rmarkdown", ".rmd", ".rmarkdown" }) do
+    local f = io.open(base .. ext, "rb")
+    if f then f:close(); return base .. ext end
+  end
+  return path
+end
+
 local function source_path()
   if quarto and quarto.doc and quarto.doc.input_file then return quarto.doc.input_file end
   local inputs = PANDOC_STATE and PANDOC_STATE.input_files
   if inputs then
     for _, f in ipairs(inputs) do
-      if f ~= nil and f ~= "" and f ~= "-" then return f end
+      if f ~= nil and f ~= "" and f ~= "-" then return map_knit(f) end
     end
   end
   return nil
@@ -2082,6 +2221,13 @@ values_file_text = function(path)
   if not f then
     return nil, (err and err:find("No such file", 1, true)) and "no such file" or (err and err:gsub("^.-: ", "") or "cannot open")
   end
+  -- the size first (review 6, #20c): a file over the limit is not read into memory
+  local size = f:seek("end")
+  if size and size > 5000000 then
+    f:close()
+    return nil, string.format("%d bytes, and the limit is 5000000", size)
+  end
+  f:seek("set", 0)
   local text, rerr = f:read("a")
   f:close()
   if not text then return nil, (rerr and rerr:gsub("^.-: ", "") or "cannot read") end
@@ -2100,23 +2246,23 @@ local function source_is_knitr(path, text)
   if not low:match("%.qmd$") or not text then return false end
   local lines = {}
   for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  if lines[1] and lines[1]:match("^%-%-%-%s*$") then
+  if lines[1] and lines[1]:match("^%-%-%-[ \t\r\n]*$") then
     local fm, closed = {}, false
     for i = 2, #lines do
-      if lines[i]:match("^%-%-%-%s*$") or lines[i]:match("^%.%.%.%s*$") then closed = true; break end
+      if lines[i]:match("^%-%-%-[ \t\r\n]*$") or lines[i]:match("^%.%.%.[ \t\r\n]*$") then closed = true; break end
       fm[#fm + 1] = lines[i]
     end
     if closed then
       for _, l in ipairs(fm) do
-        local v = l:match("^engine%s*:(.*)$")
+        local v = l:match("^engine[ \t\r\n]*:(.*)$")
         if v then
-          v = v:gsub("%s+#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+          v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
           v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
           return v:lower() == "knitr"
         end
       end
       for _, l in ipairs(fm) do
-        if l:match("^jupyter%s*:") then return false end
+        if l:match("^jupyter[ \t\r\n]*:") then return false end
       end
     end
   end
@@ -2182,7 +2328,31 @@ local function write_stamp(run)
   if S.knitr and not merge and S.nblocks == 0 and #S.entries == 0 and #S.fails == 0 then return end
   local failures, writers = {}, { "knit" }
   local s = { source = S.src_rel, run = run, named = named }
-  if merge then
+  -- review 6, #10: a knitr document whose stamp is of another run was served from freeze: what the knit
+  -- recorded then (its failures, its checks, when it executed) is kept, and this pass adds its own
+  local carried = S.knitr and not merge and old ~= nil and old.run ~= run
+  if carried then
+    s.executed = type(old.executed) == "string" and old.executed or oldest_text(os.time())
+    local had_filter = false
+    writers = {}
+    if type(old.writers) == "table" then
+      for _, w in ipairs(old.writers) do
+        writers[#writers + 1] = w
+        if w == "filter" then had_filter = true end
+      end
+    end
+    if #writers == 0 then writers = { "knit" } end
+    if type(old.failures) == "table" then
+      for _, x in ipairs(old.failures) do
+        -- the filter's own findings of the earlier pass are made again now; the knit's are kept
+        if type(x) == "table" and x.source ~= "resolve" and x.source ~= "filter" then
+          failures[#failures + 1] = stamp.failure_line(x)
+        end
+      end
+    end
+    s.checks = (tonumber(old.checks) or 0) + (had_filter and 0 or checks)
+    if not had_filter then writers[#writers + 1] = "filter" end
+  elseif merge then
     s.executed = type(old.executed) == "string" and old.executed or oldest_text(os.time())
     s.checks = (tonumber(old.checks) or 0) + checks
     if type(old.failures) == "table" then
@@ -2320,6 +2490,8 @@ function Pandoc(doc)
     elseif ty == "Blocks" then meta[key] = resolve_blocks(v, ctx) end
   end
   S.context = "prose"
+  -- weft-check.lua reads this, and takes it away: the document is one this filter resolves (review 6, #2)
+  meta["weft-resolved"] = pandoc.MetaBool(true)
   blocks = remove_empty_cells(blocks)
   if S.minus_used and (FORMAT == "latex" or FORMAT == "beamer") then add_minus_declaration(meta) end
 
@@ -2332,8 +2504,11 @@ function Pandoc(doc)
   end
   local coll
   if #S.fails > 0 or #S.warned > 0 then
-    io.stderr:write(report.build(S.fails, S.warned))
     coll = report.collect_path(dir_up_find, quarto ~= nil)
+    -- Open finding 11: under Quarto, with the collection file open, the post-render script prints the one report
+    -- of the render (it reads this filter's lines from that file), so the filter does not print it too. Plain
+    -- Pandoc, and a Quarto render with no post-render script (so no open file), print it here.
+    if not (quarto ~= nil and coll) then io.stderr:write(report.build(S.fails, S.warned)) end
   end
   -- the stamp always, the ledger when the render does not stop on its failures (N110, N112; D8, D20)
   if S.root and S.src_rel then

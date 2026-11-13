@@ -8,6 +8,7 @@
 -- keys    table or nil: digits, sigfig (Lua numbers); any other key is not implemented
 -- config  table or nil: digits, decimal_mark, big_mark, thousands_from, minus
 --
+-- info.ip is the integer part of the printed number as digits (no sign, no group marks).
 -- Doubles (kind "float") go through a literal port of round_half_away(), fixed_text(),
 -- print_one() and zero_noise() of R/format.R: the same IEEE doubles and the same C printf, so
 -- the text is R's text. Integers and exact decimals (kinds "int" and "decimal") go through an
@@ -173,6 +174,7 @@ local function print_one(v, digits, sigfig, cfg)
   local num = tonumber(str) * 1.0
   local neg = s < 0 and num ~= 0
   local int, frac = str:match("^([^.]*)%.?(.*)$")
+  local ip = int
   if num >= cfg.thousands_from then int = group_int(int, cfg.big_mark) end
   local txt = int
   if frac ~= "" then txt = int .. cfg.decimal_mark .. frac end
@@ -180,7 +182,7 @@ local function print_one(v, digits, sigfig, cfg)
     txt = cfg.minus .. txt
     num = -num
   end
-  return { text = txt, number = num, decimals = nd > 0 }
+  return { text = txt, number = num, decimals = nd > 0, ip = ip }
 end
 
 -- R's zero_noise(): digits past the fifteenth print as zeros
@@ -226,7 +228,7 @@ local function print_float(text, class, digits, sigfig, cfg)
   local p = print_one(sv, digits, sigfig, cfg)
   p.text = zero_noise(p, cfg)
   if class == "pct" then p.text = p.text .. "%" end
-  return p.text, p.number, p.decimals
+  return p.text, p.number, p.decimals, p.ip
 end
 
 -- ---- the exact algorithm on a digit string ---------------------------------------------------
@@ -317,7 +319,7 @@ local function print_exact(text, class, digits, sigfig, cfg)
     number = tonumber(ip .. (nd > 0 and ("." .. fp) or "")) * 1.0
     if neg then number = -number end
   end
-  return txt, number, nd > 0
+  return txt, number, nd > 0, ip
 end
 
 -- ---- the entry point ---------------------------------------------------------------------------
@@ -444,15 +446,18 @@ function M.format(record, class, keys, config)
   end
   if not ok then fail("malformed %s record: v = %q", kind, v) end
 
-  local text, number, decimals
+  local text, number, decimals, ip
   if kind == "float" then
-    text, number, decimals = print_float(v, class, digits, sigfig, cfg)
+    text, number, decimals, ip = print_float(v, class, digits, sigfig, cfg)
   else
-    text, number, decimals = print_exact(v, class, digits, sigfig, cfg)
+    text, number, decimals, ip = print_exact(v, class, digits, sigfig, cfg)
   end
+  -- `ip` is the whole part as printed, digits only, ungrouped and unsigned: for a suffix or a word that must
+  -- not come from a double
   return text, {
     number = number,
     decimals = decimals,
+    ip = ip,
     relation = "=",
     zero = number == 0,
     one = number == 1,
