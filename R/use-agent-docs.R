@@ -67,10 +67,11 @@ agents_item <- function(path, root, overwrite) {
     return(plan_item(path, root, "new", purpose, new = block))
   }
   old <- read_lines_utf8(path)
+  eol <- file_eol(path)
   b <- block_find(old)
   if (is.null(b)) {
     return(plan_item(path, root, "edit", paste0("adds the weft block: ", purpose),
-                     new = c(old, if (length(old)) "", block)))
+                     new = c(old, if (length(old)) "", block), eol = eol))
   }
   if (isTRUE(b$broken) || (!b$valid && !overwrite)) {
     return(plan_item(path, root, "edited", ""))
@@ -78,7 +79,7 @@ agents_item <- function(path, root, overwrite) {
   cur <- old[b$s:b$e]
   if (identical(cur, block)) return(plan_item(path, root, "keep", purpose))
   plan_item(path, root, "replace", purpose,
-            new = c(old[seq_len(b$s - 1L)], block, old[-seq_len(b$e)]))
+            new = c(old[seq_len(b$s - 1L)], block, old[-seq_len(b$e)]), eol = eol)
 }
 
 agent_docs_plan <- function(root, overwrite = FALSE) {

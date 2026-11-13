@@ -16,10 +16,22 @@ inst_file <- function(...) {
 
 # lines written with a newline after each, on every platform (a shell script
 # must not get CRLF)
-write_lines_lf <- function(x, path) {
+write_lines_lf <- function(x, path, eol = "\n") {
   con <- file(path, "wb")
   on.exit(close(con), add = TRUE)
-  writeLines(x, con, sep = "\n", useBytes = TRUE)
+  writeLines(x, con, sep = eol, useBytes = TRUE)
+}
+
+# The line ending an existing text file uses: "\r\n" when most of its lines end so, else "\n" (also for a
+# file that is not there). An installer that rewrites a file the author wrote keeps it (review 4, #16).
+file_eol <- function(path) {
+  n <- suppressWarnings(file.size(path))
+  if (is.na(n) || n == 0 || dir.exists(path)) return("\n")
+  r <- readBin(path, "raw", n)
+  lf <- which(r == as.raw(10L))
+  if (!length(lf)) return("\n")
+  crlf <- sum(lf > 1L & r[pmax(lf - 1L, 1L)] == as.raw(13L))
+  if (crlf * 2L > length(lf)) "\r\n" else "\n"
 }
 
 # replace every occurrence of `key` in `x` by `value`, with no regular-expression
@@ -77,13 +89,19 @@ FOREIGN_TEXT <- "not written by weft (no weft-file line); left as it is"
 
 # the state of the whole file at `path` against the lines `new` weft would write:
 # new, keep, replace, edited, foreign
-whole_state <- function(path, new, fn) {
+whole_state <- function(path, new, fn, exec = FALSE) {
   if (!file.exists(path)) return("new")
   old <- read_lines_utf8(path)
   m <- marker_parse(old, fn)
   if (is.null(m)) return("foreign")
   if (!m$valid) return("edited")
-  if (identical(old, new)) "keep" else "replace"
+  # a script that has lost its execute bit is rewritten, which sets the mode again (review 4, #11)
+  if (identical(old, new) && !(exec && !is_executable(path))) "keep" else "replace"
+}
+
+# can the file be run? (always TRUE on Windows, which has no execute bit)
+is_executable <- function(path) {
+  .Platform$OS.type == "windows" || file.access(path, 1L) == 0L
 }
 
 # the state of a file against the installed version, for status():
@@ -121,16 +139,16 @@ place_check <- function(path, root = NULL) {
 # ---- plan items, messages and writing -----------------------------------------------
 
 # one planned file: `new` (the lines to write) is NULL when nothing is written
-plan_item <- function(path, root, state, purpose, new = NULL, mode = NULL) {
+plan_item <- function(path, root, state, purpose, new = NULL, mode = NULL, eol = "\n") {
   text <- switch(state, edited = EDITED_TEXT, foreign = FOREIGN_TEXT, purpose)
   list(path = path, label = rel_label(path, root), state = state, text = text,
-       new = new, mode = mode)
+       new = new, mode = mode, eol = eol)
 }
 
 # the item for a whole file: writes when new or replace, or when edited and
 # `overwrite`; leaves it when edited, foreign or kept
-whole_item <- function(path, root, new, fn, purpose, overwrite = FALSE) {
-  state <- whole_state(path, new, fn)
+whole_item <- function(path, root, new, fn, purpose, overwrite = FALSE, exec = FALSE) {
+  state <- whole_state(path, new, fn, exec)
   if (state == "edited" && overwrite) state <- "replace"
   plan_item(path, root, state, purpose,
             new = if (state %in% c("new", "replace")) new else NULL)
@@ -147,7 +165,7 @@ write_items <- function(items) {
   for (w in items) {
     if (is.null(w$new)) next
     dir.create(dirname(w$path), showWarnings = FALSE, recursive = TRUE)
-    ok <- tryCatch({ write_lines_lf(w$new, w$path); TRUE },
+    ok <- tryCatch({ write_lines_lf(w$new, w$path, w$eol %||% "\n"); TRUE },
                    error = function(e) FALSE, warning = function(e) FALSE)
     if (!ok || !file.exists(w$path)) {
       tool_abort(sprintf("weft could not write %s. %s", w$path,

@@ -111,7 +111,7 @@ use_quarto <- function(path = ".") {
   }
 
   if (!identical(new, old)) {
-    writeLines(new, qy, useBytes = TRUE)
+    write_lines_lf(new, qy, file_eol(qy))
     written <- c(written, yml_name)
   }
 

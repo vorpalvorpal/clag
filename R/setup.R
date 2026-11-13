@@ -103,7 +103,7 @@ use_setup <- function(path = ".", route = c("auto", "rprofile", "front-matter"))
       if (!is.null(w$copy_from)) {
         isTRUE(file.copy(w$copy_from, w$path, overwrite = TRUE))
       } else {
-        writeLines(w$new, w$path, useBytes = TRUE)
+        write_lines_lf(w$new, w$path, w$eol)
         TRUE
       }
     }, error = function(e) FALSE, warning = function(w) FALSE)
@@ -174,7 +174,8 @@ setup_plan <- function(path, route) {
   add <- function(path, new, state, purpose, copy_from = NULL) {
     writes[[length(writes) + 1L]] <<- list(path = path, rel = rel(path), new = new,
                                            state = state, purpose = purpose,
-                                           copy_from = copy_from)
+                                           copy_from = copy_from,
+                                           eol = if (state == "new") "\n" else file_eol(path))
   }
   # a folder or a link where a file should be: refuse before anything is written
   check_place <- function(p) {

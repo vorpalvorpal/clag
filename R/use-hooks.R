@@ -85,7 +85,7 @@ hooks_plan <- function(root, overwrite = FALSE, rscript = NULL, lib = NULL) {
   beside <- manager
   if (!manager) {
     place_check(hook)
-    it <- whole_item(hook, root, script, HOOK_STATE_FN, purpose, overwrite)
+    it <- whole_item(hook, root, script, HOOK_STATE_FN, purpose, overwrite, exec = TRUE)
     it$mode <- "755"
     items[[1L]] <- it
     beside <- it$state == "foreign"
@@ -95,7 +95,7 @@ hooks_plan <- function(root, overwrite = FALSE, rscript = NULL, lib = NULL) {
   if (beside) {
     place_check(copy)
     it <- whole_item(copy, root, script, HOOK_STATE_FN, "the script, for your hook manager to run",
-                     overwrite)
+                     overwrite, exec = TRUE)
     it$mode <- "755"
     items[[length(items) + 1L]] <- it
     notes <- c(notes,
@@ -109,7 +109,7 @@ hooks_plan <- function(root, overwrite = FALSE, rscript = NULL, lib = NULL) {
                  "    hooks:",
                  "      - id: weft-commit-msg",
                  "        name: weft commit gate",
-                 "        entry: sh .git/weft/commit-msg",
+                 "        entry: sh -c 'sh \"$(git rev-parse --git-common-dir)/weft/commit-msg\" \"$1\"' weft",
                  "        language: system",
                  "        stages: [commit-msg]",
                  "        always_run: true")

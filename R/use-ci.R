@@ -38,7 +38,9 @@ ci_plan <- function(root, overwrite = FALSE) {
   rel <- if (identical(root, top)) "." else rel_label(root, top)
   wf <- file.path(top, ".github", "workflows", "weft.yml")
   place_check(wf, top)
-  new <- fill_whole(read_lines_utf8(inst_file("ci", "weft.yml")), c("@PATH@" = rel))
+  # the path goes into a single-quoted YAML scalar (a quote is doubled) and reaches the shell and R only
+  # as an environment variable, never inside a string of either (review 4, #13)
+  new <- fill_whole(read_lines_utf8(inst_file("ci", "weft.yml")), c("@PATH@" = gsub("'", "''", rel, fixed = TRUE)))
   it <- whole_item(wf, top, new, CI_FN, "runs weft::verify(static = TRUE) on each pull request",
                    overwrite)
   list(top = top, items = list(it))

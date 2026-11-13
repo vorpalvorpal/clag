@@ -25,6 +25,7 @@ jobs:
       - name: weft static checks
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          WEFT_PROJECT: '@PATH@'
         run: |
           since=$(git merge-base "$BASE_SHA" HEAD)
-          Rscript --no-init-file -e "weft::verify(static = TRUE, since = '$since', path = '@PATH@')"
+          Rscript --no-init-file -e "weft::verify(static = TRUE, since = '$since', path = Sys.getenv('WEFT_PROJECT'))"

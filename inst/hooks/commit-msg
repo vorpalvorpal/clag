@@ -16,7 +16,7 @@ if [ ! -f "$weft_rscript" ]; then
 fi
 R_LIBS=$weft_libs
 export R_LIBS
-exec "$weft_rscript" --no-init-file -e '
+exec "$weft_rscript" --no-init-file --no-environ -e '
 if (!requireNamespace("weft", quietly = TRUE)) {
   message("commit-msg: weft is not installed for the R at ", R.home(), ".")
   message("  Run weft::use_hooks() again, or skip the check once with git commit --no-verify.")

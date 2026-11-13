@@ -21,7 +21,10 @@ QUARTO_COPIES <- c(
 #' It plans every step first, prints the plan (`weft will set up <root>:`, then
 #' one line per step), and then writes. When any step cannot be done safely (a
 #' `_quarto.yml` or front matter it cannot edit, a link or a folder in a file's
-#' place) it writes nothing and stops with that step's message. It never asks,
+#' place) it writes nothing and stops with that step's message. A step that
+#' fails while writing (a folder that cannot be written to) undoes what the
+#' earlier steps wrote: files it created are removed and files it changed are
+#' put back, and the message says what was undone. It never asks,
 #' whether the session is interactive or not: the call is the consent.
 #' `suppressMessages()` silences it. [dict_vale()] is not called: it is a tool,
 #' not set-up.
@@ -50,7 +53,7 @@ use_weft <- function(path = ".") {
         }
         v <- version_line_update(root, NULL)
         if (!is.null(v)) {
-          write_lines_lf(v, file.path(root, "_weft.yml"))
+          write_lines_lf(v, file.path(root, "_weft.yml"), file_eol(file.path(root, "_weft.yml")))
           written <- c(written, file.path(root, "_weft.yml"))
         }
         unique(written)
@@ -108,8 +111,34 @@ use_weft <- function(path = ".") {
   message("weft will set up ", root, ":")
   for (s in steps) message(sprintf("  %-15s %s", s$fn, s$what))
 
+  # a step that fails undoes what the earlier ones wrote (review 4, #10): every file a step can touch is
+  # copied first, and put back (or removed, when it was new) if any step stops
+  cand <- unique(c(
+    vapply(setup$writes, `[[`, "", "path"), file.path(root, "_weft.yml"),
+    if (!is.null(find_quarto_root(root))) {
+      qr <- find_quarto_root(root)
+      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, c("_quarto.yml", "_quarto.yaml")))
+    },
+    file.path(root, "dict.yml"), file.path(root, "_weft", "dict.schema.json"),
+    if (g$ok) vapply(hp$items, `[[`, "", "path"),
+    if (g$ok && exists("cp", inherits = FALSE)) vapply(cp$items, `[[`, "", "path"),
+    vapply(ap$items, `[[`, "", "path")))
+  snap <- install_snapshot(cand)
+  on.exit(unlink(snap$dir, recursive = TRUE), add = TRUE)
+
   written <- character()
-  for (s in steps) written <- c(written, s$run())
+  tryCatch({
+    for (s in steps) written <- c(written, s$run())
+  }, error = function(e) {
+    undone <- install_rollback(snap, root)
+    msg <- sub("(?s)\\s*(Nothing was written\\.|Written before it failed:.*)$", "", conditionMessage(e), perl = TRUE)
+    msg <- paste0(msg, if (length(undone)) {
+      sprintf(" use_weft() undid what it had written, so the project is as it was: %s.", paste(undone, collapse = ", "))
+    } else {
+      " Nothing was written."
+    })
+    if (inherits(e, "weft_tool_error")) tool_abort(msg) else stop(e)
+  })
   written <- unique(written)
   if (length(written)) {
     message("Wrote: ", paste(rel_label(written, root), collapse = ", "))
@@ -117,6 +146,56 @@ use_weft <- function(path = ".") {
     message("Nothing to change: the project is already set up.")
   }
   invisible(written)
+}
+
+# Copy the files in `paths` that exist (and note the folders that do not), so that install_rollback() can
+# put the project back. Returns list(dir, files, dirs).
+install_snapshot <- function(paths) {
+  dir <- tempfile("weft-undo-")
+  dir.create(dir)
+  paths <- paths[!is.na(paths)]
+  have <- file.exists(paths) & !dir.exists(paths)
+  copies <- character()
+  modes <- character()
+  for (i in which(have)) {
+    to <- file.path(dir, as.character(i))
+    if (file.copy(paths[i], to, copy.mode = TRUE)) {
+      copies[paths[i]] <- to
+      modes[paths[i]] <- format(file.info(paths[i])$mode)
+    }
+  }
+  new_dirs <- character()
+  for (p in paths[!have]) {
+    d <- dirname(p)
+    while (!dir.exists(d) && !identical(d, dirname(d))) {
+      new_dirs <- c(new_dirs, d)
+      d <- dirname(d)
+    }
+  }
+  list(dir = dir, paths = paths, copies = copies, modes = modes, dirs = unique(new_dirs))
+}
+
+# Put back what install_snapshot() saw: a file that was there is restored when it changed, a file that was
+# not is removed, and folders made since are removed when empty. Returns the labels of what was undone.
+install_rollback <- function(snap, root) {
+  undone <- character()
+  for (p in snap$paths) {
+    was <- p %in% names(snap$copies)
+    if (was) {
+      same <- file.exists(p) && identical(unname(tools::md5sum(p)), unname(tools::md5sum(snap$copies[[p]])))
+      if (!same) {
+        file.copy(snap$copies[[p]], p, overwrite = TRUE, copy.mode = TRUE)
+        undone <- c(undone, rel_label(p, root))
+      }
+    } else if (file.exists(p) && !dir.exists(p)) {
+      unlink(p)
+      undone <- c(undone, rel_label(p, root))
+    }
+  }
+  for (d in snap$dirs[order(nchar(snap$dirs), decreasing = TRUE)]) {
+    if (dir.exists(d) && !length(list.files(d, all.files = TRUE, no.. = TRUE))) unlink(d, recursive = TRUE)
+  }
+  undone
 }
 
 items_what <- function(items) {
@@ -371,6 +450,12 @@ status_activation <- function(root) {
   is_qmd <- grepl("\\.qmd$", docs, ignore.case = TRUE)
   lack <- docs[is_qmd][vapply(texts[is_qmd], qmd_lacks_engine, NA)]
   route <- if (rprofile) "the .Rprofile" else "front matter"
+  # R reads the file R_PROFILE_USER names instead of the project's .Rprofile (review 4, #15)
+  if (rprofile && !front && !is.na(Sys.getenv("R_PROFILE_USER", unset = NA))) {
+    return(list(state = "off",
+                detail = paste0("R_PROFILE_USER is set, so R does not read the project .Rprofile and the ",
+                                "activation does not run; unset it, or use the front-matter route")))
+  }
   if (length(lack)) {
     shown <- paste(utils::head(lack, 3L), collapse = ", ")
     more <- if (length(lack) > 3L) sprintf(" and %d more", length(lack) - 3L) else ""
@@ -427,6 +512,9 @@ status_hook <- function(root) {
     if (s == "outdated") {
       return(list(state = "outdated", detail = sprintf("%s is from weft %s (installed: %s)", where,
                                                        marker_parse(lines, HOOK_STATE_FN)$version, inst)))
+    }
+    if (!is_executable(p)) {
+      return(list(state = "outdated", detail = sprintf("%s is not executable, so git ignores it", where)))
     }
     if (is.na(rs) || !file.exists(rs)) {
       return(list(state = "outdated", detail = sprintf("%s records an Rscript that is gone: %s", where, rs)))

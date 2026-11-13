@@ -24,7 +24,10 @@ weft installed up to date.
 It plans every step first, prints the plan (\verb{weft will set up <root>:}, then
 one line per step), and then writes. When any step cannot be done safely (a
 \verb{_quarto.yml} or front matter it cannot edit, a link or a folder in a file's
-place) it writes nothing and stops with that step's message. It never asks,
+place) it writes nothing and stops with that step's message. A step that
+fails while writing (a folder that cannot be written to) undoes what the
+earlier steps wrote: files it created are removed and files it changed are
+put back, and the message says what was undone. It never asks,
 whether the session is interactive or not: the call is the consent.
 \code{suppressMessages()} silences it. \code{\link[=dict_vale]{dict_vale()}} is not called: it is a tool,
 not set-up.
