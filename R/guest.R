@@ -359,7 +359,7 @@ guest_form <- function(name) {
       # the markup's expressions are R, evaluated where the knit's chunks are
       env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
       env$x <- vals[[1L]]
-      eval(quote(weft:::weft_str(x)), env)
+      eval(quote(weft::weft_str(x)), env)
     } else {
       do.call(get(name, envir = asNamespace("weft")), vals)
     }
