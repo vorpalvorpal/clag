@@ -62,7 +62,7 @@ test_that("N112: the entry's fields are R's, in R's order, with the printed text
 
 test_that("N112: the raw value of a string or a missing record is null, a float's is its number", {
   blk <- g6_block(site = fr_str("north"), f = fr_float("3.14159"), run = "R1")
-  es <- g6_entries(lg_run(c(blk, "", "Site `site`{.val} and `f`{.num}.")))
+  es <- g6_entries(lg_run(c(blk, "", "Site `site`{.val} and `f`{.val}.")))
   expect_null(g6_pick(es, "value", "site", 1)$raw)
   expect_identical(g6_pick(es, "value", "site", 1)$text, "north")
   expect_equal(g6_pick(es, "value", "f", 1)$raw, 3.14159)

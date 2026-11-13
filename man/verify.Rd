@@ -27,7 +27,7 @@ ledgers and listed; the rules that read across files still read the whole projec
 \value{
 A \code{weft_verify}, invisibly, when the check passed: a list with \code{ok}, \code{parts}
 (\code{part}, \code{status}, \code{detail}), \code{errors}, \code{added}, \code{strict}, \code{names}, \code{tier2} (each a
-\code{weft_findings}), \code{removed}, \code{decisions}, \code{knit}, \code{unexecuted}, \code{stale}, \code{tolerated},
+\code{weft_findings}), \code{removed}, \code{decisions}, \code{knit}, \code{unexecuted}, \code{unfresh}, \code{stale}, \code{tolerated},
 \code{log}, \code{notes} and \code{seconds}. The report is printed to stderr with \code{\link[=message]{message()}}.
 }
 \description{

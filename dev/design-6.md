@@ -1614,3 +1614,37 @@ Accepted choices of the 6e implementer, spec text for 6j:
 - `auto()` with no path and no Quarto variables: E60 says which
   variables are not set. The cell that calls `auto()` is published.
 - Open: findings 12 and 13 in `dev/open-findings.md`.
+
+## Rulings after 6g (orchestrator, 13 Nov, under delegation)
+
+Accepted choices of the 6g implementer, spec text for 6j:
+
+- N92: a document is knitr's when its source is `.Rmd` or `.knit.md`,
+  or a `.qmd` with `engine: knitr`, or with an executed `{r}` chunk and
+  no `engine:`/`jupyter:` key; or when the hooks' stamp of this run for
+  this source exists and its `writers` lack `filter`. Either is enough.
+  A leftover span whose governor fits N9 and N12 is resolved; any other
+  is left for `weft-check.lua`, its content still resolved.
+- Stamp: `checks` adds one per outermost construct, block checks not
+  counted; `named` counts constructs resolved without failure; with no
+  current run `run` is "" and `fresh` is null; `writers` defaults to
+  `["knit"]` when the old stamp has none; a stamp that already lists
+  `filter` is replaced. A knitr document with no hooks stamp of this
+  run and nothing of the filter's own gets no stamp.
+- Ledger: on unless `ledger: false`, as R reads it. Entries are
+  written when there are no failures, in draft mode, or when a
+  collection file is open. `writer` is the last field; a filter
+  entry's `occ` continues after a hooks entry of the same key; a
+  failed construct has `failed` set and `text` null.
+- The file hash is XXH3-64 (seed 0), 16 hex characters, as
+  `cli::hash_raw_xxhash64` gives; the design's "md5" was wrong. The
+  filter computes it in pure Lua.
+- `verify()` returns `unfresh` and reports E36 under "Not executed in
+  this render"; it writes `.weft/run`, adds `--execute-daemon-restart`,
+  and kills the julia engine server first for a julia document.
+- Found and fixed: Quarto redefines Lua's global `error()` to log and
+  return, so the filter's raises did not stop under Quarto (open
+  finding 10). They now use `assert(false, obj)`.
+
+One 6g test amended: it expected `.num` to print 3.14159 in full; the
+default `digits` is 1, so it now uses `.val`.
