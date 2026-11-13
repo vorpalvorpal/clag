@@ -45,7 +45,7 @@
 #                         start Julia (the first call starts it, once per
 #                         process; later calls cost nothing), or when the
 #                         environment variable WEFT_SKIP_JULIA is set (the CI
-#                         workflow sets it: dev/open-findings.md, finding 21)
+#                         workflow sets it: dev/open-findings.md, finding 22)
 #   jl_set(...)           runs Julia lines: name = "expr" becomes `name = expr;`
 #                         an unnamed string is run as it is, with a `;` added.
 #                         Every line ends with `;` so JuliaCall converts no
@@ -78,11 +78,11 @@
 
 # ---- skips -------------------------------------------------------------------
 
-# Julia is skipped wherever WEFT_SKIP_JULIA is set (the CI workflow does): finding 21 in
+# Julia is skipped wherever WEFT_SKIP_JULIA is set (the CI workflow does): finding 22 in
 # dev/open-findings.md. One helper, used by both Julia skips.
 skip_if_julia_disabled <- function() {
   testthat::skip_if(nzchar(Sys.getenv("WEFT_SKIP_JULIA")),
-                    "WEFT_SKIP_JULIA is set: Julia segfaults R on the CI runner (dev/open-findings.md, finding 21)")
+                    "WEFT_SKIP_JULIA is set: Julia segfaults R on the CI runner (dev/open-findings.md, finding 22)")
 }
 
 skip_if_no_julia <- function() {

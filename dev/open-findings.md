@@ -422,3 +422,25 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     value whose result lands inside a code span is not a scanner row, so
     the gate and the lints never see it. Reproduce and decide whether it
     should be a row.
+22. CI, Julia (14 Nov). On the ubuntu-latest runner (Ubuntu 26.04, R
+    4.6.2, Julia 1.12, JuliaCall with RCall) the Julia tests segfault R
+    (exit 139) and take the whole check with them, so the workflow sets
+    `WEFT_SKIP_JULIA=1` and does not install Julia. Staged probes
+    showed that `JuliaCall::julia_setup()`, `using Statistics`,
+    sourcing `WeftGuest.jl`, `WeftGuest.install` and `add_load_path`
+    all work, and that the crash is the first `using Weft` made inside
+    the embedded Julia. Tried, all still crashing: R's lib directory on
+    `LD_LIBRARY_PATH` (it did reach the R process, set in `$GITHUB_ENV`);
+    `JULIA_NUM_THREADS=1`; `LD_PRELOAD` of the system libstdc++;
+    `JULIA_COMPILED_MODULES=no`; a plain `julia -e "using Weft"`
+    warm-up from the source tree's folder (the precompile cache is
+    keyed by path, so no help). What worked in isolation: a plain
+    `julia` warm-up from the installed package's folder, then
+    `using Weft` in R. Run inside the whole suite with that warm-up in
+    `skip_if_no_julia()`, R still crashed at the first Julia test
+    (`test-guest-claim-jl.R`, "N60 R6"), so the cause is not settled;
+    it is not in the Julia code that runs before `using Weft`. Next
+    step: a core dump and `gdb -batch -ex bt` of an `Rscript` that
+    runs that test file after the others, or the Julia 1.10 LTS.
+    Users on Linux may hit the same crash on a first `using Weft`
+    under JuliaCall.
