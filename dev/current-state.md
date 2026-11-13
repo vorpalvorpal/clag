@@ -345,3 +345,29 @@ filters or `.Rprofile` lines installed into the real project.
   recipe; adoption recipe. Major questions A to H there are for Robin.
 - Still to do: whole suite on merged `main`, push (first real run of the
   Linux CI fix), docs check, tag and release v0.1.
+
+## Robin's rulings on the trial questions (14 Nov)
+
+Asked about the ten open questions in `dev/hw-comparison.md` and
+`dev/hw-trial.md`, Robin answered "Yes to each of your recommendations":
+
+1. Explicit plus sign for `.num`, `.pct`, `.range`, `ci()`; `ci()` prints
+   percentages and has a short form "est (lo to hi)". Lua parity too.
+2. `.p` gets a `digits` key and a label key (q-values).
+A. Chunk claims: an opt-in setting; a failed `claim()` in a chunk is
+   recorded, returns its value, and the render fails at the end.
+B. Forward references: the resolver falls back to a name's end-of-document
+   value "when the name takes exactly one value" and, Robin's words,
+   "warn/error if it takes more than one". (My reading: an error.)
+C. Tables in the ledger: one digest per table, not per cell.
+D. Rendered-output check: unresolved reference, literal `NA`, leftover
+   markup, in the post-render script and `verify()`. Nothing else.
+E. `decision=` key on literals, `cite` spans and claims; no comment scan.
+F. No new construct for typed-but-checked text; document the
+   `weft_str()` / `weft_put()` routes.
+G. A `range` dictionary type; threshold tables stay as R data.
+H. No register generation from commit trailers.
+
+Order agreed: plus sign, C, D, A, then the rest. B1 to B7 (Lua parity) were
+listed for Robin with my lean (B1 yes with strict evaluation, the rest no
+or hold); no answer yet.
