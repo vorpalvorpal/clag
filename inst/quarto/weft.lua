@@ -94,11 +94,14 @@ local function is_space(el) return el ~= nil and (el.t == "Space" or el.t == "So
 
 -- ---- locations and failures -----------------------------------------------------------------------
 
+-- a path as shown: relative to the working folder when it is under it
+local function shown_path(p)
+  if S.cwd and p:sub(1, #S.cwd + 1) == S.cwd .. "/" then p = p:sub(#S.cwd + 2) end
+  return (p:gsub("^%./", ""))
+end
+
 local function file_of(idx)
-  if S.src and idx and S.src.files[idx] then
-    local f = S.src.files[idx]
-    return (f:gsub("^%./", ""))
-  end
+  if S.src and idx and S.src.files[idx] then return shown_path(S.src.files[idx]) end
   return S.main
 end
 
@@ -897,9 +900,9 @@ resolve_inlines = function(inlines, ctx)
       out:insert(el)
       i = i + 1
     elseif t == "Image" then
-      S.stash[#S.stash + 1] = { content = el.content, ctx = ctx }
+      S.stash[#S.stash + 1] = { content = el.caption, ctx = ctx }
       el.attributes["weft-cap"] = tostring(#S.stash)
-      el.content = pandoc.Inlines({})
+      el.caption = pandoc.Inlines({})
       out:insert(el)
       i = i + 1
     elseif INLINE_CONTAINERS[t] then
@@ -946,10 +949,11 @@ resolve_blocks = function(blocks, ctx)
     end,
     Figure = function(el)
       S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx }
-      el.attr.attributes["weft-cap"] = tostring(#S.stash)
-      el.caption = pandoc.Caption({}, nil)
-      el.content = resolve_blocks(el.content, with(ctx, "fig", true))
-      return el, false
+      local attr = el.attr
+      attr.attributes["weft-cap"] = tostring(#S.stash)
+      -- the content of a Figure cannot be set in place: a new Figure
+      return pandoc.Figure(resolve_blocks(el.content, with(ctx, "fig", true)),
+                           pandoc.Caption({}, nil), attr), false
     end,
     Inlines = function(inlines)
       return resolve_inlines(inlines, ctx), false
@@ -987,7 +991,7 @@ local function restore_captions(blocks)
       local st = take(el.attributes)
       if st then
         if st.ctx.fig then S.mute = S.mute + 1 end
-        el.content = resolve_inlines(st.content, st.ctx)
+        el.caption = resolve_inlines(st.content, st.ctx)
         if st.ctx.fig then S.mute = S.mute - 1 end
         return el
       end
@@ -1092,7 +1096,8 @@ function Pandoc(doc)
   local ok_cwd, cwd = pcall(pandoc.system.get_working_directory)
   if not ok_cwd then cwd = nil end
   local path = source_path()
-  S.main = path and (path:gsub("^%./", "")) or nil
+  S.cwd = cwd
+  S.main = path and shown_path(path) or nil
   if path then
     local d = path:gsub("[/\\]+[^/\\]*$", "")
     if d == path then d = "." end

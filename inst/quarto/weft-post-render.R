@@ -3,7 +3,8 @@
 #
 # Plain base R: works when weft is not installed. It prints ONE report for
 # the whole render, in the layout of rule 2.6.2:
-#   * the failures the chapters appended to .weft/failures.jsonl and the
+#   * the failures the chapters appended to .weft/failures.jsonl (the knit's,
+#     and the resolver filter weft.lua's, source "resolve") and the
 #     filter's findings (a filter line is dropped only when it is a marker
 #     that a knit line or a failure recorded in a stamp explains);
 #   * the failures recorded in the stamp of every document served from
@@ -141,6 +142,8 @@ local({
   # a warned check (level "warn") is listed after the failures and fails nothing
   warned <- Filter(function(r) identical(r$level, "warn"), recs)
   recs <- Filter(function(r) !identical(r$level, "warn"), recs)
+  # a `knit` line (the hooks) and a `resolve` line (weft.lua, N111) are failures as they stand
+  # and explain a marker that a `filter` line (weft-check.lua) found
   fails <- Filter(function(r) !identical(r$source, "filter"), recs)
   for (d in frozen) fails <- c(fails, d$failures)
   explained <- function(r) {
