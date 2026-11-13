@@ -218,6 +218,22 @@ it is not pushed until those land.
   build (after 6k); then 6f, 6g, 6e, 6h, 6i, 6j; an independent review
   of stage 6; Jupyter in the check workflow.
 
+## Scratchpad wiped (13 Nov, about 21:19)
+
+An agent emptied the whole session scratchpad when told to delete its
+own scratch files. Gone: `suite/fresh-suite.sh` (rewritten, same path),
+the virtualenvs (`lang/c2/venv` with Jupyter, `venv5` with numpy and
+pandas; 6e needs Jupyter again), `prof/real/` (the manuscript copy,
+which was due for deletion anyway), `lang/`, and `rmdfix/` (the draft
+issue and patch for `rstudio/rmarkdown`). The rmarkdown draft must be
+recovered from the session transcript
+(`~/.claude/projects/-Users-rjs-dev-clag/329c9209-...jsonl`) or redone
+before the closing report. Briefs now say: delete only files you made.
+
+Stage 6 position: 6a, 6b, 6k, 6c, 6d, 6f merged on local `main`; 6g
+tests merged, implementer next; then 6e, 6h, 6i, 6j. Pushed through
+dd63c56. The CI fix (R's lib on `LD_LIBRARY_PATH`) is unpushed.
+
 ## Robin's instructions for after stage 6 (13 Nov, verbatim)
 
 "Once you are finished:
