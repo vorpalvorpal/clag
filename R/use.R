@@ -33,14 +33,13 @@
 #' @export
 use_quarto <- function(path = ".") {
   if (!dir.exists(path)) {
-    stop("`path` is not a directory: ", path, call. = FALSE)
+    tool_abort(paste0("use_quarto(): `path` is not a directory: ", path))
   }
   start <- normalizePath(path, winslash = "/", mustWork = TRUE)
   path <- find_quarto_root(start)
   if (is.null(path)) {
-    stop("`", start, "` has no _quarto.yml, so it is not in a Quarto project. ",
-         "Create the project first (`quarto create project`), then run use_quarto().",
-         call. = FALSE)
+    tool_abort(paste0("use_quarto(): `", start, "` has no _quarto.yml, so it is not in a Quarto project. ",
+                      "Create the project first (`quarto create project`), then run use_quarto()."))
   }
   hit <- QUARTO_MARKERS[file.exists(file.path(path, QUARTO_MARKERS))][1]
   yml_name <- hit
@@ -54,18 +53,17 @@ use_quarto <- function(path = ".") {
   old <- read_source_lines(qy)
   new <- quarto_yml_with_weft(old)
   if (is.null(new)) {
-    stop("weft cannot edit ", yml_name, " as text without risking what is in it, so it has ",
-         "changed nothing. Add these lines by hand, then run use_quarto() again:\n\n",
-         paste(c("filters:", "  - weft-check", "project:", "  pre-render: _weft/pre-render.R",
-                 "  post-render: _weft/post-render.R"), collapse = "\n"),
-         "\n\n(merge them into the `filters:` and `project:` entries the file already has; ",
-         "each of those holds a list, and `weft-check` and the two scripts go into it.)",
-         call. = FALSE)
+    tool_abort(paste0("use_quarto(): weft cannot edit ", yml_name, " as text without risking what is in it, so it has ",
+                      "changed nothing. Add these lines by hand, then run use_quarto() again:\n\n",
+                      paste(c("filters:", "  - weft-check", "project:", "  pre-render: _weft/pre-render.R",
+                              "  post-render: _weft/post-render.R"), collapse = "\n"),
+                      "\n\n(merge them into the `filters:` and `project:` entries the file already has; ",
+                      "each of those holds a list, and `weft-check` and the two scripts go into it.)"))
   }
 
   src <- function(f) {
     p <- system.file("quarto", f, package = "weft")
-    if (!nzchar(p)) stop("weft's own file inst/quarto/", f, " is missing", call. = FALSE)
+    if (!nzchar(p)) tool_abort(paste0("weft's own file inst/quarto/", f, " is missing"))
     p
   }
   copies <- c(
@@ -79,6 +77,17 @@ use_quarto <- function(path = ".") {
   weft_yml <- file.path(path, "_weft.yml")
   make_weft_yml <- !file.exists(weft_yml)
 
+  # never through a link, and every refusal before the first write
+  targets <- c(names(sources), "_weft", "_extensions", "_extensions/weft-check", "_weft.yml", yml_name)
+  for (rel in targets) {
+    l <- Sys.readlink(file.path(path, rel))
+    if (!is.na(l) && nzchar(l)) {
+      tool_abort(sprintf(paste0("use_quarto(): %s is a symbolic link, and weft never writes through one; ",
+                                "nothing was written. Replace it with a plain file or folder, or move it away."),
+                         file.path(path, rel)))
+    }
+  }
+
   message("weft will write, under ", path, ":")
   message("  _extensions/weft-check/_extension.yml and weft-check.lua  (the weft-check filter)")
   message("  _weft/pre-render.R   (fails a .qmd with constructs and no `engine: knitr`; opens .weft/failures.jsonl)")
@@ -88,24 +97,39 @@ use_quarto <- function(path = ".") {
   message("  ", yml_name, "  (adds the filter weft-check, and the two scripts under project:)")
 
   written <- character()
+  failed <- function(rel) {
+    if (length(written)) message("Wrote: ", paste(written, collapse = ", "))
+    tool_abort(sprintf("use_quarto(): could not write %s (%s).%s", rel, file.path(path, rel),
+                       if (length(written)) paste0(" Written before it: ", paste(written, collapse = ", "), ".")
+                       else " Nothing was written."))
+  }
   for (rel in names(sources)) {
     dest <- file.path(path, rel)
-    dir.create(dirname(dest), showWarnings = FALSE, recursive = TRUE)
     if (!file.exists(dest) ||
         !identical(unname(tools::md5sum(dest)), unname(tools::md5sum(sources[[rel]])))) {
-      if (!copy_atomic(sources[[rel]], dest)) stop("cannot write ", dest, call. = FALSE)
+      ok <- tryCatch({
+        suppressWarnings(dir.create(dirname(dest), showWarnings = FALSE, recursive = TRUE))
+        dir.exists(dirname(dest)) && copy_atomic(sources[[rel]], dest) && file.exists(dest)
+      }, error = function(e) FALSE)
+      if (!isTRUE(ok)) failed(rel)
       written <- c(written, rel)
     }
   }
   if (make_weft_yml) {
-    write_lines_atomic(c("# weft settings for this project. Every key has a default;",
-                         "# add only what you change (digits, decimal_mark, draft, ...)."),
-                       weft_yml)
+    ok <- tryCatch({
+      write_lines_atomic(c("# weft settings for this project. Every key has a default;",
+                           "# add only what you change (digits, decimal_mark, draft, ...)."),
+                         weft_yml)
+      file.exists(weft_yml)
+    }, error = function(e) FALSE, warning = function(w) FALSE)
+    if (!isTRUE(ok)) failed("_weft.yml")
     written <- c(written, "_weft.yml")
   }
 
   if (!identical(new, old)) {
-    write_lines_atomic(new, qy, file_eol(qy))
+    ok <- tryCatch({ write_lines_atomic(new, qy, file_eol(qy)); TRUE },
+                   error = function(e) FALSE, warning = function(w) FALSE)
+    if (!isTRUE(ok)) failed(yml_name)
     written <- c(written, yml_name)
   }
 
