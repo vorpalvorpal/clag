@@ -86,8 +86,8 @@ test_that("design: about() takes to = 1/4, 1/3, 1/2, 2/3, 3/4", {
 
 test_that("design: about() with another target is an error", {
   expect_true(is.function(about))
-  expect_error(about(0.2, to = 1/5))
-  expect_error(about(0.5, to = 0.4))
+  expect_error(about(0.2, to = 1/5), class = "weft_value_error")
+  expect_error(about(0.5, to = 0.4), class = "weft_value_error")
 })
 
 test_that("design: an x further than the tolerance from `to` is a value error (the sentence would be false)", {

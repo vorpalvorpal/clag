@@ -146,7 +146,7 @@ test_that("2f display problems: they sit among the dictionary's other problems, 
 
 test_that("2f display problems: a read with a display problem registers nothing from it and gives no dictionary (4.2.6)", {
   e <- disp_err(c("w: {value: 2, type: quantity, unit: zzdb/s, display: kg, definition: x}"))
-  expect_error(u(1, zzdb))
+  expect_error(u(1, zzdb), class = "weft_unit_error")
 })
 
 # ---- in a knit: dict.yml and dict_local (4.2.7) -------------------------------------------------------------------------------

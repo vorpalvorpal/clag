@@ -181,7 +181,8 @@ test_that("review E #9: a case named after a column of the result is an error be
   for (nm in c("file", "span", "reached")) {
     cases <- list(a = list(boom = FALSE), list(boom = FALSE))
     names(cases)[2] <- nm
-    expect_error(e1_with_libs(rehearse(path, cases)), nm, fixed = TRUE, label = nm)
+    expect_error(e1_with_libs(rehearse(path, cases)), class = "weft_rehearse_error",
+                 regexp = paste0("cannot be named `", nm, "`"), fixed = TRUE, label = nm)
     # nothing ran: the setup chunk writes ran.txt whenever the document is knitted
     expect_false(file.exists(file.path(dir, "ran.txt")), label = nm)
   }

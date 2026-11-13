@@ -240,7 +240,7 @@ test_that("2h 4.2.7: a value that is neither a string nor a list of strings is a
 test_that("2h 4.2.7: a read with a display problem registers nothing from it", {
   e <- dd_err("w: {value: 2, type: quantity, unit: zzh2db/s, display: kg, definition: x}")
   f2_msg_has(e, "kg")
-  expect_error(u(1, zzh2db))
+  expect_error(u(1, zzh2db), class = "weft_unit_error")
 })
 
 test_that("2h 4.2.6 control: a good entry beside a bad one reads nothing, and the good one alone reads", {

@@ -70,7 +70,7 @@ test_that("2f config: settings apply to anything, so unit_form name does not err
 
 test_that("2f units: name, plural, symbol and space are read per unit, and a read registers the keys (9.1.7, U16)", {
   withr::local_envvar(WEFT_DRAFT = NA)
-  expect_error(u(3, zzqa))                                   # not known before the read
+  expect_error(u(3, zzqa), class = "weft_unit_error")                                   # not known before the read
   x <- cfg2(f2_proj(c("units:", "  zzqa:", "    name: quark", "    plural: quarks")))
   expect_gt(length(x$units), 0L)
   expect_no_error(u(3, zzqa))                                # known after, with no dictionary
@@ -78,7 +78,7 @@ test_that("2f units: name, plural, symbol and space are read per unit, and a rea
 
 test_that("2f units: a key written as u() takes one, a compound key registers its tokens (4.4.7, U16)", {
   withr::local_envvar(WEFT_DRAFT = NA)
-  expect_error(u(3, zzqb / zzqc))
+  expect_error(u(3, zzqb / zzqc), class = "weft_unit_error")
   cfg2(f2_proj(c("units:", "  zzqb/zzqc:", "    name: quark per charm")))
   expect_no_error(u(3, zzqb / zzqc))
   expect_equal(f2_tx(fmt_unit(u(3, zzqb / zzqc), unit_form = "name")), "quarks per charm")
@@ -226,8 +226,8 @@ test_that("2f units problems: a read with problems registers nothing, not even t
   withr::local_envvar(WEFT_DRAFT = NA)
   e <- f2_cond(cfg2(f2_proj(c("units:", "  zzsx:", "    name: quark", "  zzsy:", "    nmae: x"))))
   f2_has_class(e, "weft_config_error")
-  expect_error(u(3, zzsx))
-  expect_error(u(3, zzsy))
+  expect_error(u(3, zzsx), class = "weft_unit_error")
+  expect_error(u(3, zzsy), class = "weft_unit_error")
 })
 
 test_that("2f units problems: the error stops a draft-mode read too (U17, 9.1.7)", {

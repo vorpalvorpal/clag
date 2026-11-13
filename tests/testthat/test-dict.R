@@ -61,7 +61,7 @@ test_that("2a read: labels is a lookup() function, and the YAML words yes and no
   expect_identical(as.character(d$zone_lab("no")), "Excluded")
   expect_identical(as.character(d$zone_lab("upper")), "Upper reach")
   expect_identical(as.character(d$zone_lab(c("lower", "yes"))), c("Lower reach", "Included"))
-  expect_error(d$zone_lab("middle"))                      # an unknown label is an error, as lookup()
+  expect_error(d$zone_lab("middle"), class = "weft_value_error")                      # an unknown label is an error, as lookup()
 })
 
 test_that("2a read: breaks is a brk() function with below as < and at_most as <= (4.2.1)", {
@@ -413,7 +413,7 @@ test_that("2a units: reading twice is silent and idempotent; a unit is installed
   lines <- c("wqzlen: {value: 3, type: quantity, unit: wqzlenx, definition: x}",
              "wqzrate: {value: 2, type: quantity, unit: \"wqzlenx/wqzcount\", definition: x}")
   p <- a2_file(lines)
-  expect_error(units::as_units("wqzlenx"))                    # control: unknown before
+  expect_error(units::as_units("wqzlenx"), regexp = "wqzlenx")                    # control: unknown before
   expect_silent(d1 <- read_dict(p))
   expect_setequal(attr(d1, "registered"), c("wqzlenx", "wqzcount"))
   expect_silent(units::as_units("wqzlenx"))

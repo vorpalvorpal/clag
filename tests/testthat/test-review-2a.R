@@ -291,9 +291,9 @@ test_that("review 2a #5 control: one document with a leading `---` reads (ruling
 test_that("review 2a #6: a read that fails installs no unit, and the next good read lists it in `registered` and print() (D16; ruling 6, e)", {
   bad <- a2_file(c("a: {value: 1, type: quantity, unit: rvquxa, definition: d}",
                    "b: {value: oops, type: number, definition: d}"))
-  expect_error(units::as_units("rvquxa"))                                   # control: unknown before
+  expect_error(units::as_units("rvquxa"), regexp = "rvquxa")                                   # control: unknown before
   expect_weft_cond(a2_err(read_dict(bad)), "weft_dict_error", "failed read")
-  expect_error(units::as_units("rvquxa"))                                   # still unknown: nothing installed
+  expect_error(units::as_units("rvquxa"), regexp = "rvquxa")                                   # still unknown: nothing installed
   good <- a2_file("a: {value: 1, type: quantity, unit: rvquxa, definition: d}")
   d <- read_dict(good)
   expect_identical(attr(d, "registered"), "rvquxa")

@@ -220,8 +220,8 @@ test_that("1h list: only the chosen arm is evaluated", {
 })
 
 test_that("1h list: n=\"flagged\" with a vector is still a failure (rule 1.5.11 stands)", {
-  expect_error(hs("[none | # was | # were]{n=\"v\"}", v = c("a", "b", "c")))
-  expect_error(hs("[none | # was | # were]{n=\"v\"}", v = c("a", "b")))
+  expect_error(hs("[none | # was | # were]{n=\"v\"}", v = c("a", "b", "c")), class = "weft_value_error")
+  expect_error(hs("[none | # was | # were]{n=\"v\"}", v = c("a", "b")), class = "weft_value_error")
   # control: the same vector under list is fine
   expect_identical(hs("[none | # was | # were]{list=\"v\"}", v = c("a", "b")), "a and b were")
 })

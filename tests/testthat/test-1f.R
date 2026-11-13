@@ -99,10 +99,10 @@ test_that("1f claim level: a check that itself errors is a failure at the level 
 test_that("1f claim level: level must be given by name, and any other level is an error", {
   # a bare "warn" is refused with a message that says to write `level = ` (review F #15)
   expect_error(claim(5, . > 1, "warn"), class = "weft_claim_level")
-  expect_error(claim(5, . > 1, level = "info"))
-  expect_error(claim(5, . > 1, level = "WARN"))
-  expect_error(claim(5, . > 1, level = 1))
-  expect_error(claim(5, . > 1, level = NA_character_))
+  expect_error(claim(5, . > 1, level = "info"), class = "weft_claim_level")
+  expect_error(claim(5, . > 1, level = "WARN"), class = "weft_claim_level")
+  expect_error(claim(5, . > 1, level = 1), class = "weft_claim_level")
+  expect_error(claim(5, . > 1, level = NA_character_), class = "weft_claim_level")
   # control: both legal levels
   expect_identical(claim(5, . > 1, level = "fail"), 5)
   expect_identical(claim(5, . > 1, level = "warn"), 5)
@@ -389,12 +389,12 @@ test_that("1f style: a bad thousands_from or serial_comma is an error, in _weft.
   for (l in bad_yml) {
     d <- withr::local_tempdir()
     writeLines(l, file.path(d, "_weft.yml"))
-    expect_error(weft:::read_config(d, front = list()), label = l)
+    expect_error(weft:::read_config(d, front = list()), class = "weft_config_error", label = l)
   }
   d <- withr::local_tempdir()
-  expect_error(weft:::read_config(d, front = list(thousands_from = "abc")))
-  expect_error(weft:::read_config(d, front = list(thousands_from = 2.5)))
-  expect_error(weft:::read_config(d, front = list(serial_comma = "maybe")))
+  expect_error(weft:::read_config(d, front = list(thousands_from = "abc")), class = "weft_config_error")
+  expect_error(weft:::read_config(d, front = list(thousands_from = 2.5)), class = "weft_config_error")
+  expect_error(weft:::read_config(d, front = list(serial_comma = "maybe")), class = "weft_config_error")
   # control: a good value in the same place is accepted
   expect_no_warning(z <- weft:::read_config(d, front = list(thousands_from = 5000)))
   expect_equal(z$thousands_from, 5000)

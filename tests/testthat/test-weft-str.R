@@ -56,7 +56,7 @@ test_that("3.6 interface: it is evaluated in the caller's environment", {
   }
   expect_identical(f(), "4 sites")
   # control: the name is not visible from here, so the same string fails
-  expect_error(weft::weft_str("[a site | # sites]{n=\"only_here_k\"}"))
+  expect_error(weft::weft_str("[a site | # sites]{n=\"only_here_k\"}"), class = "weft_no_value")
   # the caller's own variables, and the enclosing ones, are seen
   g <- function() weft::weft_str("`r 2 * only_here_x`{.num}")
   only_here_x <- 6

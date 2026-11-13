@@ -252,9 +252,9 @@ test_that("3a L2/L14: reader is one of weft and pandoc; other values are errors"
   root <- lint_proj(list("a.qmd" = F3_BAD_LIT))
   # the validation error class is not named by the design for match.arg-style
   # failures; any error is accepted here
-  expect_error(lints(root, reader = "bogus"))
-  expect_error(lints(root, reader = c("weft", "pandoc", "x")))
-  expect_error(lints(root, reader = 1))
+  expect_error(lints(root, reader = "bogus"), class = "weft_lint_error")
+  expect_error(lints(root, reader = c("weft", "pandoc", "x")), class = "weft_lint_error")
+  expect_error(lints(root, reader = 1), class = "weft_lint_error")
   # the default and the explicit "weft" agree
   expect_identical(lints(root, reader = "weft", tier = 1:2), lints(root, tier = 1:2))
 })
