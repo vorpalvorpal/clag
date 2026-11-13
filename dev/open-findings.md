@@ -310,3 +310,20 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 9. Done: Robin had `PACKAGE-SCOPING.md` moved to `dev/` so pkgdown does
    not publish it. Older notes that name `PACKAGE-SCOPING.md` mean
    `dev/PACKAGE-SCOPING.md`.
+
+## Found while writing the languages article (13 Nov)
+
+1. `bibliography` is a setting in `default_config()` and is missing
+   from the key list in spec 9.1.5.
+2. The print method of findings shows a non-ASCII character of a
+   message as an escape (the plus-minus sign in the JuliaCall
+   `guest-read` message). Check what an author sees, and print the
+   character.
+3. The Lua filter and the post-render script read any `WEFT_DRAFT`
+   value other than `true` or `1` as false without an error; R raises
+   the error first, when the knit reads the configuration. Harmless
+   while R always runs first; a filter-only route (stage 6) must raise
+   it itself.
+4. A console call of `reticulate::py_run_string()` before weft starts
+   Python lets reticulate download its own Python. The article advises
+   setting `RETICULATE_PYTHON`. Consider saying so in `status()`.
