@@ -60,15 +60,49 @@ M.MONTHS = { "January", "February", "March", "April", "May", "June", "July", "Au
 
 M.DEFAULT_DATE_FORMAT = "%-d %B %Y"
 
--- an ISO date (YYYY-MM-DD) as the default format prints it: no leading zero on the day, the English
--- month name, the year. No os.date, so no locale. Any other format string is nil and a message.
+M.WEEKDAYS = { "Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday" }
+
+local DAYS_BEFORE = { 0, 31, 59, 90, 120, 151, 181, 212, 243, 273, 304, 334 }
+local SAKAMOTO = { 0, 3, 2, 5, 0, 3, 5, 1, 4, 6, 2, 4 }
+
+-- an ISO date (YYYY-MM-DD) as a `date_format` string prints it: the tokens `%d %-d %e %m %-m %B %b %A %a
+-- %Y %y %j %%` and literal text, as R's format_dates() reads them, in English. A port token by token with
+-- no os.date, so no locale and no platform. Any other token is nil and a message (E20).
 function M.date(iso, fmt)
-  if fmt ~= M.DEFAULT_DATE_FORMAT then
-    return nil, string.format("`date_format: %s` is not available in this version of weft.lua (rule 2.13.3).", tostring(fmt))
+  local ys, ms, ds = iso:match("^(%d+)%-(%d%d)%-(%d%d)$")
+  if not ys then return nil, "`" .. iso .. "` is not a YYYY-MM-DD date." end
+  local y, m, d = tonumber(ys), tonumber(ms), tonumber(ds)
+  local yy = m < 3 and y - 1 or y
+  local wday = (yy + yy // 4 - yy // 100 + yy // 400 + SAKAMOTO[m] + d) % 7      -- Sakamoto; 0 = Sunday
+  local leap = (y % 4 == 0 and y % 100 ~= 0) or y % 400 == 0
+  local yday = DAYS_BEFORE[m] + d + ((leap and m > 2) and 1 or 0)
+  local TOKENS = {
+    ["%"] = "%",
+    d = string.format("%02d", d), ["-d"] = tostring(d), e = string.format("%2d", d),
+    m = string.format("%02d", m), ["-m"] = tostring(m),
+    B = M.MONTHS[m], b = M.MONTHS[m]:sub(1, 3),
+    A = M.WEEKDAYS[wday + 1], a = M.WEEKDAYS[wday + 1]:sub(1, 3),
+    Y = ys, y = string.format("%02d", y % 100), j = string.format("%03d", yday),
+  }
+  local out, i, n = {}, 1, #fmt
+  while i <= n do
+    local c = fmt:sub(i, i)
+    if c ~= "%" then
+      out[#out + 1] = c
+      i = i + 1
+    else
+      local tok = fmt:sub(i + 1, i + 1)
+      if tok == "-" then tok = fmt:sub(i + 1, i + 2) end
+      local text = TOKENS[tok]
+      if not text then
+        return nil, string.format("`date_format: %s` is not available in this version of weft.lua (rule 2.13.3).",
+                                  tostring(fmt))
+      end
+      out[#out + 1] = text
+      i = i + 1 + #tok
+    end
   end
-  local y, m, d = iso:match("^(%d+)%-(%d%d)%-(%d%d)$")
-  if not y then return nil, "`" .. iso .. "` is not a YYYY-MM-DD date." end
-  return string.format("%d %s %s", tonumber(d), M.MONTHS[tonumber(m)], y)
+  return table.concat(out)
 end
 
 M.NUMBER_WORDS = {}
