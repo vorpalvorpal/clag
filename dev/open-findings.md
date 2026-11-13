@@ -280,3 +280,33 @@ code; the cost of `weft_setup()`.
   hyphen (`SIGNAL-SF 2`) is not exempt from `numeral`; `table-caption`
   flags a table whose caption a helper function supplies; a paragraph
   of 4,000 bytes or more is not held in the sentence cache.
+
+## Found while writing the documentation (13 Nov)
+
+To be fixed with the per-area behaviour fixes, each with a test first.
+
+1. `status()` says draft mode means "nothing is checked in a render or
+   a commit"; the commit gate still runs in draft mode (spec 9.4.3).
+   The shipped `SKILL.md` says "the commit gate passes nothing in it".
+   Both texts are wrong; the code is right.
+2. `SKILL.md` says `lints()` "lists what the hook would refuse"; it
+   lists every finding, and `gate()` is what judges as the hook does.
+   It also says a failed-claim report "gives the sentence"; the report
+   gives the line, the expression, the check and the value.
+3. The `literal-value` hint always suggests `[10]{.weft-literal ...}`,
+   whatever the value, so the placeholder reads like a wrong number.
+4. The `if-zero` hint says to compare with a dictionary value; spec
+   5.3.3 says such a condition probably wants `sign`.
+5. A failure on an empty two-arm `list` prints "add a first arm for the
+   empty case" twice.
+6. `about_tolerance`, `ci_level`, `date_format` and
+   `sentence_start_fail` are settings in `R/config.R` and are missing
+   from the key list in spec 9.1.5.
+7. `use_agent_docs()` on an edited skill prints "the agent documents is
+   already set up".
+8. Untested: whether lint settings (`label_words`, `strict`) take
+   effect from a document's front matter; `recall_check()` has no
+   worked example.
+9. For Robin: pkgdown publishes `PACKAGE-SCOPING.md` as an unlinked
+   page of the site. It is already public in the repository. Move it
+   under `dev/` if it should not be on the site.
