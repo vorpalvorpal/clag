@@ -48,9 +48,12 @@ gate <- function(message = NULL, path = ".") {
   }))
   prefixes <- sort(unique(as.character(pre)), method = "radix")
   if (!length(prefixes)) g$notes <- c(g$notes, "no weft project (no _weft.yml)")
+  # a document belongs to the innermost project that holds it (review 4, #7)
   pj <- lapply(prefixes, function(p) {
+    deeper <- prefixes[if (nzchar(p)) startsWith(prefixes, paste0(p, "/")) else nzchar(prefixes)]
     list(prefix = p, display = if (nzchar(p)) p else ".",
-         new = gate_side_entries(g, new_ent, p), parents = lapply(base_ent, function(e) gate_side_entries(g, e, p)))
+         new = gate_side_entries(g, new_ent, p, deeper),
+         parents = lapply(base_ent, function(e) gate_side_entries(g, e, p, deeper)))
   })
   gate_sizes(g, pj)
   ids <- gate_rule_ids()
@@ -100,8 +103,9 @@ gate_rule_ids <- function() {
 
 # ---- one side of one project (G5-G8) --------------------------------------------------------------------
 
-# The tracked paths of one project on one side, classified. `rel` is the path under the project root.
-gate_side_entries <- function(g, ent, prefix) {
+# The tracked paths of one project on one side, classified. `rel` is the path under the project root;
+# the subtree of any project in `deeper` (prefixes of projects inside this one) is left out.
+gate_side_entries <- function(g, ent, prefix, deeper = character()) {
   if (nzchar(prefix)) {
     e <- ent[startsWith(ent$path, paste0(prefix, "/")), , drop = FALSE]
     e$rel <- substring(e$path, nchar(prefix) + 2L)
@@ -109,6 +113,7 @@ gate_side_entries <- function(g, ent, prefix) {
     e <- ent
     e$rel <- e$path
   }
+  for (d in deeper) e <- e[!startsWith(e$path, paste0(d, "/")), , drop = FALSE]
   stores <- store_dirs(g$top, e)
   in_store <- rep(FALSE, nrow(e))
   for (s in stores) in_store <- in_store | e$rel == s | startsWith(e$rel, paste0(s, "/"))
@@ -232,7 +237,20 @@ gate_materialise <- function(g, e, root) {
   invisible()
 }
 
-# What one side holds: findings (file and project scope, tier 1, no tar-name), construct rows, or an error.
+# The working constructs of documents read with the default settings, or NULL when one cannot be read.
+gate_fallback_constructs <- function(rels, root) {
+  rows <- lapply(rels, function(rel) {
+    tryCatch({
+      src <- read_source(file.path(root, rel), root, default_config())
+      if (isTRUE(src$invalid)) construct_empty() else working_constructs(src)
+    }, error = function(e) NULL)
+  })
+  if (any(vapply(rows, is.null, NA))) return(NULL)
+  bind_plain(rows, construct_empty())
+}
+
+# What one side holds: findings (file and project scope, tier 1, no tar-name), construct rows, or an error
+# (with the constructs read apart, when they could be).
 gate_side_results <- function(g, s, p, ids) {
   docs <- s$docs
   per <- list()
@@ -271,7 +289,9 @@ gate_side_results <- function(g, s, p, ids) {
       for (r in unique(c(root, normalizePath(root, winslash = "/", mustWork = FALSE)))) {
         msg <- gsub(r, shown, msg, fixed = TRUE)
       }
-      return(list(error = msg))
+      # the configuration does not read, so the findings are unknown; the constructs are still counted, read
+      # with the default settings, for the removal count (review 4, design question 7)
+      return(list(error = msg, constructs = gate_fallback_constructs(docs$rel, root)))
     }
     if (length(miss)) {
       ff <- plain_findings(out$file)
@@ -344,14 +364,13 @@ gate_judge_project <- function(g, p, new_res, base_res) {
     f <- top_path("_weft.yml")
     g$notes <- c(g$notes, sprintf("%s did not read at HEAD (%s); findings are not compared for %s", f,
                                   gsub("\n", " ", bad[[1L]]$error), p$display))
-    return(out)
   }
-  # findings added (G10)
-  key_of <- function(df) paste(df$rule, gate_ws(df$text), sep = "\001")
+  # findings added (G10); skipped when a base did not read, the removal count still runs (G18)
+  key_of <- gate_finding_keys
   nk <- key_of(nf[!is_err, , drop = FALSE])
-  cn <- count_keys(nk)
+  cn <- if (length(bad)) stats::setNames(integer(), character()) else count_keys(nk)
   bn <- stats::setNames(integer(), character())
-  for (b in base_res) {
+  for (b in if (length(bad)) list() else base_res) {
     bf <- b$findings
     bc <- count_keys(key_of(bf[!(bf$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]))
     ks <- union(names(bn), names(bc))
@@ -362,7 +381,7 @@ gate_judge_project <- function(g, p, new_res, base_res) {
   if (length(ex)) {
     exb <- base_n[match(ex, names(cn))]
     out$excess <- data.frame(project = p$display, rule = sub("\001.*$", "", ex),
-                             text = sub("^[^\001]*\001", "", ex), base = as.integer(exb),
+                             text = sub("^\002file$", "(the file's own name)", sub("^[^\001]*\001", "", ex)), base = as.integer(exb),
                              new = as.integer(cn[ex]), stringsAsFactors = FALSE)
     inst <- nf[!is_err, , drop = FALSE][nk %in% ex, , drop = FALSE]
     ik <- nk[nk %in% ex]
@@ -383,14 +402,21 @@ gate_judge_project <- function(g, p, new_res, base_res) {
     a$file <- vapply(a$file, top_path, "", USE.NAMES = FALSE)
     out$added <- a
   }
-  # constructs removed (G12)
-  totals <- vapply(base_res, function(b) nrow(b$constructs), 1L)
-  n_p <- min(totals) - nrow(new_res$constructs)
-  out$n <- max(0L, as.integer(n_p))
-  if (n_p > 0L) {
-    b <- base_res[[which.min(totals)]]$constructs
+  # constructs removed (G12, as changed by review 4, design question 1): claims are counted apart from
+  # values and spans, so that a deleted claim() does not hide behind an added value
+  if (any(vapply(base_res, function(b) is.null(b$constructs), NA))) return(out)
+  groups <- list(function(k) k == "claim", function(k) k != "claim")
+  rem <- list()
+  for (is_grp in groups) {
+    bs <- lapply(base_res, function(b) b$constructs[is_grp(b$constructs$kind), , drop = FALSE])
+    new <- new_res$constructs[is_grp(new_res$constructs$kind), , drop = FALSE]
+    totals <- vapply(bs, nrow, 1L)
+    n_p <- min(totals) - nrow(new)
+    if (n_p <= 0L) next
+    out$n <- out$n + as.integer(n_p)
+    b <- bs[[which.min(totals)]]
     tb <- count_keys(b$text)
-    tn <- count_keys(new_res$constructs$text)
+    tn <- count_keys(new$text)
     rows <- integer()
     for (t in names(tb)) {
       have <- if (t %in% names(tn)) tn[[t]] else 0L
@@ -401,12 +427,22 @@ gate_judge_project <- function(g, p, new_res, base_res) {
         rows <- c(rows, utils::tail(i, take))
       }
     }
-    r <- b[rows, , drop = FALSE]
+    rem[[length(rem) + 1L]] <- b[rows, , drop = FALSE]
+  }
+  r <- bind_plain(rem, construct_empty())
+  if (nrow(r)) {
     r <- r[order(enc2utf8(r$file), r$line, method = "radix"), , drop = FALSE]
     out$removed <- data.frame(project = rep(p$display, nrow(r)), file = vapply(r$file, top_path, "", USE.NAMES = FALSE),
                               line = as.integer(r$line), kind = r$kind, text = r$text, stringsAsFactors = FALSE)
   }
   out
+}
+
+# The key of a finding for the count (G10): its rule and text. A finding whose text is the file's own name
+# (the `engine` rule) is keyed without the name, so that a renamed file holds the same finding (review 4, #8).
+gate_finding_keys <- function(df) {
+  txt <- ifelse(!is.na(df$text) & df$text == df$file, "\002file", gate_ws(df$text))
+  paste(df$rule, txt, sep = "\001")
 }
 
 # the lines of a document added since HEAD (G16), cached per blob pair

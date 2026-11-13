@@ -81,8 +81,22 @@ cache_prune <- function(cache) {
 
 # ---- keys -------------------------------------------------------------------------------------------------
 
+# What identifies the installed code (review 4, #9): the version is the same across many reinstalls, so
+# the md5 of the installed `R/weft.rdb` goes into the keys too; under `load_all()` there is no such file
+# and the newest modification time of the source files stands in for it.
+gate_code_identity <- function() {
+  ns <- tryCatch(getNamespaceInfo(asNamespace("weft"), "path"), error = function(e) NULL)
+  if (is.null(ns)) return("none")
+  rdb <- file.path(ns, "R", "weft.rdb")
+  if (file.exists(rdb)) return(paste0("rdb-", unname(tools::md5sum(rdb))))
+  src <- list.files(file.path(ns, "R"), pattern = "\\.[Rr]$", full.names = TRUE)
+  src <- c(src, list.files(file.path(ns, "inst"), recursive = TRUE, full.names = TRUE))
+  if (!length(src)) return("none")
+  paste0("src-", format(max(as.numeric(file.mtime(src)), na.rm = TRUE), digits = 17))
+}
+
 gate_versions <- function() {
-  paste(as.character(utils::packageVersion("weft")), as.character(getRversion()), sep = "|")
+  paste(as.character(utils::packageVersion("weft")), as.character(getRversion()), gate_code_identity(), sep = "|")
 }
 
 gate_key <- function(...) cli::hash_md5(paste(..., sep = "|"))

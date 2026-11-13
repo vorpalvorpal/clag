@@ -62,6 +62,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
 
   # the documents verified
   docs <- lint_files_under(root)
+  all_docs <- docs
   files_rel <- NULL
   if (!is.null(files)) {
     absf <- ifelse(grepl("^(/|[A-Za-z]:)", files), files, file.path(root, files))
@@ -131,7 +132,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     li <- verify_lints(root, files_rel, cfg, gi, since_sha, have_base, docs)
     res[names(li$res)] <- li$res
     notes <- c(notes, li$notes)
-    n <- nrow(res$errors) + nrow(res$added) + nrow(res$strict) + nrow(res$names)
+    n <- nrow(res$errors) + li$added_n + nrow(res$strict) + nrow(res$names)
     reasons <- reasons + n
     set_part("lints", if (n) "failed" else "ran", li$detail)
   }
@@ -156,7 +157,8 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   } else if (!length(docs)) {
     set_part("render", "skipped", "skipped: no documents")
   } else {
-    rr <- verify_render(root, docs, files_rel, cfg)
+    rr <- verify_render(root, docs, files_rel, cfg, all_docs)
+    notes <- c(notes, rr$notes)
     res$knit <- rr$knit
     res$unexecuted <- rr$unexecuted
     res$log <- rr$log
@@ -210,17 +212,20 @@ verify_config <- function(root, has_file) {
   front <- list()
   if (!has_file) {
     d <- lint_files_under(root)
-    if (length(d) == 1L) {
-      f <- doc_front(file.path(root, d))
-      if (is.list(f$weft)) front <- f$weft
+    if (length(d) == 1L) front <- doc_front(file.path(root, d))
+  }
+  # read as YAML only: read_config() installs the unit tables and writes the units cache in the user's
+  # cache folder (review 4, #3), and verify() has no use for units
+  cfg <- lint_config(root, front)
+  validate_verify_config(cfg)
+  for (nm in c("draft", "ledger")) {
+    v <- cfg[[nm]]
+    if (!is.logical(v) || length(v) != 1L || is.na(v)) {
+      weft_abort(sprintf("The setting `%s` must be TRUE or FALSE.", nm), "weft_config_error")
     }
   }
-  keep <- list(units = weft_env$units, units_default = weft_env$units_default)
-  on.exit({
-    weft_env$units <- keep$units
-    weft_env$units_default <- keep$units_default
-  }, add = TRUE)
-  read_config(root, front)
+  decisions_route(cfg$decisions)
+  cfg
 }
 
 verify_version_warning <- function(root) {
@@ -304,18 +309,28 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
   }
 
   added <- empty_plain_findings()
+  added_n <- 0L
   removed <- construct_empty()
   base <- NULL
   if (have_base && !is.null(gi)) {
-    base <- verify_base_side(gi, since_sha, files_rel)
-    if (!is.null(base$error)) {
+    if (file.exists(file.path(root, "_weft.yml")) && !verify_weft_at(gi, since_sha)) {
+      # the project did not exist at `since`: that commit is the baseline (design question 5)
+      notes <- c(notes, sprintf(paste0("_weft.yml is not in %s: that commit is the baseline for this project, ",
+                                       "so nothing counts as added (rule 8.2.2)"), substr(since_sha, 1L, 7L)))
+    } else {
+      base <- verify_base_side(gi, since_sha, files_rel)
+    }
+    if (!is.null(base) && !is.null(base$error)) {
       notes <- c(notes, sprintf("_weft.yml did not read at %s (%s); findings are not compared",
                                 substr(since_sha, 1L, 7L), gsub("\n", " ", base$error)))
+      if (!is.null(base$constructs)) removed <- verify_removed(root, base, docs)
       base <- NULL
     }
   }
   if (!is.null(base)) {
-    added <- verify_added(gi, since_sha, tol, base)
+    va <- verify_added(gi, since_sha, tol, base)
+    added <- va$findings
+    added_n <- va$n
     removed <- verify_removed(root, base, docs)
   }
   if (nrow(tier2)) {
@@ -336,11 +351,17 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
   r$removed <- removed
   r$tolerated <- tolerated
   detail <- sprintf("%d construct error%s, %d added, %d tolerated", nrow(errors), if (nrow(errors) == 1L) "" else "s",
-                    nrow(added) + nrow(strict) + nrow(names_f), sum(tolerated$n))
-  if (!nrow(errors) && !nrow(added) && !nrow(strict) && !nrow(names_f)) {
+                    added_n + nrow(strict) + nrow(names_f), sum(tolerated$n))
+  if (!nrow(errors) && !added_n && !nrow(strict) && !nrow(names_f)) {
     detail <- sprintf("%d tolerated finding%s", sum(tolerated$n), if (sum(tolerated$n) == 1L) "" else "s")
   }
-  list(res = r, notes = notes, detail = detail)
+  list(res = r, notes = notes, detail = detail, added_n = added_n)
+}
+
+# Does the commit hold the project's `_weft.yml`?
+verify_weft_at <- function(gi, since_sha) {
+  p <- if (nzchar(gi$prefix)) paste0(gi$prefix, "/_weft.yml") else "_weft.yml"
+  identical(gate_g(gi$top, c("cat-file", "-e", paste0(since_sha, ":", p)))$status, 0L)
 }
 
 # What the commit held: its tier-1 findings and constructs, through the gate's reader and cache.
@@ -355,12 +376,13 @@ verify_base_side <- function(gi, since_sha, files_rel) {
   cache_prune(g$cache)
   r$docs <- s$docs$rel
   r$notes <- unique(c(g$notes, g$cache$notes))
-  if (!is.null(r$error)) return(r)
   tab <- lint_rule_table()
   if (!is.null(files_rel)) {
-    sc <- tab$scope[match(r$findings$rule, tab$id)]
-    r$findings <- r$findings[sc != "file" | r$findings$file %in% files_rel, , drop = FALSE]
-    r$constructs <- r$constructs[r$constructs$file %in% files_rel, , drop = FALSE]
+    if (!is.null(r$constructs)) r$constructs <- r$constructs[r$constructs$file %in% files_rel, , drop = FALSE]
+    if (is.null(r$error)) {
+      sc <- tab$scope[match(r$findings$rule, tab$id)]
+      r$findings <- r$findings[sc != "file" | r$findings$file %in% files_rel, , drop = FALSE]
+    }
   }
   r
 }
@@ -370,15 +392,17 @@ verify_base_side <- function(gi, since_sha, files_rel) {
 # are listed; otherwise all of them.
 verify_added <- function(gi, since_sha, tol, base) {
   out <- empty_plain_findings()
-  if (!nrow(tol)) return(out)
-  key_of <- function(df) paste(df$rule, gate_ws(df$text), sep = "\001")
+  none <- list(findings = out, n = 0L)
+  if (!nrow(tol)) return(none)
+  key_of <- gate_finding_keys
   bf <- base$findings[!(base$findings$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]
   nk <- key_of(tol)
   cn <- count_keys(nk)
   bc <- count_keys(key_of(bf))
   base_n <- ifelse(is.na(bc[names(cn)]), 0L, unname(bc[names(cn)]))
   ex <- names(cn)[cn - base_n > 0L]
-  if (!length(ex)) return(out)
+  if (!length(ex)) return(none)
+  n_added <- as.integer(sum((cn - base_n)[cn - base_n > 0L]))
   inst <- tol[nk %in% ex, , drop = FALSE]
   ik <- nk[nk %in% ex]
   on_added <- rep(FALSE, nrow(inst))
@@ -392,7 +416,7 @@ verify_added <- function(gi, since_sha, tol, base) {
     r <- which(ik == k)
     sel[r] <- if (any(on_added[r])) on_added[r] else TRUE
   }
-  inst[sel, , drop = FALSE]
+  list(findings = inst[sel, , drop = FALSE], n = n_added)
 }
 
 # The working constructs the commit held and the work tree no longer does (8.2.2): listed, not judged.
