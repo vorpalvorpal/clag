@@ -411,46 +411,59 @@ values_governor_names <- function(x) {
          use.names = FALSE)
 }
 
-# The names the text of one file names, not those of its includes.
+# The names the text of one file names, not those of its includes: those of rule 1
+# (`code`: the code spans of a named value) and those of rule 2 (`gov`: the
+# governor values).
 values_text_names <- function(txt) {
-  out <- character()
+  code <- character()
+  gov <- character()
   if (grepl("`{", txt, fixed = TRUE)) {
     m <- regmatches(txt, gregexpr("`[A-Za-z_][A-Za-z0-9_.]{0,63}`\\{", txt, perl = TRUE))[[1L]]
-    out <- c(out, substr(m, 2L, nchar(m) - 2L))
+    code <- substr(m, 2L, nchar(m) - 2L)
   }
   if (grepl("=\"", txt, fixed = TRUE)) {
     m <- regmatches(txt, gregexpr("(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)=\"[^\"]*\"", txt,
                                   perl = TRUE))[[1L]]
-    if (length(m)) out <- c(out, values_governor_names(sub("^[A-Za-z]+=\"(.*)\"$", "\\1", m)))
+    if (length(m)) gov <- values_governor_names(sub("^[A-Za-z]+=\"(.*)\"$", "\\1", m))
   }
-  out
+  list(code = code, gov = gov)
 }
 
-# The names a document names (N45): `path` and, recursively, the files its
+# What a document names (N45): `path` and, recursively, the files its
 # `{{< include >}}` shortcodes name, relative to the file that names them (at
-# most 8 deep). A file that cannot be read names nothing. No repeats, no
-# reserved word, nothing that is not a NAME.
-values_source_names <- function(path) {
+# most 8 deep). A file that cannot be read names nothing. Returns the names (no
+# repeats, no reserved word, nothing that is not a NAME) and `named`: whether any
+# code span of rule 1 names one, that is, whether the document holds a named value.
+values_source_scan <- function(path) {
   seen <- character()
   walk <- function(p, depth) {
+    none <- list(code = character(), gov = character())
     p <- normalizePath(p, winslash = "/", mustWork = FALSE)
-    if (p %in% seen || !file.exists(p) || dir.exists(p)) return(character())
+    if (p %in% seen || !file.exists(p) || dir.exists(p)) return(none)
     seen <<- c(seen, p)
     txt <- read_source_text_or_null(p)
-    if (is.null(txt)) return(character())
+    if (is.null(txt)) return(none)
     out <- values_text_names(txt)
     if (depth < 8L && grepl("{{<", txt, fixed = TRUE)) {
       m <- regmatches(txt, gregexpr("\\{\\{<\\s*include\\s+[^>\\s]+\\s*>\\}\\}", txt, perl = TRUE))[[1L]]
       for (inc in sub("^\\{\\{<\\s*include\\s+([^>\\s]+)\\s*>\\}\\}$", "\\1", m, perl = TRUE)) {
         inc <- gsub("^[\"']|[\"']$", "", inc)
-        out <- c(out, walk(file.path(dirname(p), inc), depth + 1L))
+        inner <- walk(file.path(dirname(p), inc), depth + 1L)
+        out$code <- c(out$code, inner$code)
+        out$gov <- c(out$gov, inner$gov)
       }
     }
     out
   }
-  nm <- unique(walk(path, 0L))
-  nm[values_name_ok(nm)]
+  found <- walk(path, 0L)
+  code <- unique(found$code)
+  code <- code[values_name_ok(code)]
+  nm <- unique(c(code, found$gov))
+  list(names = nm[values_name_ok(nm)], named = length(code) > 0L)
 }
+
+# The names a source names (N45), without repeats.
+values_source_names <- function(path) values_source_scan(path)$names
 
 # ---- publishing in a knit (N42, N43) --------------------------------------------------------------
 
@@ -463,7 +476,10 @@ values_names <- function(s) {
     if (is.na(s$input_path)) NULL else s$input_path
   if (!is.null(path) && !(path %in% s$names_paths)) {
     s$names_paths <- c(s$names_paths, path)
-    s$names <- union(s$names, values_source_names(path))
+    # a document with no named value publishes nothing by itself: its governors are R's
+    # and it must knit as it did before named values (N43)
+    sc <- values_source_scan(path)
+    if (sc$named) s$names <- union(s$names, sc$names)
   }
   s$names
 }
