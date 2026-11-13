@@ -1,0 +1,361 @@
+value	classes	keys	text	record
+0	n	span=[#%20site%20|%20#%20sites]	0 sites	{"t":"float","v":"0"}
+1	n	span=[#%20site%20|%20#%20sites]	1 site	{"t":"float","v":"1"}
+2	n	span=[#%20site%20|%20#%20sites]	2 sites	{"t":"float","v":"2"}
+3	n	span=[#%20site%20|%20#%20sites]	3 sites	{"t":"float","v":"3"}
+11	n	span=[#%20site%20|%20#%20sites]	11 sites	{"t":"float","v":"11"}
+100	n	span=[#%20site%20|%20#%20sites]	100 sites	{"t":"float","v":"100"}
+1234	n	span=[#%20site%20|%20#%20sites]	1,234 sites	{"t":"float","v":"1234"}
+1.5	n	span=[#%20site%20|%20#%20sites]	1.5 sites	{"t":"float","v":"1.5"}
+0.04	n	span=[#%20site%20|%20#%20sites]	0.0 sites	{"t":"float","v":"0.04"}
+1L	n	span=[#%20site%20|%20#%20sites]	1 site	{"t":"int","v":"1"}
+2L	n	span=[#%20site%20|%20#%20sites]	2 sites	{"t":"int","v":"2"}
+0	n	span=[#%20metre]	0 metre	{"t":"float","v":"0"}
+1	n	span=[#%20metre]	1 metre	{"t":"float","v":"1"}
+2	n	span=[#%20metre]	2 metre	{"t":"float","v":"2"}
+3	n	span=[#%20metre]	3 metre	{"t":"float","v":"3"}
+11	n	span=[#%20metre]	11 metre	{"t":"float","v":"11"}
+100	n	span=[#%20metre]	100 metre	{"t":"float","v":"100"}
+1234	n	span=[#%20metre]	1,234 metre	{"t":"float","v":"1234"}
+1.5	n	span=[#%20metre]	1.5 metre	{"t":"float","v":"1.5"}
+0.04	n	span=[#%20metre]	0.0 metre	{"t":"float","v":"0.04"}
+1L	n	span=[#%20metre]	1 metre	{"t":"int","v":"1"}
+2L	n	span=[#%20metre]	2 metre	{"t":"int","v":"2"}
+0	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	no people	{"t":"float","v":"0"}
+1	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	a person	{"t":"float","v":"1"}
+2	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	2 people	{"t":"float","v":"2"}
+3	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	3 people	{"t":"float","v":"3"}
+11	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	11 people	{"t":"float","v":"11"}
+100	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	100 people	{"t":"float","v":"100"}
+1234	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	1,234 people	{"t":"float","v":"1234"}
+1.5	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	1.5 people	{"t":"float","v":"1.5"}
+0.04	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	0.0 people	{"t":"float","v":"0.04"}
+1L	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	a person	{"t":"int","v":"1"}
+2L	n	span=[no%20people%20|%20a%20person%20|%20#%20people]	2 people	{"t":"int","v":"2"}
+0	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	never	{"t":"float","v":"0"}
+1	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	once	{"t":"float","v":"1"}
+2	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	twice	{"t":"float","v":"2"}
+3	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	3 times	{"t":"float","v":"3"}
+11	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	11 times	{"t":"float","v":"11"}
+100	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	100 times	{"t":"float","v":"100"}
+1234	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	1,234 times	{"t":"float","v":"1234"}
+1.5	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	1.5 times	{"t":"float","v":"1.5"}
+0.04	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	0.0 times	{"t":"float","v":"0.04"}
+1L	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	once	{"t":"int","v":"1"}
+2L	n	span=[never%20|%20once%20|%20twice%20|%20#%20times]	twice	{"t":"int","v":"2"}
+0	n	span=[a%20person%20|%20#%20people]	0 people	{"t":"float","v":"0"}
+1	n	span=[a%20person%20|%20#%20people]	a person	{"t":"float","v":"1"}
+2	n	span=[a%20person%20|%20#%20people]	2 people	{"t":"float","v":"2"}
+3	n	span=[a%20person%20|%20#%20people]	3 people	{"t":"float","v":"3"}
+11	n	span=[a%20person%20|%20#%20people]	11 people	{"t":"float","v":"11"}
+100	n	span=[a%20person%20|%20#%20people]	100 people	{"t":"float","v":"100"}
+1234	n	span=[a%20person%20|%20#%20people]	1,234 people	{"t":"float","v":"1234"}
+1.5	n	span=[a%20person%20|%20#%20people]	1.5 people	{"t":"float","v":"1.5"}
+0.04	n	span=[a%20person%20|%20#%20people]	0.0 people	{"t":"float","v":"0.04"}
+1L	n	span=[a%20person%20|%20#%20people]	a person	{"t":"int","v":"1"}
+2L	n	span=[a%20person%20|%20#%20people]	2 people	{"t":"int","v":"2"}
+0	n	span=file[%20|%20s]	files	{"t":"float","v":"0"}
+1	n	span=file[%20|%20s]	file	{"t":"float","v":"1"}
+2	n	span=file[%20|%20s]	files	{"t":"float","v":"2"}
+3	n	span=file[%20|%20s]	files	{"t":"float","v":"3"}
+11	n	span=file[%20|%20s]	files	{"t":"float","v":"11"}
+100	n	span=file[%20|%20s]	files	{"t":"float","v":"100"}
+1234	n	span=file[%20|%20s]	files	{"t":"float","v":"1234"}
+1.5	n	span=file[%20|%20s]	files	{"t":"float","v":"1.5"}
+0.04	n	span=file[%20|%20s]	files	{"t":"float","v":"0.04"}
+1L	n	span=file[%20|%20s]	file	{"t":"int","v":"1"}
+2L	n	span=file[%20|%20s]	files	{"t":"int","v":"2"}
+0	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"0"}
+1	n	span=site[s%20|%20|%20s]	site	{"t":"float","v":"1"}
+2	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"2"}
+3	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"3"}
+11	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"11"}
+100	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"100"}
+1234	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"1234"}
+1.5	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"1.5"}
+0.04	n	span=site[s%20|%20|%20s]	sites	{"t":"float","v":"0.04"}
+1L	n	span=site[s%20|%20|%20s]	site	{"t":"int","v":"1"}
+2L	n	span=site[s%20|%20|%20s]	sites	{"t":"int","v":"2"}
+0	n	span=[##%20one%20|%20#%20many]	0 many	{"t":"float","v":"0"}
+1	n	span=[##%20one%20|%20#%20many]	# one	{"t":"float","v":"1"}
+2	n	span=[##%20one%20|%20#%20many]	2 many	{"t":"float","v":"2"}
+3	n	span=[##%20one%20|%20#%20many]	3 many	{"t":"float","v":"3"}
+11	n	span=[##%20one%20|%20#%20many]	11 many	{"t":"float","v":"11"}
+100	n	span=[##%20one%20|%20#%20many]	100 many	{"t":"float","v":"100"}
+1234	n	span=[##%20one%20|%20#%20many]	1,234 many	{"t":"float","v":"1234"}
+1.5	n	span=[##%20one%20|%20#%20many]	1.5 many	{"t":"float","v":"1.5"}
+0.04	n	span=[##%20one%20|%20#%20many]	0.0 many	{"t":"float","v":"0.04"}
+1L	n	span=[##%20one%20|%20#%20many]	# one	{"t":"int","v":"1"}
+2L	n	span=[##%20one%20|%20#%20many]	2 many	{"t":"int","v":"2"}
+0	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	0 samples were taken	{"t":"float","v":"0"}
+1	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	1 sample was taken	{"t":"float","v":"1"}
+2	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	2 samples were taken	{"t":"float","v":"2"}
+3	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	3 samples were taken	{"t":"float","v":"3"}
+11	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	11 samples were taken	{"t":"float","v":"11"}
+100	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	100 samples were taken	{"t":"float","v":"100"}
+1234	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	1,234 samples were taken	{"t":"float","v":"1234"}
+1.5	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	1.5 samples were taken	{"t":"float","v":"1.5"}
+0.04	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	0.0 samples were taken	{"t":"float","v":"0.04"}
+1L	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	1 sample was taken	{"t":"int","v":"1"}
+2L	n	span=[#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	2 samples were taken	{"t":"int","v":"2"}
+0	n	span=[#%20site%20|%20#%20sites] digits=1	0.0 sites	{"t":"float","v":"0"}
+1	n	span=[#%20site%20|%20#%20sites] digits=1	1.0 sites	{"t":"float","v":"1"}
+2	n	span=[#%20site%20|%20#%20sites] digits=1	2.0 sites	{"t":"float","v":"2"}
+3	n	span=[#%20site%20|%20#%20sites] digits=1	3.0 sites	{"t":"float","v":"3"}
+11	n	span=[#%20site%20|%20#%20sites] digits=1	11.0 sites	{"t":"float","v":"11"}
+100	n	span=[#%20site%20|%20#%20sites] digits=1	100.0 sites	{"t":"float","v":"100"}
+1234	n	span=[#%20site%20|%20#%20sites] digits=1	1,234.0 sites	{"t":"float","v":"1234"}
+1.5	n	span=[#%20site%20|%20#%20sites] digits=1	1.5 sites	{"t":"float","v":"1.5"}
+0.04	n	span=[#%20site%20|%20#%20sites] digits=1	0.0 sites	{"t":"float","v":"0.04"}
+1L	n	span=[#%20site%20|%20#%20sites] digits=1	1.0 sites	{"t":"int","v":"1"}
+2L	n	span=[#%20site%20|%20#%20sites] digits=1	2.0 sites	{"t":"int","v":"2"}
+0	n	span=[#%20site%20|%20#%20sites] digits=0	0 sites	{"t":"float","v":"0"}
+1	n	span=[#%20site%20|%20#%20sites] digits=0	1 site	{"t":"float","v":"1"}
+2	n	span=[#%20site%20|%20#%20sites] digits=0	2 sites	{"t":"float","v":"2"}
+3	n	span=[#%20site%20|%20#%20sites] digits=0	3 sites	{"t":"float","v":"3"}
+11	n	span=[#%20site%20|%20#%20sites] digits=0	11 sites	{"t":"float","v":"11"}
+100	n	span=[#%20site%20|%20#%20sites] digits=0	100 sites	{"t":"float","v":"100"}
+1234	n	span=[#%20site%20|%20#%20sites] digits=0	1,234 sites	{"t":"float","v":"1234"}
+1.5	n	span=[#%20site%20|%20#%20sites] digits=0	2 sites	{"t":"float","v":"1.5"}
+0.04	n	span=[#%20site%20|%20#%20sites] digits=0	0 sites	{"t":"float","v":"0.04"}
+1L	n	span=[#%20site%20|%20#%20sites] digits=0	1 site	{"t":"int","v":"1"}
+2L	n	span=[#%20site%20|%20#%20sites] digits=0	2 sites	{"t":"int","v":"2"}
+0	n	span=[#%20site%20|%20#%20sites] sigfig=2	0.0 sites	{"t":"float","v":"0"}
+1	n	span=[#%20site%20|%20#%20sites] sigfig=2	1.0 sites	{"t":"float","v":"1"}
+3	n	span=[#%20site%20|%20#%20sites] sigfig=2	3.0 sites	{"t":"float","v":"3"}
+1234	n	span=[#%20site%20|%20#%20sites] sigfig=2	1,200 sites	{"t":"float","v":"1234"}
+0.15	n	span=[#%20site%20|%20#%20sites] sigfig=2	0.15 sites	{"t":"float","v":"0.15"}
+0	n word	span=[#%20site%20|%20#%20sites]	zero sites	{"t":"float","v":"0"}
+1	n word	span=[#%20site%20|%20#%20sites]	one site	{"t":"float","v":"1"}
+3	n word	span=[#%20site%20|%20#%20sites]	three sites	{"t":"float","v":"3"}
+21	n word	span=[#%20site%20|%20#%20sites]	twenty-one sites	{"t":"float","v":"21"}
+0	n cap	span=[no%20sites%20|%20one%20site%20|%20#%20sites]	No sites	{"t":"float","v":"0"}
+1	n cap	span=[no%20sites%20|%20one%20site%20|%20#%20sites]	One site	{"t":"float","v":"1"}
+3	n cap	span=[no%20sites%20|%20one%20site%20|%20#%20sites]	3 sites	{"t":"float","v":"3"}
+21	n cap	span=[no%20sites%20|%20one%20site%20|%20#%20sites]	21 sites	{"t":"float","v":"21"}
+1	n strong	span=[#%20site%20|%20#%20sites]	**1 site**	{"t":"float","v":"1"}
+3	n strong	span=[#%20site%20|%20#%20sites]	**3 sites**	{"t":"float","v":"3"}
+0	n	span=[#%20sample[%20|%20s]{n="."}%20[was%20|%20were]{n="."}%20taken]	0 samples were taken	{"t":"float","v":"0"}
+1	n	span=[#%20sample[%20|%20s]{n="."}%20[was%20|%20were]{n="."}%20taken]	1 sample was taken	{"t":"float","v":"1"}
+2	n	span=[#%20sample[%20|%20s]{n="."}%20[was%20|%20were]{n="."}%20taken]	2 samples were taken	{"t":"float","v":"2"}
+3	n	span=[#%20sample[%20|%20s]{n="."}%20[was%20|%20were]{n="."}%20taken]	3 samples were taken	{"t":"float","v":"3"}
+0	n	span=[no%20sample%20was%20taken%20|%20#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	no sample was taken	{"t":"float","v":"0"}
+1	n	span=[no%20sample%20was%20taken%20|%20#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	1 sample was taken	{"t":"float","v":"1"}
+2	n	span=[no%20sample%20was%20taken%20|%20#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	2 samples were taken	{"t":"float","v":"2"}
+3	n	span=[no%20sample%20was%20taken%20|%20#%20sample%20was%20taken%20|%20#%20samples%20were%20taken]	3 samples were taken	{"t":"float","v":"3"}
+c(3, 5)	n range	span=[#%20site%20|%20#%20sites]	3–5 sites	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(1, 1)	n range	span=[#%20site%20|%20#%20sites]	1 site	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"1"}],"of":"float","keys":null}
+c(0, 1)	n range	span=[#%20site%20|%20#%20sites]	0–1 sites	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"1"}],"of":"float","keys":null}
+c(2, 2)	n range	span=[#%20site%20|%20#%20sites]	2 sites	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(0, 0)	n range	span=[#%20site%20|%20#%20sites]	0 sites	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1, 2)	n range	span=[#%20site%20|%20#%20sites]	1–2 sites	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.5, 2)	n range	span=[#%20site%20|%20#%20sites]	1.5–2.0 sites	{"t":"list","v":[{"t":"float","v":"1.5"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(10, 20)	n range	span=[#%20site%20|%20#%20sites]	10–20 sites	{"t":"list","v":[{"t":"float","v":"10"},{"t":"float","v":"20"}],"of":"float","keys":null}
+c(1000, 2500)	n range	span=[#%20site%20|%20#%20sites]	1,000–2,500 sites	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(3, 5)	n range	span=[#%20site%20|%20#%20sites] digits=1	3.0–5.0 sites	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(1, 1)	n range	span=[#%20site%20|%20#%20sites] digits=1	1.0 sites	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"1"}],"of":"float","keys":null}
+c(1.25, 3.5)	n range	span=[#%20site%20|%20#%20sites] digits=1	1.3–3.5 sites	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 12%	{"t":"float","v":"0.12"}
+-0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 12%	{"t":"float","v":"-0.12"}
+1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 150%	{"t":"float","v":"1.5"}
+-1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 150%	{"t":"float","v":"-1.5"}
+12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 1,200%	{"t":"float","v":"12"}
+-12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 1,200%	{"t":"float","v":"-12"}
+0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 50%	{"t":"float","v":"0.5"}
+-0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 50%	{"t":"float","v":"-0.5"}
+1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 123,450%	{"t":"float","v":"1234.5"}
+-1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 123,450%	{"t":"float","v":"-1234.5"}
+5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 500%	{"t":"int","v":"5"}
+-5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 500%	{"t":"int","v":"-5"}
+0.004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 0.4%	{"t":"float","v":"0.004"}
+0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 12%	{"t":"float","v":"0.12"}
+-0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 12%	{"t":"float","v":"-0.12"}
+0	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"0"}
+0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"0.0004"}
+-0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"-0.0004"}
+1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 150%	{"t":"float","v":"1.5"}
+-1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 150%	{"t":"float","v":"-1.5"}
+12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 1,200%	{"t":"float","v":"12"}
+-12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 1,200%	{"t":"float","v":"-12"}
+0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 50%	{"t":"float","v":"0.5"}
+-0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 50%	{"t":"float","v":"-0.5"}
+0.004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 0.4%	{"t":"float","v":"0.004"}
+1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 123,450%	{"t":"float","v":"1234.5"}
+-1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 123,450%	{"t":"float","v":"-1234.5"}
+5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 500%	{"t":"int","v":"5"}
+-5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 500%	{"t":"int","v":"-5"}
+0L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"int","v":"0"}
+0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 12%	{"t":"float","v":"0.12"}
+-0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 12%	{"t":"float","v":"-0.12"}
+0	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	did not change	{"t":"float","v":"0"}
+0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	did not change	{"t":"float","v":"0.0004"}
+-0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	did not change	{"t":"float","v":"-0.0004"}
+1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 150%	{"t":"float","v":"1.5"}
+-1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 150%	{"t":"float","v":"-1.5"}
+12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 1,200%	{"t":"float","v":"12"}
+-12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 1,200%	{"t":"float","v":"-12"}
+0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 50%	{"t":"float","v":"0.5"}
+-0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 50%	{"t":"float","v":"-0.5"}
+0.004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	did not change	{"t":"float","v":"0.004"}
+1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 123,450%	{"t":"float","v":"1234.5"}
+-1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 123,450%	{"t":"float","v":"-1234.5"}
+5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	rose by 500%	{"t":"int","v":"5"}
+-5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	fell by 500%	{"t":"int","v":"-5"}
+0L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=0	did not change	{"t":"int","v":"0"}
+0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 12.00%	{"t":"float","v":"0.12"}
+-0.12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 12.00%	{"t":"float","v":"-0.12"}
+0	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	did not change	{"t":"float","v":"0"}
+0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 0.04%	{"t":"float","v":"0.0004"}
+-0.0004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 0.04%	{"t":"float","v":"-0.0004"}
+1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 150.00%	{"t":"float","v":"1.5"}
+-1.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 150.00%	{"t":"float","v":"-1.5"}
+12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 1,200.00%	{"t":"float","v":"12"}
+-12	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 1,200.00%	{"t":"float","v":"-12"}
+0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 50.00%	{"t":"float","v":"0.5"}
+-0.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 50.00%	{"t":"float","v":"-0.5"}
+0.004	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 0.40%	{"t":"float","v":"0.004"}
+1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 123,450.00%	{"t":"float","v":"1234.5"}
+-1234.5	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 123,450.00%	{"t":"float","v":"-1234.5"}
+5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	rose by 500.00%	{"t":"int","v":"5"}
+-5L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	fell by 500.00%	{"t":"int","v":"-5"}
+0L	sign pct	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=2	did not change	{"t":"int","v":"0"}
+0.12	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 0.1	{"t":"float","v":"0.12"}
+-0.12	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 0.1	{"t":"float","v":"-0.12"}
+0	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"0"}
+0.0004	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"0.0004"}
+-0.0004	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"-0.0004"}
+1.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 1.5	{"t":"float","v":"1.5"}
+-1.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 1.5	{"t":"float","v":"-1.5"}
+12	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 12	{"t":"float","v":"12"}
+-12	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 12	{"t":"float","v":"-12"}
+0.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 0.5	{"t":"float","v":"0.5"}
+-0.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 0.5	{"t":"float","v":"-0.5"}
+0.004	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"float","v":"0.004"}
+1234.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 1,234.5	{"t":"float","v":"1234.5"}
+-1234.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 1,234.5	{"t":"float","v":"-1234.5"}
+5L	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	rose by 5	{"t":"int","v":"5"}
+-5L	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	fell by 5	{"t":"int","v":"-5"}
+0L	sign	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change]	did not change	{"t":"int","v":"0"}
+0.12	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 0.1	{"t":"float","v":"0.12"}
+-0.12	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 0.1	{"t":"float","v":"-0.12"}
+1.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 1.5	{"t":"float","v":"1.5"}
+-1.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 1.5	{"t":"float","v":"-1.5"}
+12	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 12	{"t":"float","v":"12"}
+-12	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 12	{"t":"float","v":"-12"}
+0.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 0.5	{"t":"float","v":"0.5"}
+-0.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 0.5	{"t":"float","v":"-0.5"}
+1234.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 1,234.5	{"t":"float","v":"1234.5"}
+-1234.5	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 1,234.5	{"t":"float","v":"-1234.5"}
+5L	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	rose by 5	{"t":"int","v":"5"}
+-5L	sign	span=[rose%20by%20#%20|%20fell%20by%20#]	fell by 5	{"t":"int","v":"-5"}
+0.12	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 0.1	{"t":"float","v":"0.12"}
+-0.12	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 0.1	{"t":"float","v":"-0.12"}
+0	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	did not change	{"t":"float","v":"0"}
+0.0004	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	did not change	{"t":"float","v":"0.0004"}
+-0.0004	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	did not change	{"t":"float","v":"-0.0004"}
+1.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 1.5	{"t":"float","v":"1.5"}
+-1.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 1.5	{"t":"float","v":"-1.5"}
+12	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 12.0	{"t":"float","v":"12"}
+-12	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 12.0	{"t":"float","v":"-12"}
+0.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 0.5	{"t":"float","v":"0.5"}
+-0.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 0.5	{"t":"float","v":"-0.5"}
+0.004	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	did not change	{"t":"float","v":"0.004"}
+1234.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 1,234.5	{"t":"float","v":"1234.5"}
+-1234.5	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 1,234.5	{"t":"float","v":"-1234.5"}
+5L	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	rose by 5.0	{"t":"int","v":"5"}
+-5L	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	fell by 5.0	{"t":"int","v":"-5"}
+0L	sign num	span=[rose%20by%20#%20|%20fell%20by%20#%20|%20did%20not%20change] digits=1	did not change	{"t":"int","v":"0"}
+0.12	sign	span=[up%20#%20|%20down%20#]	up 0.1	{"t":"float","v":"0.12"}
+-0.12	sign	span=[up%20#%20|%20down%20#]	down 0.1	{"t":"float","v":"-0.12"}
+1.5	sign	span=[up%20#%20|%20down%20#]	up 1.5	{"t":"float","v":"1.5"}
+-1.5	sign	span=[up%20#%20|%20down%20#]	down 1.5	{"t":"float","v":"-1.5"}
+12	sign	span=[up%20#%20|%20down%20#]	up 12	{"t":"float","v":"12"}
+-12	sign	span=[up%20#%20|%20down%20#]	down 12	{"t":"float","v":"-12"}
+0.5	sign	span=[up%20#%20|%20down%20#]	up 0.5	{"t":"float","v":"0.5"}
+-0.5	sign	span=[up%20#%20|%20down%20#]	down 0.5	{"t":"float","v":"-0.5"}
+1234.5	sign	span=[up%20#%20|%20down%20#]	up 1,234.5	{"t":"float","v":"1234.5"}
+-1234.5	sign	span=[up%20#%20|%20down%20#]	down 1,234.5	{"t":"float","v":"-1234.5"}
+5L	sign	span=[up%20#%20|%20down%20#]	up 5	{"t":"int","v":"5"}
+-5L	sign	span=[up%20#%20|%20down%20#]	down 5	{"t":"int","v":"-5"}
+5	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	rose by 5 points	{"t":"float","v":"5"}
+-5	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	fell by 5 points	{"t":"float","v":"-5"}
+1	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	rose by 1 point	{"t":"float","v":"1"}
+-1	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	fell by 1 point	{"t":"float","v":"-1"}
+2	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	rose by 2 points	{"t":"float","v":"2"}
+-2	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	fell by 2 points	{"t":"float","v":"-2"}
+0.5	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}]	rose by 0.5 points	{"t":"float","v":"0.5"}
+5	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}%20|%20did%20not%20change]	rose by 5 points	{"t":"float","v":"5"}
+-5	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}%20|%20did%20not%20change]	fell by 5 points	{"t":"float","v":"-5"}
+1	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}%20|%20did%20not%20change]	rose by 1 point	{"t":"float","v":"1"}
+-1	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}%20|%20did%20not%20change]	fell by 1 point	{"t":"float","v":"-1"}
+0	sign	span=[rose%20by%20#%20point[%20|%20s]{n="."}%20|%20fell%20by%20#%20point[%20|%20s]{n="."}%20|%20did%20not%20change]	did not change	{"t":"float","v":"0"}
+0.12	sign pct strong	span=[rose%20by%20#%20|%20fell%20by%20#]	**rose by 12%**	{"t":"float","v":"0.12"}
+-0.12	sign pct strong	span=[rose%20by%20#%20|%20fell%20by%20#]	**fell by 12%**	{"t":"float","v":"-0.12"}
+character(0)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a, b and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a, b, c and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a")	list	span=[#%20was%20|%20#%20were]	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[#%20was%20|%20#%20were]	a and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[#%20was%20|%20#%20were]	a, b and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[#%20was%20|%20#%20were]	a, b, c and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[none%20|%20#%20was%20|%20two%20were:%20#%20|%20#%20were]	none	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[none%20|%20#%20was%20|%20two%20were:%20#%20|%20#%20were]	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[none%20|%20#%20was%20|%20two%20were:%20#%20|%20#%20were]	two were: a and b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[none%20|%20#%20was%20|%20two%20were:%20#%20|%20#%20were]	a, b and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[none%20|%20#%20was%20|%20two%20were:%20#%20|%20#%20were]	a, b, c and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[none%20|%20one:%20#%20|%20two:%20#%20|%20several:%20#]	none	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[none%20|%20one:%20#%20|%20two:%20#%20|%20several:%20#]	one: a	{"t":"string","v":"a"}
+c("a", "b")	list	span=[none%20|%20one:%20#%20|%20two:%20#%20|%20several:%20#]	two: a and b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[none%20|%20one:%20#%20|%20two:%20#%20|%20several:%20#]	several: a, b and c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[none%20|%20one:%20#%20|%20two:%20#%20|%20several:%20#]	several: a, b, c and d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[none%20|%20#%20was%20|%20[#%20site%20|%20#%20sites]{n="."}:%20#]	none	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[none%20|%20#%20was%20|%20[#%20site%20|%20#%20sites]{n="."}:%20#]	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[none%20|%20#%20was%20|%20[#%20site%20|%20#%20sites]{n="."}:%20#]	2 sites: a and b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[none%20|%20#%20was%20|%20[#%20site%20|%20#%20sites]{n="."}:%20#]	3 sites: a, b and c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[none%20|%20#%20was%20|%20[#%20site%20|%20#%20sites]{n="."}:%20#]	4 sites: a, b, c and d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list or	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list or	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a was	{"t":"string","v":"a"}
+c("a", "b")	list or	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a or b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list or	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a, b or c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list or	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	a, b, c or d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] trunc=2	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] trunc=2	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] trunc=2	a and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] trunc=2	a, b and 1 other were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] trunc=2	a, b and 2 others were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] sep=;%20	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] sep=;%20	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] sep=;%20	a and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] sep=;%20	a; b and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] sep=;%20	a; b; c and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] last=/	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] last=/	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] last=/	a/b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] last=/	a, b/c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] last=/	a, b, c/d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] cfg.serial_comma=true	No sites were	{"t":"list","v":[],"of":"string","keys":null}
+c("a")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] cfg.serial_comma=true	a was	{"t":"string","v":"a"}
+c("a", "b")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] cfg.serial_comma=true	a and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] cfg.serial_comma=true	a, b, and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] cfg.serial_comma=true	a, b, c, and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	list strong	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	**a and b were**	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list strong	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	**a, b and c were**	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list strong	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	**a, b, c and d were**	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	list cap	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	A and b were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c")	list cap	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	A, b and c were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	list cap	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	A, b, c and d were	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c(1, 2.5, 10)	list num	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] digits=2	1.00, 2.50 and 10.00 were	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1.234, 5)	list num	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] digits=2	1.23 and 5.00 were	{"t":"list","v":[{"t":"float","v":"1.234"},{"t":"float","v":"5"}],"of":"float","keys":null}
+5	list num	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] digits=2	5.00 was	{"t":"float","v":"5"}
+c(1, 2, 3)	list num	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were] digits=2	1.00, 2.00 and 3.00 were	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(1, 2.5, 10)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	1, 2.5 and 10 were	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"},{"t":"float","v":"10"}],"of":"float","keys":null}
+5	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	5 was	{"t":"float","v":"5"}
+c(1, 2, 3)	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	1, 2 and 3 were	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(1, 2, 3)	list word	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	one, two and three were	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"}],"of":"float","keys":null}
+5L	list word	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	five was	{"t":"int","v":"5"}
+as.Date("2024-03-05")	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	2024-03-05 was	{"t":"date","v":"2024-03-05"}
+as.Date(c("2024-03-05", "2024-12-25"))	list	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	2024-03-05 and 2024-12-25 were	{"t":"list","v":[{"t":"date","v":"2024-03-05"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date("2024-03-05")	list date	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	5 March 2024 was	{"t":"date","v":"2024-03-05"}
+as.Date(c("2024-03-05", "2024-12-25"))	list date	span=[No%20sites%20were%20|%20#%20was%20|%20#%20were]	5 March 2024 and 25 December 2024 were	{"t":"list","v":[{"t":"date","v":"2024-03-05"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}

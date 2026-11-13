@@ -1,0 +1,137 @@
+value	classes	keys	text	record
+0	a		a 0	{"t":"float","v":"0"}
+1	a		a 1	{"t":"float","v":"1"}
+2	a		a 2	{"t":"float","v":"2"}
+3	a		a 3	{"t":"float","v":"3"}
+8	a		an 8	{"t":"float","v":"8"}
+9	a		a 9	{"t":"float","v":"9"}
+10	a		a 10	{"t":"float","v":"10"}
+11	a		an 11	{"t":"float","v":"11"}
+12	a		a 12	{"t":"float","v":"12"}
+18	a		an 18	{"t":"float","v":"18"}
+19	a		a 19	{"t":"float","v":"19"}
+80	a		an 80	{"t":"float","v":"80"}
+81	a		an 81	{"t":"float","v":"81"}
+89	a		an 89	{"t":"float","v":"89"}
+90	a		a 90	{"t":"float","v":"90"}
+100	a		a 100	{"t":"float","v":"100"}
+800	a		an 800	{"t":"float","v":"800"}
+899	a		an 899	{"t":"float","v":"899"}
+900	a		a 900	{"t":"float","v":"900"}
+1000	a		a 1,000	{"t":"float","v":"1000"}
+8000	a		an 8,000	{"t":"float","v":"8000"}
+11000	a		an 11,000	{"t":"float","v":"11000"}
+18000	a		an 18,000	{"t":"float","v":"18000"}
+80000	a		an 80,000	{"t":"float","v":"80000"}
+100000	a		a 100,000	{"t":"float","v":"100000"}
+800000	a		an 800,000	{"t":"float","v":"800000"}
+1e6	a		a 1,000,000	{"t":"float","v":"1000000"}
+8e6	a		an 8,000,000	{"t":"float","v":"8000000"}
+11e6	a		an 11,000,000	{"t":"float","v":"11000000"}
+18e9	a		an 18,000,000,000	{"t":"float","v":"18000000000"}
+-8	a		a −8	{"t":"float","v":"-8"}
+-3	a		a −3	{"t":"float","v":"-3"}
+8.5	a		an 8.5	{"t":"float","v":"8.5"}
+12.5	a		a 12.5	{"t":"float","v":"12.5"}
+0.5	a		a 0.5	{"t":"float","v":"0.5"}
+1234567	a		a 1,234,567	{"t":"float","v":"1234567"}
+81234567	a		an 81,234,567	{"t":"float","v":"81234567"}
+811234567	a		an 811,234,567	{"t":"float","v":"811234567"}
+0	word a		a zero	{"t":"float","v":"0"}
+1	word a		a one	{"t":"float","v":"1"}
+2	word a		a two	{"t":"float","v":"2"}
+3	word a		a three	{"t":"float","v":"3"}
+8	word a		an eight	{"t":"float","v":"8"}
+9	word a		a nine	{"t":"float","v":"9"}
+10	word a		a ten	{"t":"float","v":"10"}
+11	word a		an eleven	{"t":"float","v":"11"}
+12	word a		a twelve	{"t":"float","v":"12"}
+18	word a		an eighteen	{"t":"float","v":"18"}
+19	word a		a nineteen	{"t":"float","v":"19"}
+80	word a		an eighty	{"t":"float","v":"80"}
+81	word a		an eighty-one	{"t":"float","v":"81"}
+89	word a		an eighty-nine	{"t":"float","v":"89"}
+90	word a		a ninety	{"t":"float","v":"90"}
+100	word a		a 100	{"t":"float","v":"100"}
+800	word a		an 800	{"t":"float","v":"800"}
+899	word a		an 899	{"t":"float","v":"899"}
+900	word a		a 900	{"t":"float","v":"900"}
+1000	word a		a 1,000	{"t":"float","v":"1000"}
+8000	word a		an 8,000	{"t":"float","v":"8000"}
+11000	word a		an 11,000	{"t":"float","v":"11000"}
+18000	word a		an 18,000	{"t":"float","v":"18000"}
+80000	word a		an 80,000	{"t":"float","v":"80000"}
+100000	word a		a 100,000	{"t":"float","v":"100000"}
+800000	word a		an 800,000	{"t":"float","v":"800000"}
+1234567	word a		a 1,234,567	{"t":"float","v":"1234567"}
+81234567	word a		an 81,234,567	{"t":"float","v":"81234567"}
+811234567	word a		an 811,234,567	{"t":"float","v":"811234567"}
+0	ord a		a 0th	{"t":"float","v":"0"}
+1	ord a		a 1st	{"t":"float","v":"1"}
+2	ord a		a 2nd	{"t":"float","v":"2"}
+3	ord a		a 3rd	{"t":"float","v":"3"}
+8	ord a		an 8th	{"t":"float","v":"8"}
+9	ord a		a 9th	{"t":"float","v":"9"}
+10	ord a		a 10th	{"t":"float","v":"10"}
+11	ord a		an 11th	{"t":"float","v":"11"}
+12	ord a		a 12th	{"t":"float","v":"12"}
+18	ord a		an 18th	{"t":"float","v":"18"}
+19	ord a		a 19th	{"t":"float","v":"19"}
+80	ord a		an 80th	{"t":"float","v":"80"}
+81	ord a		an 81st	{"t":"float","v":"81"}
+89	ord a		an 89th	{"t":"float","v":"89"}
+90	ord a		a 90th	{"t":"float","v":"90"}
+100	ord a		a 100th	{"t":"float","v":"100"}
+800	ord a		an 800th	{"t":"float","v":"800"}
+1000	ord a		a 1,000th	{"t":"float","v":"1000"}
+8	num a	digits=1	an 8.0	{"t":"float","v":"8"}
+11	num a	digits=1	an 11.0	{"t":"float","v":"11"}
+18	num a	digits=1	an 18.0	{"t":"float","v":"18"}
+89	num a	digits=1	an 89.0	{"t":"float","v":"89"}
+800	num a	digits=1	an 800.0	{"t":"float","v":"800"}
+8000	num a	digits=1	an 8,000.0	{"t":"float","v":"8000"}
+11000	num a	digits=1	an 11,000.0	{"t":"float","v":"11000"}
+100000	num a	digits=1	a 100,000.0	{"t":"float","v":"100000"}
+11e6	num a	digits=1	an 11,000,000.0	{"t":"float","v":"11000000"}
+18e9	num a	digits=1	an 18,000,000,000.0	{"t":"float","v":"18000000000"}
+"eight"	a		an eight	{"t":"string","v":"eight"}
+"one"	a		a one	{"t":"string","v":"one"}
+"eleven"	a		an eleven	{"t":"string","v":"eleven"}
+"eighteen"	a		an eighteen	{"t":"string","v":"eighteen"}
+"eighty"	a		an eighty	{"t":"string","v":"eighty"}
+"ten"	a		a ten	{"t":"string","v":"ten"}
+"hundred"	a		a hundred	{"t":"string","v":"hundred"}
+"thousand"	a		a thousand	{"t":"string","v":"thousand"}
+"Eight"	a		an Eight	{"t":"string","v":"Eight"}
+"apples"	cap		Apples	{"t":"string","v":"apples"}
+"the site"	cap		The site	{"t":"string","v":"the site"}
+"3 sites"	cap		3 sites	{"t":"string","v":"3 sites"}
+"(note)"	cap		(Note)	{"t":"string","v":"(note)"}
+"already capital"	cap		Already capital	{"t":"string","v":"already capital"}
+"Capital"	cap		Capital	{"t":"string","v":"Capital"}
+"\u00e9lan"	cap		Élan	{"t":"string","v":"élan"}
+"x"	cap		X	{"t":"string","v":"x"}
+"12 sites"	cap		12 sites	{"t":"string","v":"12 sites"}
+3	word cap		Three	{"t":"float","v":"3"}
+11	word cap		Eleven	{"t":"float","v":"11"}
+0	word cap		Zero	{"t":"float","v":"0"}
+1	ord cap		1st	{"t":"float","v":"1"}
+2	ord cap		2nd	{"t":"float","v":"2"}
+3	ord cap		3rd	{"t":"float","v":"3"}
+11	ord cap		11th	{"t":"float","v":"11"}
+22	ord cap		22nd	{"t":"float","v":"22"}
+c("apples", "pears")	and cap		Apples and pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+c("apples", "pears", "plums")	cap and		Apples, pears and plums	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"},{"t":"string","v":"plums"}],"of":"string","keys":null}
+8	word a cap		An eight	{"t":"float","v":"8"}
+"eight"	a cap		An eight	{"t":"string","v":"eight"}
+3	num strong		**3**	{"t":"float","v":"3"}
+-2.5	num strong		**−2.5**	{"t":"float","v":"-2.5"}
+1234567	num strong		**1,234,567**	{"t":"float","v":"1234567"}
+3	num em		*3*	{"t":"float","v":"3"}
+-2.5	num em		*−2.5*	{"t":"float","v":"-2.5"}
+1234567	num em		*1,234,567*	{"t":"float","v":"1234567"}
+c("apples", "pears")	and strong		**apples and pears**	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+c("apples", "pears")	and em		*apples and pears*	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+"apples"	cap strong		**Apples**	{"t":"string","v":"apples"}
+"apples"	em		*apples*	{"t":"string","v":"apples"}
+5	word strong		**five**	{"t":"float","v":"5"}

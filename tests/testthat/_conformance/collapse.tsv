@@ -1,0 +1,139 @@
+value	classes	keys	text	record
+c(A = 1.2, B = 3.4, C = 5.6)	pairs		A (1.2), B (3.4) and C (5.6)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+c(A = 1.2, B = 3.4)	pairs		A (1.2) and B (3.4)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":["A","B"]}
+c(A = 1.25)	pairs		A (1.3)	{"t":"float","v":"1.25"}
+c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)	pairs		A (1.2), B (3.4), C (5.6) and D (7.8)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"},{"t":"float","v":"7.8"}],"of":"float","keys":["A","B","C","D"]}
+c(north = 10, south = 2.5)	pairs		north (10) and south (2.5)	{"t":"list","v":[{"t":"float","v":"10"},{"t":"float","v":"2.5"}],"of":"float","keys":["north","south"]}
+c(A = 1000, B = 0.15)	pairs		A (1,000) and B (0.2)	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"0.15"}],"of":"float","keys":["A","B"]}
+c(a = "x", b = "y")	pairs		a (x) and b (y)	{"t":"list","v":[{"t":"string","v":"x"},{"t":"string","v":"y"}],"of":"string","keys":["a","b"]}
+c(A = 1.2, B = 3.4, C = 5.6)	pairs	trunc=2	A (1.2), B (3.4) and 1 other	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)	pairs	trunc=2	A (1.2), B (3.4) and 2 others	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"},{"t":"float","v":"7.8"}],"of":"float","keys":["A","B","C","D"]}
+c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)	pairs	trunc=1	A (1.2) and 3 others	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"},{"t":"float","v":"7.8"}],"of":"float","keys":["A","B","C","D"]}
+c(A = 1.2, B = 3.4, C = 5.6)	pairs	sep=;%20	A (1.2); B (3.4) and C (5.6)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+c(A = 1.2, B = 3.4, C = 5.6)	pairs	cfg.serial_comma=true	A (1.2), B (3.4), and C (5.6)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)	pairs	trunc=2 cfg.serial_comma=true	A (1.2), B (3.4), and 2 others	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"},{"t":"float","v":"7.8"}],"of":"float","keys":["A","B","C","D"]}
+c(A = 1.2, B = 3.4, C = 5.6)	pairs	last=,%20then%20	A (1.2), B (3.4), then C (5.6)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+character(0)	pairs	none=nothing	nothing	{"t":"list","v":[],"of":"string","keys":null}
+c(A = 1.2, B = 3.4, C = 5.6)	num pairs	digits=2	A (1.20), B (3.40) and C (5.60)	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"},{"t":"float","v":"5.6"}],"of":"float","keys":["A","B","C"]}
+c(3, 5)	range		3–5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range		5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-5, -3)	range		−5 to −3	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(-1, 2)	range		−1 to 2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(0, 10)	range		0–10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1.25, 3.5)	range		1.3–3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range		1,000–2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(5L, 9L)	range		5–9	{"t":"list","v":[{"t":"int","v":"5"},{"t":"int","v":"9"}],"of":"int","keys":null}
+c(2.5, 2.5)	range		2.5	{"t":"list","v":[{"t":"float","v":"2.5"},{"t":"float","v":"2.5"}],"of":"float","keys":null}
+c(1234, 56789)	range		1,234–56,789	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(0.15, 0.25)	range		0.2–0.3	{"t":"list","v":[{"t":"float","v":"0.15"},{"t":"float","v":"0.25"}],"of":"float","keys":null}
+c(10, 10.04)	range		10.0	{"t":"list","v":[{"t":"float","v":"10"},{"t":"float","v":"10.04"}],"of":"float","keys":null}
+c(-3, -3)	range		−3	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(0, 0)	range		0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1e6, 2e6)	range		1,000,000–2,000,000	{"t":"list","v":[{"t":"float","v":"1000000"},{"t":"float","v":"2000000"}],"of":"float","keys":null}
+c(-5, -3)	range	digits=0	−5 to −3	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	digits=0	1–4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	digits=0	1,000–2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	digits=0	1,234–56,789	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(-5, -3)	range	digits=1	−5.0 to −3.0	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	digits=1	1.3–3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	digits=1	1,000.0–2,500.0	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	digits=1	1,234.0–56,789.0	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(-5, -3)	range	digits=2	−5.00 to −3.00	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	digits=2	1.25–3.50	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	digits=2	1,000.00–2,500.00	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	digits=2	1,234.00–56,789.00	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(-5, -3)	range	sigfig=1	−5 to −3	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	sigfig=1	1–4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	sigfig=1	1,000–3,000	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	sigfig=1	1,000–60,000	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(-5, -3)	range	sigfig=2	−5.0 to −3.0	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	sigfig=2	1.3–3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	sigfig=2	1,000–2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	sigfig=2	1,200–57,000	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c(-5, -3)	range	sigfig=3	−5.00 to −3.00	{"t":"list","v":[{"t":"float","v":"-5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	sigfig=3	1.25–3.50	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1000, 2500)	range	sigfig=3	1,000–2,500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(1234, 56789)	range	sigfig=3	1,230–56,800	{"t":"list","v":[{"t":"float","v":"1234"},{"t":"float","v":"56789"}],"of":"float","keys":null}
+c("a", "b", "c", "d", "e")	and	sep=;%20	a; b; c; d and e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	sep=;%20	a; b; c and d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	and	sep=;%20	a and b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	and	sep=;%20	a	{"t":"string","v":"a"}
+c("a", "b", "c", "d", "e")	and	last=/	a, b, c, d/e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	last=/	a, b, c/d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	and	last=/	a/b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	sep=;%20 last=;%20then%20	a; b; c; d; then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	sep=;%20 last=;%20then%20	a; b; c; then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	last=,%20then%20	a, b, c, d, then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	last=,%20then%20	a, b, c, then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c")	and	last=,%20then%20	a, b, then c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=1	a and 4 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=2	a, b and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=3	a, b, c and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=4	a, b, c, d and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=5	a, b, c, d and e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	trunc=2	a, b and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	and	trunc=1	a and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	and	trunc=1	a	{"t":"string","v":"a"}
+c("a", "b", "c", "d", "e")	and	cfg.serial_comma=true	a, b, c, d, and e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	cfg.serial_comma=true	a, b, c, and d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	and	cfg.serial_comma=true	a and b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	and	cfg.serial_comma=true	a	{"t":"string","v":"a"}
+c("a", "b", "c")	and	cfg.serial_comma=true	a, b, and c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	sep=;%20 cfg.serial_comma=true	a; b; c; d; and e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	sep=;%20 cfg.serial_comma=true	a; b; c; and d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=1 cfg.serial_comma=true	a and 4 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=2 cfg.serial_comma=true	a, b, and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=3 cfg.serial_comma=true	a, b, c, and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	trunc=4 cfg.serial_comma=true	a, b, c, d, and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	last=,%20then%20 cfg.serial_comma=true	a, b, c, d, then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	last=,%20then%20 cfg.serial_comma=true	a, b, c, then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	last=/ cfg.serial_comma=true	a, b, c/d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	and	sep=;%20 trunc=2 cfg.serial_comma=true	a; b; and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	and	trunc=2 cfg.serial_comma=true	a, b, and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	and	none=no%20sites	no sites	{"t":"list","v":[],"of":"string","keys":null}
+character(0)	and	none=no%20sites cfg.serial_comma=true	no sites	{"t":"list","v":[],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	sep=;%20	a; b; c; d or e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	sep=;%20	a; b; c or d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	or	sep=;%20	a or b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	or	sep=;%20	a	{"t":"string","v":"a"}
+c("a", "b", "c", "d", "e")	or	last=/	a, b, c, d/e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	last=/	a, b, c/d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	or	last=/	a/b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	sep=;%20 last=;%20then%20	a; b; c; d; then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	sep=;%20 last=;%20then%20	a; b; c; then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	last=,%20then%20	a, b, c, d, then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	last=,%20then%20	a, b, c, then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c")	or	last=,%20then%20	a, b, then c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=1	a and 4 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=2	a, b and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=3	a, b, c and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=4	a, b, c, d and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=5	a, b, c, d or e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	trunc=2	a, b and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	or	trunc=1	a and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	or	trunc=1	a	{"t":"string","v":"a"}
+c("a", "b", "c", "d", "e")	or	cfg.serial_comma=true	a, b, c, d, or e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	cfg.serial_comma=true	a, b, c, or d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b")	or	cfg.serial_comma=true	a or b	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"}],"of":"string","keys":null}
+"a"	or	cfg.serial_comma=true	a	{"t":"string","v":"a"}
+c("a", "b", "c")	or	cfg.serial_comma=true	a, b, or c	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	sep=;%20 cfg.serial_comma=true	a; b; c; d; or e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	sep=;%20 cfg.serial_comma=true	a; b; c; or d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=1 cfg.serial_comma=true	a and 4 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=2 cfg.serial_comma=true	a, b, and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=3 cfg.serial_comma=true	a, b, c, and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	trunc=4 cfg.serial_comma=true	a, b, c, d, and 1 other	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	last=,%20then%20 cfg.serial_comma=true	a, b, c, d, then e	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	last=,%20then%20 cfg.serial_comma=true	a, b, c, then d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	last=/ cfg.serial_comma=true	a, b, c/d	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+c("a", "b", "c", "d", "e")	or	sep=;%20 trunc=2 cfg.serial_comma=true	a; b; and 3 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"},{"t":"string","v":"e"}],"of":"string","keys":null}
+c("a", "b", "c", "d")	or	trunc=2 cfg.serial_comma=true	a, b, and 2 others	{"t":"list","v":[{"t":"string","v":"a"},{"t":"string","v":"b"},{"t":"string","v":"c"},{"t":"string","v":"d"}],"of":"string","keys":null}
+character(0)	or	none=no%20sites	no sites	{"t":"list","v":[],"of":"string","keys":null}
+character(0)	or	none=no%20sites cfg.serial_comma=true	no sites	{"t":"list","v":[],"of":"string","keys":null}
+c(1234.5, 2, 0.15)	num and	digits=1	1,234.5, 2.0 and 0.2	{"t":"list","v":[{"t":"float","v":"1234.5"},{"t":"float","v":"2"},{"t":"float","v":"0.15"}],"of":"float","keys":null}
+c(1234.5, 2, 0.15)	num or	digits=2 sep=;%20	1,234.50; 2.00 or 0.15	{"t":"list","v":[{"t":"float","v":"1234.5"},{"t":"float","v":"2"},{"t":"float","v":"0.15"}],"of":"float","keys":null}
+c(0.12, 0.5)	pct and		12% and 50%	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(1, 2, 3)	word and		one, two and three	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(1, 2, 3, 12)	count or		one, two, three or 12	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"},{"t":"float","v":"12"}],"of":"float","keys":null}
+c(1, 2, 3)	ord and	cfg.serial_comma=true	1st, 2nd, and 3rd	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(1, 2, 3, 4, 5)	word and	trunc=2	one, two and 3 others	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2"},{"t":"float","v":"3"},{"t":"float","v":"4"},{"t":"float","v":"5"}],"of":"float","keys":null}

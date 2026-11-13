@@ -1,0 +1,27 @@
+value	classes	keys	text	record
+as.Date("2024-03-05")	date		5 March 2024	{"t":"date","v":"2024-03-05"}
+as.Date("2024-01-31")	date		31 January 2024	{"t":"date","v":"2024-01-31"}
+as.Date("2024-02-29")	date		29 February 2024	{"t":"date","v":"2024-02-29"}
+as.Date("2023-02-28")	date		28 February 2023	{"t":"date","v":"2023-02-28"}
+as.Date("2024-04-09")	date		9 April 2024	{"t":"date","v":"2024-04-09"}
+as.Date("2024-05-10")	date		10 May 2024	{"t":"date","v":"2024-05-10"}
+as.Date("2024-06-15")	date		15 June 2024	{"t":"date","v":"2024-06-15"}
+as.Date("2024-07-04")	date		4 July 2024	{"t":"date","v":"2024-07-04"}
+as.Date("2024-08-21")	date		21 August 2024	{"t":"date","v":"2024-08-21"}
+as.Date("2024-09-30")	date		30 September 2024	{"t":"date","v":"2024-09-30"}
+as.Date("2024-10-01")	date		1 October 2024	{"t":"date","v":"2024-10-01"}
+as.Date("2024-11-13")	date		13 November 2024	{"t":"date","v":"2024-11-13"}
+as.Date("2024-12-25")	date		25 December 2024	{"t":"date","v":"2024-12-25"}
+as.Date("1999-12-31")	date		31 December 1999	{"t":"date","v":"1999-12-31"}
+as.Date("2000-01-01")	date		1 January 2000	{"t":"date","v":"2000-01-01"}
+as.Date("2026-11-13")	date		13 November 2026	{"t":"date","v":"2026-11-13"}
+as.Date("1900-03-01")	date		1 March 1900	{"t":"date","v":"1900-03-01"}
+as.Date("2099-07-09")	date		9 July 2099	{"t":"date","v":"2099-07-09"}
+as.Date(c("2024-01-05", "2024-12-25"))	date		5 January 2024, 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-06-15", "2024-12-25"))	date		5 January 2024, 15 June 2024, 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-06-15"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-12-25"))	date and		5 January 2024 and 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-06-15", "2024-12-25"))	date and		5 January 2024, 15 June 2024 and 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-06-15"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-12-25"))	date or		5 January 2024 or 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-06-15", "2024-12-25"))	date or		5 January 2024, 15 June 2024 or 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-06-15"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-06-15", "2024-12-25"))	date and	sep=;%20	5 January 2024; 15 June 2024 and 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-06-15"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
+as.Date(c("2024-01-05", "2024-06-15", "2024-12-25"))	date and	cfg.serial_comma=true	5 January 2024, 15 June 2024, and 25 December 2024	{"t":"list","v":[{"t":"date","v":"2024-01-05"},{"t":"date","v":"2024-06-15"},{"t":"date","v":"2024-12-25"}],"of":"date","keys":null}
