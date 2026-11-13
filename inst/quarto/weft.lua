@@ -1786,6 +1786,28 @@ local function list_class_code(el)
   return nil
 end
 
+-- N57 (the julia engine): a failed @claim prints its carrier as text, because Quarto drops the displayed
+-- block of a cell that raises. Such a block arrives as a CodeBlock inside a `cell-output-stdout` div whose
+-- WHOLE text is one fenced `weft-values` block (a backtick or tilde fence); it is turned into a real
+-- carrier block, which is then read and removed like any other. Any other code block is left alone.
+local function printed_carrier(el)
+  local text = el.text:gsub("[\r\n]+$", "")
+  local lines = {}
+  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
+  if #lines < 3 then return nil end
+  local fence = lines[1]:match("^(`+)%s*{%.weft%-values}%s*$") or lines[1]:match("^(~+)%s*{%.weft%-values}%s*$")
+  if not fence or #fence < 3 then return nil end
+  local ch = fence:sub(1, 1)
+  local closer = lines[#lines]:match("^(%" .. ch .. "+)%s*$")
+  if not closer or #closer < #fence then return nil end
+  local body = {}
+  for i = 2, #lines - 1 do
+    if lines[i]:match("^%s*%" .. ch .. "%" .. ch .. "%" .. ch .. "+%s*$") then return nil end
+    body[#body + 1] = lines[i]
+  end
+  return table.concat(body, "\n")
+end
+
 -- inside a list item, a block quote or a table cell a list class is an error: resolved as inline
 local function mark_nested(el, ctx)
   local function fix(p)
@@ -1817,6 +1839,14 @@ resolve_blocks = function(blocks, ctx)
     DefinitionList = function(el) return mark_nested(el, ctx) end,
     Div = function(el)
       if el.classes:includes("weft-literal") then el.attributes["why"] = nil end
+      if el.classes:includes("cell-output-stdout") then
+        for i, b in ipairs(el.content) do
+          if b.t == "CodeBlock" and not b.classes:includes("weft-values") then
+            local body = printed_carrier(b)
+            if body then el.content[i] = pandoc.CodeBlock(body, pandoc.Attr("", { "weft-values" })) end
+          end
+        end
+      end
       if el.classes:includes("cell") then
         el.content = resolve_blocks(el.content, with(ctx, "cell", cell_label(el)))
         return el, false
