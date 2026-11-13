@@ -1,9 +1,8 @@
 # The cost of a knit grows in step with the length of the document. Each construct once read
 # everything before it (to tell whether it opened a sentence, and which sentence of its
 # paragraph it sat in), so a long chapter cost the square of its length. The bound is
-# generous: four times the text takes well under eight times the time (a square would be
-# sixteen). What a knit costs before it reaches any text (the set-up, the dictionary, the
-# configuration) is measured on a short document and taken off first.
+# set so that the quadratic work fails it: four times the text takes under 5.5 times the
+# time (a square would be sixteen, but the fixed cost of a knit dilutes it to about 7).
 
 scale_doc <- function(n_paras) {
   head <- c("---", "title: \"Scale\"", "---", "",
@@ -23,16 +22,18 @@ time_knit <- function(n_paras) {
   withr::local_dir(d)
   weft_restore_knitr()
   withr::defer(weft_restore_knitr())
-  system.time(suppressMessages(suppressWarnings(
+  # processor time, so that another process busy on the machine does not skew the ratio
+  tm <- system.time(suppressMessages(suppressWarnings(
     knitr::knit(f, file.path(d, "ch.md"), quiet = TRUE, envir = new.env())
-  )))[["elapsed"]]
+  )))
+  tm[["user.self"]] + tm[["sys.self"]]
 }
 
 test_that("a document four times as long knits in well under sixteen times the time", {
   skip_on_cran()
-  time_knit(2L)                                    # the first knit in a session warms caches
-  t0 <- time_knit(2L)
-  t1 <- time_knit(60L)
-  t4 <- time_knit(240L)
-  expect_lt((t4 - t0) / max(t1 - t0, 0.05), 8)
+  time_knit(20L)                                   # the first knit in a session warms caches
+  t1 <- min(time_knit(80L), time_knit(80L))
+  t4 <- min(time_knit(320L), time_knit(320L))
+  # measured: about 4.3 now, 6.3 to 7.2 with the quadratic work
+  expect_lt(t4 / t1, 5.5)
 })
