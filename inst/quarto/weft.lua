@@ -167,16 +167,7 @@ local function number_text(v)
   return false
 end
 
-local function valid_date(v)
-  if type(v) ~= "string" then return false end
-  local y, m, d = v:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
-  if not y then return false end
-  y, m, d = tonumber(y), tonumber(m), tonumber(d)
-  if m < 1 or m > 12 or d < 1 then return false end
-  local dim = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
-  if (y % 4 == 0 and y % 100 ~= 0) or y % 400 == 0 then dim[2] = 29 end
-  return d <= dim[m]
-end
+local valid_date = cond.valid_date
 
 -- nil when a scalar record reads, else what is wrong
 local function scalar_problem(r)
@@ -334,7 +325,7 @@ local function lookup(name)
   if S.values[name] == nil then
     return nil, {
       kind = "no value",
-      detail = string.format("no value is published under the name `%s` above this point (rule 1.12.6).", name),
+      detail = string.format("no value is published under the name `%s` above this point (rule 1.12.7).", name),
       hint = string.format(
         "Publish it in code above: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. "
         .. "A cell with include: false or output: false publishes nothing on the jupyter and julia engines.",
@@ -982,7 +973,6 @@ local function format_vector(name, rec, c, o)
       if not text then vfail(msg) end
       it = { text = text, decimals = false, relation = "=" }
     elseif ncl == "sci" or ncl == "p" then
-      if rec.t == "list" and not collapse then vfail(e17(ncl, "number", name, "list")) end
       if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
       local ok, text, info
       if ncl == "sci" then ok, text, info = pcall(num.format_sci, e, number_keys(c), config_for_num())
@@ -993,7 +983,6 @@ local function format_vector(name, rec, c, o)
       data = true
       it = { text = scalar_text(e), decimals = false, relation = "=" }
     elseif ncl == "num" or ncl == "pct" or (ncl == nil and is_numeric(e) and not o.bare) then
-      if ncl and rec.t == "list" and not collapse then vfail(e17(ncl, "number", name, "list")) end
       if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
       local keys_n = number_keys(c)
       if range_digits then keys_n.digits = range_digits end
@@ -1215,6 +1204,19 @@ local function val_blocks(parts)
   return pandoc.Blocks({ pandoc.BulletList(items) })
 end
 
+-- S1: a `claim` or `level` key means a check, and the filter does not read it: a construct error that says
+-- how to state the check instead (a guard span around the value, or claim() in code)
+local function check_key_error(c, what)
+  for _, key in ipairs({ "claim", "level" }) do
+    if c.keys[key] ~= nil then
+      return string.format(
+        "`%s` is not a key the filter reads on %s, so the check would never run. State it with a guard "
+        .. "span around the value, [`x`{.num}]{if=\"x < 50\"}, or with claim() in code (rule 5.3.3).", key, what)
+    end
+  end
+  return nil
+end
+
 local function resolve_code_inner(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
@@ -1231,6 +1233,8 @@ local function resolve_code_inner(el, ctx, as_block)
         "A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", k.k)) }
     end
   end
+  local key_msg = check_key_error(c, "a named value")
+  if key_msg then return { fail("construct error", info, key_msg) } end
   local kind, detail = check_construct(c)
   if not kind then kind, detail = check_implemented(c) end
   if not kind then detail = lang_problem(c, "value"); if detail then kind = "value error" end end
@@ -1400,7 +1404,16 @@ local function resolve_if(el, value, ctx, shown, info, c)
       if not r then
         all = false
         if #arms == 1 then
-          markers[#markers + 1] = fail("failed claim", info, node.text .. " was false",
+          local seen, shown_reads = {}, {}
+          for _, o in ipairs({ node.a, node.b }) do
+            if o and o.name and not seen[o.name] then
+              seen[o.name] = true
+              local rec = lookup(o.name)
+              shown_reads[#shown_reads + 1] = string.format("%s = %s", o.name, rec and val_text(rec) or "?")
+            end
+          end
+          markers[#markers + 1] = fail("failed claim", info,
+                                       node.text .. " was false (" .. table.concat(shown_reads, ", ") .. ")",
                                        "optional text is written [phrase | ]{if=\"\u{2026}\"}")
         end
       end
@@ -1474,7 +1487,7 @@ local function resolve_n(el, value, ctx, shown, info, c)
   end
   if value ~= "." and not (cond.is_name(value) or id_value_ok(value)) then
     return { fail("construct error", info, string.format(
-      "`%s` is not a name for `n`; it takes a name, `.` or `#id` (rule 1.12.5).", value)) }
+      "`%s` is not a name for `n`; it takes a name, `.` or `#id` (rule 1.12.6).", value)) }
   end
   local kind, detail = check_construct(c)
   if not kind then kind, detail = check_implemented(c) end
@@ -1527,7 +1540,7 @@ local function resolve_sign(el, value, ctx, shown, info, c)
   end
   if not (cond.is_name(value) or id_value_ok(value)) then
     return { fail("construct error", info, string.format(
-      "`%s` is not a name for `sign`; it takes a name or `#id` (rule 1.12.5).", value)) }
+      "`%s` is not a name for `sign`; it takes a name or `#id` (rule 1.12.6).", value)) }
   end
   local kind, detail = check_construct(c)
   if not kind then kind, detail = check_implemented(c) end
@@ -1601,7 +1614,7 @@ local function resolve_list(el, value, ctx, shown, info, c)
   end
   if not cond.is_name(value) then
     return { fail("construct error", info, string.format(
-      "`%s` is not a name for `list`; it takes a name (rule 1.12.5).", value)) }
+      "`%s` is not a name for `list`; it takes a name (rule 1.12.6).", value)) }
   end
   if c.id ~= "" then
     return { fail("construct error", info, "A `list` span takes no `#id` (rule 1.7.5).") }
@@ -1724,6 +1737,8 @@ local function resolve_span_inner(el, ctx)
   if many then
     return { fail("construct error", info, "A span takes one governor key (rule 1.5.1).") }
   end
+  local key_msg = check_key_error(c, "a span")
+  if key_msg then return { fail("construct error", info, key_msg) } end
   if key == "if" then return resolve_if(el, value, ctx, shown, info, c) end
   if key == "n" then return resolve_n(el, value, ctx, shown, info, c) end
   if key == "sign" then return resolve_sign(el, value, ctx, shown, info, c) end

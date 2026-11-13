@@ -28,6 +28,18 @@ function M.is_name(s)
   return not M.RESERVED[s]
 end
 
+-- a valid YYYY-MM-DD calendar date (leap years by the Gregorian rule)
+function M.valid_date(v)
+  if type(v) ~= "string" then return false end
+  local y, m, d = v:match("^(%d%d%d%d)%-(%d%d)%-(%d%d)$")
+  if not y then return false end
+  y, m, d = tonumber(y), tonumber(m), tonumber(d)
+  if m < 1 or m > 12 or d < 1 then return false end
+  local dim = { 31, 28, 31, 30, 31, 30, 31, 31, 30, 31, 30, 31 }
+  if (y % 4 == 0 and y % 100 ~= 0) or y % 400 == 0 then dim[2] = 29 end
+  return d <= dim[m]
+end
+
 local function trim(s) return (s:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
 
 -- split at every comma that is not inside a single-quoted string
@@ -87,6 +99,11 @@ end
 function M.parse_part(raw)
   local text = trim(raw)
   if text == "" then return nil, { id = "E3", part = text } end
+  -- `!NAME`: the negation of one bool name; `!` before anything else is not in the grammar
+  local negated = text:match("^!([A-Za-z_][A-Za-z0-9_.]*)$")
+  if negated and M.is_name(negated) then
+    return { text = text, neg = true, a = { name = negated } }
+  end
   local i, op = find_op(text)
   if not i then
     if M.is_name(text) then return { text = text, a = { name = text } } end
@@ -188,6 +205,7 @@ function M.evaluate(node, get)
       return value_error(string.format(
         "a condition must be true or false, and `%s` is a %s (rule 1.11.8).", node.a.name, kind_name(a.rec.t)))
     end
+    if node.neg then return a.rec.v ~= true, reads end
     return a.rec.v == true, reads
   end
   local b, fb = fetch(node.b)
@@ -201,15 +219,23 @@ function M.evaluate(node, get)
   elseif ca == "string" and cb == "string" then
     if op ~= "==" and op ~= "!=" then
       return value_error(string.format(
-        "`%s` orders two strings; strings compare only with == and != (rule 1.12.4).", node.text))
+        "`%s` orders two strings; strings compare only with == and != (rule 1.12.5).", node.text))
     end
     c = va == vb and 0 or 1
   elseif ca == "date" and cb == "date" then
     c = va == vb and 0 or (va < vb and -1 or 1)
+  elseif (ca == "date" and b.str) or (cb == "date" and a.str) then
+    -- a date against a string literal: calendar order when the literal is a valid YYYY-MM-DD date
+    local lit = b.str or a.str
+    if not M.valid_date(lit) then
+      return value_error(string.format(
+        "`%s` compares a date with the string '%s', which is not a YYYY-MM-DD date (rule 1.12.5).", node.text, lit))
+    end
+    c = va == vb and 0 or (va < vb and -1 or 1)
   elseif ca == "bool" and cb == "bool" and (op == "==" or op == "!=") then
     c = va == vb and 0 or 1
   else
-    return value_error(string.format("`%s` compares a %s with a %s (rule 1.12.4).",
+    return value_error(string.format("`%s` compares a %s with a %s (rule 1.12.5).",
                                      node.text, shown_kind(a), shown_kind(b)))
   end
   local r

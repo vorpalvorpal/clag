@@ -705,6 +705,14 @@ block_errors <- function(S, blk, kind) {
     e <- c(e, sprintf("The key `%s` is written twice in one block (rule 1.2.10).",
                       lc[duplicated(lc)][1]))
   }
+  # a `claim` or `level` key on a named value, or on a span the filter resolves, states a check the
+  # filter would never run (the filter says the same)
+  if (kind == "named" || (isTRUE(S$filter_doc) && kind %in% c("n", "if", "sign", "list", "cite"))) {
+    ck <- intersect(c("claim", "level"), lc)
+    if (length(ck)) {
+      e <- c(e, filter_check_key_error(ck[1L], if (kind == "named") "a named value" else "a span"))
+    }
+  }
   gov <- lc[lc %in% GOVERNOR_KEYS]
   if (kind %in% c("value", "bare") && length(gov)) {
     e <- c(e, sprintf("The key `%s` on a value is an error (rule 1.3.3).", gov[1]))
@@ -727,7 +735,7 @@ block_errors <- function(S, blk, kind) {
                         intersect(cls, LIST_CLASSES)[1L], tx[1L]))
     }
   }
-  if (kind %in% c("n", "sign", "list") && "level" %in% lc) {
+  if (kind %in% c("n", "sign", "list") && "level" %in% lc && !isTRUE(S$filter_doc)) {
     e <- c(e, sprintf("A `%s` span has no `level`; only `claim()` takes a level.", kind))
   }
   if (kind == "list" && any(cls %in% LIST_CLASSES)) {
@@ -907,6 +915,14 @@ is_weft_name <- function(x) {
     !grepl(".", substring(x, nchar(x)), fixed = TRUE) && !(x %in% NAME_RESERVED)
 }
 
+# The construct error of a `claim` or `level` key on a named value or a span the filter resolves (S1);
+# the text is the filter's (weft.lua, check_key_error).
+filter_check_key_error <- function(key, what) {
+  sprintf(paste0("`%s` is not a key the filter reads on %s, so the check would never run. State it with a ",
+                 "guard span around the value, [`x`{.num}]{if=\"x < 50\"}, or with claim() in code (rule 5.3.3)."),
+          key, what)
+}
+
 # The parts of a condition (N10): split at every comma that is not inside a 'string literal'; an empty
 # part is kept.
 cond_parts <- function(x) {
@@ -932,6 +948,8 @@ COND_RE <- paste0("^(", COND_OPERAND, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", COND_OP
 # The error of one part of a condition (N9, N11; E3, E4), or `character()`.
 cond_part_error <- function(part) {
   if (is_weft_name(part)) return(character())
+  # `!NAME`: the negation of one bool name; `!` before anything else is not in the grammar
+  if (startsWith(part, "!") && is_weft_name(substring(part, 2L))) return(character())
   m <- regmatches(part, regexec(COND_RE, part, perl = TRUE))[[1L]]
   if (length(m)) {
     ops <- m[c(2L, 4L)]
@@ -949,12 +967,12 @@ cond_part_error <- function(part) {
 filter_governor_errors <- function(kind, expr, check_space = TRUE) {
   v <- trim_ws(expr)
   bad <- function(extra) {
-    sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.5).", v, kind, extra)
+    sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.6).", v, kind, extra)
   }
   # Pandoc does not read an attribute value that starts with a space, so the span would print as text
   if (check_space && grepl("^[ \t\r\n]", expr)) {
     return(sprintf(paste0("The value of `%s` starts with a space, which Pandoc does not read as an ",
-                          "attribute, so the span would print as it is; remove the space (rule 1.12.5)."), kind))
+                          "attribute, so the span would print as it is; remove the space (rule 1.12.6)."), kind))
   }
   switch(kind,
     `if` = unlist(lapply(trim_ws(cond_parts(v)), cond_part_error), use.names = FALSE) %||% character(),
@@ -1482,10 +1500,10 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
       add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
     } else if (resolver[k] == "hooks" && rows$kind[d] == "named") {
       add(k, sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id ",
-                            "of the same form (rule 1.12.5)."), id))
+                            "of the same form (rule 1.12.10)."), id))
     } else if (resolver[k] == "filter" && resolver[d] == "hooks") {
       add(k, sprintf(paste0("`#%s` names an id on an R value, which the filter cannot read; refer to an id ",
-                            "of the same form (rule 1.12.5)."), id))
+                            "of the same form (rule 1.12.10)."), id))
     } else if (rows$kind[d] == "if") {
       add(k, sprintf("The id `#%s` is on an `if` span, which has no printed number to refer to (rule 1.7.5).", id))
     } else if (!(rows$end[d] < rows$start[k])) {

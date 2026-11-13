@@ -127,6 +127,8 @@ local({
   cond_ok <- function(part) {
     part <- gsub("^[ \t]+|[ \t]+$", "", part)
     if (is_name(part)) return(TRUE)
+    # `!NAME`: the negation of one bool name; `!` before anything else is not in the grammar
+    if (startsWith(part, "!") && is_name(substring(part, 2))) return(TRUE)
     m <- regmatches(part, regexec(comparison, part, perl = TRUE))[[1]]
     if (!length(m)) return(FALSE)
     ops <- m[c(2, 4)]
