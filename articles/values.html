@@ -410,7 +410,15 @@ values</strong>. Given to a formatter, a span or a phrase function, a
 missing value is a “no value” failure: the render fails at the end, and
 in draft mode the value prints as
 <code>&lt;&lt;weft: no value, line N&gt;&gt;</code>. A bare value with
-no attribute block prints <code>NA</code> as knitr does.</p>
+no attribute block prints <code>NA</code> as knitr does, but a bare
+value whose printed text is exactly <code>NA</code>, <code>NaN</code>,
+<code>Inf</code> or <code>-Inf</code> is a warned check: the render does
+not fail, <code>last_knit()$warnings</code> holds a row for it, and the
+condition log records a warning of class
+<code>weft_bare_missing_warning</code>. A vector such as
+<code>c(1, NA)</code> records nothing. Set
+<code>bare_missing: false</code> in <code>_weft.yml</code> to turn the
+check off.</p>
 <p>A list class with <code>none</code> is the exception: an empty vector
 prints the <code>none</code> text, as in the “Flagged sites” example
 above.</p>
@@ -582,6 +590,12 @@ matter. The settings for values are:</p>
 <td><code>.num</code></td>
 <td>the class that formats the number of an <code>n</code> or
 <code>sign</code> span</td>
+</tr>
+<tr class="even">
+<td><code>bare_missing</code></td>
+<td><code>true</code></td>
+<td>whether a bare value that prints a missing value is a warned
+check</td>
 </tr>
 </tbody>
 </table>

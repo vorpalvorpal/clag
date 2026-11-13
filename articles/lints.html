@@ -645,12 +645,38 @@ tools that <code>name</code> should accept</td>
 <td>tier-1 rules whose every instance fails <code><a href="../reference/verify.html">verify()</a></code>
 </td>
 </tr>
+<tr class="even">
+<td><code>anchor_calls</code></td>
+<td><code>[]</code></td>
+<td>helper calls that define anchors, for <code>xref</code>,
+<code>anchor-twice</code> and <code>anchor-unused</code>
+</td>
+</tr>
 </tbody>
 </table>
 <p><code>strict</code> is for the end of adoption. Once a project has
 removed every typed number, <code>strict: [numeral]</code> makes
 <code><a href="../reference/verify.html">verify()</a></code> fail on any that remain, whether or not they were
 committed before.</p>
+</div>
+<div class="section level2">
+<h2 id="anchors-made-by-a-helper">Anchors made by a helper<a class="anchor" aria-label="anchor" href="#anchors-made-by-a-helper"></a>
+</h2>
+<p>A project that makes its tables or figures with a helper, such as
+<code>tbl(x, id = "depths")</code>, can tell the lints about it:</p>
+<div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="fu">anchor_calls</span><span class="kw">:</span></span>
+<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">fun</span><span class="kw">:</span><span class="at"> tbl</span></span>
+<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="at">    </span><span class="fu">arg</span><span class="kw">:</span><span class="at"> id</span></span>
+<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">    </span><span class="fu">prefix</span><span class="kw">:</span><span class="at"> </span><span class="st">"tbl-"</span></span></code></pre></div>
+<p>A call of <code>tbl()</code> in an executed R chunk, bare or as
+<code>pkg::tbl()</code>, then defines the anchor
+<code>tbl-depths</code>, at the call’s line, for <code>xref</code>,
+<code>anchor-twice</code> and <code>anchor-unused</code>.
+<code>arg</code> is the name of the argument, or its position when it is
+a whole number; <code>prefix</code> is optional. Only a literal string
+counts: a computed id defines nothing, and no finding says so. An entry
+without <code>fun</code> or <code>arg</code> is a configuration
+error.</p>
 </div>
 <div class="section level2">
 <h2 id="the-two-readers">The two readers<a class="anchor" aria-label="anchor" href="#the-two-readers"></a>
