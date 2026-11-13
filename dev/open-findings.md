@@ -327,3 +327,19 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 4. A console call of `reticulate::py_run_string()` before weft starts
    Python lets reticulate download its own Python. The article advises
    setting `RETICULATE_PYTHON`. Consider saying so in `status()`.
+
+## Found while building the resolver filter (stage 6)
+
+1. `fmt_pct(999999999999999)` prints "100,000,000,000,000,000%". The
+   value times 100 is 99,999,999,999,999,900, which has exactly 15
+   significant digits and should print as that. R's `signif()` in
+   `round_half_away()` rounds one digit early when `log10` of the
+   value rounds up. The Lua port reproduces it faithfully. Fix in
+   `R/format.R` with a test first, then regenerate the conformance
+   tables; the Lua port must follow.
+2. The gate counts a guest `claim` only in an executed chunk (N59), so
+   turning `eval` off on a Python chunk with a claim is a removal. An
+   R chunk's claims still count under `eval: false`, so turning it off
+   there costs nothing. Decide whether R should follow.
+3. `conformance_record()` in `R/conformance.R` is a stand-in; replace
+   it with the general record maker of `R/values.R` when 6b lands.

@@ -412,6 +412,9 @@ test_that("6a N85: a float record and an int record of the same whole value up t
              "999999999999999", "9007199254740991", "9007199254740992")
   grid <- expand.grid(v = c(whole, paste0("-", whole[-1])), cls = IMPLEMENTED,
                       key = c("", "digits=0", "digits=2", "sigfig=3", "sigfig=5"), stringsAsFactors = FALSE)
+  # .pct multiplies by 100: a float then passes 2^53 and is read to 15 significant digits, as R does, while
+  # an int record stays exact, so the two may differ there by rule (N85). Keep .pct to values below 2^53 / 100.
+  grid <- grid[!(grid$cls == "pct" & abs(as.numeric(grid$v)) * 100 > 2^53), ]
   fl <- data.frame(record = rec_float(grid$v), classes = grid$cls, keys = grid$key, stringsAsFactors = FALSE)
   it <- data.frame(record = rec_int(grid$v), classes = grid$cls, keys = grid$key, stringsAsFactors = FALSE)
   for_each_pandoc(function(p) {
