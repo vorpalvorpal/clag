@@ -169,6 +169,27 @@ count_checks <- function(s) {
   }, 0))
 }
 
+# The file name of a document's stamp under .weft/stamps/. A path's folders
+# are joined by `__`; a segment that itself holds `__`, or starts or ends with
+# `_`, or holds `%`, has those characters escaped (`%25`, `%5F`), so two
+# documents never share a stamp: `a/b.qmd` is `a__b.qmd.json` and `a__b.qmd`
+# is `a_%5Fb.qmd.json`. A plain name is unchanged.
+stamp_file_name <- function(rel) {
+  vapply(rel, stamp_file_name_one, "", USE.NAMES = FALSE)
+}
+
+stamp_file_name_one <- function(rel) {
+  seg <- strsplit(gsub("\\", "/", rel, fixed = TRUE), "/", fixed = TRUE)[[1L]]
+  seg <- vapply(seg, function(x) {
+    x <- gsub("%", "%25", x, fixed = TRUE)
+    x <- gsub("__", "_%5F", x, fixed = TRUE)
+    x <- gsub("__", "_%5F", x, fixed = TRUE)
+    x <- sub("^_", "%5F", x)
+    sub("_$", "%5F", x)
+  }, "", USE.NAMES = FALSE)
+  paste0(paste(seg, collapse = "__"), ".json")
+}
+
 # Write the stamp (2.9.2, 2.9.4) and, when a collection file is open, append
 # the failures to it. Returns TRUE when the failures were collected.
 record_knit <- function(s, fr) {
@@ -198,7 +219,7 @@ record_knit <- function(s, fr) {
     "}")
   ok <- tryCatch({
     dir <- weft_state_dir(root, "stamps")
-    write_lines_atomic(stamp, file.path(dir, paste0(gsub("/", "__", src, fixed = TRUE), ".json")))
+    write_lines_atomic(stamp, file.path(dir, stamp_file_name(src)))
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE)
   write_draft_failures(s, src, c(lines, wlines))

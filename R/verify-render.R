@@ -77,9 +77,8 @@ freeze_rmdir_empty <- function(d) {
 freeze_stamp_run <- function(root, stem) {
   dir <- file.path(root, ".weft", "stamps")
   if (!dir.exists(dir)) return(NA_character_)
-  base <- gsub("/", "__", stem, fixed = TRUE)
-  f <- list.files(dir, pattern = "\\.(qmd|Rmd|rmd)\\.json$")
-  f <- f[sub("\\.(qmd|Rmd|rmd)\\.json$", "", f) == base]
+  f <- stamp_file_name(paste0(stem, c(".qmd", ".Rmd", ".rmd")))
+  f <- f[file.exists(file.path(dir, f))]
   if (!length(f)) return(NA_character_)
   s <- tryCatch(jsonlite::fromJSON(file.path(dir, f[1L]), simplifyVector = FALSE), error = function(e) NULL)
   if (!is.list(s) || is.null(s$run)) return(NA_character_)
@@ -278,7 +277,7 @@ verify_read_stamps <- function(root, docs, run) {
   failures <- list()
   current <- character()
   for (rel in docs) {
-    f <- file.path(root, ".weft", "stamps", paste0(gsub("/", "__", rel, fixed = TRUE), ".json"))
+    f <- file.path(root, ".weft", "stamps", stamp_file_name(rel))
     if (!file.exists(f)) next
     s <- tryCatch(jsonlite::fromJSON(f, simplifyVector = FALSE), error = function(e) NULL)
     if (!is.list(s) || !identical(as.character(s$run %||% ""), run)) next
