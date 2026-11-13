@@ -238,13 +238,6 @@ h4_forge <- function(lines, edit, version = "0.0.0.1") {
   append(body, new_mk, after = i - 1L)
 }
 
-# the same line-editing of a file's text: change one line so that the hash no longer matches
-h4_edit_line <- function(lines, pattern, replacement) {
-  i <- grep(pattern, lines)[1]
-  lines[i] <- replacement
-  lines
-}
-
 # ---- the hook (G21) ----------------------------------------------------------------------------------
 
 H4_HOOK_TEMPLATE <- r"---(#!/bin/sh
@@ -426,6 +419,3 @@ h4_outside_snap <- function(parent) {
   list(home = h4_snap(Sys.getenv("HOME")), cache = h4_snap(Sys.getenv("R_USER_CACHE_DIR")),
        parent = h4_snap_parent(parent))
 }
-
-# the lines of a file, or NULL when it is absent
-h4_lines <- function(path) if (file.exists(path)) readLines(path, warn = FALSE) else NULL

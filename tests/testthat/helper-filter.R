@@ -105,9 +105,6 @@ strip_tags <- function(x) gsub("<[^>]+>", "", x)
 
 jstr <- function(x) as.character(jsonlite::toJSON(x, auto_unbox = TRUE))
 
-fr_int <- function(digits) sprintf('{"t":"int","v":"%s"}', digits)
-fr_float <- function(text) sprintf('{"t":"float","v":"%s"}', text)
-fr_dec <- function(text) sprintf('{"t":"decimal","v":"%s"}', text)
 fr_str <- function(text) sprintf('{"t":"string","v":%s}', jstr(text))
 fr_bool <- function(v) sprintf('{"t":"bool","v":%s}', if (isTRUE(v)) "true" else "false")
 fr_date <- function(iso) sprintf('{"t":"date","v":"%s"}', iso)

@@ -78,8 +78,6 @@ v4_proj <- function(files = list(), git = FALSE, sub = FALSE, weft_yml = "draft:
   list(top = top, root = root, git = git)
 }
 
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
 # the ledger header line of a hand-written ledger (2d D3), `dict` a named list key -> 16 hex digits
 v4_ledger_header <- function(source, output = sub("\\.[A-Za-z]+$", "", basename(source)),
                              dict = list(lim = "0000000000000000")) {

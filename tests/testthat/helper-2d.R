@@ -83,13 +83,6 @@ d2_ledger <- function(res, ...) d2_entries(d2_path(res$dir, ...))
 # the lines of a render's condition log, as lists, header dropped
 d2_conds <- function(res, ...) d2_entries(d2_path(res$dir, ..., conditions = TRUE))
 
-# a data frame view of entries
-d2_df <- function(entries, fields) {
-  as.data.frame(lapply(setNames(fields, fields), function(f)
-    vapply(entries, function(e) if (is.null(e[[f]])) NA_character_ else as.character(e[[f]]), "")),
-    stringsAsFactors = FALSE)
-}
-
 # a knit in this process that keeps the classed conditions (warnings and messages) it raised
 d2_run <- function(lines, set_up = TRUE, files = NULL, env = NULL, format = "knit", dir = NULL,
                    code = NULL, front = NULL, name = "doc", setup = TRUE, may_fail = FALSE) {

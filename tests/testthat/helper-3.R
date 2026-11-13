@@ -89,7 +89,6 @@ f3_both <- function(f) list(qmd = f("qmd"), Rmd = f("Rmd"))
 
 # ---- accessors on a weft_findings -------------------------------------------------
 
-lf_rules <- function(x) x$rule                 # the rule ids found, in order
 lf_lines <- function(x) x$line                 # the lines found
 lf_cols  <- function(x) x$col                  # the columns found
 lf_texts <- function(x) x$text                 # the `text` of each finding

@@ -22,8 +22,6 @@ pre_run <- function(files, inputs = NULL, env = parent.frame()) {
   list(root = root, status = as.integer(attr(out, "status") %||% 0L), log = paste(out, collapse = "\n"))
 }
 
-`%||%` <- function(a, b) if (is.null(a)) b else a
-
 QYML <- c("project:", "  type: default", "format: html")
 pre_doc <- function(line, front = "title: t") c("---", front, "---", "", line)
 

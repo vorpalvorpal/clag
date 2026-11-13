@@ -27,11 +27,5 @@ expect_qty <- function(x, num, unit) {
     as.numeric(units::set_units(x, unit, mode = "standard")), num)
 }
 
-# `fixed` pieces all occur in the text
-expect_has <- function(txt, ...) {
-  for (p in c(...)) testthat::expect_true(grepl(p, txt, fixed = TRUE),
-                                          label = sprintf("text holds `%s`", p))
-}
-
 # the printed text of a weft_text (or a character) as one plain string
 b_txt_2a <- function(x) as.character(unclass(x))[1]

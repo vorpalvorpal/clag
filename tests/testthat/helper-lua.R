@@ -187,9 +187,9 @@ lua_row <- function(record, classes = "num", keys = "") {
 }
 
 # The records of N22 for scalars, written as compact JSON the way a writer would.
-rec_int <- function(digits) sprintf('{"t":"int","v":"%s"}', digits)
-rec_float <- function(text) sprintf('{"t":"float","v":"%s"}', text)
-rec_dec <- function(text) sprintf('{"t":"decimal","v":"%s"}', text)
+rec_int <- fr_int
+rec_float <- fr_float
+rec_dec <- fr_dec
 
 # ---- an independent exact oracle (string arithmetic, no double) -------------------------------------
 # exact_oracle(v, class, digits, sigfig, config) prints the decimal text `v` (the JSON `v` of an int or a

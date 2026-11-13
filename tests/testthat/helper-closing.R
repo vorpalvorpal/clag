@@ -23,12 +23,6 @@ cl_render <- function(lines, dir, code = NULL, ...) {
   d2_run(lines, dir = dir, code = c(E1_LIB, code), ...)
 }
 
-# the store names and target names a render's header holds
-cl_read_targets <- function(dir) {
-  tg <- e1_header(dir)$targets
-  lapply(tg, function(x) names(x))
-}
-
 # the unit "database" is session-global: clear what a test registered, now and when it ends
 cl_units_clean <- function(env = parent.frame()) {
   clean <- function() {

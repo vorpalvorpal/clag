@@ -67,8 +67,3 @@ h2_dict <- function(display, value = 2000, unit = "m", extra = NULL, env = paren
 
 # weft_str() with the `dict` the caller passes in scope
 h2_wsd <- function(src, dict) f2_unesc(withr::with_dir(f2_proj(), weft_str(src)))
-
-# a knit of `lines` in this process; draft mode so a failure is a marker
-h2_knit <- function(lines, front = NULL, files = NULL, draft = TRUE, code = NULL) {
-  f2_render(lines, front = front, files = files, draft = draft, code = code)
-}

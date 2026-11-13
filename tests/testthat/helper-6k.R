@@ -45,7 +45,7 @@ py_exe6k <- function() {
   reticulate::py_exe()
 }
 
-py_lib6k <- function() normalizePath(system.file("python", package = "weft"), mustWork = FALSE)
+py_lib6k <- py_lib_6e
 
 # ---- the gate and the lints ------------------------------------------------------------------
 

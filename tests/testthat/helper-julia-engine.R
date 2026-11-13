@@ -171,25 +171,10 @@ jle_render <- function(dir, args = character(), env = character()) {
     .jle$killed <- TRUE
   }
   vars <- c(NO_COLOR = "1", WEFT_DRAFT = NA, WEFT_COLLECT = NA, WEFT_RUN = NA, JULIA_LOAD_PATH = jle_load_path())
-  lib <- weft_test_lib()
-  if (nzchar(lib)) vars[["R_LIBS"]] <- paste(c(lib, .libPaths()), collapse = .Platform$path.sep)
-  for (n in names(env)) vars[[n]] <- env[[n]]
-  withr::local_envvar(vars)
-  withr::local_dir(dir)
-  errf <- tempfile("q-err-")
-  on.exit(unlink(errf), add = TRUE)
-  out <- suppressWarnings(system2(Sys.which("quarto"), c("render", args), stdout = TRUE, stderr = errf))
-  st <- attr(out, "status")
-  err <- paste(readLines(errf, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-  list(status = if (is.null(st)) 0L else as.integer(st), stdout = paste(out, collapse = "\n"), stderr = err,
-       log = paste(c(out, err), collapse = "\n"))
+  quarto_render_env(dir, args, vars, env)
 }
 
-jle_read <- function(dir, rel) {
-  p <- file.path(dir, rel)
-  if (!file.exists(p)) return("")
-  paste(readLines(p, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-}
+jle_read <- qm_read
 
 jle_unesc <- function(x) {
   x <- gsub("&lt;", "<", x, fixed = TRUE)
@@ -222,13 +207,9 @@ jle_stdout_of <- function(html) {
   jle_unesc(sub("(?s)^.*?<pre><code>(.*?)</code></pre>$", "\\1", m, perl = TRUE))
 }
 
-# the 1-based line of the first line of `lines` that starts with / equals / contains `x`
-jle_line_of <- function(lines, x) grep(x, lines, fixed = TRUE)[1]
-
 # the i-th parsed block of a result that has `blocks`, or an empty list when there is none (so that an
 # expectation on it fails cleanly instead of erroring)
 blk <- function(x, i) if (length(x$blocks) >= i) x$blocks[[i]] else list()
 
 # names() that is character(0) for NULL
 nms <- function(x) names(x) %||% character()
-`%||%` <- function(a, b) if (is.null(a)) b else a

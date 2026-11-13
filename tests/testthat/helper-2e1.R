@@ -183,15 +183,3 @@ e1_try_make <- function(dir) {
   lib <- e1_libpath()
   withr::with_dir(dir, e1_err(targets::tar_make(callr_arguments = list(libpath = lib), reporter = "silent")))
 }
-
-# the plain pipeline of a document folder, built into a named store (relative to `dir`)
-e1_make_store <- function(dir, store) {
-  withr::local_dir(dir)
-  had <- ls(globalenv(), all.names = TRUE)
-  withr::defer({
-    targets::tar_option_reset()
-    rm(list = setdiff(ls(globalenv(), all.names = TRUE), had), envir = globalenv())
-  })
-  eval(bquote(targets::tar_make(callr_function = NULL, reporter = "silent", store = .(store))), envir = globalenv())
-  invisible(dir)
-}

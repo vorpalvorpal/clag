@@ -22,7 +22,6 @@ i2_run <- function(src, yml = NULL) {
 }
 
 i2_unit_warnings <- function(r) Filter(function(w) inherits(w, "weft_unit_warning"), r$w)
-i2_msgs <- function(ws) vapply(ws, conditionMessage, "")
 
 # the text printed, with an error shown as "ERROR: class: message"
 i2_text <- function(src, yml = NULL) {

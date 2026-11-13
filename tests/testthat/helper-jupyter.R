@@ -45,8 +45,6 @@ skip_if_no_jupyter <- function() {
   testthat::skip_if(is.na(jupyter_python()), "no Python with jupyter_client and ipykernel was found")
 }
 
-py_lib_6e <- function() normalizePath(system.file("python", package = "weft"), mustWork = FALSE)
-
 # ---- the driver --------------------------------------------------------------------------------------
 
 jup_driver_source <- c(
@@ -176,7 +174,6 @@ jup_result <- function(r) {
 }
 
 blocks_of <- function(res) unlist(lapply(res, function(r) r$blocks), recursive = FALSE)
-block_texts_of <- function(res) unlist(lapply(res, function(r) r$block_text))
 
 # ---- plain Python (no kernel) ------------------------------------------------------------------------
 
@@ -227,23 +224,6 @@ qm_render <- function(dir, args = character(), env = character()) {
             QUARTO_PYTHON = jupyter_python(), PYTHONPATH = py_lib_6e(), PYTHONDONTWRITEBYTECODE = "1",
             JUPYTER_DATA_DIR = file.path(scratch, "data"), JUPYTER_RUNTIME_DIR = file.path(scratch, "runtime"),
             IPYTHONDIR = file.path(scratch, "ipython"))
-  lib <- weft_test_lib()
-  if (nzchar(lib)) vars[["R_LIBS"]] <- paste(c(lib, .libPaths()), collapse = .Platform$path.sep)
-  for (n in names(env)) vars[[n]] <- env[[n]]
-  withr::local_envvar(vars)
-  withr::local_dir(dir)
-  errf <- tempfile("q-err-")
-  on.exit(unlink(errf), add = TRUE)
-  out <- suppressWarnings(system2(Sys.which("quarto"), c("render", args), stdout = TRUE, stderr = errf))
-  st <- attr(out, "status")
-  err <- paste(readLines(errf, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-  list(status = if (is.null(st)) 0L else as.integer(st), stdout = paste(out, collapse = "\n"), stderr = err,
-       log = paste(c(out, err), collapse = "\n"))
+  quarto_render_env(dir, args, vars, env)
 }
 
-# the text of an output file of a render, or ""
-qm_read <- function(dir, rel) {
-  p <- file.path(dir, rel)
-  if (!file.exists(p)) return("")
-  paste(readLines(p, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
-}
