@@ -939,7 +939,7 @@ lint_guest_inline <- function(src, ctx) {
              "A value from another language reaches prose through R; see vignette(\"languages\", package = \"weft\").")
 }
 
-# the names of weft's Python module (G19), which `r.NAME(` would call through reticulate; `claim` is not there
+# the names of weft's Python module (G19), which `r.NAME(` would call through reticulate; `claim` is in the lint's list only to get its own message (E58)
 GUEST_PY_MODULE_NAMES <- c("fmt_num", "fmt_pct", "fmt_sci", "fmt_p", "fmt_date", "fmt_no", "fmt_word", "fmt_count",
                            "fmt_ord", "fmt_and", "fmt_or", "fmt_pairs", "fmt_range", "fmt_ul", "fmt_ol", "fmt_dl",
                            "fmt_a", "fmt_cap", "fmt_strong", "fmt_em", "plural", "ci", "pm", "about", "of_n",
@@ -963,8 +963,8 @@ lint_guest_call <- function(src, ctx) {
       for (j in seq_along(m)) {
         s <- src$line_start[ln[i]] + m[j] - 1
         msg <- if (identical(nm[j], "claim")) {
-          paste0("`claim()` cannot be called from Python: a check is written in R, in prose, ",
-                 "as `r claim(py$n, . > 10)` (rule 5.11.2).")
+          paste0("`claim()` cannot be called through `r.`: reticulate converts its argument with no check. ",
+                 "Write `from weft import claim` and `claim(n, \"> 10\")` (rule 5.11.2).")
         } else {
           sprintf(paste0("`r.%s()` passes its arguments through reticulate, which can turn a Python int into a wrong ",
                          "number with no error. Write `from weft import %s` and call `%s()` (rule 5.11.2)."),

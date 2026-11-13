@@ -21,8 +21,8 @@ g5e_call_msg <- function(name) {
   sprintf(paste0("`r.%s()` passes its arguments through reticulate, which can turn a Python int into a wrong number ",
                  "with no error. Write `from weft import %s` and call `%s()` (rule 5.11.2)."), name, name, name)
 }
-G5E_CLAIM_MSG <- paste0("`claim()` cannot be called from Python: a check is written in R, in prose, ",
-                        "as `r claim(py$n, . > 10)` (rule 5.11.2).")
+G5E_CLAIM_MSG <- paste0("`claim()` cannot be called through `r.`: reticulate converts its argument with no check. ",
+                        "Write `from weft import claim` and `claim(n, \"> 10\")` (rule 5.11.2).")
 
 g5e_read_msg <- function(read, path) {
   sprintf(paste0("`%s` in R code is converted by reticulate, which can turn a Python int into a wrong number with no ",
