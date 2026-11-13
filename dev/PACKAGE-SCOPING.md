@@ -1,7 +1,7 @@
 # `weft` — package scoping
 
 **Date:** 2026-11-11
-**Status:** Stages 0 to 4 of §22 are built. The syntax and the
+**Status:** Stages 0 to 5 of §22 are built. The syntax and the
 runtime were first exercised with throwaway stand-ins; Part 3 says exactly what was
 run and what was not. Integration facts were checked against knitr 1.51 and
 Quarto 1.11.9 (Pandoc 3.10) on macOS.
@@ -60,7 +60,9 @@ the rules here.
 [PROSE]{ATTRS}         a span
 ```
 
-**1.1.2** Code spans and attribute values hold R. Brackets hold prose.
+**1.1.2** Code spans and attribute values hold R. Brackets hold prose. A
+value from another language reaches them through R, by a guest read
+(2.12.2) or `jl_value()` (2.12.15).
 
 **1.1.3** The exception to 1.1.2 is wording that a function prints: the closed
 set of function words in the formatters and phrase functions ("and", "of
@@ -110,7 +112,8 @@ about constructs. A weft function called in it behaves as it does anywhere: a
 counts as a value for the numeral rule (5.2.1). It is recorded in the ledger
 (7.1.2),
 and the gate counts it when it is removed (6.3.1), because it prints a value
-in the document.
+in the document. A guest read in a bare value is read by 2.12.2, and a
+`jl_value()` call by 2.12.15.
 
 ### 1.2 The attribute block
 
@@ -202,7 +205,8 @@ reaches a formatter, a governor or a phrase function (§3.5). A value of
 length zero is not missing where the construct says what to print for it: a
 `none` key on a collapsed value (1.4.14), or a `list` span (1.5.19). `NULL` is
 missing even there. A bare value with no attribute block still prints as stock
-knitr prints it (1.3.1).
+knitr prints it (1.3.1). What is missing in another language is given by
+1.11.7.
 
 ```
 Mean depth was `r depth`{.num} m.      depth is NA   →   <<weft: no value, line 88>>
@@ -327,7 +331,13 @@ does not: a setting copied from the project default is not given. The check
 reaches every construct and call that prints a number under the default
 digits: `.num`, `.pct`, `.range`, `.pairs`, and the phrase functions `ci()`
 and `pm()` (3.5.1). It does not reach `.sci`, a project formatter, `about()`
-or `of_n()`.
+or `of_n()`. A number that is an integer of magnitude at most 2^53 prints
+every digit exactly, under any `digits`: `999999999999999` prints
+"999,999,999,999,999", and `2^53` with `digits="2"` prints
+"9,007,199,254,740,992.00". `sigfig` still rounds: `2^53` with
+`sigfig="3"` prints "9,010,000,000,000,000". A larger number is read to 15
+significant digits, so its digits after the fifteenth print as zeros: `2^70`
+prints "1,180,591,620,717,410,000,000", and `1e23` prints as written.
 
 **1.4.14** `none` is the text printed when a value with a collapse class
 (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) is an atomic vector of length
@@ -853,6 +863,66 @@ chunk prints with `results: asis` is not prose the hooks see; it goes through
 **1.10.11** In a book or a website project, a construct in a document's
 `title`, in either metadata block, is a construct error found from the source.
 
+### 1.11 Typed values
+
+These rules are language-neutral. Under knitr, R is their only carrier: a
+value from another language is read into a typed value, and the typed value
+becomes one R form (2.12.5). From then on R's rules apply unchanged.
+
+**1.11.1** A value that comes from another language is a **typed value**:
+exactly one of bool, integer, float, decimal, string, date, list, or
+missing. Anything else is a value error that names the value's type in its
+language.
+
+**1.11.2** An integer is a whole number, held exactly. A float is an IEEE
+double. A carrier that cannot hold a value exactly refuses it with a value
+error; it never rounds it. (R holds integers exactly up to ±2^53, 2.12.5.)
+
+**1.11.3** A decimal is an exact decimal number. 1.4.13 rounds it on the
+number as written.
+
+**1.11.4** A list is a flat, ordered sequence whose elements are missing or
+of one kind among bool, integer, float, decimal, string and date. Integers
+with floats are floats; integers with decimals are decimals; any other mix
+is a value error, and so is an element that is itself a list, a set, a
+mapping or an array. An unordered collection (a set) is a value error. A
+mapping whose keys are all strings is a list with names, in the mapping's
+order; other keys are a value error.
+
+**1.11.5** A string is text. Text from data is not escaped (1.4.10). Text
+that is not valid UTF-8 is a value error.
+
+**1.11.6** A date is a calendar date with no time and no zone. A date with a
+time is a value error: the author converts it in the source language, in
+the zone they mean.
+
+**1.11.7** What is missing, by language:
+
+| Language | Missing |
+|---|---|
+| R | `NA` of any type, `NaN`, `Inf`, `-Inf`, `NULL`, and length zero (1.3.4) |
+| Python | `None`, a float NaN or infinity (numpy's too), `Decimal` NaN and infinity, `pandas.NA`, `pandas.NaT`, `numpy.datetime64('NaT')` |
+| Julia | `nothing`, `missing`, and `NaN`, `Inf`, `-Inf` of any float type |
+| JavaScript | `null`, `undefined`, `NaN`, `Infinity` |
+
+An empty list is not missing; it is a list of length zero, and 1.3.4 says
+where length zero is missing.
+
+**1.11.8** No truthiness. An `if` condition is a bool. Any other kind, an
+empty list, a list of one bool, `0`, `1`, `""` and `"false"` included, is a
+value error, not false. A missing condition is "no value".
+
+**1.11.9** An `n` or `sign` governor is an integer, a float or a decimal. A
+bool is not a number, and a list of one number is not a number.
+
+**1.11.10** A `list` span takes a list.
+
+**1.11.11** No carrier reads a language's printed form of a value. The kind
+comes from the value's type.
+
+For an R value, 1.3.4 and §1.5 are these rules as R states them: R has no
+difference between a value and a vector of one.
+
 ---
 
 ## 2. Runtime
@@ -1176,7 +1246,8 @@ so an error in an included file names that file.
 **2.8.1** The `evaluate` wrapper logs every warning, message and error a chunk
 raises, with the chunk label and the source expression. It then removes from
 the output exactly what the author's `warning:` and `message:` settings would
-have removed. The rendered document is identical to a stock render.
+have removed. The rendered document is identical to a stock render. For a
+Python chunk, 2.12.10; for a Julia chunk, 2.12.18.
 
 **2.8.2** A condition raised by a value in prose is caught where the value is
 evaluated and logged with its line. It never appears in the document.
@@ -1262,6 +1333,206 @@ positions that point into the YAML.
 **2.11.1** The hooks run before Pandoc, and do not depend on the output
 format.
 
+### 2.12 Guest languages under knitr
+
+**2.12.1** In an `.Rmd`, and in a `.qmd` with `engine: knitr`, Python chunks
+run through reticulate (knitr's default python engine) and Julia chunks
+through JuliaCall (knitr's julia engine). R is the host: expressions in prose
+are R (1.1.2), and a value from another language reaches prose through R.
+weft supports reticulate's engine only: with `python.reticulate = FALSE` each
+chunk is a separate Python process, and a guest read finds no name. A `.qmd`
+that Quarto runs with its Jupyter or julia engine is not a weft document
+(9.2.8, 5.8 rule 9).
+
+**2.12.2** A **guest read** is `py$name`, `py[["name"]]` with a literal
+string, a chain of them (`py$cfg$depth`), the same with `reticulate::py`, or
+`py_value(...)` and `weft::py_value(...)`. In an expression weft evaluates (a
+value, a bare value, a governor, a caption construct on an R chunk, a
+`weft_str()` string) every guest read is read by §1.11, whole, from its first
+step to its last, not by reticulate's conversion. What R then does with the R
+form is R's: `py$x[1]`, `length(py$sites)`, `py$slope > 0`. `py` is Python's
+main module unless the expression's environment binds `py` to something
+else, in which case the expression is evaluated as it is. A call whose
+function is a guest read (`py$f(2)`) is reticulate's. An expression with no
+guest read evaluates exactly as it would without this rule.
+
+**2.12.3** Prose needs no `library(reticulate)` and no `py` object.
+
+**2.12.4** `py_value("name", ...)` reads by §1.11 from R code. Each argument
+is one step of a path: the first names a global of Python's main module, and
+each further one is a key of a mapping, or else an attribute. A step that is
+not one non-empty string is an error: "py_value() takes names as strings:
+py_value("n")." An argument that is not a literal is evaluated, and the read
+uses the name it gives; messages show the call with that name. It works
+outside a knit and without `library(reticulate)`. It is the route for a value
+that R chunk code passes to prose.
+
+**2.12.5** The R form of a typed value:
+
+| Kind | R form |
+|---|---|
+| bool | `TRUE` or `FALSE` |
+| integer | an `integer` within ±(2^31−1); a `double` up to ±2^53; beyond, a value error |
+| float | a `double` |
+| decimal | the nearest `double`, for at most 15 significant digits; beyond, a value error |
+| string | a `character` of length one |
+| date | a `Date` |
+| list | an atomic vector of its kind, missing elements `NA`, names from a mapping; empty: `logical(0)` |
+| missing | `NA` |
+
+An integer list is an `integer` vector when every element is within
+±(2^31−1), else a `double` vector. A list whose elements are all missing is a
+`logical` vector of `NA`.
+
+Python's types as typed values: `bool` and `numpy.bool_` are bools, and a
+bool is never an integer; every other `int` and numpy integer is an integer;
+`float` and the numpy floats are floats, widened exactly to a double;
+`decimal.Decimal` is a decimal; `str` and `numpy.str_` are strings;
+`datetime.date` and a `numpy.datetime64` in days are dates; `list`, `tuple`,
+a one-dimensional numpy array and `pandas.Series` are lists; a mapping is a
+list with names; a numpy array of no dimensions is its element.
+`datetime.datetime`, `pandas.Timestamp` and a `numpy.datetime64` in any other
+unit, `set` and `frozenset`, numpy arrays of two or more dimensions, and every
+other type (`complex`, `bytes`, `fractions.Fraction`, `pandas.DataFrame`, an
+instance of the author's class) are value errors.
+
+A refusal found on one element of a Python list names the element:
+"Element 2 of `py$xs` is a Python complex, ...". An integer element beyond
+±2^53, or a decimal element of more than 15 significant digits, is refused
+with a message that names the read and shows the digits, with no index. A
+refusal on an element of a Julia vector names the read and the element's
+Julia type, with no index.
+
+**2.12.6** A guest read that cannot be done (no reticulate, no Python, no
+such name, no such key or attribute) is an expression that cannot be
+evaluated (2.6.4). A value refused by §1.11 is an error that depends on the
+value (5.3.2). In a bare value the first stops the knit and the second is
+collected, as for any bare value. A refused read leaves no Python error
+pending, and assigns nothing in Python's main module.
+
+**2.12.7** When a governor's expression is exactly one guest read, or a
+`claim()` whose first argument is one, 1.11.8 to 1.11.10 are applied to the
+kind read, before its R form. Any other expression is judged by R's rules on
+the R form: `{if="length(py$x) > 0"}` with an empty list takes the false arm.
+
+**2.12.8** In a Python chunk the function forms are a Python module:
+`from weft import fmt_num, plural, weft_str`. It holds `fmt_num`, `fmt_pct`,
+`fmt_sci`, `fmt_p`, `fmt_date`, `fmt_no`, `fmt_word`, `fmt_count`,
+`fmt_ord`, `fmt_and`, `fmt_or`, `fmt_pairs`, `fmt_range`, `fmt_ul`,
+`fmt_ol`, `fmt_dl`, `fmt_a`, `fmt_cap`, `fmt_strong`, `fmt_em`, `plural`,
+`ci`, `pm`, `about`, `of_n` and `weft_str`. Arguments, positional and
+keyword, are read by §1.11; each function returns the text the R function
+returns, one string as a `str` and several as a `list` of `str`. A refused
+argument raises a Python exception whose message names it ("Argument 1 of
+fmt_num()", "Argument `digits` of fmt_num()"), and so does an R error. `claim`,
+`u`, `fmt_unit`, `lookup`, `brk`, `glue_vec` and the dictionary functions
+are not there. weft does not replace a module named `weft` that is already
+loaded; it warns once per R session.
+
+**2.12.9** Text a Python chunk prints with `results: asis` is not resolved,
+and the check filter catches what is left (2.5). `weft_str()` from the
+module resolves it, as 3.6 says, a failed check in it located by the chunk's
+label.
+
+**2.12.10** A warning Python shows, and an error a chunk with `error: true`
+raises, are logged as conditions of the chunk that raised them (7.4.1): text
+`{Category}: {message}` or `{ExceptionType}: {message}`. Python code that an
+R chunk runs logs on that R chunk, and code a prose expression runs logs on
+the prose source (2.8.2). The severity list applies (7.4.2). A chunk served
+from knitr's cache replays what it logged. Text printed to standard error,
+the `logging` module and warnings a filter hides are not logged.
+
+**2.12.11** A Python module whose file is in the project, loaded when a
+top-level knit ends, and a literal path given to `source_python()` or
+`py_run_file()` in R chunk code, are files the chapter read (7.2.2). A
+module under a folder named `site-packages`, `dist-packages`, `.venv`,
+`venv`, `renv`, or any folder whose name starts with `.`, is not. A knit in
+which Python never started records no module and starts no Python.
+
+**2.12.12** The code of a guest chunk is not read by the code lints, the
+reads walker or the gate, except by the rules of 5.11. Its captions hold no
+construct (2.3.5).
+
+**2.12.13** Not checked by weft: a value R chunk code takes with `py$x`
+(listed by `guest-read`); a Julia value JuliaCall converts
+(`JuliaCall::julia_eval()` in prose, listed by `guest-read`; in R chunk
+code, not listed, and it stops the knit on a whole number of 2^31 or more);
+units and dictionary entries from Python or Julia; a markup string built in
+Python code (not linted, not counted by the gate); data files a Python or
+Julia chunk reads (as for R); a module or included file that only a chunk
+served from knitr's cache loads.
+
+**2.12.14** `weft_setup()` loads no Python and does not load reticulate. When
+Python starts, when weft first reads from it, or when a knit reaches its
+first Python chunk, weft registers its Python module and its warning
+recorder, once. weft never installs Python or a Python package. When weft
+starts Python itself and `RETICULATE_USE_MANAGED_VENV` is unset, it sets it
+to `no` for that start only, so that reticulate does not make an environment
+of its own; it changes no other reticulate setting. weft's Python helpers
+live in a module of their own, not in `__main__`.
+
+**2.12.15** A Julia value reaches prose through `jl_value("name", ...)`,
+an R function that means the same in prose, in R code and at the console.
+The first argument names a global of Julia's `Main`; each further one is a
+key of a dictionary (a `String` key, else a `Symbol` key) or else a field or
+property. Only the last value is read by §1.11, so a dictionary may sit on
+the path. The value is read inside Julia, never by JuliaCall's conversion.
+There is no `jl` object, and weft rewrites no expression. In an attribute
+value the argument takes single quotes: `{if="jl_value('ok')"}`. A step that
+is not one non-empty string is an error: "jl_value() takes names as
+strings: jl_value("n")." 2.12.6 applies to it as to a guest read.
+
+**2.12.16** Julia's types as typed values: `Bool` is a bool; every other
+`Integer` (`UInt8` and `BigInt` included) an integer; `Float16`, `Float32`
+and `Float64` floats, widened exactly to a double; a valid `AbstractString`,
+`Char` or `Symbol` a string; `Dates.Date` a date; `missing`, `nothing`, and
+`NaN`, `Inf` and `-Inf` of any float type are missing; a one-dimensional
+array (a range included) or a `Tuple` a list; a `NamedTuple` a list with
+names; an array of no dimensions its element. Julia has no decimal kind.
+`Rational`, `Irrational` and `BigFloat` are value errors (convert with
+`Float64()`), as are `DateTime`, every dictionary and set (no order, an
+`OrderedDict` included), arrays of two or more dimensions, text that is not
+valid UTF-8, and every other type (`Complex`, a function, a `DataFrame`, an
+instance of the author's `struct`). The container's element type does not
+matter: `Any[1, 2]` is an integer list.
+
+**2.12.17** When a governor's expression is exactly one `jl_value()` call,
+or a `claim()` whose first argument is one, 1.11.8 to 1.11.10 are applied to
+the kind read.
+
+**2.12.18** A Julia `@warn` or `@error` record received while a knit runs
+is logged as a condition (class `warning` or `error`, text the message) of
+the chunk, R chunk or prose that raised it, a Julia chunk owning what the
+files it includes raise (7.4.1); the severity list applies (7.4.2). A record
+with `maxlog = k` is logged at most k times in the R session. Julia still
+prints the record to standard error, never into the document. `@info`,
+`@debug`, standard error, and records that a chunk's own logger takes are
+not logged; a chunk that replaces Julia's global logger ends the recording
+for the session, and Julia code run before weft has registered (2.12.21) is
+not logged. A chunk served from knitr's cache replays what it logged. A
+Julia error stops the knit, with or without `error: true`, and so does a
+chunk whose last line's value is a scalar `missing` (end it with `;`).
+
+**2.12.19** A file that Julia's `include()` has loaded from the project since
+weft registered, and a literal path given to `julia_source()` in R chunk
+code, are files the chapter read (7.2.2). The folders that 2.12.11 leaves out
+are left out here too. A file a package loads through `using` is not
+recorded. A knit in which Julia never started records no file and starts no
+Julia.
+
+**2.12.20** weft offers no function forms from Julia. Julia code that calls
+an R function through RCall gets RCall's conversion. Text a Julia chunk
+prints with `results: asis` is not resolved, and the check filter catches
+what is left (2.5).
+
+**2.12.21** weft never installs Julia or a Julia package, and
+`weft_setup()` loads no JuliaCall. When a knit reaches its first Julia
+chunk, or when weft first reads from Julia, weft starts Julia if it is not
+running (with JuliaCall's `installJulia = FALSE` and `install = FALSE`, and
+the chunk's `engine.path` as Julia's home when it names one) and defines one
+module, `WeftGuest`, in Julia's `Main`, once per R session. It assigns
+nothing else there.
+
 ---
 
 ## 3. Functions
@@ -1342,6 +1613,8 @@ as a span's does, with the unit of a quantity (4.4.4).
 
 **3.2.3** `if` and `sign` spans have no function. In R code an `if` is R's
 own, and a `sign` span is written as markup in a `weft_str()` string.
+
+**3.2.4** From a Python chunk the function forms are a module (2.12.8).
 
 ### 3.3 `lookup()` and `brk()`
 
@@ -1502,6 +1775,9 @@ During a knit, a failed check in it is collected as one in a paragraph is
 (2.4.1). Outside a knit it stops at once. It reads the configuration as a knit
 does: a configuration error is raised, and it never prints with half a
 configuration.
+
+**3.6.4** From a Python chunk, `weft_str()` is in the module (2.12.8). The
+expressions in its markup are R.
 
 ### 3.7 `arms()` and `rehearse()`
 
@@ -2670,7 +2946,7 @@ counts (6.2.3), a message that ends with the rule number, and a hint. Rows
 that agree in file, line, column, rule, text and message are one.
 `lint_rules()` lists the ids, rule numbers, tiers and scopes (`file` or
 `project`). The ids are given in this chapter, and the rule numbers in the
-tables of 5.3.3 and 5.8 are the ones `lint_rules()` cites.
+tables of 5.3.3, 5.8 and 5.11 are the ones `lint_rules()` cites.
 
 **5.1.2** Every lint and check declares a tier.
 
@@ -2691,7 +2967,8 @@ math, link target, raw block. There are two exceptions. A citation bracket is
 recognised by pattern (2.10.4), and the pattern leaves a bracket that is
 followed by an attribute block to be a span, whose text is prose. The numeral
 rule reads math (5.2.6). Code rules read executed R chunks only: a chunk with
-`eval: false` or another engine gives nothing. A pipe (`|>` or `%>%`) is read
+`eval: false` or another engine gives nothing. The code of a guest chunk is
+read only by rules 5.11.2 and 5.11.4. A pipe (`|>` or `%>%`) is read
 as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`.
 
 **5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
@@ -3016,6 +3293,27 @@ comment.
   the whole project is linted.
 - Rules 2, 3, 6 and 7 read executed R chunks, inline expressions and governor
   expressions, and read a piped call as the call it makes (5.1.4).
+- Rule 9: the message says why, by case. For `a.qmd`:
+  1. Front matter with an `engine:` other than `knitr`, or a `jupyter:` key:
+     "a.qmd holds weft constructs and is marked `engine: jupyter`; weft
+     constructs are evaluated only under `engine: knitr` (rule 5.8.9).",
+     naming the key and its value as written. Hint: "Change it to
+     `engine: knitr`. Python chunks then run through reticulate, and a
+     Python value reaches prose as `r py$x`." For `engine: julia` the hint
+     names Julia, JuliaCall and `` `r jl_value("x")` ``.
+  2. Otherwise, no executed `{r}` chunk and a Python chunk: "a.qmd holds
+     weft constructs and Python chunks but is not marked `engine: knitr`, so
+     Quarto would run it with Jupyter, which does not evaluate weft
+     constructs (rule 5.8.9)." Hint: "Add `engine: knitr` to its front
+     matter. Python chunks then run through reticulate, and a Python value
+     reaches prose as `r py$x`."
+  3. Otherwise, no executed `{r}` chunk and a Julia chunk: the same, with
+     "Julia chunks" and "its julia engine". Hint: "Add `engine: knitr` to
+     its front matter. Julia chunks then run through JuliaCall, and a Julia
+     value reaches prose as `r jl_value("x")`."
+  4. Otherwise: "a.qmd holds weft constructs but is not marked
+     `engine: knitr` and no document includes it (rule 5.8.9)." Hint: "Add
+     `engine: knitr` to its front matter."
 
 ### 5.9 Figures and tables
 
@@ -3042,6 +3340,72 @@ letter. A project can configure the list to fail the render. This is a
 knit-time list and the one exception to 5.1.5: it covers every value in the
 document, not only added material, because whether a value opens a sentence
 with a digit depends on what it prints.
+
+### 5.11 Guest languages and reactive values
+
+| # | Id | Rule | Tier |
+|---|---|---|---|
+| 1 | `guest-inline` | no inline code in another language in the prose of a document that knitr knits | 1 |
+| 2 | `guest-call` | no weft function called from a Python chunk through reticulate's `r` object | 1 |
+| 3 | `guest-read` | a value read from Python or Julia that weft does not check is listed | 2 |
+| 4 | `ojs-value` | an Observable value in a `.qmd` is listed | 2 |
+
+All four have scope `file`.
+
+- Rule 1: a document that knitr knits is an `.Rmd`, or a `.qmd` with
+  `engine: knitr` in its own front matter, or with an executed `{r}` chunk
+  and no `engine:` or `jupyter:` key. In its prose, a code span whose text
+  starts `{LANG}` and a space, where `LANG` matches `[A-Za-z][A-Za-z0-9_]*`
+  and is not `r`, `R` or `ojs`, is a finding, its text the code span as
+  written; an attribute block after it changes nothing. Not a finding inside
+  a fenced code block or a `.weft-literal` span or div. Messages:
+  "`{python} depth` is inline Python, which the knitr engine does not run:
+  it would print as code. Bind the value to a name in a Python chunk and
+  write `r py$name` (rule 5.11.1)."; for Julia, "`{julia} depth` is inline
+  Julia, ... Bind the value to a name in a Julia chunk and write
+  `r jl_value("name")` (rule 5.11.1)."; for another language, "`{bash} x`
+  is inline bash code, which the knitr engine does not run: it would print
+  as code (rule 5.11.1)." Hint: "A value from another language reaches prose
+  through R; see vignette("languages", package = "weft")."
+- Rule 2: in the code of an executed Python chunk, a call `r.NAME(` where
+  `NAME` is a function of the module of 2.12.8, or `claim`, not preceded by
+  a letter, a digit, `_` or `.`, on a line whose first non-blank character is
+  not `#`. The finding is at `r.`, its text `r.NAME(`. A match inside a
+  Python string is a finding too: the rule does not parse Python. Message:
+  "`r.fmt_num()` passes its arguments through reticulate, which can turn a
+  Python int into a wrong number with no error. Write `from weft import
+  fmt_num` and call `fmt_num()` (rule 5.11.2)."; for `r.claim(`,
+  "`claim()` cannot be called from Python: a check is written in R, in
+  prose, as `r claim(py$n, . > 10)` (rule 5.11.2)." `r.depth`, an R value
+  read from Python, is not a finding.
+- Rule 3: in the code of an executed R chunk, each outermost `py$...` or
+  `py[[...]]` read (with or without `reticulate::`) whose `py` is a symbol,
+  except the target of an assignment: "`py$n` in R code is converted by
+  reticulate, which can turn a Python int into a wrong number with no error.
+  For a value that reaches prose, read it with py_value("n") (rule
+  5.11.3).", the `py_value()` call showing the read's path as strings. In an
+  expression weft evaluates (2.12.2), a call of `py_eval`, `py_to_r`,
+  `py_get_attr`, `py_call` or `import_main`, or of a read (`py$f(2)`):
+  "`py_eval("x")` is converted by reticulate, which weft does not check
+  (rule 5.11.3)."; and a call of `julia_eval` or `julia_call`:
+  "`JuliaCall::julia_eval("x")` is converted by JuliaCall, which stops on a
+  whole number beyond ±2^31 and crashes R on a Julia missing. Read a Julia
+  value with jl_value() (rule 5.11.3)." Each with or without its package
+  prefix, the text quoted as written. `jl_value()` is not a finding, and a
+  JuliaCall call in R chunk code is not listed.
+- Rule 4: in a `.qmd`, a code span in prose whose text starts `{ojs}` and a
+  space, and, in the code of an `{ojs}` chunk, each `${` inside a template
+  literal tagged `md` or `html`. Not a finding inside a `.weft-literal` span
+  or div, nor in an `.Rmd`. Messages: "`{ojs} total` is computed in the
+  reader's browser after weft's checks have run, so weft cannot vouch for it
+  (rule 5.11.4)."; for a template, "`${total}` in an Observable template is
+  computed in the reader's browser after weft's checks have run, so weft
+  cannot vouch for it (rule 5.11.4)." Hint: "Compute the value when the
+  document renders, in R or Python, and print it as a weft value; or mark
+  the text [...]{.weft-literal why="..."}."
+- Findings of rules 1 and 2 are tier-1 findings for the gate like any other
+  (6.2). A `weft_str('...')` call in Python chunk code is not read: its
+  constructs are not counted (6.3.1) and its prose is not linted.
 
 ---
 
@@ -3339,8 +3703,10 @@ three are objects, always present, with names sorted. They are found in a
 top-level knit of a set-up project, from the code of every chunk that runs
 (children and cached chunks included, and the chunk that calls `weft_setup()`)
 and of every entry, with the functions it calls followed. The header's files are the source, every file an entry is
-written in, every child, and every file a literal `source()` or `sys.source()`
-names. A target is read by `tar_read()`, `tar_read_raw()`, `tar_load()` and
+written in, every child, every file a literal `source()` or `sys.source()`
+names, every Python module of 2.12.11, and every Julia file of 2.12.19. The
+code of a chunk whose engine is not R adds no target, entry or file: a Python
+chunk `x = tar_read("fit")` reads no target. A target is read by `tar_read()`, `tar_read_raw()`, `tar_load()` and
 `tar_load_raw()` with a literal name (a symbol or a string), and is recorded
 under the store it is read from: a literal `store`, else the knit's configured
 store. A function of the author's, in the knit's environment, whose body passes
@@ -3450,9 +3816,11 @@ nothing else.
 ### 7.4 Conditions
 
 **7.4.1** The condition log is machine-written and committed. It sits beside
-the ledger, one file for each ledger file. It has four sources:
+the ledger, one file for each ledger file. It has five sources:
 
 - chunk conditions, from the `evaluate` hook (2.8.1)
+- warnings and errors from Python chunks (2.12.10), and Julia's `@warn` and
+  `@error` records (2.12.18)
 - conditions raised by values in prose (2.8.2)
 - for a chunk served from knitr's cache, the conditions logged when it was
   computed, stored under the chunk's cache hash and replayed
@@ -3699,8 +4067,12 @@ governor_class: .num   # 1.5.18
 pct_proportion: true
 count_threshold: 10
 word_limit: 100
-draft: false
+draft: false           # 9.4.4: true or false
 ledger: true           # false turns the ledger and the condition log off (9.1.9)
+date_format: "%-d %B %Y"   # .date: strftime codes; %-d and %-m print no leading zero, names in English (1.6.8)
+ci_level: 0.95         # 3.5.3: the default level of ci(); at least 0 and below 1
+about_tolerance: 0.05  # 3.5.3: the default tolerance of about(); from 0 to 1
+sentence_start_fail: false   # 5.10.1: true makes the sentence-start list fail the render
 unit_form: auto        # auto, symbol or name (4.4.15)
 unit_defaults: weft    # weft or si (4.4.21)
 units: {}              # 9.1.7
@@ -3718,7 +4090,10 @@ verify_skip: []        # 8.1.4: parts of verify() switched off: lints, decisions
 weft_version: null     # 9.5.4: the weft version that set the project up
 ```
 
-A wrong value for `label_words`, `numeral_years`, `claim_words`, `claim_cap`,
+A `date_format` that is not one string, a `ci_level` or `about_tolerance`
+outside its range, and a `sentence_start_fail` that is not `true` or `false`
+are errors when the configuration is read, each naming the setting. A wrong
+value for `label_words`, `numeral_years`, `claim_words`, `claim_cap`,
 `guard_words`, `expected_names`, `strict`, `verify_skip` or `weft_version` is a
 `weft_config_error` naming the setting and the rule. `strict` takes the ids of
 tier-1 rules (`lint_rules()` lists them); an id that is not a rule is an
@@ -3883,8 +4258,10 @@ falls back to a read of the tables.
 in its own front matter, and the activating call, `weft::weft_setup()`, by one
 of the routes of 9.2.1. `use_setup()` writes both. `engine: knitr` in
 `_quarto.yml` or `_metadata.yml` does not count. Under rmarkdown an `.Rmd` is
-always knit, so the activating call is enough there. The smallest weft
-document activates from its front matter:
+always knit, so the activating call is enough there. A `.qmd` whose chunks
+are all Python or Julia is a weft document the same way, with `engine:
+knitr` (2.12.1); `use_setup()` adds the line to one that holds a construct
+(9.3.5). The smallest weft document activates from its front matter:
 
 ```yaml
 ---
@@ -3943,7 +4320,7 @@ says what it will write before it writes it.
 | Function | Writes |
 |---|---|
 | `use_weft()` | everything below except `dict_vale()`, with a summary first (9.3.6) |
-| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`; `_weft.yml`, with the `weft_version` line; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
+| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`, and leaving a `.qmd` that holds only another engine's chunks unless it holds a construct (9.3.5); `_weft.yml`, with the `weft_version` line; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
 | `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
 | `use_hooks()` | the `commit-msg` hook, with the path of R and its libraries (6.1.5) |
 | `use_ci()` | the CI workflow, at the top of the repository (8.4.1) |
@@ -4005,8 +4382,12 @@ takes a folder or one `.qmd`, `.Rmd` or `.rmd` file. A folder with a
 set of single documents. It writes the files of the `use_setup()` row of 9.3.1.
 A new `_weft.yml` holds a comment and a `weft_version:` line; one that lacks the
 line gains it, and an existing line is left as it is (9.5.4). A `.qmd` with no
-front matter gains `---`, `engine: knitr`, `---` as its first lines, and one
-that holds only another engine's chunks keeps its engine. Under rmarkdown, a
+front matter gains `---`, `engine: knitr`, `---` as its first lines. One that
+holds only another engine's chunks keeps its engine, unless it holds a weft
+construct (a scanner row other than a bare value, a link or a literal) and
+has no `engine:` or `jupyter:` key: then it gains `engine: knitr` (2.12.1),
+since its constructs would not be evaluated otherwise. `status()` flags
+exactly the files `use_setup()` would change. Under rmarkdown, a
 `weft-check.lua` is copied beside the document, replaced when it differs, and
 named under each format of `output:`; with no `output:` one is written. Front
 matter is edited as text and checked by parsing it again. When an edit cannot
@@ -4085,7 +4466,7 @@ installed up to date. It returns, invisibly, the paths it wrote.
 ### 9.4 Draft mode
 
 **9.4.1** Draft mode is `draft: true` in the configuration, or the environment
-variable `WEFT_DRAFT=1`.
+variable `WEFT_DRAFT=1` (or `true`, 9.4.4).
 
 **9.4.2** In draft mode nothing fails the render. The markers appear in the
 output, the failures are listed in the knit log, the ledger is written with
@@ -4101,6 +4482,11 @@ not parse (5.3.5), because knitr stops on it before any hook runs. The
 `weft-check` filter reads the same setting, and reports instead of
 exiting. The commit hook is not affected by draft mode, and `verify()`
 refuses to run in it (8.1.5).
+
+**9.4.4** `draft:` accepts only `true` or `false`; `WEFT_DRAFT` accepts
+`true` or `1`, and `false`. Any other value is a configuration error, naming
+the setting, when the knit reads the configuration (9.1.3); the `weft-check`
+filter and the post-render script read the same forms.
 
 ### 9.5 Adoption helpers
 
@@ -5580,6 +5966,17 @@ one function they share.
 - **Install itself.** P10.
 - **Complete weft's names in an editor.** Completion of weft's classes and
   keys is a possible later addition. It is not in scope.
+- **Run under the Jupyter or julia engines.** weft works inside knitr; a
+  `.qmd` that Quarto runs with another engine is not a weft document
+  (2.12.1). A formatter written in Lua, which such a document would need, is
+  not built.
+- **Units and the dictionary in another language.** `u()`, `fmt_unit()` and
+  `dict` stay in R; no Python or Julia value carries a unit.
+- **`claim()` in Python.** A check is R, in prose.
+- **Function forms from Julia.** There is no Julia module of weft's
+  functions (2.12.20).
+- **A Julia `OrderedDict`.** It is refused with every dictionary (2.12.16)
+  until an author asks and a test environment has the package.
 
 ## 17. One package, two parts
 
@@ -5909,6 +6306,13 @@ names Windows cannot hold); `verify()` after an R error part-way through a rende
 (Q3); the Render and Knit buttons, chunks run interactively and a real renv
 library under the `.Rprofile` route (Q2); and edits taken from a real
 manuscript's history (Q18).
+
+**Stage 5 not run.** Python 3.15.0 with reticulate 1.43.0, and Julia 1.13.3
+with JuliaCall 0.17.6, ran on the developer's machine only. The check
+workflow (`.github/workflows/R-CMD-check.yaml`) sets both up and has not yet
+run. Jupyter was not run. numpy and pandas ran only in a temporary
+environment. A Julia `OrderedDict` could not be tested: OrderedCollections
+does not import in the default environment.
 
 **git operations.** The hook was run under `git commit --amend`, a merge,
 `git cherry-pick` and `git rebase` in a scratch repository. Git runs it
@@ -6284,6 +6688,20 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   found only in the global environment, and a function that cannot be found.
 - **Condition matching.** The spike's recorded messages, each under two
   console widths, with and without `cli` Unicode.
+- **Guest languages (stage 5).** `test-format-exact.R` (whole numbers to
+  2^53, 1.4.13); `test-conformance.R` (a fixed corpus of values and their
+  printed text, in `_conformance/`). For Python: `test-guest-types.R` (each
+  type through `py_value()`, every refusal's message, numpy and pandas when
+  they import), `test-guest-prose.R`, `test-guest-governors.R`,
+  `test-guest-setup.R`, `test-guest-forms.R`, `test-guest-conditions.R`,
+  `test-guest-reads.R`. For Julia: `test-julia-types.R`,
+  `test-julia-prose.R`, `test-julia-governors.R`, `test-julia-conditions.R`,
+  `test-julia-reads.R`. The lints, which need neither language:
+  `test-lint-guest.R`, `test-lint-engine-guest.R`, `test-use-setup-guest.R`,
+  `test-lint-ojs.R`, `test-lint-julia.R`. The Python and Julia tests skip
+  only when reticulate or JuliaCall is not installed or cannot start its
+  language; a case that needs a fresh process runs in one `Rscript` per
+  file, since Julia cannot be restarted in a process.
 
 ## 22. Build order
 
@@ -6412,7 +6830,25 @@ Stage 2 comes before stage 3 because the numerals rule sends constants to the
 dictionary: the lint cannot be switched on until there is somewhere for them
 to go.
 
-**Planned, after stage 4.** Neither is in a stage.
+**Stage 5. Python and Julia chunks.** Built, to `dev/design-5.md`.
+
+- 5a: whole numbers up to 2^53 print exactly (1.4.13); 5h: the conformance
+  table
+- 5b: typed values (§1.11) and guest reads of Python values, `py_value()`,
+  and the governor checks (2.12.2 to 2.12.7)
+- 5c: registration when Python starts, and the Python module of function
+  forms (2.12.8, 2.12.9, 2.12.14)
+- 5d: Python warnings and errors in the condition log, Python modules in the
+  ledger's reads, and a reads walker that reads R chunks only (2.12.10,
+  2.12.11)
+- 5e and 5f: the lints of 5.11, the `engine` message by case (5.8 rule 9),
+  and `use_setup()` on a Python-only `.qmd` (9.3.5)
+- 5J-a and 5J-b: `jl_value()`, Julia's types, its warnings and its included
+  files (2.12.15 to 2.12.21)
+- 5g: the article `vignette("languages", package = "weft")`, and a check
+  workflow that sets up Python and Julia
+
+**Planned, after stage 5.** Neither is in a stage.
 
 - `drange()` and `dur()` (3.5.6): both need calendar arithmetic and a decision
   on date order.

@@ -638,3 +638,27 @@ Chosen, in one line each:
 - **V16** an Observable JS lint (tier 2) is in, as the last package.
 
 To undo: each V row of `dev/design-5.md` §3 names the place to change.
+
+## 69. The spec is brought up to decision 68 (13 Nov)
+
+`dev/PACKAGE-SCOPING.md` now says what stage 5 built. It gains section
+1.11 (typed values), section 2.12 (guest languages under knitr, Julia
+in 2.12.15 to 2.12.21) and the lint table 5.11 (`guest-inline`,
+`guest-call`, `guest-read`, `ojs-value`), taken from section 6 of
+`dev/design-5.md` as corrected by its rulings and "as built" notes:
+digits after the fifteenth print as zeros (1.4.13); `NaN` and `Inf`
+are missing for Julia; a refusal on one element of a Python list says
+"Element N of ...", while M1, M2 and every Julia element refusal name
+the read with no index; weft sets `RETICULATE_USE_MANAGED_VENV=no` for
+its own start of Python only when the variable is unset (2.12.14);
+`py_value()` with a non-literal argument reads the name it evaluates
+to. Amended: 1.1.2, 1.1.8, 1.3.4, 1.4.13, 2.8.1, 3.2.4 and 3.6.4 (new),
+5.1.1, 5.1.4, the notes of 5.8 rule 9 (the `engine` message by case,
+with the Julia hints), 7.2.2, 7.4.1 (a fifth source), 9.2.8, 9.3.1 and
+9.3.5 (`use_setup()` on a Python-only `.qmd` with a construct), §16,
+§19, §21 and §22 (stage 5). Two items from the documentation and the
+first code review are folded in too: the settings `date_format`,
+`ci_level`, `about_tolerance` and `sentence_start_fail` join the key
+list of 9.1.5, and 9.4.4 states the draft rule (`draft:` takes `true`
+or `false`; `WEFT_DRAFT` takes `true` or `1`, and `false`). To
+reverse: the spec text only; no code changed.

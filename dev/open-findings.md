@@ -299,9 +299,9 @@ To be fixed with the per-area behaviour fixes, each with a test first.
    5.3.3 says such a condition probably wants `sign`.
 5. A failure on an empty two-arm `list` prints "add a first arm for the
    empty case" twice.
-6. `about_tolerance`, `ci_level`, `date_format` and
-   `sentence_start_fail` are settings in `R/config.R` and are missing
-   from the key list in spec 9.1.5.
+6. Done (decision 69): `about_tolerance`, `ci_level`, `date_format`
+   and `sentence_start_fail` are settings in `R/config.R` and were
+   missing from the key list in spec 9.1.5.
 7. `use_agent_docs()` on an edited skill prints "the agent documents is
    already set up".
 8. Untested: whether lint settings (`label_words`, `strict`) take
