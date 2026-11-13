@@ -354,3 +354,11 @@ To be fixed with the per-area behaviour fixes, each with a test first.
    should widen.
 6. The `.weft/run` search looks in the document's folder and up to 8
    parents; the Python and Julia packages (6e, 6h) must match.
+7. `.sci` is inconsistent on whole mantissas: 1e10 prints
+   "1 x 10^10" but 999000 and 99999 print "1.0 x 10^6" and
+   "1.0 x 10^5" (the mantissa rounds up to a whole number and keeps
+   its decimal). `.sci` of 0 prints "0 x 10^0". Both are in
+   `sci.tsv` as R prints them; decide and fix in `R/format.R` first.
+8. `conformance_record()` (item 3) is replaced: the tables' `record`
+   column now comes from `values_record()`. The old maker typed Dates
+   as float.
