@@ -355,14 +355,16 @@ test_that("4c G3: a full verify() with a render writes nothing outside the proje
 
 # ---- G30: the run id ---------------------------------------------------------------------------------
 
-test_that("4c G30: run_id() returns WEFT_RUN when it is set, else what .weft/run holds", {
+# Stage 6 ruling 17: every reader takes `.weft/run` first and WEFT_RUN only
+# when no file holds a run, so the stamp and the published block agree.
+test_that("4c G30: run_id() returns what .weft/run holds, else WEFT_RUN", {
   root <- lint_proj(list(".weft/run" = "run-from-file"), weft_yml = "draft: false")
   withr::local_envvar(WEFT_RUN = NA)
   expect_identical(trimws(weft:::run_id(root)), "run-from-file")
   withr::local_envvar(WEFT_RUN = "verify-20260101000000-1")
-  expect_identical(trimws(weft:::run_id(root)), "verify-20260101000000-1")
-  withr::local_envvar(WEFT_RUN = "")
   expect_identical(trimws(weft:::run_id(root)), "run-from-file")
+  bare <- lint_proj(list(), weft_yml = "draft: false")
+  expect_identical(trimws(weft:::run_id(bare)), "verify-20260101000000-1")
 })
 
 # ---- real Quarto: a passing project (shared render) ---------------------------------------------------

@@ -17,6 +17,8 @@ test_that("sweep A1: no system2() call in R/ passes an `env` argument", {
   expect_gt(length(files), 0L)
   seen <- 0L
   bad <- character()
+  # an empty argument, as in x[, 1], cannot be passed on
+  is_empty_arg <- function(e, i) identical(e[[i]], quote(expr = ))
   walk <- function(e, f) {
     if (is.call(e)) {
       h <- e[[1L]]
@@ -24,9 +26,11 @@ test_that("sweep A1: no system2() call in R/ passes an `env` argument", {
         seen <<- seen + 1L
         if ("env" %in% names(e)) bad <<- c(bad, basename(f))
       }
-      for (i in seq_along(e)) if (!missing(e[[i]])) walk(e[[i]], f)
+      for (i in seq_along(e)) if (!is_empty_arg(e, i)) walk(e[[i]], f)
     } else if (is.pairlist(e)) {
-      for (i in seq_along(e)) if (!is.null(e[[i]]) && !missing(e[[i]])) walk(e[[i]], f)
+      for (i in seq_along(e)) {
+        if (!is_empty_arg(e, i) && !is.null(e[[i]])) walk(e[[i]], f)
+      }
     }
   }
   for (f in files) {
