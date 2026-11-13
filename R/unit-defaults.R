@@ -144,7 +144,7 @@ unit_token_refusal <- function(tok, ctx) {
                                            "under another key (for example `zzgrade: {name: grade}`).") else
         if (tok == "mt") "Write `t` for a tonne, or `Mt` for a megatonne." else
         if (tok == "kt") paste0("Write `knot` for the knot, or define a unit of your own for the kilotonne in `units:` ",
-                                "(for example `ktonne: {is: 1000 t}`).") else
+                                "(for example `ktn: {is: 1000 t}`).") else
         sprintf(paste0("weft's default table defines it, and `%s: false` in `units:` removed that row; ",
                        "define it there with `is:` (see unit_defaults())."), tok)
       return(mk(sprintf("`%s` is read by the units package as %s. %s%s", tok, UNIT_MISREAD_LIST[[tok]], advice, si)))
@@ -278,6 +278,20 @@ ud_reading_text <- function(tok) {
     }
   }
   r <- tok_resolve_db(tok)
+  if (!r$known) {
+    # a symbol prefix on a name or symbol of the database in either kind (`k` + `tonne`), a mix
+    # tok_resolve_db() does not recognise but udunits reads
+    for (j in seq_along(db$pre_tok)) {
+      p <- db$pre_tok[j]
+      if (db$pre_kind[j] != "symbol" || nchar(tok) <= nchar(p) || !startsWith(tok, p)) next
+      rest <- substring(tok, nchar(p) + 1L)
+      if (!is.null(ud_core(rest, db))) {
+        return(sprintf(paste0("is read by the units package as the prefix `%s` (%s) on `%s`, ",
+                              "and `is` cannot define a key it already reads; choose another key"),
+                       p, db$pf$name[db$pre_idx[j]], rest))
+      }
+    }
+  }
   if (r$known && is.na(r$pre)) {
     return(sprintf("`is` cannot redefine `%s`, a unit of the units database; choose another key", tok))
   }
