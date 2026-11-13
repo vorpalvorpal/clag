@@ -47,6 +47,13 @@ jobs:
           extra-packages: any::rcmdcheck, any::reticulate, any::JuliaCall
           needs: check
 
+      # Julia 1.13.3 segfaults (exit status 139) as soon as it loads RCall
+      # on this runner's R 4.6 / Ubuntu 26.04: the libstdc++ Julia bundles
+      # is older than the one libR.so was built against. Preloading the
+      # system libstdc++ for the later steps is the standard cure.
+      - name: Preload the system libstdc++ for Julia
+        run: echo "LD_PRELOAD=$(g++ -print-file-name=libstdc++.so.6)" >> "$GITHUB_ENV"
+
       # weft and the tests start Julia with install = FALSE, so JuliaCall
       # installs its Julia package RCall here, once, before the tests.
       - name: Install RCall for JuliaCall
