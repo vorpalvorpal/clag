@@ -70,7 +70,7 @@ W6D_E4 <- function(part) {
 }
 W6D_E5 <- function(value, key) {
   extra <- switch(key, n = ", `.` or `#id`", sign = " or `#id`", list = "")
-  sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.5).", value, key, extra)
+  sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.6).", value, key, extra)
 }
 W6D_E6 <- function(id) {
   sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id of the ",

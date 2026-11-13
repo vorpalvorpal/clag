@@ -25,3 +25,15 @@ c("apples", "pears")	and	none=nobody	apples and pears	{"t":"list","v":[{"t":"str
 character(0)	or	none=nobody	nobody	{"t":"list","v":[],"of":"string","keys":null}
 numeric(0)	or	none=nobody	nobody	{"t":"list","v":[],"of":"float","keys":null}
 c("apples", "pears")	or	none=nobody	apples or pears	{"t":"list","v":[{"t":"string","v":"apples"},{"t":"string","v":"pears"}],"of":"string","keys":null}
+c(1, 2.5)	num		1, 2.5	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"2.5"}],"of":"float","keys":null}
+c(1.25, 3.5)	num		1.3, 3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(1234.5, 0.5, -3)	num		1,234.5, 0.5, −3	{"t":"list","v":[{"t":"float","v":"1234.5"},{"t":"float","v":"0.5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+1:3	num		1, 2, 3	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"2"},{"t":"int","v":"3"}],"of":"int","keys":null}
+c(1.234, 5)	num	digits=1	1.2, 5.0	{"t":"list","v":[{"t":"float","v":"1.234"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(0.15, 12.5)	pct		15%, 1,250%	{"t":"list","v":[{"t":"float","v":"0.15"},{"t":"float","v":"12.5"}],"of":"float","keys":null}
+c(25, 50, 100)	pct		2,500%, 5,000%, 10,000%	{"t":"list","v":[{"t":"float","v":"25"},{"t":"float","v":"50"},{"t":"float","v":"100"}],"of":"float","keys":null}
+c(12345, 0.000123456)	sci		1.2 × 10^4^, 1.2 × 10^−4^	{"t":"list","v":[{"t":"float","v":"12345"},{"t":"float","v":"0.000123456"}],"of":"float","keys":null}
+c(1.5e-7, 2500)	sci		1.5 × 10^−7^, 2.5 × 10^3^	{"t":"list","v":[{"t":"float","v":"1.5e-07"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.046, 0.0004)	p		p = 0.046, p < 0.001	{"t":"list","v":[{"t":"float","v":"0.046"},{"t":"float","v":"0.0004"}],"of":"float","keys":null}
+c(0.5, 0.99, 0.999)	p		p = 0.50, p = 0.99, p > 0.99	{"t":"list","v":[{"t":"float","v":"0.5"},{"t":"float","v":"0.99"},{"t":"float","v":"0.999"}],"of":"float","keys":null}
+c(0.0004, 0.0003)	num	digits=1	0.0, 0.0	{"t":"list","v":[{"t":"float","v":"0.0004"},{"t":"float","v":"0.0003"}],"of":"float","keys":null}

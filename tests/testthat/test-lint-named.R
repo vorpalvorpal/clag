@@ -139,7 +139,7 @@ test_that("N17: a named value may carry other classes and keys (pass-through); t
 
 # ---- N11, N12, E3 to E5: a span governor in a document the filter resolves --------------------------------------
 
-E3_BAD <- c("a && b", "a || b", "a & b", "a | b", "a and b", "a or b", "not a", "!x", "(a)", "a + 1 > b",
+E3_BAD <- c("a && b", "a || b", "a & b", "a | b", "a and b", "a or b", "not a", "(a)", "a + 1 > b",
             "len(x) > 2", "x[1] > 2", "0 < x < 1", "a = b", "a <> b", "x > NA", "x == NULL", "x == TRUE", "TRUE",
             "3", "x > +1", "x > .5", "x > 1_000", "x > 0x10", "x > 10L", "x > 1e")
 
@@ -176,7 +176,7 @@ test_that("N11, E4: a comparison of two literals is a construct error of its own
 })
 
 E3_GOOD <- c("ok", "n > 10", "n>10", "x <= -1.5e3", "s == 'north'", "'north' == s", "a != b", "n_gap > 10, n_sites >= 3",
-             "s == 'a,b'", "0.5 < x", "n.sites >= 3", "a == b", "ok  ", "x >= 0")
+             "s == 'a,b'", "0.5 < x", "n.sites >= 3", "a == b", "ok  ", "x >= 0", "!x", "!ok, n > 10")
 
 test_that("N9: a name, or one comparison with a name in it, with optional spaces and commas between, is no finding", {
   for (cond in E3_GOOD) {
@@ -195,7 +195,7 @@ test_that("N11 control: a knitr document's span takes an R expression, so the sa
 test_that("N12, E5: n takes a name, . or #id; anything else is a construct error quoting the value and the key", {
   for (v in c("3", "x + 1", "n()")) {
     src <- sprintf("We saw [a site | # sites]{n=\"%s\"} today.", v)
-    expect_one_construct(con6d(src), W6D_E5(v, "n"), "1.12.5", label = v)
+    expect_one_construct(con6d(src), W6D_E5(v, "n"), "1.12.6", label = v)
   }
   expect_identical(nrow(con6d(r"{We saw [a site | # sites]{n="k"} today.}")), 0L)
   expect_identical(nrow(con6d(r"{We saw [a site | # sites]{n="."} today.}")), 0L)
@@ -204,11 +204,11 @@ test_that("N12, E5: n takes a name, . or #id; anything else is a construct error
 test_that("N12, E5: sign takes a name or #id, and list a name", {
   for (v in c("3", ".", "x + 1")) {
     expect_one_construct(con6d(sprintf("The level [rose | fell]{sign=\"%s\"} again.", v)), W6D_E5(v, "sign"),
-                         "1.12.5", label = paste("sign", v))
+                         "1.12.6", label = paste("sign", v))
   }
   for (v in c("3", ".", "#d", "x + 1")) {
     expect_one_construct(con6d(sprintf("[No sites were | # was | # were]{list=\"%s\"} flagged.", v)),
-                         W6D_E5(v, "list"), "1.12.5", label = paste("list", v))
+                         W6D_E5(v, "list"), "1.12.6", label = paste("list", v))
   }
   expect_identical(nrow(con6d(r"{The level [rose | fell]{sign="d"} again.}")), 0L)
   expect_identical(nrow(con6d(r"{[No sites were | # was | # were]{list="flagged"} flagged.}")), 0L)

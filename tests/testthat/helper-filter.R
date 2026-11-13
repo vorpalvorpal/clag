@@ -250,12 +250,12 @@ fm_msg <- list(
   E4 = function(part) sprintf("`%s` compares two literals and has no name, so it is always the same (rule 1.12.4).", part),
   E5 = function(value, key) {
     extra <- switch(key, n = ", `.` or `#id`", sign = " or `#id`", list = "")
-    sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.5).", value, key, extra)
+    sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.6).", value, key, extra)
   },
   E7 = function(key, v) sprintf("`%s` must be a whole number, not negative (got `%s`).", key, v),
   E8 = function(key, v) sprintf("`%s` must be at most 100 (got `%s`).", key, v),
   E9 = function(key) sprintf("A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", key),
-  E10 = function(name) sprintf("no value is published under the name `%s` above this point (rule 1.12.6).", name),
+  E10 = function(name) sprintf("no value is published under the name `%s` above this point (rule 1.12.7).", name),
   E10_hint = function(name) sprintf("Publish it in code above: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. A cell with include: false or output: false publishes nothing on the jupyter and julia engines.", name, name, name),
   E11 = function(name, why) sprintf("`%s` is missing (%s) (rule 1.3.4).", name, why),
   E12 = function(reason) sprintf("a weft-values block that does not read: %s (rule 2.13.1).", reason),
@@ -263,8 +263,8 @@ fm_msg <- list(
   E14 = function(check, val, why = NULL) sprintf("%s was false (value %s)%s", check, val, if (is.null(why)) "" else paste0("; ", why)),
   E17 = function(c, needs, name, kind) sprintf("`.%s` needs a %s; `%s` is a %s (rule 1.4.3).", c, needs, name, kind),
   E18 = function(name, kind) sprintf("a condition must be true or false, and `%s` is a %s (rule 1.11.8).", name, kind),
-  E19 = function(part, k1, k2) sprintf("`%s` compares a %s with a %s (rule 1.12.4).", part, k1, k2),
-  E19_order = function(part) sprintf("`%s` orders two strings; strings compare only with == and != (rule 1.12.4).", part),
+  E19 = function(part, k1, k2) sprintf("`%s` compares a %s with a %s (rule 1.12.5).", part, k1, k2),
+  E19_order = function(part) sprintf("`%s` orders two strings; strings compare only with == and != (rule 1.12.5).", part),
   E20_class = function(c) sprintf("`.%s` on a named value is not available in this version of weft.lua (rule 2.13.3).", c),
   E20_key = function(key) sprintf("`%s=` on a named value is not available in this version of weft.lua (rule 2.13.3).", key),
   E21 = function(c) sprintf("`.%s` is a project formatter, which is an R function; a named value cannot use it (rule 2.13.3).", c),

@@ -192,14 +192,14 @@ test_that("E31: a record that breaks the table is read as an error record", {
 
 test_that("N17, E17: a class that needs a number, on a record of another kind, is a value error", {
   tbl <- list(
-    num_string = c("`s1`{.num}", VE), num_bool = c("`b1`{.num}", VE), num_list = c("`l1`{.num}", VE),
+    num_string = c("`s1`{.num}", VE), num_bool = c("`b1`{.num}", VE), num_list = c("`l1`{.num}", "1, 2, 3"),
     pct_date = c("`t1`{.pct}", VE), pct_string = c("`s1`{.pct}", VE)
   )
   x <- tbl_cases(tbl)
   res <- filter_cases(x$cases, list(values_block()), draft = TRUE)
   expect_cases(res, x$expected)
   msgs <- c(fm_msg$E17("num", "number", "s1", "string"), fm_msg$E17("num", "number", "b1", "bool"),
-            fm_msg$E17("num", "number", "l1", "list"), fm_msg$E17("pct", "number", "t1", "date"),
+            fm_msg$E17("pct", "number", "t1", "date"),
             fm_msg$E17("pct", "number", "s1", "string"))
   for (m in msgs) expect_true(grepl(m, res$stderr, fixed = TRUE), label = m)
 })

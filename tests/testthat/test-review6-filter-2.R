@@ -140,11 +140,11 @@ test_that("review-6 #14: .pairs on a keyed list of one prints the name and the v
   expect_cases(res, c(one = "A (1.3)", two = "A (1.2) and B (3.4)"))
 })
 
-test_that("review-6 #14 control: a list of two under .num is still E17", {
+test_that("review-6 #14 control: a list of two under .num prints element by element (parity A3)", {
   blk <- carrier(l2 = fr_list_float(c("1.5", "2.5")))
   res <- filter_cases(c(a = "A `l2`{.num} z."), list(blk), draft = TRUE)
-  expect_cases(res, c(a = paste0("A ", V2, " z.")))
-  expect_true(grepl(fm_msg$E17("num", "number", "l2", "list"), res$stderr, fixed = TRUE))
+  expect_cases(res, c(a = "A 1.5, 2.5 z."))
+  expect_false(grepl("weft", res$stderr, fixed = TRUE))
 })
 
 # ---- 17: where the run is looked for, and which source wins ---------------------------------------------------------

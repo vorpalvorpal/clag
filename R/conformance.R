@@ -186,6 +186,17 @@ conf_lists_rows <- function() {
   d <- conf_unique(d)
   fs <- list(and = fmt_and, or = fmt_or)
   d$text <- vapply(seq_len(nrow(d)), function(i) conf_text(fs[[d$classes[i]]], d$value[i], d$keys[i]), "")
+  # a vector with no collapse class under a number class prints element by element, joined by ", "
+  # (rule 1.4.10; parity item A3): made by the 6f row maker, which joins the elements
+  nc <- rbind(
+    conf_frame(c("c(1, 2.5)", "c(1.25, 3.5)", "c(1234.5, 0.5, -3)", "1:3"), "num", "", ""),
+    conf_frame("c(1.234, 5)", "num", "digits=1", ""),
+    conf_frame(c("c(0.15, 12.5)", "c(25, 50, 100)"), "pct", "", ""),
+    conf_frame(c("c(12345, 0.000123456)", "c(1.5e-7, 2500)"), "sci", "", ""),
+    conf_frame(c("c(0.046, 0.0004)", "c(0.5, 0.99, 0.999)"), "p", "", ""),
+    conf_frame("c(0.0004, 0.0003)", "num", "digits=1", ""))
+  nc$text <- vapply(seq_len(nrow(nc)), function(i) conf_row_text(nc$value[i], nc$classes[i], nc$keys[i]), "")
+  d <- rbind(d, nc)
   rownames(d) <- NULL
   conf_add_records(d)
 }
@@ -275,6 +286,19 @@ conf_dates_rows <- function() {
                conf_frame(vecs, "date and", "", ""), conf_frame(vecs, "date or", "", ""),
                conf_frame(vecs[2], "date and", "sep=;%20", ""),
                conf_frame(vecs[2], "date and", "cfg.serial_comma=true", ""))
+  # date_format beyond the default (rules 1.12.11 and 1.6.8; parity item A4): each token the filter reads
+  # (%d %-d %e %m %-m %B %b %A %a %Y %y %j %%) with literal text, on a leap day, a century year that is
+  # not a leap year, and weekdays across a century
+  fmts <- c("%d/%m/%Y", "%-d/%-m/%Y", "%e %B %Y", "%A %-d %B", "%a %b %y", "%j of %Y", "%d%% of %B",
+            "Day %j, %A %d %b %Y", "%Y-%m-%d")
+  dts <- c("2024-02-29", "2000-02-29", "1900-03-01", "2100-03-01", "1999-12-31", "2026-11-13",
+           "2024-03-05")
+  for (f in fmts) {
+    out <- rbind(out, conf_frame(sprintf("as.Date(\"%s\")", dts), "date",
+                                 paste0("cfg.date_format=", conf_esc(f)), ""))
+  }
+  # a vector under a non-default format, and a collapse class
+  out <- rbind(out, conf_frame(vecs[2], "date and", paste0("cfg.date_format=", conf_esc("%a %d/%m/%y")), ""))
   conf_finish(out)
 }
 

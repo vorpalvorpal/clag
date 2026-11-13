@@ -56,14 +56,14 @@ test_that("1.4.17: .p prints p < 0.001, p > 0.99, three decimals below 0.1 and t
 test_that("1.4.3, E17: .p, .sci and .date need a number or a date, and name what they got", {
   tbl <- list(p_str = c("`s1`{.p}", VE), p_bool = c("`b1`{.p}", VE), p_date = c("`dt`{.p}", VE),
               sci_str = c("`s1`{.sci}", VE), sci_bool = c("`b1`{.sci}", VE), sci_date = c("`dt`{.sci}", VE),
-              sci_list = c("`l1`{.sci}", VE), date_int = c("`i1`{.date}", VE), date_str = c("`s1`{.date}", VE),
+              date_int = c("`i1`{.date}", VE), date_str = c("`s1`{.date}", VE),
               date_float = c("`f1`{.date}", VE))
   x <- tbl_cases(tbl)
   res <- filter_cases(x$cases, list(cls_block()), draft = TRUE)
   expect_cases(res, x$expected)
   msgs <- c(fm_msg$E17("p", "number", "s1", "string"), fm_msg$E17("p", "number", "b1", "bool"),
             fm_msg$E17("p", "number", "dt", "date"), fm_msg$E17("sci", "number", "s1", "string"),
-            fm_msg$E17("sci", "number", "l1", "list"), fm_msg$E17("date", "date", "i1", "integer"),
+            fm_msg$E17("date", "date", "i1", "integer"),
             fm_msg$E17("date", "date", "s1", "string"), fm_msg$E17("date", "date", "f1", "float"))
   for (m in msgs) expect_true(grepl(m, res$stderr, fixed = TRUE), label = m)
 })
@@ -100,7 +100,7 @@ test_that("1.4.3, 1.6.8, N100: .date prints the default date_format, and another
   res2 <- filter_cases(cases, list(cls_block()), draft = TRUE, weft_yml = "date_format: \"%-d %B %Y\"")
   expect_cases(res2, c(d1 = "A 13 November 2026 z.", d2 = "A 5 March 2024 z."))
   expect_false(grepl("weft", res2$stderr, fixed = TRUE))
-  res3 <- filter_cases(cases, list(cls_block()), draft = TRUE, weft_yml = "date_format: \"%Y/%m/%d\"")
+  res3 <- filter_cases(cases, list(cls_block()), draft = TRUE, weft_yml = "date_format: \"%U %Y\"")
   expect_cases(res3, c(d1 = paste0("A ", VE, " z."), d2 = paste0("A ", VE, " z.")))
   expect_true(grepl("not available in this version of weft.lua", res3$stderr, fixed = TRUE))
 })

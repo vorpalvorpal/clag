@@ -50,7 +50,7 @@ test_that("N9, N10: conditions on names, number and string literals, and commas,
 })
 
 test_that("N10, N11, E3: a condition outside the grammar is a construct error quoting the part", {
-  parts <- c("a && f", "a || f", "a & f", "a | f", "a and f", "a or f", "not a", "!a", "(a)",
+  parts <- c("a && f", "a || f", "a & f", "a | f", "a and f", "a or f", "not a", "(a)",
              "n_gap + 1 > 5", "len(s) > 2", "s[1] == 'n'", "0 < n_gap < 20", "n_gap = 5", "n_gap <> 5",
              "n_gap == NA", "a == TRUE", "n_gap > Inf", "n_gap > +1", "n_gap > .5", "n_gap > 1_0",
              "n_gap > 0x10", "n_gap > 10L", "n_gap > 1.")
