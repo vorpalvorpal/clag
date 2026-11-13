@@ -226,9 +226,9 @@ h4_fill_marker <- function(lines, version = u4_version()) {
   lines
 }
 
-# An older copy of a whole file weft wrote: `edit` changes the other lines, the marker gets `version`
+# An older copy of a whole file weft wrote (the default version must stay older than the installed one, review-code-c #15): `edit` changes the other lines, the marker gets `version`
 # and a hash that matches the new text (so the file reads as weft's, unedited, from an older template).
-h4_forge <- function(lines, edit, version = "0.0.1") {
+h4_forge <- function(lines, edit, version = "0.0.0.1") {
   i <- h4_marker(lines)$idx
   body <- edit(lines[-i])
   mk <- lines[i]
