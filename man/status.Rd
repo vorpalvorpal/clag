@@ -16,7 +16,8 @@ the attribute \code{next}.
 \description{
 Reports the state of each part of the set-up: \code{setup} (\verb{_weft.yml} and the
 version it records), \code{activation}, \code{quarto}, \code{dictionary}, \code{hooks}, \code{ci},
-\verb{agent docs}, \code{draft}, \code{verify_skip} and \code{strict}. It writes nothing, starts
+\verb{agent docs}, \code{draft}, \code{verify_skip} and \code{strict}, and \code{python} (can \verb{import weft} run) for a project with a
+jupyter-engine document. It writes nothing, starts
 no R process and uses no network.
 }
 \details{
