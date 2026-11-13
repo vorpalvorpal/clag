@@ -1,7 +1,7 @@
 # `weft` — package scoping
 
 **Date:** 2026-11-11
-**Status:** Stages 0 to 5 of §22 are built. The syntax and the
+**Status:** Stages 0 to 6 of §22 are built. The syntax and the
 runtime were first exercised with throwaway stand-ins; Part 3 says exactly what was
 run and what was not. Integration facts were checked against knitr 1.51 and
 Quarto 1.11.9 (Pandoc 3.10) on macOS.
@@ -29,7 +29,9 @@ Everything else is shown, not stopped, in diffs the author already reads.
 Every weft construct is markdown that knitr, Pandoc and Quarto already accept.
 Nothing is compiled, there is no second source tree, and the file the author
 edits is the file that renders. A `.qmd` becomes a weft document with
-`engine: knitr` in its front matter and one call that activates weft (§9.2).
+`engine: knitr` in its front matter and one call that activates weft (§9.2). A document
+that is not knit, on the Jupyter or julia engine or in plain Pandoc, uses
+named values instead, which a Pandoc filter resolves (§1.12, §2.13).
 
 **How this document is arranged.**
 
@@ -53,16 +55,18 @@ the rules here.
 
 ### 1.1 Constructs
 
-**1.1.1** There are two constructs.
+**1.1.1** There are three constructs.
 
 ```
 `r EXPR`{ATTRS}        a value
 [PROSE]{ATTRS}         a span
+`NAME`{ATTRS}          a named value (1.12.1)
 ```
 
 **1.1.2** Code spans and attribute values hold R. Brackets hold prose. A
 value from another language reaches them through R, by a guest read
-(2.12.2) or `jl_value()` (2.12.15).
+(2.12.2) or `jl_value()` (2.12.15). Named values and the conditions of 1.12.4
+hold names, which mean the same in every language.
 
 **1.1.3** The exception to 1.1.2 is wording that a function prints: the closed
 set of function words in the formatters and phrase functions ("and", "of
@@ -113,7 +117,8 @@ counts as a value for the numeral rule (5.2.1). It is recorded in the ledger
 (7.1.2),
 and the gate counts it when it is removed (6.3.1), because it prints a value
 in the document. A guest read in a bare value is read by 2.12.2, and a
-`jl_value()` call by 2.12.15.
+`jl_value()` call by 2.12.15. A named value always has an attribute block, so
+it is always a construct; `.val` is its bare form (1.12.2).
 
 ### 1.2 The attribute block
 
@@ -529,7 +534,9 @@ spans, and every lint that applies to prose applies inside it.
 
 **1.5.16** Only the chosen arm is evaluated. A value or span in an arm that is
 not chosen neither renders nor runs its checks, and an id defined there does
-not exist.
+not exist. For a named value, what runs in code runs before the prose. A
+missing value, a carried error and a check carried on a value count only
+where the name is used (2.13.4).
 
 **1.5.17** A `sign` governor that prints as a bound ("< 0.1%") is a collected
 failure at knit time (5.3.2). A bound has a direction and no magnitude to
@@ -799,7 +806,8 @@ stock knitr evaluates it, and an attribute block after it is left as text.
 
 **1.10.1** A caption in a chunk option is prose. A construct works in
 `fig-cap`, `fig-alt`, `fig-subcap` and `tbl-cap` under Quarto, and in
-`fig.cap` and `fig.alt` under rmarkdown.
+`fig.cap` and `fig.alt` under rmarkdown. A named value works in any caption,
+on any chunk, since the filter resolves it after the body (1.12.7).
 
 ````
 ```{r}
@@ -834,7 +842,9 @@ not from `gt::tab_caption()`.
 `>`). A construct in any other form of scalar there is a construct error.
 Bare inline R is not a construct (1.1.8), so this rule does not apply to it:
 ``title: "Report `r x`"`` is legal and prints as stock. In a book or a
-website, `title` holds no construct at all (1.10.11).
+website, `title` holds no construct at all (1.10.11). A named value works in
+any of the four fields, in any form of scalar, since the filter resolves it
+after the body (1.12.7).
 
 **1.10.8** Front matter is evaluated before any chunk runs. A construct there
 sees only what exists at that point: `params`, an object made in `.Rprofile`,
@@ -922,6 +932,106 @@ comes from the value's type.
 
 For an R value, 1.3.4 and §1.5 are these rules as R states them: R has no
 difference between a value and a vector of one.
+
+### 1.12 Named values
+
+A named value is the form of a value for a document that is not knit, and
+for a value from another language. These rules hold for every language and
+every engine. The resolver that reads them is the filter of 2.13.
+
+**1.12.1** A **named value** is a code span holding one name, directly
+followed by an attribute block that carries a weft class or a renderer key
+(`digits`, `sigfig`, `sep`, `last`, `trunc`, `none`): `` `depth`{.num} ``.
+Code publishes the name (2.13, 3.8). A name is ASCII letters, digits, `_` and
+`.`, starting with a letter or `_`, not ending in `.`, at most 64
+characters, and not one of `TRUE FALSE True False true false NA NULL None
+nothing missing Inf NaN`. A dot is part of the name, never a path: there is
+no access into a value. Pandoc's trimming of one space inside the backticks
+applies. A code span with an attribute block that carries no weft class or
+key, such as `` `depth`{.python} `` or `` `depth`{#d} ``, is code.
+
+**1.12.2** `.val` prints a named value as itself: an integer as its digits,
+a float as the shortest text that reads back as the same double, a decimal
+as written, a string as it is, a date as ISO text, a bool as `true` or
+`false`, a list as its elements so printed, joined by ", ". The minus is the
+record's `-`. `.val` is in the number stage's at-most-one group (1.4.2), so a
+wording class with it is a construct error. A text or collapse class may go
+with it. `.val` is a construct: a missing value is "no value", a check
+counts, and the ledger records it. `digits` on `.val` is ignored.
+
+**1.12.3** A code span with a weft class whose text is neither a name nor
+inline R is a construct error.
+
+**1.12.4** In a construct the filter resolves (2.13.2), a condition is a
+name whose value is a bool, or one comparison `a OP b` with `OP` one of `<
+<= > >= == !=` and each side a name, a number literal or a single-quoted
+string, at least one a name. Spaces around `OP` are optional. A number
+literal matches `-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?`: no `+`, no leading
+`.`, no `_`, no hex, no `L`. A string literal holds no `'` and no `\`.
+Conditions are joined by commas (1.5.4); a comma inside a string literal
+does not split. An empty part is a construct error. Anything else is a
+construct error that quotes the part and says to bind the value to a name in
+code: `&&`, `||`, `and`, `not`, brackets, arithmetic, calls, indexing, a
+chained comparison, `=`, `<>`, a reserved word as an operand, and two
+literals compared with each other, which is always the same.
+
+**1.12.5** Numbers compare exactly, except that a float is compared as a
+double. Strings compare with `==` and `!=` only. Dates compare in calendar
+order. A bool compares with a bool by `==` and `!=`. Ordering bools, or
+comparing a date with a string literal, comparing kinds that do not
+compare, and a condition whose value is not a bool (1.11.8) are value
+errors that name the kinds ("integer", "number" for a literal, "list").
+
+**1.12.6** In such a construct `n` takes a name, `.` or `#id`; `sign` a name
+or `#id`; `list` a name. Any other text there is a construct error. An `n`
+or `sign` governor that is not a number is a value error (1.5.11, 1.11.9).
+A missing element of a `list` governor is "no value". A `list` over bools
+prints `TRUE` and `FALSE`. `.ord` as an `n` governor chooses by the number
+as printed.
+
+**1.12.7** A construct sees the names published above it. A name used above
+any publication of it is a "no value" failure. A later publication replaces
+the value for the constructs below it. Captions and the front-matter fields
+of 1.10.7 see each name's last published value. A named value in an arm that
+is not chosen is never read (1.5.16).
+
+**1.12.8** A named value means the same in every document and on every
+engine. In a knitr document R values and spans stay R (1.1.2); write a name
+where the hooks cannot reach (text a chunk prints with `results: asis`, a
+caption on a chunk that is cached, not evaluated or not R, a front-matter
+field that needs a chunk's value), or for a value from Python or Julia that
+must print exactly. On the jupyter and julia engines and in plain markdown,
+write names: no R evaluates an expression there.
+
+**1.12.9** A named value with only a renderer key prints as `.num`, or as
+`.pct` when the default governor class (1.5.18) is `pct`. `none` with no
+collapse class, and `sigfig` below 1, are construct errors, as are `digits`
+and `sigfig` that are not whole numbers from 0 to 100. A governor key on a
+named value is a construct error (1.3.3). The printed-as-zero warning
+(2.6.11) applies to float and decimal records, not integers. `#` and `##`
+are read only inside an `n` arm.
+
+**1.12.10** An id on a named value (1.7.5) goes on the span the filter
+leaves in its place, and the filter's constructs may refer to it. A
+duplicate id is a construct error, and an id defined inside an arm is dropped
+at the end of the arm. In a knitr document a span the hooks resolve cannot
+refer to an id on a named value, and a span the filter resolves cannot refer
+to an id on an R value; either is a construct error found from the source.
+
+**1.12.11** The filter implements the classes `.num`, `.pct`, `.val`, `.sci`,
+`.p`, `.date`, `.no`, `.word`, `.count`, `.ord`, `.and`, `.or`, `.pairs`,
+`.range`, `.ul`, `.ol`, `.dl`, `.a`, `.cap`, `.strong` and `.em`, the keys
+`digits`, `sigfig`, `sep`, `last`, `trunc` and `none`, text spans, `cite`
+spans (the key check at render is not done: the `cite-key` lint covers it),
+and the governors of this section. Rules of other sections hold for them as
+stated there, with these differences. `.p` outside 0 to 1, and `.a` on text
+that is not a number word, are value errors with R's text. `.pairs` and `.dl`
+on a list with no keys are value errors ("needs a named vector"). `.em` with
+`.strong` is a construct error. `.num`, `.sci` and `.p` on a list with no
+collapse class are value errors, where R prints a vector element by element.
+A `date_format` other than `%-d %B %Y` is not available. `word_limit` is 100,
+as in R. A named vector of length 1 is a scalar, so its name cannot reach the
+filter (3.8.9).
 
 ---
 
@@ -1024,7 +1134,8 @@ knitr's cache, has `eval: false`, or uses an engine other than R. A construct
 in the caption of a chunk with `cache: true` (set on the chunk or for the
 document), `eval: false` or another engine is a construct error, found from
 the source. The message says to write the caption in a figure or table div
-(1.10.5).
+(1.10.5). A named value in such a caption is not an error: the filter resolves
+it (1.12.7).
 
 ### 2.4 `claim()` by context
 
@@ -1074,14 +1185,16 @@ After knitting, the render fails on:
 - any span that still carries `n`, `if`, `sign`, `list` or `cite`, in any
   letter case (1.2.10), or a weft text class (1.1.5)
 - any text that still shows an attribute block
-- any code span that carries a weft class or key (1.2.5)
+- any code span that carries a weft class or key (1.2.5). A named value
+  (1.12.1) the filter `weft.lua` left unresolved is a finding of its own: the
+  message says that `weft.lua` is not installed before `weft-check.lua`
 - any code span that has an attribute block and whose text begins `r `, `R `
   or `{r}`, and any code span whose text begins `r ` (5.3.4)
 - any leftover placeholder character
 - any marker `<<weft:` (2.9.5)
 
-It works when the package was never loaded, and when the file was never knit
-(9.2.8). It covers captions. The filter exits through `os.exit(1)` (tier 1).
+The extension lists `weft.lua` before `weft-check.lua` (2.13.2). It works when
+the package was never loaded, and when the file was never knit (9.2.8). It covers captions. The filter exits through `os.exit(1)` (tier 1).
 In draft mode it reports instead (9.4.3). Under rmarkdown, `use_setup()`
 places the filter file and names it under the output format in the
 document's front matter:
@@ -1089,14 +1202,17 @@ document's front matter:
 ```yaml
 output:
   html_document:
-    pandoc_args: ["--lua-filter", "weft-check.lua"]
+    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]
 ```
 
 **2.5.4** *The `pre-render` check.* In a Quarto project, the `pre-render`
 script that `use_quarto()` writes reads every `.qmd` the render will process.
-It fails, naming the file, on one that holds a construct and has no
-`engine: knitr` in its own front matter (9.2.8). Nothing has rendered by then
-(tier 1).
+It fails, naming the file, on one that holds an R value (`` `r `` or `` `{r} ``
+with an attribute block) or a span whose governor is outside the grammar of
+1.12.4, and has no `engine: knitr` in its own front matter (9.2.8). A document
+with only named values and spans in that grammar passes. The message adds that
+a document on another engine can use named values instead. Nothing has
+rendered by then (tier 1).
 
 ### 2.6 Failures
 
@@ -1267,7 +1383,8 @@ of its checks run. Every executed document writes a stamp. After an ordinary
 render the `post-render` script reports each document with constructs that
 was served from freeze: how many checks did not run, and when they last did.
 For a document whose stamp records no failures, this is a report and fails
-nothing.
+nothing. For a document the filter resolves, "served from freeze" means that its
+blocks carry another run (2.13.8).
 
 **2.9.3** `verify()` fails on a document it verifies that was served from
 freeze (8.1.1, 8.2.1; tier 1).
@@ -1341,8 +1458,9 @@ through JuliaCall (knitr's julia engine). R is the host: expressions in prose
 are R (1.1.2), and a value from another language reaches prose through R.
 weft supports reticulate's engine only: with `python.reticulate = FALSE` each
 chunk is a separate Python process, and a guest read finds no name. A `.qmd`
-that Quarto runs with its Jupyter or julia engine is not a weft document
-(9.2.8, 5.8 rule 9).
+that Quarto runs with its Jupyter or julia engine has no R to evaluate prose.
+It is a weft document only through named values and the filter (1.12, 2.13);
+its R values and spans are not evaluated (9.2.8, 5.8 rule 9).
 
 **2.12.2** A **guest read** is `py$name`, `py[["name"]]` with a literal
 string, a chain of them (`py$cfg$depth`), the same with `reticulate::py`, or
@@ -1424,9 +1542,9 @@ the R form: `{if="length(py$x) > 0"}` with an empty list takes the false arm.
 keyword, are read by §1.11; each function returns the text the R function
 returns, one string as a `str` and several as a `list` of `str`. A refused
 argument raises a Python exception whose message names it ("Argument 1 of
-fmt_num()", "Argument `digits` of fmt_num()"), and so does an R error. `claim`,
-`u`, `fmt_unit`, `lookup`, `brk`, `glue_vec` and the dictionary functions
-are not there. weft does not replace a module named `weft` that is already
+fmt_num()", "Argument `digits` of fmt_num()"), and so does an R error. `u`,
+`fmt_unit`, `lookup`, `brk`, `glue_vec` and the dictionary functions are not
+there. The module also holds `claim`, `put` and `auto` (3.8, 3.9). weft does not replace a module named `weft` that is already
 loaded; it warns once per R session.
 
 **2.12.9** Text a Python chunk prints with `results: asis` is not resolved,
@@ -1532,6 +1650,158 @@ running (with JuliaCall's `installJulia = FALSE` and `install = FALSE`, and
 the chunk's `engine.path` as Julia's home when it names one) and defines one
 module, `WeftGuest`, in Julia's `Main`, once per R session. It assigns
 nothing else there.
+
+### 2.13 The resolver filter
+
+The knitr hooks resolve what R can reach. The Lua filter `weft.lua` resolves
+what they cannot: named values (1.12), and every construct in a document
+that is not knit. It needs Pandoc 3.1 or later.
+
+**2.13.1** Code publishes values as a fenced block of class `weft-values`,
+written with four backticks, holding one JSON object of schema 1: `weft` (the
+integer 1), `values` (name to typed record, §1.11), and optionally `lang`
+(`r`, `python`, `julia` or `none`), `run`, `at` (whole seconds since 1970),
+`cell` and `checks`. A record is an object with `t`, one of `bool`, `int`,
+`float`, `decimal`, `string`, `date`, `list`, `missing` or `error`, and `v`;
+a list also has `of` and `keys`, and `missing` and `error` have `why`. A
+record may carry `type` and `checks`. A block breaks the schema when its text
+is not JSON or not an object, `weft` is missing or is not 1, `values` is
+missing or not an object, or a key of `values` is not a name: it is one
+construct error, it adds no names, and a later use of its names is "no
+value". A record that breaks the table is read as an error record. A block
+of more than 5,000,000 bytes is refused. A list of more than 10,000 elements
+is refused by the publishers. The filter removes every `weft-values` block
+from the output, then every cell div left with no content. Other classes and
+attributes on the block are ignored, except `file` (2.13.10). A block may sit
+anywhere Pandoc reads a code block; a block in metadata is not read.
+
+**2.13.2** The filter resolves named values everywhere, every construct in a
+document that is not knit, and a span that reaches Pandoc in a knit document
+still carrying a governor in the grammar of 1.12.4. It runs before
+`weft-check.lua`, in the same extension. It works in document order: a block
+adds its names when the walk reaches it. Figure, table and image captions, then the front-matter fields `title`,
+`subtitle`, `abstract` and `description` (and no others), are resolved after
+the body. The filter
+changes nothing else: not inline R, not a code span that is not a named value,
+not a span with no weft key or text class.
+
+**2.13.3** Formatting is §1.4 for the classes of 1.12.11. A float prints as R
+prints it: the filter ports R's rounding and printing, and a conformance
+table checks every row. An integer or a decimal prints exactly, whatever its
+size, by an algorithm on its digits: whole when every fraction digit is 0,
+`digits` and `sigfig` round half away from zero on the value as written, and
+`.pct` multiplies by 100 by moving the decimal point. The refusal beyond
+2^53 of 2.12.5 does not apply to a named value. A class the filter does not
+implement is a value error that says so, never a pass-through and never the
+record's text. That covers units (`.uname`, `.usym`, `.nounit` and `unit=`),
+project formatters (named in `formatters:` of the configuration), and a
+`lang` whose words weft does not ship. The text of a filter's output is the
+same for every format; in LaTeX the filter adds the declaration for the minus
+sign once.
+
+**2.13.4** A check carried on a published value counts where the name is
+used, each time it is used. A check made in code where it ran, carried in the
+block's own `checks`, counts once, whether or not a name is used. A check
+object holds `text`, `ok`, `level` (`fail`, or `warn`; absent means `fail`)
+and `why`. A guard whose condition is false reports "X was false" and the
+hint that optional text is written with `|`.
+
+**2.13.5** Failures are collected, marked as 2.6.8, and reported once at the
+end of the filter; the render then fails (tier 1), except in draft mode or
+when a collection file is open (2.6.6). A failure has a kind: `failed claim`,
+`no value`, `value error` or `construct error`. The marker is
+`<<weft: KIND, line N>>`, or `<<weft: KIND, chunk LABEL>>` with no line, or
+`<<weft: KIND>>`. The report goes to standard error in the layout of 2.6.2:
+failed claims first, then the other failures each tagged `[KIND]`, then warned
+checks. A warned check alone never fails. Draft mode changes only the exit.
+Construct errors are collected with the rest; a configuration problem
+(2.13.7) is one, reported once.
+
+**2.13.6** A failure's line is found by searching the source, its includes
+(at most 8 deep) and its chunk-option lines for the construct's text, in
+order: for a construct, the next occurrence after the previous occurrence of
+the same text. Fenced code is blanked except its `#|` lines, and HTML
+comments are blanked. Text a chunk printed has no line, and if that text also
+appears later in the source it takes the later line: this is a limit. A
+block's own check with no line and no enclosing cell shows the file only.
+Paths are relative to the working folder when under it.
+
+**2.13.7** The filter reads `_weft.yml` (found upward from the source's folder,
+at most 8 levels) and the document's `weft:` key as text, with a flat reader,
+never through Pandoc's metadata. It reads `digits`, `decimal_mark`,
+`big_mark`, `thousands_from`, `minus`, `governor_class`, `pct_proportion`,
+`serial_comma`, `count_threshold`, `word_limit`, `date_format`, `draft` and
+`ledger`. The document's value wins (9.1.1). A value of the wrong kind for its
+key is a construct error, reported once, and the default is used.
+`pct_proportion: false` is a value error. `lang` comes from Pandoc's metadata.
+
+**2.13.8** The run id a publisher records is read from `.weft/run` (found by
+walking up from the document's folder, at most 8 levels), else `WEFT_RUN`, at
+each publish. A block whose run is not the current run was not computed in
+this render. The filter says so once, on standard error, and records it in
+the stamp; the notice fails nothing in an ordinary render, and `verify()`
+fails on it (8.3.5).
+
+**2.13.9** In a set-up project the filter writes the stamp, collection lines
+and ledger entries for what it resolved, merging with what the hooks wrote in
+the same render. The stamp keeps R's members and adds `writers` (`knit` and
+`filter`; `knit` when an old stamp has none), `named` (the constructs
+resolved without failure) and `fresh` (`true` when every block's run is the
+current run, `false` when one differs, `null` with no current run or no
+block). `checks` adds one per outermost construct, block checks not counted.
+A knit document with no hooks stamp of this run and nothing of the filter's
+own gets no stamp. Collection lines have R's layout with source `resolve`.
+Entries are written to the ledger when there are no failures, in draft mode,
+or when a collection file is open, unless `ledger: false`. A named value's
+key is kind `value` and its name; a filter span's key is its key and its
+governor value with spaces collapsed, unparsed (7.1.4); `writer` is the last
+field, and a failed construct has `failed` set and no text. The filter
+replaces its own earlier entries and keeps the hooks'. The file hash is
+XXH3-64, seed 0, 16 hex characters, as `cli::hash_raw_xxhash64` gives; the
+filter computes it in pure Lua.
+
+**2.13.10** A values file is a JSON file of schema 1, read where a
+`weft-values` block with a `file` attribute and an empty body stands. A
+relative path is taken from the document's folder, and a path starting `/`
+from the project root: the folder of `_weft.yml`, else `_quarto.yml`, else the
+document's own. A path that escapes the root, a drive or `//` form, a
+directory, a missing file, a body on a `file=` block, a file over 5,000,000
+bytes, or a file that is malformed or not schema 1 is one construct error with
+a short reason. Symbolic links are not resolved. Each values file read is a
+file the chapter read (7.2.2) and is listed once in the ledger header's
+`files` by its path from the root, hashed as any other file. Chapters of a
+book share values only by each reading the same file.
+
+**2.13.11** In a knit, the hooks publish every name the source names that is
+bound in the knit's environment (found without inheritance) and has changed,
+at the start of each block of prose and at the end of the document, and
+`weft_put()` publishes explicitly (3.8). The names a source names are every
+`` `NAME`{ `` and every name in the value of an `n`, `if`, `sign` or `list`
+key, read from the file and the files it includes (at most 8 deep).
+Automatic publishing applies only when the source holds at least one named
+value. A value that cannot be published is published as an error record, so
+the failure shows where the name is used.
+
+**2.13.12** A cell on the jupyter or julia engine with `include: false` or
+`output: false` publishes nothing. A cell on the knitr engine with
+`include: false` still publishes.
+
+**2.13.13** The hooks resolve a document when its source is `.Rmd` or
+`.knit.md`, or is a `.qmd` with `engine: knitr`, or with an executed `{r}`
+chunk and no `engine:` or `jupyter:` key; or when the hooks' stamp of this run
+for this source exists and its `writers` lack `filter`. Either is enough. A
+`.qmd` with an `engine:` or `jupyter:` key, or with no executed `{r}` chunk,
+is the filter's, so a bare `.qmd` with no chunk is the filter's. In a
+document the hooks resolve, a leftover span whose governor fits 1.12.4 is
+resolved by the filter; any other is left for `weft-check.lua`, its content
+still resolved.
+
+**2.13.14** The hooks keep R values and spans. R values always have the
+resolver `hooks`. A document served from freeze, a cache, or a kept kernel
+carries blocks of another run (2.13.8). Under knitr, the hooks' end-of-document
+check does not count named values, and a failure is reported by the resolver
+that owns its construct. When the hooks stop a render, Pandoc does not run, and
+the failures of named values show at the next render.
 
 ---
 
@@ -1819,6 +2089,108 @@ returns the same records for each case. `constructs` has a column
 `unit_picked`: for a construct with a `unit` key, the unit it printed in, as
 written in the ladder (`"km"`), and `NA` for a construct with no `unit`
 (4.4.23).
+
+### 3.8 Publishing
+
+**3.8.1** `weft_put(...)` publishes R values under names, so that prose can
+refer to them (1.12). Each argument publishes one name: `weft_put(depth =
+mean(d$depth))`, or `weft_put(depth, n_sites)`, a symbol publishing under its
+own name. Any other unnamed argument, a name that is not a name (1.12.1), and
+a name given twice in one call are errors. It returns `NULL` invisibly in a
+knit. Outside a knit nothing is stored: it returns the text of the block, of
+class `weft_values`, which prints as that text.
+
+**3.8.2** An argument that is a call of `claim()` is captured before
+evaluation: its first argument is the value, its checks are run as `claim()`
+runs them, the value's record carries a check object for each, and nothing is
+stopped. The check counts where the name is used (2.13.4). `claim()` anywhere
+else in chunk code keeps 2.4.2.
+
+**3.8.3** In a chunk with `results = "asis"` the block is written to the
+chunk's output at once. Otherwise the names wait in the knit's state, and the
+hooks write them as one block, with `cell` the chunk's label, at the start of
+the next block of prose or at the end of the document. A name published by
+`weft_put()` wins over the automatic value in the same block (2.13.11).
+
+**3.8.4** An R value becomes a record as follows.
+
+| R value | Record |
+|---|---|
+| `TRUE`, `FALSE` | bool |
+| an `integer` of length 1, not `NA` | int |
+| a finite `double` of length 1 | float: the first of `%.15g`, `%.16g`, `%.17g` that reads back as the same double |
+| a `character` or `factor` of length 1 | string (the level, for a factor) |
+| a `Date` of length 1 | date |
+| `NA` of any type, `NaN`, `Inf`, `-Inf`, `NULL` | missing, with that `why` |
+| an atomic vector of length 0 or 2 or more of the kinds above | list; names give `keys` |
+| `integer64` | int, its digits |
+| a `units` object | refused: named values carry no units |
+| anything else (a data frame, a list, a `POSIXct`, a function) | error |
+
+A named vector of length 1 is a scalar and its name is dropped. A list of
+more than 10,000 elements is refused.
+
+**3.8.5** `weft_values_write(path, ...)` writes a values file (2.13.10): the
+arguments are those of `weft_put()`, `lang` is `r`, `run` is read as 2.13.8
+says, and `at` is now. The file is UTF-8 with `\n` line ends and is written
+atomically; nothing is written when an argument is refused. It returns `path`
+invisibly. It works outside a knit and in a `targets` pipeline.
+
+**3.8.6** The Python package is `weft-prose`, imported as `weft`, installed
+from git: `pip install "git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python"`.
+Nothing is published to PyPI or a Julia registry. `from weft import put, auto,
+claim` gives the three. `put(**named)` and `put({'name': value})` publish names,
+and may be mixed; a positional argument that is not a mapping raises
+`PublishError`, a later key wins, nothing is published if any name is bad, and
+the JSON is compact ASCII. In a Jupyter kernel the block is the cell's output;
+with no back end it is printed. A Python value is read as §1.11 says;
+an integer of any size is published exactly.
+
+**3.8.7** `auto(path=None)` publishes, after each cell, the names the document
+names (2.13.11) that the cell changed. The path of the source is
+`QUARTO_DOCUMENT_PATH` joined to `QUARTO_DOCUMENT_FILE`, else the argument; with
+neither, it says which variables are not set. The cell that calls `auto()` is
+published. Under a Jupyter kernel it works; under a knit R registers neither
+`put()` nor `auto()` (3.8.9).
+
+**3.8.8** From Julia: `using Weft`, then `@put a b` (each argument a variable,
+published under its own name) or `Weft.put(depth = 3.14159)` or
+`Weft.put(:depth => 3.14159)`. On the julia engine the block is displayed; with
+no back end it is printed. Julia has no `auto()`. On the julia engine
+`using Weft` finds the package through the Julia worker's own environment:
+`JULIA_LOAD_PATH` in the shell does not reach the notebook worker, and
+`julia: {env: ["JULIA_LOAD_PATH=<folder of the Weft package>:"]}` in
+`_quarto.yml` does. Under knitr, R puts the package on the load path.
+
+**3.8.9** Known gaps. A named vector of length 1 loses its name. In a Python
+chunk of a knitr document, `put()` prints its block and `auto()` does nothing
+that R knows of: publish with `weft_put()` there. Python `auto()` has no gate on
+named values, and publishes a too-long list as an error record where `put()`
+raises. There is no `checked()` that makes a claim from Python or Julia count
+where the name is used (3.9).
+
+### 3.9 `claim()` from Python and Julia
+
+**3.9.1** `claim(x, "> 10")` in Python and `@claim x > 10` in Julia check where
+they run, as `claim()` in R chunk code does (2.4.2, 2.4.4): a failed check is
+recorded, then raises. They are eager on every back end, so one spelling means
+one thing. A Python check is a string. One that starts with a comparison
+operator applies to the value and is recorded as `_ > 10`; any other is an
+expression in which `_` is the value. A Julia check is an expression in which
+`_` is the value, or the one comparison whose left side is the value. The
+result must be a bool (1.11.8).
+
+**3.9.2** `level="warn"` (`level=:warn`) records and goes on. `claim()` with no
+check is an error. A passing claim shows nothing. All the failed checks of one
+call go in one block, each with its `level`, and `why` is the exception's text,
+or "gave a X, not True or False", else null. The error message names the
+first.
+
+**3.9.3** Under knitr, the failure joins the knit's report with the chunk's
+label, and a failed claim stops the knit, as R chunk code does; `error: true`
+is the author's way to go on. On the jupyter and julia engines it is carried in
+a block to the filter (2.13.4). Calling it through reticulate's `r` object is
+refused by a lint (5.11.2), since reticulate converts its argument unchecked.
 
 ---
 
@@ -2969,7 +3341,8 @@ followed by an attribute block to be a span, whose text is prose. The numeral
 rule reads math (5.2.6). Code rules read executed R chunks only: a chunk with
 `eval: false` or another engine gives nothing. The code of a guest chunk is
 read only by rules 5.11.2 and 5.11.4. A pipe (`|>` or `%>%`) is read
-as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`.
+as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`. A named
+value's name is not parsed as R (1.12.1).
 
 **5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
 added material is the lines git's diff shows as added since the comparison
@@ -3273,7 +3646,7 @@ comment.
 | 6 | `dict-key` | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
 | 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
 | 8 | `config-place` | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
-| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8) | 1 |
+| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8), or holds only named values and spans in the grammar of 1.12.4 and has the resolver installed | 1 |
 
 - Rule 1: `section-anchor` skips a heading inside a callout or a
   `.panel-tabset` div, which is not a section, and reads a setext underline
@@ -3314,6 +3687,18 @@ comment.
   4. Otherwise: "a.qmd holds weft constructs but is not marked
      `engine: knitr` and no document includes it (rule 5.8.9)." Hint: "Add
      `engine: knitr` to its front matter."
+
+  A `.qmd` rendered on its own that is not knit is valid when every
+  construct in it is a named value or a span in the grammar of 1.12.4, and
+  the resolver is installed: `_quarto.yml` lists the filter `weft-check`
+  under `filters:`, or the document's own front matter does. It is a finding
+  when it holds an R value or a span outside the grammar: each message above
+  gains the sentence "Or write each value as a name, `x`{.num}, and publish it
+  in code: then no knitr is needed (rule 1.12.8)." It is a finding when it holds
+  only named constructs and the resolver is not installed: "a.qmd holds named
+  values, and the filter weft.lua is not installed: run use_quarto() (rule
+  5.8.9)." A document is the filter's, for this rule, when its source lines say
+  so (2.13.13).
 
 ### 5.9 Figures and tables
 
@@ -3375,8 +3760,9 @@ All four have scope `file`.
   "`r.fmt_num()` passes its arguments through reticulate, which can turn a
   Python int into a wrong number with no error. Write `from weft import
   fmt_num` and call `fmt_num()` (rule 5.11.2)."; for `r.claim(`,
-  "`claim()` cannot be called from Python: a check is written in R, in
-  prose, as `r claim(py$n, . > 10)` (rule 5.11.2)." `r.depth`, an R value
+  "`claim()` cannot be called through `r.`: reticulate converts its
+  argument with no check. Write `from weft import claim` and `claim(n, "> 10")`
+  (rule 5.11.2)." `r.depth`, an R value
   read from Python, is not a finding.
 - Rule 3: in the code of an executed R chunk, each outermost `py$...` or
   `py[[...]]` read (with or without `reticulate::`) whose `py` is a symbol,
@@ -3406,6 +3792,49 @@ All four have scope `file`.
 - Findings of rules 1 and 2 are tier-1 findings for the gate like any other
   (6.2). A `weft_str('...')` call in Python chunk code is not read: its
   constructs are not counted (6.3.1) and its prose is not linted.
+
+### 5.12 Named values
+
+| # | Id | Rule | Tier |
+|---|---|---|---|
+| 1 | `named-unpublished` | a name used by a named value or a filter span that nothing in the document publishes | 2 |
+| 2 | `publish-hidden` | a chunk that publishes where its output is dropped | 1 |
+| 2 | `publish-hidden-auto` | the same, for `auto()` | 2 |
+
+Both rules have scope `file`.
+
+- Rule 1: a name used by a named value, or in a governor of a span the filter
+  resolves (1.12.4, 1.12.6), that occurs nowhere as a whole-word token in the
+  code of any executed chunk of the document or its includes, in any language,
+  nor as a key in a hand-written `weft-values` block of the document, nor in a
+  values file the document reads. The finding is one per name, at its first
+  use. Message: "`{name}` is used by name but no chunk of this document
+  mentions it; publish it with put(), weft_put() or @put (rule 5.12.1)." Its
+  hint also says that a governor name in a document with no named value is not
+  published automatically (2.13.11). It is tier 2 because a name may come from
+  `from helpers import *` or a sourced script, which a token search cannot see;
+  the render fails loudly if the name is never published.
+- Rule 2: in a document that knitr does not knit, an executed `{python}` or
+  `{julia}` chunk with `include: false` or `output: false` whose code calls
+  `put(`, `weft.put(`, `@put` or `Weft.put(`, on a line whose first non-blank
+  character is not `#`. Message: "chunk `{label}` has {opt}, so what it publishes never
+  reaches the document; publish in a chunk that shows its output, with
+  echo: false if the code should not show (rule 5.12.2)." The same Python chunk calling
+  `auto(` is a tier-2 finding, `publish-hidden-auto`: "chunk `{label}` calls
+  auto() and has {opt}, so the names it sets are not published (rule 5.12.2)."
+  A hidden `auto()` in a set-up cell is common and loses only what that cell
+  assigns, hence tier 2.
+- The lints that apply unchanged to named values and filter spans are the
+  numeral, construct, read, block-start, lone-bar, name, long-guard, if-zero,
+  claim-word, citation, cross-reference, anchor, figure and table-caption
+  rules, with `.val` among weft names. `literal-value`, `inert-check`,
+  `value-constant` and `value-format` cannot occur: a name is not a literal,
+  and two literals in a condition are a construct error (1.12.4).
+- A named value's expression is its name, and a filter span's expression is
+  its governor value with spaces collapsed, unparsed (7.1.4). R's parse check
+  (5.3.5) does not apply to either. A document is decided to be the filter's or
+  the hooks' from its source lines (2.13.13). `scan` rows carry a `resolver`
+  column, `hooks` or `filter`; named rows are `filter` always.
 
 ---
 
@@ -3532,7 +3961,12 @@ elsewhere in one commit nets to zero.
 `HEAD` version: inline R values, with or without an attribute block; weft
 spans (1.1.5); and `claim()` calls anywhere in the file, chunk code
 included, whatever the chunk's `eval` says. A value whose expression holds a
-`claim()` counts once as a value and once as a call.
+`claim()` counts once as a value and once as a call. A named value counts as a
+value, and a span in a document the filter resolves counts as a span. `claim(`
+in a Python chunk and `@claim` in a Julia chunk count as `claim()` calls, by
+pattern, and only in an executed chunk, so turning `eval` off on a guest chunk
+with a claim is a removal. A hand-written `weft-values` block's names and a
+values file are not counted.
 
 **6.3.2** There are two totals in each project: calls to `claim()`, and
 values and spans together. N is the sum over the projects of the amount by
@@ -3643,7 +4077,9 @@ The expression of a value is its inline R, parsed, so spacing and line
 breaks do not count. That of a governed span is the value of its key,
 parsed. That of a `cite` span is its keys and its bracket text, written
 `keys | bracket text`. Formatter classes and arm text are not part of the key.
-Line numbers are not stored.
+Line numbers are not stored. The expression of a named value is its name. That
+of a span the filter resolves is the value of its key with runs of spaces made
+one, unparsed. `changes()` reads entries whatever their `writer`.
 
 The anchor of a section is its heading's `{#id}` where it has one, kept as
 written, repeated or not. Otherwise it is Pandoc's identifier rule applied to
@@ -4000,6 +4436,16 @@ this run fails: it was served from freeze, or knit without weft active. A
 render that exits non-zero with no failure in a stamp fails with the lines of
 its log from the first `weft:` line.
 
+**8.3.5** A stamp with `fresh: false` fails: its values were published by
+another run, from freeze, a cache or a kept kernel, and their checks did not run
+now. The report lists it under "Not executed in this render". Before rendering,
+`verify()` writes `.weft/run` with this run's id, passes
+`--execute-daemon-restart` to `quarto render`, which restarts Jupyter kernels,
+and, for a document on the julia engine, runs `quarto call engine julia kill`
+first, which ends any other Julia notebook open in that server; the report says
+so. The Julia server keeps its environment across renders, so no narrower
+command refreshes it.
+
 ### 8.4 CI
 
 **8.4.1** `use_ci()` writes a workflow that runs
@@ -4261,7 +4707,9 @@ of the routes of 9.2.1. `use_setup()` writes both. `engine: knitr` in
 always knit, so the activating call is enough there. A `.qmd` whose chunks
 are all Python or Julia is a weft document the same way, with `engine:
 knitr` (2.12.1); `use_setup()` adds the line to one that holds a construct
-(9.3.5). The smallest weft document activates from its front matter:
+that needs R (9.3.5). A `.qmd` on another engine whose constructs are all named
+values or spans in the grammar of 1.12.4 needs no knitr: it needs the filter
+(1.12, 2.13). The smallest weft document activates from its front matter:
 
 ```yaml
 ---
@@ -4320,8 +4768,8 @@ says what it will write before it writes it.
 | Function | Writes |
 |---|---|
 | `use_weft()` | everything below except `dict_vale()`, with a summary first (9.3.6) |
-| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`, and leaving a `.qmd` that holds only another engine's chunks unless it holds a construct (9.3.5); `_weft.yml`, with the `weft_version` line; under rmarkdown, the `weft-check` Lua filter and the `pandoc_args` line that names it (2.5.3) |
-| `use_quarto()` | the `weft-check` Lua filter as a project extension; the `pre-render` and `post-render` scripts |
+| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`, and leaving a `.qmd` that holds only another engine's chunks unless it holds an R value or a span outside the grammar of 1.12.4 (9.3.5); `_weft.yml`, with the `weft_version` line; under rmarkdown, `weft.lua`, `weftlib/` and `weft-check.lua` beside the document and the `pandoc_args` line that names both, `weft.lua` first; a document set up before named values that names only `weft-check.lua` gains `weft.lua` before it (2.5.3) |
+| `use_quarto()` | the `weft-check` project extension, holding the filters `weft.lua` (with its folder `weftlib/`) and `weft-check.lua`, in that order; the `pre-render` and `post-render` scripts. It prints the install line for the Python package for a project with a Jupyter-engine document, and for the Julia package for one with a julia-engine document; the Python package and the Julia package are never written into the project |
 | `use_hooks()` | the `commit-msg` hook, with the path of R and its libraries (6.1.5) |
 | `use_ci()` | the CI workflow, at the top of the repository (8.4.1) |
 | `use_dictionary()` | `dict.yml` when absent (a starter that reads as no keys, with two examples commented out) and `_weft/dict.schema.json` |
@@ -4335,8 +4783,10 @@ also writes `.weft/.gitignore` holding `*`, so that its files are not committed
 by accident; the `pre-render` script of `use_quarto()` is one of them. With
 `ledger: false` (9.1.9) neither the ledger nor the condition log is written.
 
-**9.3.3** `inst/` holds the hook template, the Lua filter, the render scripts,
-the CI workflow template, the dictionary schema and the starter dictionary, the
+**9.3.3** `inst/` holds the hook template, the Lua filters (`weft.lua`, its `weftlib/`
+and `weft-check.lua`), the render scripts,
+the CI workflow template, the Python package (`inst/python`) and the Julia
+package (`inst/julia`), the dictionary schema and the starter dictionary, the
 table of default units (4.4.21), the default claim-word lexicon and severity
 list, and the Claude skill. The skill says:
 
@@ -4384,9 +4834,12 @@ A new `_weft.yml` holds a comment and a `weft_version:` line; one that lacks the
 line gains it, and an existing line is left as it is (9.5.4). A `.qmd` with no
 front matter gains `---`, `engine: knitr`, `---` as its first lines. One that
 holds only another engine's chunks keeps its engine, unless it holds a weft
-construct (a scanner row other than a bare value, a link or a literal) and
-has no `engine:` or `jupyter:` key: then it gains `engine: knitr` (2.12.1),
-since its constructs would not be evaluated otherwise. `status()` flags
+construct that needs R (a scanner row other than a bare value, a link or a
+literal that the filter does not resolve: an R value, or a span whose governor
+is outside the grammar of 1.12.4) and has no `engine:` or `jupyter:` key: then
+it gains `engine: knitr` (2.12.1), since its constructs would not be evaluated
+otherwise. A named value, and a span in that grammar, are the filter's and need
+no knitr. `status()` flags
 exactly the files `use_setup()` would change. Under rmarkdown, a
 `weft-check.lua` is copied beside the document, replaced when it differs, and
 named under each format of `output:`; with no `output:` one is written. Front
@@ -4530,7 +4983,10 @@ off, and what the next step is. It writes nothing, starts no R process and uses
 no network. It returns a `weft_status`, a table of `part`, `state` and `detail`,
 with the next step in its `next` attribute. The parts are `setup`, `activation`,
 `quarto`, `dictionary`, `hooks`, `ci`, `agent docs`, `draft`, `verify_skip` and
-`strict`. A state is one of:
+`strict`, and `python`, a row that appears only when a jupyter-engine document
+exists and says whether `import weft` runs in the Python Quarto would use. A
+jupyter-engine document has `engine: jupyter`, a `jupyter:` key, or a `{python}`
+chunk with no `engine:` key and no `{r}` chunk. A state is one of:
 
 - `ok`
 - `missing`
@@ -5966,15 +6422,18 @@ one function they share.
 - **Install itself.** P10.
 - **Complete weft's names in an editor.** Completion of weft's classes and
   keys is a possible later addition. It is not in scope.
-- **Run under the Jupyter or julia engines.** weft works inside knitr; a
-  `.qmd` that Quarto runs with another engine is not a weft document
-  (2.12.1). A formatter written in Lua, which such a document would need, is
-  not built.
-- **Units and the dictionary in another language.** `u()`, `fmt_unit()` and
-  `dict` stay in R; no Python or Julia value carries a unit.
-- **`claim()` in Python.** A check is R, in prose.
-- **Function forms from Julia.** There is no Julia module of weft's
-  functions (2.12.20).
+- **Evaluate R on the Jupyter or julia engines.** weft's R runs inside knitr. A
+  `.qmd` that Quarto runs with another engine uses named values and the filter
+  (1.12, 2.13), which have no expressions, no units, no project formatters, no
+  phrase functions and no `knit_print`.
+- **Units, project formatters and the dictionary for named values.** `u()`,
+  `fmt_unit()` and `dict` stay in R; no Python or Julia value, and no named
+  value, carries a unit (2.13.3).
+- **Observable or an engine extension.** Neither resolves a named value.
+- **`auto()` for Julia, or a `checked()` holder.** A check made in Python or
+  Julia counts where it ran, never where the name is used (3.9.1).
+- **Function forms from Julia.** There is no Julia module of weft's function
+  forms (2.12.20); Julia has `@claim` and `put`.
 - **A Julia `OrderedDict`.** It is refused with every dictionary (2.12.16)
   until an author asks and a test environment has the package.
 
@@ -6313,6 +6772,15 @@ workflow (`.github/workflows/R-CMD-check.yaml`) sets both up and has not yet
 run. Jupyter was not run. numpy and pandas ran only in a temporary
 environment. A Julia `OrderedDict` could not be tested: OrderedCollections
 does not import in the default environment.
+
+**Stage 6 not run.** Jupyter and the julia engine ran on the developer's machine
+only (Quarto 1.11.9, Pandoc 3.10 and 3.8.3, Julia 1.13.3 with
+QuartoNotebookRunner). The check workflow `use_ci()` writes installs neither
+Quarto, Jupyter nor Julia, so no CI run renders a named-value document. The
+install line for the Julia package (`Pkg.add(url = ..., subdir = ...)`) was not
+run against the julia engine's worker; the route that was run puts the shipped
+copy on the worker's `JULIA_LOAD_PATH` through the `julia:` key. PDF and docx
+were not run for the filter's captions.
 
 **git operations.** The hook was run under `git commit --amend`, a merge,
 `git cherry-pick` and `git rebase` in a scratch repository. Git runs it
@@ -6703,6 +7171,17 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   language; a case that needs a fresh process runs in one `Rscript` per
   file, since Julia cannot be restarted in a process.
 
+Stage 6, named values (`test-lua-*`, `test-filter-*`, `test-values-*`,
+`test-weft-put.R`, `test-py-*`, `test-jl-*`, `test-guest-claim-*`,
+`test-jupyter-render.R`, `test-julia-render.R`, `test-coexist-knitr.R`,
+`test-scan-named.R`, `test-lint-named.R`, `test-lint-engine-named.R`,
+`test-gate-named.R`, `test-pre-render-named.R`, `test-use-setup-named.R`,
+`test-use-quarto-*.R`, `test-verify-named.R`, `test-weft-check-named.R`).
+The filter runs through plain Pandoc from testthat, one document of many cases
+at a time, and is checked against the conformance tables of 5h and of 6f. The
+Jupyter and julia render tests skip only when `quarto`, Python with Jupyter, or
+`julia` is absent.
+
 ## 22. Build order
 
 Each stage leaves something usable on its own.
@@ -6848,7 +7327,27 @@ to go.
 - 5g: the article `vignette("languages", package = "weft")`, and a check
   workflow that sets up Python and Julia
 
-**Planned, after stage 5.** Neither is in a stage.
+**Stage 6. Values by name.** Built, to `dev/design-6.md`.
+
+- 6a: the Lua number printer, a literal port of R's (2.13.3)
+- 6k: `claim()` from Python and Julia, and the packages `weft-prose` and `Weft`
+  with their knitr back end (3.9)
+- 6b: `weft_put()`, `weft_values_write()`, the carrier block and automatic
+  publishing by the hooks (3.8, 2.13.11)
+- 6c: the filter: values, `if`, `n`, failures, the report, lines and
+  configuration (1.12, 2.13)
+- 6d: the static side: scanner rows, `named-unpublished`, `publish-hidden`, the
+  `engine` rule, gate counts and installers (5.12, 5.8, 9.3)
+- 6e: Python for Jupyter: `put()`, `auto()`, `claim()` and `status()`'s
+  `python` row (3.8.6, 3.8.7)
+- 6f: the remaining classes, `sign`, `list`, ids and `cite` in the filter
+- 6g: stamps, collection, ledger and `verify()` for the filter (2.13.9, 8.3.5)
+- 6h: `Weft.jl` for the julia engine (3.8.8)
+- 6i: values files (2.13.10)
+- 6j: the article `vignette("named-values", package = "weft")`, a pointer in
+  the languages article, and this specification
+
+**Planned, after stage 6.** Neither is in a stage.
 
 - `drange()` and `dur()` (3.5.6): both need calendar arithmetic and a decision
   on date order.

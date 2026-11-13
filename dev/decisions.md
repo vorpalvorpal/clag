@@ -709,3 +709,77 @@ Packages: 6a, 6k and 6b in parallel; 6c after 6a; 6d after 6k, beside
 6c; 6f then 6g after 6c (6g also after 6b); 6e after 6c and 6d; 6h
 after 6e; 6i after 6g; 6j last. To reverse: nothing is built yet; drop
 the note.
+
+## 71. Stage 6 is built, with these rulings (13 Nov)
+
+Stage 6 was built to `dev/design-6.md` under delegation. The open
+questions O1 to O9 were answered as the design recommended, and each
+implementer's choices were ruled on after its package. The spec (1.12,
+2.13, 3.8, 3.9, 5.12 and the amendments listed in the design's section
+6) now states the behaviour as built. These are the choices, with the
+alternative each one refused.
+
+- **`claim()` from Python and Julia is eager on every back end.** It is
+  checked where it runs, as R chunk code does, and a failed guest claim
+  under knitr stops the knit. Alternatives: a check that rides in the
+  value and counts where the name is used; a guest claim that collects
+  and goes on, as `weft_str()` does. Refused, because one spelling must
+  mean one thing, and Python evaluates a claim before `put()` sees it.
+  The record and the filter still carry use-site checks, so a
+  `checked()` holder is small to add later.
+- **The Python distribution is `weft-prose`, imported as `weft`, and
+  nothing is published to PyPI or a Julia registry.** Both packages are
+  installed from git. Alternative: publish both; refused until an
+  outside author asks, since `weft` may be taken on PyPI.
+- **Captions and front matter see each name's last published value.**
+  Alternative: the value as of the caption's position; refused, since it
+  would break knitr captions, which are resolved after the chunk.
+- **`verify()` ends the julia server, only for a document on the julia
+  engine, and says so.** Alternative: leave the server; refused, since a
+  kept server holds a stale environment and no narrower command
+  refreshes it.
+- **`named-unpublished` is tier 2 and `publish-hidden` tier 1.** A name
+  may come from a sourced script that a token search cannot see; a `put`
+  in a hidden cell is always lost. `auto()` in a hidden cell is tier 2.
+- **A document is the filter's or the hooks' from its source lines.** An
+  `.Rmd` is never the filter's; `engine: knitr` is not; otherwise an
+  `engine:` or `jupyter:` key, or no executed `{r}` chunk, makes it the
+  filter's. For a leftover span in a knitr document, a span whose
+  governor fits 1.12.4 is resolved and any other is left to
+  `weft-check.lua`; the hooks' stamp of this run also decides.
+  Alternative: the filter resolves every construct and detects nothing;
+  refused, since it reports as its own a failure that the hooks own.
+- **Failures are one report, and construct errors are collected, not
+  fatal.** Configuration problems are construct errors. The stale-run
+  notice goes to standard error once and fails nothing; `verify()` fails
+  on it. Alternative: stop at the first construct error; refused, since
+  the filter is the end of the document and one report holds them all.
+- **A class the filter lacks is a loud value error.** The error is the
+  same for units, project formatters, a `date_format` other than the
+  default, and a `lang` weft does not ship. Alternative: print the
+  record's text; refused, since it prints a wrong value with no sign.
+- **The file hash is XXH3-64, 16 hex characters**, as `cli` gives, and
+  the filter computes it in pure Lua. The design said md5; that was wrong.
+- **A values file must resolve inside the project root**, and symbolic
+  links are not followed, because pure Lua cannot resolve them. Each file
+  read is listed once in the ledger header.
+- **Parity gaps are kept and listed**, not fixed in stage 6: a named
+  vector of length 1 loses its name (a scalar record); `.num`, `.sci` and
+  `.p` on a list with no collapse class are errors, where R prints each
+  element; a `list` over bools prints `TRUE`, where `.val` prints `true`.
+  The article lists them under "Limits", and `dev/open-findings.md` holds
+  the rest.
+
+What was measured: Quarto 1.11.9, Pandoc 3.10 and 3.8.3, Julia 1.13.3. The
+notebook worker that the julia engine starts does not inherit
+`JULIA_LOAD_PATH`; the project's `julia: {env: [...]}` key reaches it.
+Quarto redefines Lua's global `error()` to log and return, so the filter
+raises with `assert(false, obj)`.
+
+To reverse: to drop the filter, remove `weft.lua` and `weftlib/` from
+`inst/quarto/`, the publishers in `R/values.R` and the packages under
+`inst/python/` and `inst/julia/`, and restore the spec text from before
+this entry. Documents on knitr are unaffected, since named values were
+added beside the hooks and change nothing for a document with none. To
+change one ruling, change its rule in the spec and its test, not the
+others.
