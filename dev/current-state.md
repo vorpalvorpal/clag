@@ -145,26 +145,52 @@ first, then `dev/build-log.md`.
 
 ## Note: the specification is now `dev/PACKAGE-SCOPING.md` (moved 13 Nov)
 
-## Position at 877baa6 (13 Nov, read this before the sections above)
+## Position at bcc3062 (13 Nov, evening; read this before the sections above)
 
 The sections above are history; this one is current.
 
-- Lint speed fix merged (2157629). Reviews with rulings committed:
-  `dev/review-code-a.md`, `-b.md`, `-c.md`, `-tests.md`. Failing by
-  design on `main`: `test-review-code-{a,b,c}.R`.
-- Running: knit-path speed fixer (worktree `agent-a67cce5ecbdb86848`);
-  check-environment test editor (main tree, uncommitted test edits);
-  multi-language study (scratchpad `languages-study.md`); a
-  documentation writer (worktree; README, `vignettes/`, `_pkgdown.yml`).
-- Next, in order: merge knit fix; foundations pass (`R/io.R`); per-area
-  behaviour fixers against the three review test files (also update the
-  fixtures that use `0.0.1` / `99.0.0` as an "older" version); test-suite
-  fixes per `-tests.md` rulings; structural refactors; `check()`;
-  reference examples; pkgdown site to GitHub Pages; present the
-  language study; clean up (scratchpad `prof/real/`, worktrees incl. the
-  locked `agent-a89839914698260de`); closing report.
-- Waiting on Robin: rmarkdown issue and PR draft (scratchpad `rmdfix/`,
-  nothing posted); units PR #447 / issue #448.
+- **Refactor after the build.** Merged: lint and knit speed fixes;
+  the foundations pass (`R/io.R`); the three behaviour fixers. All
+  tests of `test-review-code-{a,b,c}.R` pass. What each review still
+  has open is structural only and is listed at the end of
+  `dev/review-code-a.md`, `-b.md`, `-c.md` ("State after the first
+  fixer"). `dev/review-code-tests.md` (17 proposals, all accepted) is
+  NOT started: bare `expect_error()`, skips that hide regressions, git
+  under the user's config, slow gate-edits and renders, wall-clock
+  bounds (review A #28 and `test-lint-perf.R:42` fail under load).
+- **Documentation.** README, nine articles, `_pkgdown.yml` and the
+  Pages workflow are on `main`; the site is live at
+  https://vorpalvorpal.github.io/weft/ and rebuilds on each push. The
+  specification moved to `dev/PACKAGE-SCOPING.md`. Owed: reference
+  examples, `vignettes/languages.Rmd` (5g), spec edits for decision 68.
+- **Other languages (Robin, 13 Nov: "Do a", "Install Julia and build
+  (a) with it").** Studies: `dev/languages-study.md`,
+  `dev/languages-c-scoping.md` (values by name; spike in
+  `dev/spikes/lang-c2/`). Contract: `dev/design-5.md` (decision 68;
+  read its rulings and amendments at the end). Built and on `main`:
+  5a exact integers, 5h conformance table
+  (`tests/testthat/_conformance/`), 5b Python reader (`R/guest.R`,
+  `inst/python/weft_guest.py`), 5e and 5f lints. Tests on `main`,
+  failing by design until built: 5c and 5d (`test-guest-setup`,
+  `-forms`, `-conditions`, `-reads`; implementer running in a
+  worktree), 5J Julia (`helper-5j.R`, `test-julia-*.R`; implementer
+  starts when 5c/5d land, same files). Then 5g the article, the spec
+  editor for section 6 of the note, and a check workflow with Python
+  and Julia (O3, O16).
+- **Installed outside the repository for this:** Julia 1.13.3
+  (Homebrew, with its dependencies), the R package JuliaCall,
+  `~/.julia` (RCall); earlier, Homebrew `udunits`. Scratch virtualenvs
+  with Jupyter, numpy and pandas live only in the scratchpad.
+- **Waiting on Robin:** whether to build the resolver filter (stage 2
+  of `dev/languages-c-scoping.md`); the rmarkdown issue and PR draft
+  (scratchpad `rmdfix/`, nothing posted); units PR #447 / issue #448.
+- **Suite:** always through the scratchpad `suite/fresh-suite.sh`,
+  which exports `HEAD` first (an earlier run tested a stale copy).
+  Push only after a run whose failures are all by design.
+- **Then:** test-suite fixes; structure pass; `devtools::check()`;
+  re-measure lint and knit times; clean up (scratchpad `prof/real/`,
+  `lang/`, virtualenvs; `find dev/trials -type l` must give 0);
+  closing report.
 
 ## Queue
 
