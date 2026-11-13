@@ -249,6 +249,35 @@ Stage 6 position: 6a, 6b, 6k, 6c, 6d, 6f merged on local `main`; 6g
 tests merged, implementer next; then 6e, 6h, 6i, 6j. Pushed through
 dd63c56. The CI fix (R's lib on `LD_LIBRARY_PATH`) is unpushed.
 
+## Position after the stage 6 review round (14 Nov; read this first)
+
+Stage 6 is built: 6a to 6k merged, the independent review
+(`dev/review-stage6.md`, 22 findings, rulings at its end) and both fix
+packages (6L filter, 6R R/Python/Julia) merged on local `main`. A
+whole-suite run is in progress; the last one before the fix round gave
+5,513 tests, 7 failing (all Julia-engine tests since amended).
+
+Not pushed since dd63c56 (about 70 commits). Push when the suite is
+clean; that push is also the first real run of the CI fix (R's lib on
+`LD_LIBRARY_PATH`), and CI has no Jupyter yet.
+
+Left from stage 6, small:
+- Fold the review rulings and the new message texts (in the 6L and 6R
+  hand-backs, summarised in `dev/review-stage6.md` rulings) into
+  `dev/PACKAGE-SCOPING.md` and the article's Limits (several limits
+  listed there are now fixed: named length-1 vectors, bool lists,
+  `put()` under knitr, the double report, `auto()`'s gate).
+- E62's `Pkg.add(url=..., subdir=...)` line is untested against a real
+  julia engine worker.
+- `dev/open-findings.md`: stage-6 items 1, 2, 7 remain (R `fmt_pct`
+  rounding past 15 digits; R chunk claims counting under `eval:
+  false`; `.sci` whole mantissas); 9 to 19 are closed by 6L/6R.
+- Scratchpad: `suite/fresh-suite.sh` (run with
+  `QUARTO_PYTHON=<scratchpad>/jupyter-venv/bin/python` so the Jupyter
+  tests run), `jupyter-venv/`, `reticulate-1647/`, `rmdfix-recovered/`.
+
+Then Robin's four items below, in order.
+
 ## Robin's instructions for after stage 6 (13 Nov, verbatim)
 
 "Once you are finished:
