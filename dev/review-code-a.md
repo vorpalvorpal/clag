@@ -527,3 +527,21 @@ All nineteen proposals are accepted. Order and readings:
   knitted output of the profile's synthetic chapter byte-identical.
   If a stage does not leave the code clearer it is dropped and that
   is reported.
+
+## State after the first fixer (13 Nov)
+
+Done: 1 to 6, 8, 9, 10; 7 by the foundations pass; the stamp file-name
+collision of review C 18. Left for the structure pass: 11 to 19.
+
+Dispute ruled (4): the test asked that `WEFT_DRAFT=1` be an error.
+About 100 call sites in the suite and the documented usage set it to
+`1`, the usual spelling of a set environment variable. Ruling: the
+variable accepts `true` or `1`, and `false`; anything else is an error
+naming it. The file setting `draft:` accepts only `true` or `false`.
+R, the Lua filter and the post-render script agree on this. The test
+was amended by the orchestrator. Alternative rejected: rewrite the
+suite to `true` and refuse `1`, which breaks existing projects' CI
+lines for no gain in safety.
+
+Ruled (8): a whole-file scan that fails for a reason other than
+encoding warns once per file and the knit goes on; kept as built.

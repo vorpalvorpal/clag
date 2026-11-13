@@ -177,12 +177,15 @@ test_that("review-code-a #4: draft: true and false are read (neighbour guard)", 
   expect_false(isTRUE(weft:::read_config(d, front = list())$draft))
 })
 
-test_that("review-code-a #4: WEFT_DRAFT other than true or false is an error; true and false are read", {
+test_that("review-code-a #4: WEFT_DRAFT other than true, false or 1 is an error; true, 1 and false are read", {
   d <- rca_dir()
-  for (v in c("yes", "on", "1")) {
+  for (v in c("yes", "on")) {
     withr::local_envvar(WEFT_DRAFT = v)
     expect_error(weft:::read_config(d, front = list()), "WEFT_DRAFT", info = v)
   }
+  # ruling of 13 Nov: 1 stays, as the usual spelling of a set environment variable
+  withr::local_envvar(WEFT_DRAFT = "1")
+  expect_true(isTRUE(weft:::read_config(d, front = list())$draft))
   withr::local_envvar(WEFT_DRAFT = "true")
   expect_true(isTRUE(weft:::read_config(d, front = list())$draft))
   withr::local_envvar(WEFT_DRAFT = "false")
