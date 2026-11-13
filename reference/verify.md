@@ -53,8 +53,8 @@ print(x, ...)
 A `weft_verify`, invisibly, when the check passed: a list with `ok`,
 `parts` (`part`, `status`, `detail`), `errors`, `added`, `strict`,
 `names`, `tier2` (each a `weft_findings`), `removed`, `decisions`,
-`knit`, `unexecuted`, `stale`, `tolerated`, `log`, `notes` and
-`seconds`. The report is printed to stderr with
+`knit`, `unexecuted`, `unfresh`, `stale`, `tolerated`, `log`, `notes`
+and `seconds`. The report is printed to stderr with
 [`message()`](https://rdrr.io/r/base/message.html).
 
 ## Details

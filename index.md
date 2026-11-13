@@ -106,6 +106,15 @@ targets](https://vorpalvorpal.github.io/weft/articles/targets.html).
 refuses one that R cannot hold exactly. See [Python and Julia
 chunks](https://vorpalvorpal.github.io/weft/articles/languages.html).
 
+**Values by name.** A document that is not knit, such as a Quarto `.qmd`
+on the Jupyter or Julia engine, has no R to evaluate prose. Write the
+value as a name, `` `depth`{.num} ``, publish it from R
+([`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)),
+Python (`put()`) or Julia (`@put`), and a Pandoc filter fills it in. The
+same filter resolves conditions on names, wording, checks and values
+files. See [Values by
+name](https://vorpalvorpal.github.io/weft/articles/named-values.html).
+
 **Lints.**
 [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
 reads a project’s documents without running them and lists typed

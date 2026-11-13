@@ -40,6 +40,7 @@
     <li><a class="dropdown-item" href="../articles/units.html">Units and the dictionary</a></li>
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
+    <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -84,7 +85,8 @@ know <code><a href="../articles/values.html">vignette("values", package = "weft"
 <code><a href="../articles/wording.html">vignette("wording", package = "weft")</a></code>. After it you will be
 able to print a Python or Julia value in a sentence, govern wording with
 it, call weft’s formatters from Python, and know what weft checks in
-such a document and what it cannot check.</p>
+such a document and what it cannot check. For a document that is not
+knit, see <code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>.</p>
 <p>The chunks in this article need Python or Julia, so most of them are
 not run when the article is built. The output shown was produced by
 running them.</p>
@@ -104,8 +106,12 @@ sentence through an R expression.</p>
 <span id="cb1-3"><a href="#cb1-3" tabindex="-1"></a><span class="fu">engine</span><span class="kw">:</span><span class="at"> knitr</span></span>
 <span id="cb1-4"><a href="#cb1-4" tabindex="-1"></a><span class="pp">---</span></span></code></pre></div>
 <p>A <code>.qmd</code> that Quarto runs with its Jupyter or Julia engine
-is not supported. Quarto then runs the code without R, so no weft
-construct is evaluated and the attribute blocks print as text.</p>
+has no R to evaluate prose, so an R expression in it is not evaluated
+and prints as text. Such a document can still use weft: write a value by
+name, <code>`depth`{.num}</code>, publish it from the Python or Julia
+code, and weft’s Pandoc filter fills it in. That route is described in
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>. Everything
+below is for documents that knitr knits.</p>
 </div>
 <div class="section level2">
 <h2 id="setting-up">Setting up<a class="anchor" aria-label="anchor" href="#setting-up"></a>
@@ -424,10 +430,15 @@ through the same conversion, and <code>2**53 + 1</code> arrives as
 <code>fmt_ol</code>, <code>fmt_dl</code>, <code>fmt_a</code>,
 <code>fmt_cap</code>, <code>fmt_strong</code>, <code>fmt_em</code>,
 <code>plural</code>, <code>ci</code>, <code>pm</code>,
-<code>about</code>, <code>of_n</code> and <code>weft_str</code>.
-<code>claim</code>, <code>u</code>, <code>fmt_unit</code>,
-<code>lookup</code>, <code>brk</code> and the dictionary functions are
-not there: a check is written in R, in prose, as
+<code>about</code>, <code>of_n</code> and <code>weft_str</code>. The
+module also holds <code>claim</code>, <code>put</code> and
+<code>auto</code>: <code>claim(n, "&gt; 10")</code> checks in Python
+where it runs, and <code>put()</code> and <code>auto()</code> publish
+names for the filter (see
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>).
+<code>u</code>, <code>fmt_unit</code>, <code>lookup</code>,
+<code>brk</code> and the dictionary functions are not there. A check on
+a value in prose is still written in R, as
 <code>`r claim(py$n, . &gt; 10)`</code>. If a module called
 <code>weft</code> is already loaded in Python, weft leaves it in place
 and warns once.</p>
@@ -454,8 +465,11 @@ label, and fails the render once at the end.</p>
 <p>weft resolves a caption written in an R chunk’s options (see
 <code><a href="../articles/values.html">vignette("values", package = "weft")</a></code>), but not one written
 in a Python or Julia chunk’s options. A construct there is a construct
-error, found by the lints and at knit time. In a Quarto document, write
-the caption in a figure or table div instead, where it is prose:</p>
+error, found by the lints and at knit time. A named value does work in
+any caption (see
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>). In a Quarto
+document that knitr knits, write the caption in a figure or table div
+instead, where it is prose:</p>
 <div class="sourceCode" id="cb16"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a>::: {#fig-depth}</span>
 <span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a><span class="in">```{python depth-plot}</span></span>
 <span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="in">plot_depths()</span></span>
@@ -621,11 +635,17 @@ a <code>.qmd</code> set to run with Jupyter:</p>
 <span><span class="co">#&gt;   22:19  guest-read    `py_eval("depth")` is converted by reticulate, which weft does not check (rule 5.11.3).</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; report.qmd</span></span>
-<span><span class="co">#&gt;   1:1  engine  report.qmd holds weft constructs and is marked `jupyter: python3`; weft constructs are evaluated only under `engine: knitr` (rule 5.8.9).</span></span>
-<span><span class="co">#&gt;                Change it to `engine: knitr`. Python chunks then run through reticulate, and a Python value reaches prose as `r py$x`.</span></span></code></pre>
-<p><code><a href="../reference/use_setup.html">use_setup()</a></code> adds <code>engine: knitr</code> to a
-<code>.qmd</code> like <code>report.qmd</code>, which holds only Python
-chunks and a weft construct.</p>
+<span><span class="co">#&gt;   1:1  engine  report.qmd holds named values, and the filter weft.lua is not installed: run use_quarto() (rule 5.8.9).</span></span>
+<span><span class="co">#&gt;                Run use_quarto() to install the weft-check extension, which carries the filter.</span></span></code></pre>
+<p><code><a href="../reference/use_setup.html">use_setup()</a></code> leaves <code>report.qmd</code> as it is,
+because it names the Jupyter engine. It adds <code>engine: knitr</code>
+to a <code>.qmd</code> of Python or Julia chunks alone, with no engine
+named, only when that page holds an R value or a span outside the
+filter’s grammar. A page whose constructs are all named values is left
+for the filter. The <code>engine</code> finding above says so:
+<code>report.qmd</code>’s span names its governor, so it is the
+filter’s, and the filter is not installed in this folder.
+<code><a href="../reference/use_quarto.html">use_quarto()</a></code> installs it.</p>
 <p>The commit gate treats <code>guest-inline</code> and
 <code>guest-call</code> like any tier-1 rule: a commit that adds one
 fails. A markup string built in Python code, such as
@@ -855,7 +875,9 @@ not.</p>
 <div class="section level3">
 <h3 id="calling-weft-from-julia">Calling weft from Julia<a class="anchor" aria-label="anchor" href="#calling-weft-from-julia"></a>
 </h3>
-<p>weft offers no Julia module of function forms. Julia code can call
+<p>weft offers no Julia module of function forms. (The Julia package
+<code>Weft</code> has <code>put</code>, <code>@put</code> and
+<code>@claim</code>, none of them a function form.) Julia code can call
 weft’s R functions through RCall, as it calls any R function
 (<code>R"weft::fmt_num($x)"</code>), and gets RCall’s conversion. RCall
 stops with an error on a whole number of 2^31 or more and on

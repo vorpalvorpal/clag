@@ -40,6 +40,7 @@
     <li><a class="dropdown-item" href="../articles/units.html">Units and the dictionary</a></li>
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
+    <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -130,44 +131,86 @@ weft</td>
 <p><code><a href="../reference/lint_rules.html">lint_rules()</a></code> lists every rule:</p>
 <div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/lint_rules.html">lint_rules</a></span><span class="op">(</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"id"</span>, <span class="st">"tier"</span>, <span class="st">"scope"</span>, <span class="st">"what"</span><span class="op">)</span><span class="op">]</span></span>
-<span><span class="co">#&gt;                id tier   scope                                                                what</span></span>
-<span><span class="co">#&gt; 1         numeral    1    file A number typed in prose, a caption, front matter, a string or math.</span></span>
-<span><span class="co">#&gt; 2       construct    1    file                          An error the scanner finds in a construct.</span></span>
-<span><span class="co">#&gt; 3            read    1    file                                           A file that is not UTF-8.</span></span>
-<span><span class="co">#&gt; 4     block-start    1    file                           A line inside a span that starts a block.</span></span>
-<span><span class="co">#&gt; 5        lone-bar    2    file                             A bracket with one `|` and no governor.</span></span>
-<span><span class="co">#&gt; 6         if-zero    2    file                             An `if` condition that compares with 0.</span></span>
-<span><span class="co">#&gt; 7            name    2    file          A class or key that is not weft's, or is one edit from it.</span></span>
-<span><span class="co">#&gt; 8     inert-check    1    file                        A check or condition with no variable in it.</span></span>
-<span><span class="co">#&gt; 9      long-guard    2    file                              An `if` arm longer than `guard_words`.</span></span>
-<span><span class="co">#&gt; 10       cite-key    1    file                       A key of a cite span not in the bibliography.</span></span>
-<span><span class="co">#&gt; 11      cite-bare    1    file             A bare cite key not written as a citation in its block.</span></span>
-<span><span class="co">#&gt; 12   citation-key    1    file                             A citation key not in the bibliography.</span></span>
-<span><span class="co">#&gt; 13     claim-word    2    file                                         A claim word in a sentence.</span></span>
-<span><span class="co">#&gt; 14  literal-value    1    file                                     A value made only of constants.</span></span>
-<span><span class="co">#&gt; 15 value-constant    2    file                                  A numeric constant inside a value.</span></span>
-<span><span class="co">#&gt; 16   value-format    2    file                             A value that rounds or formats in code.</span></span>
-<span><span class="co">#&gt; 17           xref    1 project                                     A cross-reference to no anchor.</span></span>
-<span><span class="co">#&gt; 18   anchor-twice    1 project                                   An anchor defined more than once.</span></span>
-<span><span class="co">#&gt; 19      ref-label    1    file                  A span whose text is a reference-definition label.</span></span>
-<span><span class="co">#&gt; 20  anchor-unused    2 project                A figure, table or equation anchor nobody refers to.</span></span>
-<span><span class="co">#&gt; 21      xref-code    2    file                       A cross-reference written inside a code span.</span></span>
-<span><span class="co">#&gt; 22 section-anchor    1    file                                          A heading with no `{#id}`.</span></span>
-<span><span class="co">#&gt; 23    chunk-label    1    file                                    An executed chunk with no label.</span></span>
-<span><span class="co">#&gt; 24       tar-name    1    file                         A target read that the store does not hold.</span></span>
-<span><span class="co">#&gt; 25    dict-assign    1    file                                            An assignment to `dict`.</span></span>
-<span><span class="co">#&gt; 26      file-link    1    file                        A link or image to a file that is not there.</span></span>
-<span><span class="co">#&gt; 27    above-setup    1    file                A construct above the chunk that calls weft_setup().</span></span>
-<span><span class="co">#&gt; 28       dict-key    1    file                       A `dict$key` read of a key that is not there.</span></span>
-<span><span class="co">#&gt; 29      tar-cache    1    file                             A chunk that reads a target and caches.</span></span>
-<span><span class="co">#&gt; 30   config-place    1 project             A project setting in a place that is not the project's.</span></span>
-<span><span class="co">#&gt; 31         engine    1 project                     A document with constructs that is not knitr's.</span></span>
-<span><span class="co">#&gt; 32         figure    1    file                        A figure with no label, caption or alt text.</span></span>
-<span><span class="co">#&gt; 33  table-caption    1    file                                            A table with no caption.</span></span>
-<span><span class="co">#&gt; 34   guest-inline    1    file          Inline code in another language, which knitr does not run.</span></span>
-<span><span class="co">#&gt; 35     guest-call    1    file                    A weft function called from Python through `r.`.</span></span>
-<span><span class="co">#&gt; 36     guest-read    2    file         A value read from Python or Julia that weft does not check.</span></span>
-<span><span class="co">#&gt; 37      ojs-value    2    file               An Observable value computed in the reader's browser.</span></span></code></pre></div>
+<span><span class="co">#&gt;                   id tier   scope</span></span>
+<span><span class="co">#&gt; 1            numeral    1    file</span></span>
+<span><span class="co">#&gt; 2          construct    1    file</span></span>
+<span><span class="co">#&gt; 3               read    1    file</span></span>
+<span><span class="co">#&gt; 4        block-start    1    file</span></span>
+<span><span class="co">#&gt; 5           lone-bar    2    file</span></span>
+<span><span class="co">#&gt; 6            if-zero    2    file</span></span>
+<span><span class="co">#&gt; 7               name    2    file</span></span>
+<span><span class="co">#&gt; 8        inert-check    1    file</span></span>
+<span><span class="co">#&gt; 9         long-guard    2    file</span></span>
+<span><span class="co">#&gt; 10          cite-key    1    file</span></span>
+<span><span class="co">#&gt; 11         cite-bare    1    file</span></span>
+<span><span class="co">#&gt; 12      citation-key    1    file</span></span>
+<span><span class="co">#&gt; 13        claim-word    2    file</span></span>
+<span><span class="co">#&gt; 14     literal-value    1    file</span></span>
+<span><span class="co">#&gt; 15    value-constant    2    file</span></span>
+<span><span class="co">#&gt; 16      value-format    2    file</span></span>
+<span><span class="co">#&gt; 17              xref    1 project</span></span>
+<span><span class="co">#&gt; 18      anchor-twice    1 project</span></span>
+<span><span class="co">#&gt; 19         ref-label    1    file</span></span>
+<span><span class="co">#&gt; 20     anchor-unused    2 project</span></span>
+<span><span class="co">#&gt; 21         xref-code    2    file</span></span>
+<span><span class="co">#&gt; 22    section-anchor    1    file</span></span>
+<span><span class="co">#&gt; 23       chunk-label    1    file</span></span>
+<span><span class="co">#&gt; 24          tar-name    1    file</span></span>
+<span><span class="co">#&gt; 25       dict-assign    1    file</span></span>
+<span><span class="co">#&gt; 26         file-link    1    file</span></span>
+<span><span class="co">#&gt; 27       above-setup    1    file</span></span>
+<span><span class="co">#&gt; 28          dict-key    1    file</span></span>
+<span><span class="co">#&gt; 29         tar-cache    1    file</span></span>
+<span><span class="co">#&gt; 30      config-place    1 project</span></span>
+<span><span class="co">#&gt; 31            engine    1 project</span></span>
+<span><span class="co">#&gt; 32            figure    1    file</span></span>
+<span><span class="co">#&gt; 33     table-caption    1    file</span></span>
+<span><span class="co">#&gt; 34      guest-inline    1    file</span></span>
+<span><span class="co">#&gt; 35        guest-call    1    file</span></span>
+<span><span class="co">#&gt; 36        guest-read    2    file</span></span>
+<span><span class="co">#&gt; 37         ojs-value    2    file</span></span>
+<span><span class="co">#&gt; 38 named-unpublished    2    file</span></span>
+<span><span class="co">#&gt; 39    publish-hidden    1    file</span></span>
+<span><span class="co">#&gt;                                                                   what</span></span>
+<span><span class="co">#&gt; 1  A number typed in prose, a caption, front matter, a string or math.</span></span>
+<span><span class="co">#&gt; 2                           An error the scanner finds in a construct.</span></span>
+<span><span class="co">#&gt; 3                                            A file that is not UTF-8.</span></span>
+<span><span class="co">#&gt; 4                            A line inside a span that starts a block.</span></span>
+<span><span class="co">#&gt; 5                              A bracket with one `|` and no governor.</span></span>
+<span><span class="co">#&gt; 6                              An `if` condition that compares with 0.</span></span>
+<span><span class="co">#&gt; 7           A class or key that is not weft's, or is one edit from it.</span></span>
+<span><span class="co">#&gt; 8                         A check or condition with no variable in it.</span></span>
+<span><span class="co">#&gt; 9                               An `if` arm longer than `guard_words`.</span></span>
+<span><span class="co">#&gt; 10                       A key of a cite span not in the bibliography.</span></span>
+<span><span class="co">#&gt; 11             A bare cite key not written as a citation in its block.</span></span>
+<span><span class="co">#&gt; 12                             A citation key not in the bibliography.</span></span>
+<span><span class="co">#&gt; 13                                         A claim word in a sentence.</span></span>
+<span><span class="co">#&gt; 14                                     A value made only of constants.</span></span>
+<span><span class="co">#&gt; 15                                  A numeric constant inside a value.</span></span>
+<span><span class="co">#&gt; 16                             A value that rounds or formats in code.</span></span>
+<span><span class="co">#&gt; 17                                     A cross-reference to no anchor.</span></span>
+<span><span class="co">#&gt; 18                                   An anchor defined more than once.</span></span>
+<span><span class="co">#&gt; 19                  A span whose text is a reference-definition label.</span></span>
+<span><span class="co">#&gt; 20                A figure, table or equation anchor nobody refers to.</span></span>
+<span><span class="co">#&gt; 21                       A cross-reference written inside a code span.</span></span>
+<span><span class="co">#&gt; 22                                          A heading with no `{#id}`.</span></span>
+<span><span class="co">#&gt; 23                                    An executed chunk with no label.</span></span>
+<span><span class="co">#&gt; 24                         A target read that the store does not hold.</span></span>
+<span><span class="co">#&gt; 25                                            An assignment to `dict`.</span></span>
+<span><span class="co">#&gt; 26                        A link or image to a file that is not there.</span></span>
+<span><span class="co">#&gt; 27                A construct above the chunk that calls weft_setup().</span></span>
+<span><span class="co">#&gt; 28                       A `dict$key` read of a key that is not there.</span></span>
+<span><span class="co">#&gt; 29                             A chunk that reads a target and caches.</span></span>
+<span><span class="co">#&gt; 30             A project setting in a place that is not the project's.</span></span>
+<span><span class="co">#&gt; 31                     A document with constructs that is not knitr's.</span></span>
+<span><span class="co">#&gt; 32                        A figure with no label, caption or alt text.</span></span>
+<span><span class="co">#&gt; 33                                            A table with no caption.</span></span>
+<span><span class="co">#&gt; 34          Inline code in another language, which knitr does not run.</span></span>
+<span><span class="co">#&gt; 35                    A weft function called from Python through `r.`.</span></span>
+<span><span class="co">#&gt; 36         A value read from Python or Julia that weft does not check.</span></span>
+<span><span class="co">#&gt; 37               An Observable value computed in the reader's browser.</span></span>
+<span><span class="co">#&gt; 38 A name used by a named value or filter span that nothing publishes.</span></span>
+<span><span class="co">#&gt; 39          A chunk that publishes values where its output is dropped.</span></span></code></pre></div>
 <p>A rule’s <strong>scope</strong> is <code>file</code> when it reads
 one document at a time, and <code>project</code> when it reads them all,
 as cross-references do.</p>
@@ -210,7 +253,7 @@ with several problems:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; survey.qmd</span></span>
 <span><span class="co">#&gt;   1:1    engine          survey.qmd holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).</span></span>
-<span><span class="co">#&gt;                          Add `engine: knitr` to its front matter.</span></span>
+<span><span class="co">#&gt;                          Add `engine: knitr` to its front matter. Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8).</span></span>
 <span><span class="co">#&gt;   12:12  numeral         "14" is a number typed in prose (rule 5.2.1).</span></span>
 <span><span class="co">#&gt;                          Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.</span></span>
 <span><span class="co">#&gt;   12:24  numeral         "2023" is a number typed in prose (rule 5.2.1).</span></span>

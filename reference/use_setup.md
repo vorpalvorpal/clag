@@ -58,15 +58,19 @@ It writes:
 
 - `engine: knitr` in each `.qmd` that has no `engine:` or `jupyter:` key
   and is not another engine's alone, except files and folders whose
-  names start with `_` or `.` (includes). A page of Python or Julia
-  chunks alone gains the line only when it holds a weft construct (a
-  value, a count, a governor, a sign or a list); without one it stays as
-  it is.
+  names start with `_` or `.` (includes). A page of another engine's
+  chunks alone gains the line only when it holds an R construct: an R
+  value (`` `r x`{.num} ``) or a span whose governor is outside the
+  grammar of the filter. A page of named values (`` `depth`{.num} ``)
+  and spans of that grammar, or with no construct, stays as it is.
 
-- for an `.Rmd` outside a Quarto project, `weft-check.lua` beside the
-  document (weft's own file: kept when identical, replaced when it
-  differs) and, under each format of `output:`,
-  `pandoc_args: ["--lua-filter", "weft-check.lua"]`.
+- for an `.Rmd` outside a Quarto project, `weft.lua`, `weft-check.lua`
+  and the folder `weftlib/` beside the document (weft's own files: kept
+  when identical, replaced when they differ) and, under each format of
+  `output:`,
+  `pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]`.
+  A document set up before named values, which names only
+  `weft-check.lua`, gets `weft.lua` named before it.
 
 Front matter is edited as text and checked by parsing it again. When an
 edit cannot be made safely (flow-style `knitr:` or `pandoc_args`, a YAML

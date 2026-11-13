@@ -40,6 +40,7 @@
     <li><a class="dropdown-item" href="../articles/units.html">Units and the dictionary</a></li>
     <li><a class="dropdown-item" href="../articles/targets.html">Using weft with targets</a></li>
     <li><a class="dropdown-item" href="../articles/languages.html">Python and Julia chunks</a></li>
+    <li><a class="dropdown-item" href="../articles/named-values.html">Values by name</a></li>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Checking</h6></li>
     <li><a class="dropdown-item" href="../articles/lints.html">The static lints</a></li>
@@ -114,8 +115,9 @@ line or front matter)</td>
 <tr class="even">
 <td><code><a href="../reference/use_quarto.html">use_quarto()</a></code></td>
 <td>in a Quarto project</td>
-<td>the <code>weft-check</code> filter, the render scripts, entries in
-<code>_quarto.yml</code>
+<td>the <code>weft-check</code> extension (the filters
+<code>weft.lua</code> and <code>weft-check.lua</code>), the render
+scripts, entries in <code>_quarto.yml</code>
 </td>
 </tr>
 <tr class="odd">
@@ -147,7 +149,7 @@ remote:</p>
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/use_weft.html">use_weft</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft will set up creek-site:</span></span>
 <span><span class="co">#&gt;   use_setup       .Rprofile (edit), _weft.yml (new), index.qmd (edit)</span></span>
-<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
+<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
 <span><span class="co">#&gt;   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)</span></span>
 <span><span class="co">#&gt;   use_hooks       .git/hooks/commit-msg (new)</span></span>
 <span><span class="co">#&gt;   use_ci          .github/workflows/weft.yml (new)</span></span>
@@ -267,22 +269,26 @@ each one:</p>
 <span><span class="co">#&gt;   _weft.yml  (new: settings, and the weft version that set the project up)</span></span>
 <span><span class="co">#&gt;   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)</span></span>
 <span><span class="co">#&gt;   weft-check.lua  (new: the weft-check filter for rmarkdown)</span></span>
-<span><span class="co">#&gt; Wrote: _weft.yml, survey.Rmd, weft-check.lua</span></span></code></pre></div>
+<span><span class="co">#&gt;   weft.lua  (new: the weft filter for rmarkdown)</span></span>
+<span><span class="co">#&gt;   weftlib/...  (new: the modules weft.lua loads, one line each)</span></span>
+<span><span class="co">#&gt; Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft.lua, weftlib/...</span></span></code></pre></div>
 <p>The document’s front matter was <code>output: html_document</code>.
 It is now:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="pp">---</span></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">title</span><span class="kw">:</span><span class="at"> </span><span class="st">"Survey"</span></span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">  </span><span class="fu">html_document</span><span class="kw">:</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="at">    </span><span class="fu">pandoc_args</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft-check.lua"</span><span class="kw">]</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="at">    </span><span class="fu">pandoc_args</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft.lua"</span><span class="kw">,</span><span class="at"> </span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft-check.lua"</span><span class="kw">]</span></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="fu">knitr</span><span class="kw">:</span></span>
 <span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="at">  </span><span class="fu">opts_knit</span><span class="kw">:</span></span>
 <span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="at">    </span><span class="fu">weft</span><span class="kw">:</span><span class="at"> !expr weft::weft_setup()</span></span>
 <span id="cb7-9"><a href="#cb7-9" tabindex="-1"></a><span class="pp">---</span></span></code></pre></div>
 <p><code>weft-check.lua</code> is a Pandoc filter. It reads the output
 after the knit and reports any construct left unresolved, such as a span
-whose key was misspelt. In a Quarto project, <code><a href="../reference/use_quarto.html">use_quarto()</a></code>
-installs the same filter as an extension.</p>
+whose key was misspelt. <code>weft.lua</code> resolves named values (see
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>) and runs first;
+it loads its modules from <code>weftlib/</code>. In a Quarto project,
+<code><a href="../reference/use_quarto.html">use_quarto()</a></code> installs the same filters as an extension.</p>
 </div>
 <div class="section level3">
 <h3 id="quarto-documents-need-engine-knitr">Quarto documents need <code>engine: knitr</code><a class="anchor" aria-label="anchor" href="#quarto-documents-need-engine-knitr"></a>
@@ -336,7 +342,9 @@ line.</p>
 <span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> weft-check</span></span></code></pre></div>
 <ul>
 <li>
-<code>_extensions/weft-check/</code> holds the filter.</li>
+<code>_extensions/weft-check/</code> holds the filters
+<code>weft.lua</code> and <code>weft-check.lua</code>, and the folder
+<code>weftlib/</code> that <code>weft.lua</code> loads.</li>
 <li>
 <code>_weft/pre-render.R</code> runs before anything renders. It
 stops the render, naming the file, when a <code>.qmd</code> holds a
@@ -488,8 +496,9 @@ lines in <code>.Rprofile</code>, or the file if weft created it</td>
 <tr class="even">
 <td>R Markdown filter</td>
 <td>
-<code>weft-check.lua</code>, and the <code>pandoc_args</code> line
-that names it</td>
+<code>weft.lua</code>, <code>weft-check.lua</code>,
+<code>weftlib/</code>, and the <code>pandoc_args</code> line that names
+them</td>
 </tr>
 <tr class="odd">
 <td>Quarto</td>

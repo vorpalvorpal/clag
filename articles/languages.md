@@ -9,6 +9,8 @@ and
 After it you will be able to print a Python or Julia value in a
 sentence, govern wording with it, call weft’s formatters from Python,
 and know what weft checks in such a document and what it cannot check.
+For a document that is not knit, see
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md).
 
 The chunks in this article need Python or Julia, so most of them are not
 run when the article is built. The output shown was produced by running
@@ -32,9 +34,13 @@ engine: knitr
 ---
 ```
 
-A `.qmd` that Quarto runs with its Jupyter or Julia engine is not
-supported. Quarto then runs the code without R, so no weft construct is
-evaluated and the attribute blocks print as text.
+A `.qmd` that Quarto runs with its Jupyter or Julia engine has no R to
+evaluate prose, so an R expression in it is not evaluated and prints as
+text. Such a document can still use weft: write a value by name,
+`` `depth`{.num} ``, publish it from the Python or Julia code, and
+weft’s Pandoc filter fills it in. That route is described in
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md).
+Everything below is for documents that knitr knits.
 
 ## Setting up
 
@@ -311,9 +317,13 @@ The module holds `fmt_num`, `fmt_pct`, `fmt_sci`, `fmt_p`, `fmt_date`,
 `fmt_no`, `fmt_word`, `fmt_count`, `fmt_ord`, `fmt_and`, `fmt_or`,
 `fmt_pairs`, `fmt_range`, `fmt_ul`, `fmt_ol`, `fmt_dl`, `fmt_a`,
 `fmt_cap`, `fmt_strong`, `fmt_em`, `plural`, `ci`, `pm`, `about`, `of_n`
-and `weft_str`. `claim`, `u`, `fmt_unit`, `lookup`, `brk` and the
-dictionary functions are not there: a check is written in R, in prose,
-as `` `r claim(py$n, . > 10)` ``. If a module called `weft` is already
+and `weft_str`. The module also holds `claim`, `put` and `auto`:
+`claim(n, "> 10")` checks in Python where it runs, and `put()` and
+`auto()` publish names for the filter (see
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md)).
+`u`, `fmt_unit`, `lookup`, `brk` and the dictionary functions are not
+there. A check on a value in prose is still written in R, as
+`` `r claim(py$n, . > 10)` ``. If a module called `weft` is already
 loaded in Python, weft leaves it in place and warns once.
 
 ## Text with constructs from Python
@@ -343,9 +353,11 @@ and fails the render once at the end.
 weft resolves a caption written in an R chunk’s options (see
 [`vignette("values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/values.md)),
 but not one written in a Python or Julia chunk’s options. A construct
-there is a construct error, found by the lints and at knit time. In a
-Quarto document, write the caption in a figure or table div instead,
-where it is prose:
+there is a construct error, found by the lints and at knit time. A named
+value does work in any caption (see
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md)).
+In a Quarto document that knitr knits, write the caption in a figure or
+table div instead, where it is prose:
 
 ```` markdown
 ::: {#fig-depth}
@@ -483,12 +495,19 @@ lints(tier = 1:2)
     #>   22:19  guest-read    `py_eval("depth")` is converted by reticulate, which weft does not check (rule 5.11.3).
     #> 
     #> report.qmd
-    #>   1:1  engine  report.qmd holds weft constructs and is marked `jupyter: python3`; weft constructs are evaluated only under `engine: knitr` (rule 5.8.9).
-    #>                Change it to `engine: knitr`. Python chunks then run through reticulate, and a Python value reaches prose as `r py$x`.
+    #>   1:1  engine  report.qmd holds named values, and the filter weft.lua is not installed: run use_quarto() (rule 5.8.9).
+    #>                Run use_quarto() to install the weft-check extension, which carries the filter.
 
 [`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md)
-adds `engine: knitr` to a `.qmd` like `report.qmd`, which holds only
-Python chunks and a weft construct.
+leaves `report.qmd` as it is, because it names the Jupyter engine. It
+adds `engine: knitr` to a `.qmd` of Python or Julia chunks alone, with
+no engine named, only when that page holds an R value or a span outside
+the filter’s grammar. A page whose constructs are all named values is
+left for the filter. The `engine` finding above says so: `report.qmd`’s
+span names its governor, so it is the filter’s, and the filter is not
+installed in this folder.
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+installs it.
 
 The commit gate treats `guest-inline` and `guest-call` like any tier-1
 rule: a commit that adds one fails. A markup string built in Python
@@ -657,11 +676,12 @@ in an R chunk. A file that a package loads through `using` is not.
 
 ### Calling weft from Julia
 
-weft offers no Julia module of function forms. Julia code can call
-weft’s R functions through RCall, as it calls any R function
-(`R"weft::fmt_num($x)"`), and gets RCall’s conversion. RCall stops with
-an error on a whole number of 2^31 or more and on `missing`, hands R a
-`Rational` or `pi` as an object that
+weft offers no Julia module of function forms. (The Julia package `Weft`
+has `put`, `@put` and `@claim`, none of them a function form.) Julia
+code can call weft’s R functions through RCall, as it calls any R
+function (`R"weft::fmt_num($x)"`), and gets RCall’s conversion. RCall
+stops with an error on a whole number of 2^31 or more and on `missing`,
+hands R a `Rational` or `pi` as an object that
 [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
 refuses, and hands it a `UInt8` as a raw byte, which
 [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)

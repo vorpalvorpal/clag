@@ -1,0 +1,650 @@
+# Values by name
+
+This article is for authors whose prose cannot call R: a Quarto document
+on the Jupyter or Julia engine, a plain Pandoc document, or a chapter
+built from a values file. It assumes you know
+[`vignette("values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/values.md)
+and
+[`vignette("wording", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/wording.md).
+After it you will be able to publish a value from R, Python or Julia,
+write it in a sentence by name, say what the resolver does with it, and
+know what fails and what is not built yet.
+
+None of the code in this article is run when the article is built. The
+output shown was produced by running it.
+
+## A name instead of an R expression
+
+A named value is a code span that holds one name, directly followed by
+an attribute block with a weft class: `` `depth`{.num} ``. Code
+publishes a value under that name. When the document renders, a Pandoc
+filter replaces the span with the value, formatted by the class.
+
+````` markdown
+---
+title: "Creek survey"
+---
+
+````{.weft-values}
+{"weft":1,"values":{"depth":{"t":"float","v":"3.14159"},"n_high":{"t":"int","v":"1"}}}
+````
+
+Mean depth was `depth`{.num digits="2"} m.
+[No site | One site | # sites]{n="n_high"} read above the trigger.
+`````
+
+That document needs no R, no Python and no Julia. It renders as:
+
+``` text
+Mean depth was 3.14 m. One site read above the trigger.
+```
+
+The block in the middle is how code hands a value over. You rarely write
+one by hand:
+[`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+in R, `put()` in Python and `@put` in Julia write it for you. A name is
+ASCII letters, digits, `_` and `.`, starting with a letter or `_`, and
+at most 64 characters. A dot is part of the name: `n.sites` is one name,
+and there is no `site.depth` that reaches into a value. A name cannot be
+`TRUE`, `FALSE`, `True`, `False`, `true`, `false`, `NA`, `NULL`, `None`,
+`nothing`, `missing`, `Inf` or `NaN`.
+
+`.val` prints a named value as it is: the digits of an integer, the
+shortest text of a float, a decimal as written, a string, an ISO date,
+`true` or `false`. It takes no wording class. A float prints in one form
+whatever language wrote it: `100000`, not `100000.0`, and `1e+23`, as R
+writes it. Published text is data, not markdown, so `.val` with a text
+or collapse class (`.cap`, `.and`) prints a `*` or a `<` in a string as
+it is.
+
+### When to write a name
+
+- In a document that is not knit, write names. The document is on the
+  Jupyter engine, the Julia engine, the markdown engine or plain Pandoc,
+  so no R runs to evaluate an expression.
+- In a knitr document (an `.Rmd`, or a `.qmd` with `engine: knitr`),
+  keep writing R expressions. R values and spans stay R. Write a name
+  where the hooks cannot reach: text a chunk prints with
+  `results: asis`, a caption on a chunk that is cached or not evaluated,
+  or a value from Python or Julia that must print exactly.
+
+A named value means the same in every document and on every engine.
+
+## Publishing from R
+
+In a knitr document you usually publish nothing. When the source holds a
+named value, weft publishes every name it uses that is bound in the knit
+and has changed, at the start of each block of prose and at the end of
+the document:
+
+```` markdown
+---
+title: "Creek survey"
+output: md_document
+knitr:
+  opts_knit:
+    weft: !expr weft::weft_setup()
+---
+
+```{r setup, include = FALSE}
+turbidity <- c(Upper = 4.2, Middle = 7.9, Lower = 12.6)
+worst <- max(turbidity)
+n_high <- sum(turbidity > 10)
+```
+
+The worst reading was `worst`{.num} NTU.
+[No site | One site | # sites]{n="n_high"} read high.
+````
+
+Automatic publishing applies only when the source holds at least one
+named value. A governor name alone, such as `if="rising"`, does not
+switch it on.
+
+[`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+publishes by hand. Use it for text a chunk prints with
+`results = "asis"`, for a value that carries a check, and for a chunk
+with no value of its own to show:
+
+``` r
+
+weft_put(n_sites = length(turbidity))      # a name and a value
+weft_put(worst, n_high)                    # variables, under their own names
+weft_put(limit = claim(50, . > 10))        # the check travels with the value
+```
+
+```` markdown
+```{r, results = "asis"}
+weft_put(n_sites = length(turbidity))
+cat("We sampled `n_sites`{.word} sites.\n")
+```
+````
+
+In a chunk with `results = "asis"` the block is written at once, so the
+text printed after it sees the name. Otherwise the names wait and go out
+before the next block of prose. A chunk with `include: false` therefore
+still publishes under knitr.
+
+[`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+takes named arguments, or bare variable names. It accepts a bool, a
+whole or decimal number, a string, a factor, a `Date`, an `integer64` or
+an atomic vector of these, up to 10,000 elements. `NA`, `NaN`, `Inf` and
+`NULL` publish as missing. A value with units is refused. Any other
+object, such as a data frame, a list, a complex number or a raw vector,
+publishes as an error that is reported where the name is used.
+
+A named vector of length 1 publishes as a list of one, with its name as
+the key, as a longer named vector does. Under a scalar class the filter
+prints a list of exactly one element as that element, so `.num` works on
+it and `.pairs` keeps the name:
+
+``` r
+
+weft_put(worst = c(Upper = 12.6))
+```
+
+``` markdown
+The worst reading was `worst`{.pairs}.
+```
+
+``` text
+The worst reading was Upper (12.6).
+```
+
+## Publishing from Python
+
+For a notebook on the Jupyter engine, install the Python package in the
+Python Quarto uses. The distribution is `weft-prose`; the module is
+`weft`:
+
+    pip install "git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python"
+
+``` python
+from weft import put, auto, claim
+```
+
+`put()` publishes names. A cell that calls it shows nothing to the
+reader; the filter removes the block it prints. Hide the code with
+`echo: false`.
+
+```` markdown
+---
+title: "Creek survey"
+jupyter: python3
+---
+
+```{python}
+#| echo: false
+from decimal import Decimal
+from weft import put
+depth = 3.14159
+sites = ['Upper', 'Lower', 'Weir']
+big = 2**70
+price = Decimal('0.10')
+put(depth=depth, sites=sites, big=big, price=price)
+```
+
+Mean depth was `depth`{.num digits="2"} m at `sites`{.and}.
+The count was `big`{.val} and the price `price`{.num digits="2"}.
+````
+
+It renders as:
+
+``` text
+Mean depth was 3.14 m at Upper, Lower and Weir. The count was
+1180591620717411303424 and the price 0.10.
+```
+
+`put(depth=depth)`, `put({'n.sites': 4})` and a mix of the two are all
+accepted. A name that is not a name raises `PublishError`, and nothing
+is published from that call.
+
+`auto()` publishes for you. Call it once, in an early cell:
+
+``` python
+from weft import auto
+auto()
+```
+
+After each cell, `auto()` publishes the names the document uses that the
+cell changed. It reads the document’s source from Quarto’s environment,
+or from a path you give it: `auto("report.qmd")`. Call it in a cell that
+has output. A cell with `include: false` or `output: false` publishes
+nothing on this engine.
+
+`auto()` has the same gate as R’s automatic publishing. It publishes
+only when the source holds at least one named value, and a governor name
+alone, such as `if="rising"`, does not switch it on. A list of more than
+10,000 elements raises an error from `auto()`, as it does from `put()`;
+no error record is published.
+
+In a knitr document (an `.Rmd`, or a `.qmd` with `engine: knitr`),
+`put()` and `auto()` in a Python chunk, and `put` and `@put` in a Julia
+chunk, hand their names to R. R writes them as one block before the next
+block of prose, as
+[`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+does, and nothing is printed in the chunk. A chunk with `include: false`
+still publishes. Under knitr, `auto()` publishes the names the source
+uses that are bound in Python’s `__main__`. Julia has no `auto()`.
+
+## Publishing from Julia
+
+Julia has `put` and `@put`:
+
+```` markdown
+---
+title: "Creek survey"
+engine: julia
+---
+
+```{julia}
+#| echo: false
+using Weft
+depth = 3.14159
+n_high = 1
+@put depth n_high
+```
+
+Mean depth was `depth`{.num digits="2"} m.
+[No site | One site | # sites]{n="n_high"} read above the trigger.
+````
+
+`@put a b` publishes each variable under its own name.
+`Weft.put(depth=3.14159)` and `Weft.put(:depth => 3.14159)` publish a
+name and a value. Julia has no `auto()`.
+
+## Set-up
+
+On the engines, three things must be in place: weft’s filter in the
+project, the Python or Julia package in the language the notebook uses,
+and, for the gate and
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md), R
+with weft installed.
+
+**Quarto project.** Run
+[`weft::use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md).
+It writes the extension `_extensions/weft-check/`, which holds the
+filters `weft.lua` and `weft-check.lua` and the folder `weftlib/`, and
+names it under `filters:` in `_quarto.yml`. `weft.lua` runs first.
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+also prints the install line for the language packages when the project
+has a document that needs them.
+
+**R Markdown.** Run
+[`weft::use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md).
+For an `.Rmd` outside a Quarto project it copies `weft.lua`,
+`weft-check.lua` and `weftlib/` beside the document and names them in
+`pandoc_args`. A document set up before named values that names only
+`weft-check.lua` gets `weft.lua` added before it.
+
+**Python.** The pip line above.
+[`weft::status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+gains a `python` row when the project has a Jupyter-engine document, and
+says whether `import weft` runs in the Python Quarto would use. Under
+knitr you need no pip install: R loads its own copy of the package from
+weft.
+
+**Julia.** `using Weft` has to find the package. The line
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+prints is:
+
+``` julia
+using Pkg; Pkg.add(url = "https://github.com/vorpalvorpal/weft", subdir = "inst/julia/Weft")
+```
+
+Setting `JULIA_LOAD_PATH` in your shell does not help, because the
+notebook worker that Quarto starts does not inherit it. The `julia:` key
+in `_quarto.yml` does reach the worker. To use the copy that ships with
+the R package, point the worker at it:
+
+``` yaml
+engine: julia
+julia:
+  env: ["JULIA_LOAD_PATH=/path/to/library/weft/julia:"]
+```
+
+The path is `system.file("julia", package = "weft")` in R. The trailing
+separator (`:`, and `;` on Windows) keeps Julia’s own default load path.
+This is how weft’s own tests make `using Weft` work on the engine. Under
+knitr you need nothing: R puts the package on the load path itself.
+
+R is still needed on a machine that runs the commit gate,
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md), or
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md),
+even for a project with no R code.
+
+## What the filter resolves
+
+`weft.lua` resolves named values wherever they are. In a document that
+is not knit it resolves every weft construct. In a knitr document it
+resolves named values and any span that reaches Pandoc still carrying a
+governor.
+
+It implements the number, wording, collapse and text classes: `.num`,
+`.pct`, `.val`, `.sci`, `.p`, `.date`, `.no`, `.word`, `.count`, `.ord`,
+`.and`, `.or`, `.pairs`, `.range`, `.ul`, `.ol`, `.dl`, `.a`, `.cap`,
+`.strong`, `.em`; the keys `digits`, `sigfig`, `sep`, `last`, `trunc`,
+`none`; and the governors `if`, `n`, `sign` and `list`, ids and
+back-references, and `cite` spans. A float prints as R prints it. An
+integer or a decimal prints exactly, whatever its size.
+
+### Where the filter’s grammar differs from R’s
+
+On the R path the value of `if` is any R expression. In the filter it is
+smaller, and everything else is an error. A condition is:
+
+- a name whose value is a bool, or `!` directly before such a name, or
+- one comparison `a OP b`, where `OP` is `<`, `<=`, `>`, `>=`, `==` or
+  `!=`, and each side is a name, a number such as `10` or `1.5`, or a
+  single-quoted string such as `'north'`, with at least one side a name.
+
+Conditions are joined by commas, as on the R path.
+
+``` markdown
+[above | within]{if="worst > limit"}
+[a gap | no gap]{if="n_gap > 10, n_sites >= 3"}
+[north | south]{if="region == 'north'"}
+[the backlog cleared | the backlog grew]{if="n_open < 5, !paused"}
+[before | after]{if="sampled < '2026-07-01'"}
+```
+
+`!` applies to one bool name only. `!paused` is true when `paused` is
+false. `!!a`, `!a == b` and `!(a)` are construct errors, because R and
+Julia read `!a > b` differently. A one-arm guard can use it too:
+`[Sampling ran on schedule]{if="!delayed"}` fails when `delayed` is
+true.
+
+Numbers compare exactly, as decimals. A float is compared by its
+shortest text, so `0.1` is equal to the decimal `0.1` and to the literal
+`0.1`. Strings compare with `==` and `!=` only. Dates compare in
+calendar order. A date compares with a string literal that is a valid
+`YYYY-MM-DD` date, on either side of the operator, in calendar order.
+Any other string literal, an impossible date such as `'2026-02-30'`, or
+a string name is a value error. A bool is not truthy: `0`, `""` and a
+list of one bool are errors, not false.
+
+There are no arbitrary expressions. `worst + 1 > 3`, `len(x) > 2`,
+`a && b`, `0 < x < 1` and `3 > 2` are construct errors. The fix is
+always the same: compute it in code and publish the result under a name.
+
+Governor values are also names. `n` takes a name, `.` or `#id`. `sign`
+takes a name or `#id`. `list` takes a name. A governor value that starts
+with a space, such as `n=" k"`, is a construct error. Pandoc does not
+read such a value as an attribute, so the span would print as text.
+
+More differences:
+
+- Units (`.uname`, `.usym`, `.nounit`, and the key `unit=` on a named
+  value or on an `n`, `sign` or `list` span) and project formatters are
+  not available. They fail loudly and never print the raw value.
+- `.num`, `.pct`, `.sci` and `.p` on a list with no collapse class print
+  each element, joined by a comma and a space, as R does:
+  `` `depths`{.num} `` prints `1.3, 3.5`. A list of strings under one of
+  these classes is a value error.
+- `date_format` reads the tokens `%d`, `%-d`, `%e`, `%m`, `%-m`, `%B`,
+  `%b`, `%A`, `%a`, `%Y`, `%y`, `%j` and `%%`, and literal text, in
+  English. With `date_format: "%A %-d %B %Y"` a `.date` prints
+  `Thursday 29 February 2024`. Any other token, such as `%U` or `%H`, is
+  a value error that says it is not available.
+- `.ord`, `.word`, `.count`, `.range` and the `n` and `sign` governors
+  work from the exact digits of an integer. `.ord` of 9007199254740993
+  prints `9,007,199,254,740,993rd`, with no rounding past 2^53.
+- Order matters. A construct sees the names published above it. A name
+  used above every publication of it has “no value”. Captions and the
+  front-matter fields `title`, `subtitle`, `abstract` and `description`
+  see each name’s last published value, so a named value works in any
+  caption on any chunk. A named value in another front-matter field is a
+  failure that says the filter does not resolve that field.
+- A named value in an arm that is not chosen is never read.
+
+## Checks
+
+A check made where code runs counts there. In Python, `claim(x, "> 10")`
+returns `x` and raises when the check fails; a string that starts with a
+comparison operator applies to the value, and any other string is an
+expression in which `_` is the value:
+
+``` python
+from weft import claim
+n = claim(n, "> 10")
+even = claim(n, "_ % 2 == 0")
+depth = claim(depth, "> 0", "< 50", level="warn")   # record, and go on
+```
+
+In Julia the check is an expression, and `_` stands for the value:
+
+``` julia
+using Weft
+@claim n > 10
+@claim mean(d) (_ > 0.5) (_ < 9)
+```
+
+A failure is recorded in a block, and the filter reports it with the
+cell’s label. In R chunk code,
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) is
+as it always was.
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+given directly to
+[`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+is different: the check travels with the value, and counts each time the
+name is used in a sentence:
+
+``` r
+
+weft_put(worst = claim(worst, . < 50))
+```
+
+A check in the sentence is a guard around the value.
+`[x]{if="worst < 50"}` that is false fails the render, as any claim
+does:
+
+``` markdown
+The worst reading was [`worst`{.num}]{if="worst < 50"} NTU.
+```
+
+The detail line of the report names each value the guard read, as
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+names its value: `worst < 50 was false (worst = 52.5)`. With two names
+it reads `n_gap < n_sites was false (n_gap = 12, n_sites = 3)`.
+
+Each failing part of a comma list is its own failure, with the names
+that part read. A bool prints as `true` or `false` and a date as ISO
+text.
+
+The filter does not read a `claim=` or `level=` key. On a named value or
+on a span it resolves, either key is a construct error that says so,
+because the check would never run. Use a guard span, or
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+code. On an R value in a knitr document, `level` passes through as it
+did.
+
+## What failure looks like
+
+The filter does not stop at the first problem. It marks each failure in
+the text with `<<weft: KIND, line N>>`, finishes, and reports once on
+standard error. The kinds are `failed claim`, `no value`, `value error`
+and `construct error`:
+
+``` text
+weft: 1 claim failed
+  survey.qmd:12  `worst`{.num}
+      _ < 50 was false (value 52.5)
+Read each sentence. If FALSE is right, rewrite the sentence.
+Do not loosen a claim to clear this.
+```
+
+The render then fails. In draft mode it does not fail: the markers, the
+report and the stamp are the same, but the exit is clean. Draft mode is
+on when the environment variable `WEFT_DRAFT` is `1` or `true`, or
+`draft: true` is in `_weft.yml` or the document’s `weft:` key. The
+filter reads those two as text, not through Pandoc’s metadata. A `weft:`
+mapping in flow style is read as the block form is.
+
+Under `quarto render` in a project set up with
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md),
+the report prints once, from the post-render script, which collects
+every document’s failures. With plain Pandoc, or a Quarto render with no
+post-render script, the filter prints it.
+
+A failure’s line is found by searching the source, its includes and its
+chunk options for the construct’s text. Text that a chunk printed has no
+line, and the report names the file only. If a construct’s text also
+appears later in the source, a printed construct takes that later line.
+A span in a pipe-table cell whose attribute holds `\|` is found too.
+
+### The traps
+
+A name used before it is published:
+
+``` text
+no value is published under the name `depth` above this point (rule 1.12.7).
+Publish it in code above: weft_put(depth = ...) in R, put(depth=...) in
+Python, @put depth in Julia. A cell with include: false or output: false
+publishes nothing on the jupyter and julia engines.
+```
+
+A condition outside the grammar:
+
+``` text
+`worst + 1 > 3` is not a name or one comparison of names, numbers and
+'strings'; bind the condition to a name in code (rule 1.12.4).
+```
+
+A class the filter does not implement:
+
+``` text
+`.uname` on a named value is not available in this version of weft.lua
+(rule 2.13.3).
+```
+
+A hidden cell is the usual cause of the first. On the Jupyter and Julia
+engines a cell with `include: false` or `output: false` publishes
+nothing, because its output never reaches Pandoc. Publish in a cell that
+shows its output, and use `echo: false` to hide the code.
+
+## Values files
+
+A pipeline can publish values for a document it never runs. Write a
+values file, then read it from the document at the point where the
+values should begin to count.
+
+``` r
+
+weft_values_write("_weft/values/survey.json", n = nrow(d), worst = max(d$ntu))
+```
+
+````` markdown
+````{.weft-values file="_weft/values/survey.json"}
+````
+
+Mean depth was `worst`{.num} NTU at `n`{.word} sites.
+`````
+
+[`weft_values_write()`](https://vorpalvorpal.github.io/weft/reference/weft_values_write.md)
+works outside a knit and in a `targets` pipeline. The file is JSON, in
+the same form as the block. A relative path in the document is taken
+from the document’s folder, and a path that starts with `/` from the
+project root, which is the folder with `_weft.yml`, else `_quarto.yml`,
+else the document’s own. The file must resolve inside the root. A `../`
+that stays inside is fine. A path that leaves the root, a drive or `//`
+form, a missing file, a directory, a file over 5,000,000 bytes, or a
+file that is not schema 1 is a failure that names the file and the
+reason. The size is checked before the file is read. The filter does not
+follow symbolic links. A body on a `file=` block is also a failure. The
+`named-unpublished` lint refuses a file outside the root too, so it does
+not count the names in it.
+
+A values file is left out of freshness. Its own run id is not compared
+with the current run, so a file a pipeline wrote earlier does not make
+the document “not fresh” or print the notice below.
+
+Chapters of a book share values only by each reading the same file. The
+ledger header lists each file read, by its path from the root, with its
+hash.
+
+## Captions and front matter
+
+A named value works in any caption, on any chunk, and in the
+front-matter fields `title`, `subtitle`, `abstract` and `description`.
+The filter resolves them after the body, so each sees the last value
+published under the name.
+
+``` markdown
+---
+title: "Turbidity at `n`{.word} sites"
+---
+```
+
+## Freeze, kept kernels and `verify()`
+
+A value published in an earlier render can reach a later one: a document
+served from `_freeze`, a cache, or a Jupyter kernel or Julia server that
+kept its state. Each publisher records a run id, from `.weft/run`, else
+`WEFT_RUN`. When a block’s run is not the current one, the filter prints
+a notice once, to standard error. The notice fails nothing in an
+ordinary render. Its checks did not run now.
+
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+fails on it. Before rendering,
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+writes `.weft/run`, restarts Jupyter kernels, and, for a document on the
+Julia engine, kills the Julia server. That ends any other Julia notebook
+open in that server, and the report says so.
+
+## The lints
+
+Three lints read named values, without rendering:
+
+| Id | Tier | Finds | What to do |
+|----|----|----|----|
+| `named-unpublished` | 2 | a name used in a sentence that no executed chunk, hand-written block or values file mentions | publish it with [`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md), `put()` or `@put`; the lint fires once per name, at its first use |
+| `publish-hidden` | 1 | a `put`, `weft.put`, `@put` or `Weft.put` in a cell with `include: false` or `output: false`, on the Jupyter or Julia engine | publish in a cell that shows its output |
+| `publish-hidden-auto` | 2 | the same, for `auto()` | the same, or call `auto()` in a shown cell |
+
+`publish-hidden` also fires on a hidden cell that assigns a name the
+prose uses, in a document that calls `auto()`. Without the lint the
+render would print an earlier value of that name with no error: see
+Limits.
+
+A name can come from a helper script or a `from helpers import *`, which
+a search cannot see. That is why `named-unpublished` is tier 2: the
+render still fails loudly if the name is missing.
+
+The `engine` rule accepts a `.qmd` with no `engine: knitr` when every
+construct in it is a named value or a span in the filter’s grammar, and
+the filter is installed. It still stops one that holds an R value, or a
+span outside the grammar, and its hint now says to write each value as a
+name. A document with named values and no filter installed is a finding
+of its own: run
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md).
+
+The gate counts a named value as a value, and `claim(` in a Python chunk
+and `@claim` in a Julia chunk as claim calls. A hand-written block and a
+values file are not counted.
+
+## Limits
+
+- On the Jupyter engine, `auto()` cannot know that a hidden cell’s
+  output was dropped. If a cell with `include: false` or `output: false`
+  changes a name that an earlier cell published, the prose keeps the
+  earlier value, with no error. The `publish-hidden` lint finds the
+  cell; publish in a cell that shows its output.
+- A construct’s line is the next occurrence of its text. Text printed by
+  a chunk that also appears later in the source takes the later line.
+- Julia has no `auto()`, and neither language has a `checked()` that
+  makes a check count where the name is used.
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  from Python and Julia is checked where it runs.
+- Units, the dictionary and project formatters stay in R.
+- The filter does not follow symbolic links when it reads a values file.
+- A guest `claim` counts in the commit gate only in an executed chunk,
+  so turning `eval` off on a Python chunk with a claim reads as a
+  removal.
+- `.sci` prints some whole mantissas inconsistently (`1 x 10^10` but
+  `1.0 x 10^6`), and `.pct` of a value near 1e15 rounds one digit early.
+- The Jupyter and Julia engines run on the author’s machine only. The CI
+  job that
+  [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md)
+  writes runs the static checks, and installs no Quarto, Jupyter or
+  Julia.
+- The Julia package is installed from git. Nothing is published to PyPI
+  or a Julia registry.

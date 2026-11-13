@@ -18,7 +18,7 @@ runs every installer in order, from one plan:
 | Step | Runs when | Writes |
 |----|----|----|
 | [`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md) | always | `_weft.yml`, and the activation (a `.Rprofile` line or front matter) |
-| [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md) | in a Quarto project | the `weft-check` filter, the render scripts, entries in `_quarto.yml` |
+| [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md) | in a Quarto project | the `weft-check` extension (the filters `weft.lua` and `weft-check.lua`), the render scripts, entries in `_quarto.yml` |
 | [`use_dictionary()`](https://vorpalvorpal.github.io/weft/reference/use_dictionary.md) | always | `dict.yml` and its schema |
 | [`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md) | in a git work tree | the `commit-msg` hook |
 | [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md) | when `origin` is on github.com | a GitHub Actions workflow |
@@ -32,7 +32,7 @@ remote:
 weft::use_weft()
 #> weft will set up creek-site:
 #>   use_setup       .Rprofile (edit), _weft.yml (new), index.qmd (edit)
-#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
+#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          .github/workflows/weft.yml (new)
@@ -169,7 +169,9 @@ weft::use_setup()
 #>   _weft.yml  (new: settings, and the weft version that set the project up)
 #>   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)
 #>   weft-check.lua  (new: the weft-check filter for rmarkdown)
-#> Wrote: _weft.yml, survey.Rmd, weft-check.lua
+#>   weft.lua  (new: the weft filter for rmarkdown)
+#>   weftlib/...  (new: the modules weft.lua loads, one line each)
+#> Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft.lua, weftlib/...
 ```
 
 The document’s front matter was `output: html_document`. It is now:
@@ -179,7 +181,7 @@ The document’s front matter was `output: html_document`. It is now:
 title: "Survey"
 output:
   html_document:
-    pandoc_args: ["--lua-filter", "weft-check.lua"]
+    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]
 knitr:
   opts_knit:
     weft: !expr weft::weft_setup()
@@ -188,9 +190,12 @@ knitr:
 
 `weft-check.lua` is a Pandoc filter. It reads the output after the knit
 and reports any construct left unresolved, such as a span whose key was
-misspelt. In a Quarto project,
+misspelt. `weft.lua` resolves named values (see
+[`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md))
+and runs first; it loads its modules from `weftlib/`. In a Quarto
+project,
 [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
-installs the same filter as an extension.
+installs the same filters as an extension.
 
 ### Quarto documents need `engine: knitr`
 
@@ -248,7 +253,8 @@ filters:
   - weft-check
 ```
 
-- `_extensions/weft-check/` holds the filter.
+- `_extensions/weft-check/` holds the filters `weft.lua` and
+  `weft-check.lua`, and the folder `weftlib/` that `weft.lua` loads.
 - `_weft/pre-render.R` runs before anything renders. It stops the
   render, naming the file, when a `.qmd` holds a construct and has no
   `engine: knitr`.
@@ -382,7 +388,7 @@ function; the rest are files to delete or lines to remove.
 | hook | `use_hooks(remove = TRUE)`, which also removes `.git/weft/` |
 | activation, `.Rprofile` route | the two `# weft:` and [`weft::weft_setup()`](https://vorpalvorpal.github.io/weft/reference/weft_setup.md) lines in `.Rprofile`, or the file if weft created it |
 | activation, front-matter route | the `knitr: opts_knit: weft:` lines in each document |
-| R Markdown filter | `weft-check.lua`, and the `pandoc_args` line that names it |
+| R Markdown filter | `weft.lua`, `weft-check.lua`, `weftlib/`, and the `pandoc_args` line that names them |
 | Quarto | `_extensions/weft-check/`, `_weft/pre-render.R`, `_weft/post-render.R`, and their three entries in `_quarto.yml` |
 | dictionary | `dict.yml` and `_weft/dict.schema.json` |
 | continuous integration | `.github/workflows/weft.yml` |

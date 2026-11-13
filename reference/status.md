@@ -2,8 +2,9 @@
 
 Reports the state of each part of the set-up: `setup` (`_weft.yml` and
 the version it records), `activation`, `quarto`, `dictionary`, `hooks`,
-`ci`, `agent docs`, `draft`, `verify_skip` and `strict`. It writes
-nothing, starts no R process and uses no network.
+`ci`, `agent docs`, `draft`, `verify_skip` and `strict`, and `python`
+(can `import weft` run) for a project with a jupyter-engine document. It
+writes nothing, starts no R process and uses no network.
 
 ## Usage
 

@@ -34,44 +34,86 @@ lists every rule:
 ``` r
 
 lint_rules()[, c("id", "tier", "scope", "what")]
-#>                id tier   scope                                                                what
-#> 1         numeral    1    file A number typed in prose, a caption, front matter, a string or math.
-#> 2       construct    1    file                          An error the scanner finds in a construct.
-#> 3            read    1    file                                           A file that is not UTF-8.
-#> 4     block-start    1    file                           A line inside a span that starts a block.
-#> 5        lone-bar    2    file                             A bracket with one `|` and no governor.
-#> 6         if-zero    2    file                             An `if` condition that compares with 0.
-#> 7            name    2    file          A class or key that is not weft's, or is one edit from it.
-#> 8     inert-check    1    file                        A check or condition with no variable in it.
-#> 9      long-guard    2    file                              An `if` arm longer than `guard_words`.
-#> 10       cite-key    1    file                       A key of a cite span not in the bibliography.
-#> 11      cite-bare    1    file             A bare cite key not written as a citation in its block.
-#> 12   citation-key    1    file                             A citation key not in the bibliography.
-#> 13     claim-word    2    file                                         A claim word in a sentence.
-#> 14  literal-value    1    file                                     A value made only of constants.
-#> 15 value-constant    2    file                                  A numeric constant inside a value.
-#> 16   value-format    2    file                             A value that rounds or formats in code.
-#> 17           xref    1 project                                     A cross-reference to no anchor.
-#> 18   anchor-twice    1 project                                   An anchor defined more than once.
-#> 19      ref-label    1    file                  A span whose text is a reference-definition label.
-#> 20  anchor-unused    2 project                A figure, table or equation anchor nobody refers to.
-#> 21      xref-code    2    file                       A cross-reference written inside a code span.
-#> 22 section-anchor    1    file                                          A heading with no `{#id}`.
-#> 23    chunk-label    1    file                                    An executed chunk with no label.
-#> 24       tar-name    1    file                         A target read that the store does not hold.
-#> 25    dict-assign    1    file                                            An assignment to `dict`.
-#> 26      file-link    1    file                        A link or image to a file that is not there.
-#> 27    above-setup    1    file                A construct above the chunk that calls weft_setup().
-#> 28       dict-key    1    file                       A `dict$key` read of a key that is not there.
-#> 29      tar-cache    1    file                             A chunk that reads a target and caches.
-#> 30   config-place    1 project             A project setting in a place that is not the project's.
-#> 31         engine    1 project                     A document with constructs that is not knitr's.
-#> 32         figure    1    file                        A figure with no label, caption or alt text.
-#> 33  table-caption    1    file                                            A table with no caption.
-#> 34   guest-inline    1    file          Inline code in another language, which knitr does not run.
-#> 35     guest-call    1    file                    A weft function called from Python through `r.`.
-#> 36     guest-read    2    file         A value read from Python or Julia that weft does not check.
-#> 37      ojs-value    2    file               An Observable value computed in the reader's browser.
+#>                   id tier   scope
+#> 1            numeral    1    file
+#> 2          construct    1    file
+#> 3               read    1    file
+#> 4        block-start    1    file
+#> 5           lone-bar    2    file
+#> 6            if-zero    2    file
+#> 7               name    2    file
+#> 8        inert-check    1    file
+#> 9         long-guard    2    file
+#> 10          cite-key    1    file
+#> 11         cite-bare    1    file
+#> 12      citation-key    1    file
+#> 13        claim-word    2    file
+#> 14     literal-value    1    file
+#> 15    value-constant    2    file
+#> 16      value-format    2    file
+#> 17              xref    1 project
+#> 18      anchor-twice    1 project
+#> 19         ref-label    1    file
+#> 20     anchor-unused    2 project
+#> 21         xref-code    2    file
+#> 22    section-anchor    1    file
+#> 23       chunk-label    1    file
+#> 24          tar-name    1    file
+#> 25       dict-assign    1    file
+#> 26         file-link    1    file
+#> 27       above-setup    1    file
+#> 28          dict-key    1    file
+#> 29         tar-cache    1    file
+#> 30      config-place    1 project
+#> 31            engine    1 project
+#> 32            figure    1    file
+#> 33     table-caption    1    file
+#> 34      guest-inline    1    file
+#> 35        guest-call    1    file
+#> 36        guest-read    2    file
+#> 37         ojs-value    2    file
+#> 38 named-unpublished    2    file
+#> 39    publish-hidden    1    file
+#>                                                                   what
+#> 1  A number typed in prose, a caption, front matter, a string or math.
+#> 2                           An error the scanner finds in a construct.
+#> 3                                            A file that is not UTF-8.
+#> 4                            A line inside a span that starts a block.
+#> 5                              A bracket with one `|` and no governor.
+#> 6                              An `if` condition that compares with 0.
+#> 7           A class or key that is not weft's, or is one edit from it.
+#> 8                         A check or condition with no variable in it.
+#> 9                               An `if` arm longer than `guard_words`.
+#> 10                       A key of a cite span not in the bibliography.
+#> 11             A bare cite key not written as a citation in its block.
+#> 12                             A citation key not in the bibliography.
+#> 13                                         A claim word in a sentence.
+#> 14                                     A value made only of constants.
+#> 15                                  A numeric constant inside a value.
+#> 16                             A value that rounds or formats in code.
+#> 17                                     A cross-reference to no anchor.
+#> 18                                   An anchor defined more than once.
+#> 19                  A span whose text is a reference-definition label.
+#> 20                A figure, table or equation anchor nobody refers to.
+#> 21                       A cross-reference written inside a code span.
+#> 22                                          A heading with no `{#id}`.
+#> 23                                    An executed chunk with no label.
+#> 24                         A target read that the store does not hold.
+#> 25                                            An assignment to `dict`.
+#> 26                        A link or image to a file that is not there.
+#> 27                A construct above the chunk that calls weft_setup().
+#> 28                       A `dict$key` read of a key that is not there.
+#> 29                             A chunk that reads a target and caches.
+#> 30             A project setting in a place that is not the project's.
+#> 31                     A document with constructs that is not knitr's.
+#> 32                        A figure with no label, caption or alt text.
+#> 33                                            A table with no caption.
+#> 34          Inline code in another language, which knitr does not run.
+#> 35                    A weft function called from Python through `r.`.
+#> 36         A value read from Python or Julia that weft does not check.
+#> 37               An Observable value computed in the reader's browser.
+#> 38 A name used by a named value or filter span that nothing publishes.
+#> 39          A chunk that publishes values where its output is dropped.
 ```
 
 A rule’s **scope** is `file` when it reads one document at a time, and
@@ -118,7 +160,7 @@ lints()
     #> 
     #> survey.qmd
     #>   1:1    engine          survey.qmd holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).
-    #>                          Add `engine: knitr` to its front matter.
+    #>                          Add `engine: knitr` to its front matter. Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8).
     #>   12:12  numeral         "14" is a number typed in prose (rule 5.2.1).
     #>                          Write it as a value, put it in the dictionary, or mark it [14]{.weft-literal why="..."}.
     #>   12:24  numeral         "2023" is a number typed in prose (rule 5.2.1).
