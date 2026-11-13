@@ -320,3 +320,28 @@ filters or `.Rprofile` lines installed into the real project.
 4. Stage 4: gate, `verify()`, installers (spec sections 6, 8, 9).
 5. `.Rprofile` activation and `use_setup()` (1c leftover).
 6. Final: whole suite, check, build log, closing report.
+
+## Position during the refactor sweep (14 Nov, early morning)
+
+- Sweep report: `dev/refactor-sweep.md`. Packages A, B, C, D, E, G are
+  merged on local `main`, each built test-first (`test-sweep-{a,c,d,e,g}.R`,
+  `test-conformance-grammar.R` with `_conformance/grammar.tsv`).
+- Decisions taken under delegation: `withr` in Imports (not a local
+  helper); R's whitespace rule wins in a condition; a name ending in a
+  newline is invalid everywhere; `weft-check.lua` stays self-contained;
+  `run_id()` follows ruling 17 (file first), and the stage 4 G30 test was
+  re-pinned to it.
+- Found on the way: `lines_hold_construct()` (`R/setup.R`) matches rule
+  numbers in message text and missed the parity renumbering (fixed; the
+  text match itself should become a flag).
+- Not done from the sweep: package F (test helpers: do F1 and F2 only, the
+  rest is churn before a release), package H (structural leftovers, one at
+  a time, whole suite after each), a Windows CI job (to raise with Robin).
+- Waterways trial: survey in `dev/hw-comparison.md` (public) and
+  `dev/trials/hw-system-survey.md` (ignored); the run writes
+  `dev/hw-trial.md` and `dev/trials/hw2/`. Obvious wins to consider after
+  the run: NA/NaN/Inf bare value as a warned check; `anchor_calls` for the
+  `xref` lint; plus sign and short `ci()`; `.p` digits and label; severity
+  recipe; adoption recipe. Major questions A to H there are for Robin.
+- Still to do: whole suite on merged `main`, push (first real run of the
+  Linux CI fix), docs check, tag and release v0.1.
