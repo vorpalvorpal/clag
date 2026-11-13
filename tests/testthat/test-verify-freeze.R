@@ -177,7 +177,9 @@ test_that("4c G29: verify(files =) backs up only the named documents' entries an
   r <- v4_verify(p$root, files = "a.qmd")
   expect_verify_passed_fz(r)
   expect_identical(v4_log(fq, "seen"), c("a absent", "b present"))
-  expect_identical(v4_log(fq, "manifest"), "a")
+  mf <- v4_log(fq, "manifest")
+  expect_match(mf[1], "^run: .+")
+  expect_identical(mf[-1], "a")
   expect_false(any(grepl("^\\./b/", v4_log(fq, "backup"))))
   after <- v4_freeze_snap(p$root)
   expect_identical(v4_snap_of(after, "b"), v4_snap_of(before, "b"))       # byte for byte

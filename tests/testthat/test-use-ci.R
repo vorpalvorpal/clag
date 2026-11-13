@@ -61,6 +61,21 @@ test_that("4b G33: a project two folders down has the relative path with a slash
   expect_identical(readLines(wf(dir)), h4_ci_expected("docs/book"))
 })
 
+test_that("4b G33: a project path with a single quote and a dollar sign lands only in the env value, quotes doubled (review-4 #13)", {
+  dir <- h4_repo()
+  x <- h4_ci_expected("it's $HOME")
+  expect_true("          WEFT_PROJECT: 'it''s $HOME'" %in% x)
+  expect_false(any(grepl("it's", x[grepl("run:|Rscript", x)], fixed = TRUE)))
+  expect_false(any(grepl("$HOME", x[grepl("Rscript", x)], fixed = TRUE)))
+  # the same through the function: a subfolder with that name
+  d2 <- h4_repo(list(`it's $HOME/ch1.qmd` = G_PROSE), weft = "it's $HOME")
+  h4_ci(file.path(d2, "it's $HOME"))
+  y <- readLines(wf(d2))
+  expect_true("          WEFT_PROJECT: 'it''s $HOME'" %in% y)
+  expect_false(any(grepl("HOME", y[grepl("Rscript", y)], fixed = TRUE)))
+  expect_true(any(grepl("path = Sys.getenv('WEFT_PROJECT')", y, fixed = TRUE)))
+})
+
 test_that("4b G41: it says what it will write before it writes, then what it wrote", {
   dir <- h4_repo()
   early <- NULL

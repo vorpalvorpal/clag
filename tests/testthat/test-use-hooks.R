@@ -209,7 +209,7 @@ test_that("4b G22: with .pre-commit-config.yaml the pre-commit repo: local entry
   expect_true(ADVICE_2 %in% s$lines)
   expect_match(s$text, "repo: local", fixed = TRUE)
   # review-4 #17: `.git` is a file in a linked worktree, so the entry asks git for the common directory
-  expect_match(s$text, "entry: .*git rev-parse --git-common-dir.*weft/commit-msg")
+  expect_match(s$text, "entry: sh -c 'sh \"$(git rev-parse --git-common-dir)/weft/commit-msg\" \"$1\"' weft", fixed = TRUE)
   expect_false(grepl("entry: sh .git/weft/commit-msg", s$text, fixed = TRUE))
   expect_match(s$text, "language: system", fixed = TRUE)
   expect_match(s$text, "stages: [commit-msg]", fixed = TRUE)

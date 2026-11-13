@@ -265,7 +265,7 @@ if [ ! -f "$weft_rscript" ]; then
 fi
 R_LIBS=$weft_libs
 export R_LIBS
-exec "$weft_rscript" --no-init-file -e '
+exec "$weft_rscript" --no-init-file --no-environ -e '
 if (!requireNamespace("weft", quietly = TRUE)) {
   message("commit-msg: weft is not installed for the R at ", R.home(), ".")
   message("  Run weft::use_hooks() again, or skip the check once with git commit --no-verify.")
@@ -325,14 +325,15 @@ jobs:
       - name: weft static checks
         env:
           BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          WEFT_PROJECT: '@PATH@'
         run: |
           since=$(git merge-base "$BASE_SHA" HEAD)
-          Rscript --no-init-file -e "weft::verify(static = TRUE, since = '$since', path = '@PATH@')")---"
+          Rscript --no-init-file -e "weft::verify(static = TRUE, since = '$since', path = Sys.getenv('WEFT_PROJECT'))")---"
 
 # the workflow as use_ci() must write it; `path` is the project root relative to the repository top
 h4_ci_expected <- function(path = ".", version = u4_version()) {
   x <- strsplit(H4_CI_TEMPLATE, "\n", fixed = TRUE)[[1]]
-  x <- sub("@PATH@", path, x, fixed = TRUE)
+  x <- sub("@PATH@", gsub("'", "''", path, fixed = TRUE), x, fixed = TRUE)
   h4_fill_marker(x, version)
 }
 
