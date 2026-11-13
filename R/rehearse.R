@@ -165,11 +165,12 @@ rehearse_case <- function(path, set, base) {
   # started in the project root, which is where a render reads `.Rprofile`
   old <- setwd(find_project_root(path))
   on.exit(setwd(old), add = TRUE)
-  status <- suppressWarnings(system2(
-    file.path(R.home("bin"), "Rscript"), c("-e", shQuote(code)),
-    stdout = log, stderr = log,
-    env = c("WEFT_REHEARSE=1", "WEFT_DRAFT=1", "WEFT_COLLECT=", "QUARTO_EXECUTE_INFO=",
-            paste0("R_LIBS=", paste(.libPaths(), collapse = .Platform$path.sep)))))
+  # the variables are set in this process: system2()'s `env =` is ignored on Windows for Rscript
+  status <- withr::with_envvar(
+    c(WEFT_REHEARSE = "1", WEFT_DRAFT = "1", WEFT_COLLECT = "", QUARTO_EXECUTE_INFO = "",
+      R_LIBS = paste(.libPaths(), collapse = .Platform$path.sep)),
+    suppressWarnings(system2(file.path(R.home("bin"), "Rscript"), c("-e", shQuote(code)),
+                             stdout = log, stderr = log)))
   raw <- if (file.exists(result)) tryCatch(readRDS(result), error = function(e) NULL) else NULL
   if (is.null(raw)) {
     tail <- if (file.exists(log)) utils::tail(readLines(log, warn = FALSE), 5L) else character()

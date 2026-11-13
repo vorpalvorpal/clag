@@ -160,8 +160,9 @@ freeze_backup <- function(root, stems, all_stems, run) {
 verify_run <- function(cmd, args, root, run, log) {
   old <- setwd(root)
   on.exit(setwd(old), add = TRUE)
-  st <- suppressWarnings(system2(cmd, shQuote(args), stdout = log, stderr = log,
-                                 env = paste0("WEFT_RUN=", run)))
+  # set here, not through system2()'s `env =`, which Windows ignores for most commands
+  st <- withr::with_envvar(c(WEFT_RUN = run),
+                           suppressWarnings(system2(cmd, shQuote(args), stdout = log, stderr = log)))
   if (is.null(st)) 0L else as.integer(st)
 }
 
@@ -278,15 +279,8 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
 
 # Does a document use the julia engine: `engine: julia` in its front matter, or a julia chunk?
 verify_uses_julia <- function(root, rel) {
-  x <- tryCatch(readLines(file.path(root, rel), warn = FALSE, encoding = "UTF-8"), error = function(e) character())
-  if (length(x) && grepl("^---[ \t\r]*$", x[1L])) {
-    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", x[-1L]))
-    if (length(cl)) {
-      fm <- x[1L + seq_len(cl[1L] - 1L)]
-      if (any(grepl("^engine[ \t]*:[ \t]*[\"']?julia[\"']?[ \t]*(#.*)?$", fm))) return(TRUE)
-    }
-  }
-  any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*julia[ \t,}]", x))
+  x <- tryCatch(read_source_lines(file.path(root, rel)), error = function(e) character())
+  doc_is_julia(x)
 }
 
 # does the document hold a weft construct (G11, count > 0)?

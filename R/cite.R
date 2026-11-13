@@ -70,10 +70,7 @@ read_bib_keys <- function(path) {
     return(bibtex_keys(txt))
   }
   if (ext == "json") {
-    x <- tryCatch(yaml_read_text(txt), error = function(e) e)
-    if (inherits(x, "error") && requireNamespace("jsonlite", quietly = TRUE)) {
-      x <- tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE), error = function(e) x)
-    }
+    x <- tryCatch(json_read_text(txt, file = path), error = function(e) e)
     if (inherits(x, "error")) return(bad(x))
     if (is.list(x) && !is.null(names(x)) && !is.null(x$references)) x <- x$references
     return(ids_of(x))
@@ -105,17 +102,35 @@ metadata_bibliography <- function(meta) {
 
 # Quarto's merged metadata, which holds the project's own bibliography
 # (2.1.6): the file named by QUARTO_EXECUTE_INFO, else quarto_inspect().
-quarto_metadata <- function(path) {
+#
+# Given the knit state `s`, the answer is kept on it: a knit asks for `lang` and
+# for the bibliography, and the inspect fallback starts a process.
+quarto_metadata <- function(path, s = NULL) {
+  if (!is.null(s) && isTRUE(s$quarto_meta_read)) return(s$quarto_meta)
+  md <- quarto_metadata_read(path)
+  if (!is.null(s)) {
+    s$quarto_meta <- md
+    s$quarto_meta_read <- TRUE
+  }
+  md
+}
+
+quarto_metadata_read <- function(path) {
   info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
   if (nzchar(info) && file.exists(info)) {
-    x <- tryCatch(yaml_read_file(info), error = function(e) NULL)
+    x <- tryCatch(json_read_file(info), error = function(e) NULL)
     if (!is.null(x)) return(x$format$metadata)
   }
   if (!is.null(path) && !is.na(path) && requireNamespace("quarto", quietly = TRUE)) {
     qmd <- sub("\\.rmarkdown$", ".qmd", path)
     if (file.exists(qmd) && grepl("\\.qmd$", qmd)) {
       x <- tryCatch(quarto::quarto_inspect(qmd), error = function(e) NULL)
-      return(x$formats[[1L]]$metadata)
+      md <- x$formats[[1L]]$metadata
+      # a project-level `lang` sits in the config, not in the format's metadata
+      if (is.null(md$lang) && is.character(x$config$lang)) {
+        md <- c(md, list(lang = x$config$lang))
+      }
+      return(md)
     }
   }
   NULL
@@ -132,7 +147,7 @@ bibliography_keys <- function(s) {
   docdir <- if (has_path) dirname(path) else getwd()
   root <- if (has_path) find_project_root(path) else getwd()
   from_meta <- list(metadata_bibliography(s$front),
-                    metadata_bibliography(quarto_metadata(if (has_path) path else NULL)))
+                    metadata_bibliography(quarto_metadata(if (has_path) path else NULL, s)))
   where <- function(p, bases) {
     if (grepl("^(/|~|[A-Za-z]:[/\\\\])", p)) return(path.expand(p))
     for (b in bases) {

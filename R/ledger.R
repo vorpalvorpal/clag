@@ -798,22 +798,16 @@ ledger_output_name <- function(s, warn = FALSE) {
   # Quarto's knitr engine runs inside an rmarkdown::render() of its own, whose
   # output_file is not the document's, so under Quarto the execute info comes
   # first (D2 lists the render frame first for a plain rmarkdown render)
-  if (!quarto && isNamespaceLoaded("rmarkdown")) {
-    rf <- get("render", envir = asNamespace("rmarkdown"))
-    for (i in rev(seq_len(sys.nframe()))) {
-      if (identical(sys.function(i), rf)) {
-        of <- get0("output_file", envir = sys.frame(i), inherits = FALSE)
-        if (is.character(of) && length(of) == 1L && !is.na(of) && nzchar(of)) return(strip_ext(of))
-        break
-      }
-    }
+  if (!quarto) {
+    of <- render_frame_value("output_file")
+    if (is.character(of) && length(of) == 1L && !is.na(of) && nzchar(of)) return(strip_ext(of))
   }
   src <- strip_ext(if (is.na(s$input_path)) "document" else {
     root <- ledger_root(s)
     state_source(s, root)
   })
   if (quarto) {
-    x <- tryCatch(jsonlite::fromJSON(info, simplifyVector = FALSE), error = function(e) NULL)
+    x <- tryCatch(json_read_file(info), error = function(e) NULL)
     of <- x$format$pandoc[["output-file"]]
     if (is.character(of) && length(of) == 1L && nzchar(of)) return(strip_ext(of))
     # Quarto gives no output-file for gfm and typst: the output is named after the source

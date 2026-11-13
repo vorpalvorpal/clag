@@ -81,13 +81,28 @@ yaml_read_file <- function(path, handlers = NULL) {
   yaml_read_text(read_source_text(path), file = path, handlers = handlers)
 }
 
+# JSON, as plain lists (objects named, arrays unnamed). Not yaml: libyaml refuses the surrogate pair
+# json_string() writes for a character outside the BMP.
+json_read_text <- function(text, file = NULL) {
+  text <- paste(text, collapse = "\n")
+  tryCatch(jsonlite::fromJSON(text, simplifyVector = FALSE),
+           error = function(e) {
+             msg <- conditionMessage(e)
+             weft_abort(if (is.null(file)) msg else sprintf("%s: %s", file, msg), "weft_json_error")
+           })
+}
+
+# The JSON of a file; the file is read as source text (`read_source_text()`).
+json_read_file <- function(path) json_read_text(read_source_text(path), file = path)
+
 # ---- git ------------------------------------------------------------------------------------------
 
 # where git is: "" when it is not on the PATH
 git_path <- function() unname(Sys.which("git"))
 
 # Run git in `dir`; every argument is quoted, so no shell reads any of them.
-# Always `-c core.quotepath=false` and `GIT_OPTIONAL_LOCKS=0`. Returns
+# Always `--no-optional-locks` (git's own option, for it works where system2()'s `env =` does not, on
+# Windows) and `-c core.quotepath=false`. Returns
 # `list(status, out (raw), err (character))`. When git is not on the PATH it is a
 # `weft_git_error` (also a `weft_gate_error`).
 git_raw <- function(dir, args, input = NULL) {
@@ -99,9 +114,8 @@ git_raw <- function(dir, args, input = NULL) {
   out <- tempfile("weft-git-out-")
   err <- tempfile("weft-git-err-")
   on.exit(unlink(c(out, err)), add = TRUE)
-  full <- c("-C", dir, "-c", "core.quotepath=false", args)
-  st <- suppressWarnings(system2(git, shQuote(full), stdout = out, stderr = err, input = input,
-                                 env = "GIT_OPTIONAL_LOCKS=0"))
+  full <- c("--no-optional-locks", "-C", dir, "-c", "core.quotepath=false", args)
+  st <- suppressWarnings(system2(git, shQuote(full), stdout = out, stderr = err, input = input))
   st <- if (is.null(st)) 0L else as.integer(st)
   list(status = st,
        out = readBin(out, "raw", max(file.size(out), 0, na.rm = TRUE)),

@@ -46,23 +46,26 @@ state_root <- function(s) {
   normalizePath(find_project_root(s$input_path), winslash = "/", mustWork = FALSE)
 }
 
+# A variable of the innermost rmarkdown::render() frame on the stack, or NULL (outside a render, or
+# with rmarkdown not loaded). There is no public route to these (rmarkdown issue #2648).
+render_frame_value <- function(name) {
+  if (!isNamespaceLoaded("rmarkdown")) return(NULL)
+  rf <- get("render", envir = asNamespace("rmarkdown"))
+  for (i in rev(seq_len(sys.nframe()))) {
+    if (identical(sys.function(i), rf)) return(get0(name, envir = sys.frame(i), inherits = FALSE))
+  }
+  NULL
+}
+
 # The file the author named for the knit. rmarkdown knits a copy when the
 # name holds a shell character (`a b.Rmd` is knitted as `a-b.Rmd`) and keeps
 # the original in its `render()` frame (the frame the output name is read from).
 state_input <- function(s) {
   p <- normalizePath(s$input_path, winslash = "/", mustWork = FALSE)
-  if (isNamespaceLoaded("rmarkdown")) {
-    rf <- get("render", envir = asNamespace("rmarkdown"))
-    for (i in rev(seq_len(sys.nframe()))) {
-      if (identical(sys.function(i), rf)) {
-        oi <- get0("original_input", envir = sys.frame(i), inherits = FALSE)
-        if (is.character(oi) && length(oi) == 1L && !is.na(oi) && file.exists(oi)) {
-          o <- normalizePath(oi, winslash = "/", mustWork = FALSE)
-          if (!identical(o, p) && identical(gsub("[ <>()|\\\\:&;#?*']", "-", basename(o)), basename(p))) p <- o
-        }
-        break
-      }
-    }
+  oi <- render_frame_value("original_input")
+  if (is.character(oi) && length(oi) == 1L && !is.na(oi) && file.exists(oi)) {
+    o <- normalizePath(oi, winslash = "/", mustWork = FALSE)
+    if (!identical(o, p) && identical(gsub("[ <>()|\\\\:&;#?*']", "-", basename(o)), basename(p))) p <- o
   }
   p
 }
@@ -115,7 +118,7 @@ collected_failures <- function(root) {
   if (is.na(p) || !file.exists(p)) return(empty)
   x <- tryCatch(read_source_lines(p), error = function(e) character())
   rows <- lapply(x[grepl("\"source\":\"knit\"", x, fixed = TRUE)], function(l) {
-    y <- tryCatch(yaml_read_text(l), error = function(e) NULL)
+    y <- tryCatch(json_read_text(l), error = function(e) NULL)
     if (!is.list(y)) return(NULL)
     # a warned check is not a failure
     if (identical(y$level, "warn")) return(NULL)
@@ -151,16 +154,10 @@ weft_state_dir <- function(root, ...) {
   invisible(file.path(d, ...))
 }
 
-# The run id: WEFT_RUN when it is set (verify() sets it, 4c G30), else the one the
-# pre-render script wrote (first line of .weft/run), or "".
-run_id <- function(root) {
-  e <- Sys.getenv("WEFT_RUN", "")
-  if (nzchar(e)) return(e)
-  p <- file.path(root, ".weft", "run")
-  if (!file.exists(p)) return("")
-  x <- tryCatch(readLines(p, n = 1L, warn = FALSE), error = function(e) "")
-  if (length(x)) x[1L] else ""
-}
+# The run id, read as values_run() reads it (ruling 17): the first line of
+# `.weft/run` found walking up from `root`, else WEFT_RUN (verify() sets it, 4c G30),
+# else "". One reader, so the stamp and the block agree on the run.
+run_id <- function(root) values_run(root) %||% ""
 
 # How many checks the knit evaluated: the top-level constructs.
 count_checks <- function(s) {

@@ -373,29 +373,10 @@ check_static <- function(s, F, draft) {
 }
 
 # The document's `lang` (2.1.6): its own front matter, else Quarto's merged
-# metadata, which holds a project-level `lang`: the file named by
-# QUARTO_EXECUTE_INFO, else quarto::quarto_inspect() when it is installed.
-document_lang <- function(front, path) {
+# metadata (quarto_metadata()), which holds a project-level `lang`.
+document_lang <- function(front, path, s = NULL) {
   one <- function(x) if (is.character(x) && length(x) == 1L && !is.na(x)) x else NULL
-  l <- one(front$lang)
-  if (!is.null(l)) return(l)
-  info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
-  if (nzchar(info) && file.exists(info)) {
-    # JSON is read as YAML flow style: yaml is an import, jsonlite is not
-    x <- tryCatch(yaml_read_file(info), error = function(e) NULL)
-    l <- one(x$format$metadata$lang)
-    if (!is.null(l)) return(l)
-    if (!is.null(x)) return("")
-  }
-  if (!is.null(path) && requireNamespace("quarto", quietly = TRUE)) {
-    qmd <- sub("\\.rmarkdown$", ".qmd", path)
-    if (file.exists(qmd) && grepl("\\.qmd$", qmd)) {
-      x <- tryCatch(quarto::quarto_inspect(qmd), error = function(e) NULL)
-      l <- one(x$formats[[1L]]$metadata$lang) %||% one(x$config$lang)
-      if (!is.null(l)) return(l)
-    }
-  }
-  ""
+  one(front$lang) %||% one(quarto_metadata(path, s)$lang) %||% ""
 }
 
 init_knit <- function() {
@@ -407,7 +388,7 @@ init_knit <- function() {
   s$config <- cfg
   s$input_path <- path %||% NA_character_
   s$front <- front
-  s$lang <- document_lang(front, path)
+  s$lang <- document_lang(front, path, s)
   # a unit's name is English words (1.6.8)
   if (identical(cfg$unit_form, "name") && !lang_is_english(s$lang)) {
     weft_abort(sprintf(paste0("The setting `unit_form: name` (set in %s) prints English words, and the ",
