@@ -244,7 +244,7 @@ test_that("4c G32: a recorded version that is not the installed one gives one wa
 
 test_that("4c G32: the text names the recorded and the installed version, quoted or not in the file", {
   v4_env()
-  rec <- v4_other_version()
+  rec <- "0.0.0.1"
   p <- v4_proj(list("a.qmd" = V4_PLAIN_DOC), weft_yml = c("draft: false", sprintf("weft_version: \"%s\"", rec)))
   w <- version_warnings(v4_verify(p$root, static = TRUE))
   expect_length(w, 1L)

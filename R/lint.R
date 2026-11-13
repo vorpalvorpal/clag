@@ -2,11 +2,9 @@
 # structure and its printing, the lint configuration and the claim-word
 # lexicon, and the `construct` lint.
 #
-# How a later package adds a rule (3b, 3c, 3d): define, in its own file, an
-# internal function `lint_<id with - as _>(src, ctx)` for a file-scope rule or
-# `lint_<id>(ctx)` for a project-scope rule. `lints()` finds it by name at run
-# time, so file order does not matter; a rule with no function is skipped. The
-# ids, specs, tiers and scopes are fixed by the table in `lint_rule_table()`.
+# A rule is one row of `lint_rule_table()` (its id, spec, tier and scope) and one entry of
+# `lint_rule_funs()` (its function: `(src, ctx)` for a file-scope rule, `(ctx)` for a
+# project-scope one). Nothing is found by name; add both to add a rule.
 
 lint_abort <- function(message) weft_abort(message, "weft_lint_error")
 
@@ -77,12 +75,47 @@ lint_rules <- function() {
   r
 }
 
-# the function that implements a rule, or NULL when it is not built yet
-lint_rule_fun <- function(id) {
-  if (id == "read") return(NULL)
-  get0(paste0("lint_", gsub("-", "_", id, fixed = TRUE)), envir = asNamespace("weft"),
-       mode = "function", inherits = FALSE)
+# The function of each rule, in one explicit table: nothing is found by name. File-scope rules take
+# (src, ctx), project-scope rules (ctx). `read` has none: the reader reports a file that is not UTF-8.
+lint_rule_funs <- function() {
+  list(
+    `numeral` = lint_numeral,
+    `construct` = lint_construct,
+    read = NULL,
+    `block-start` = lint_block_start,
+    `lone-bar` = lint_lone_bar,
+    `if-zero` = lint_if_zero,
+    `name` = lint_name,
+    `inert-check` = lint_inert_check,
+    `long-guard` = lint_long_guard,
+    `cite-key` = lint_cite_key,
+    `cite-bare` = lint_cite_bare,
+    `citation-key` = lint_citation_key,
+    `claim-word` = lint_claim_word,
+    `literal-value` = lint_literal_value,
+    `value-constant` = lint_value_constant,
+    `value-format` = lint_value_format,
+    `xref` = lint_xref,
+    `anchor-twice` = lint_anchor_twice,
+    `ref-label` = lint_ref_label,
+    `anchor-unused` = lint_anchor_unused,
+    `xref-code` = lint_xref_code,
+    `section-anchor` = lint_section_anchor,
+    `chunk-label` = lint_chunk_label,
+    `tar-name` = lint_tar_name,
+    `dict-assign` = lint_dict_assign,
+    `file-link` = lint_file_link,
+    `above-setup` = lint_above_setup,
+    `dict-key` = lint_dict_key,
+    `tar-cache` = lint_tar_cache,
+    `config-place` = lint_config_place,
+    `engine` = lint_engine,
+    `figure` = lint_figure,
+    `table-caption` = lint_table_caption
+  )
 }
+
+lint_rule_fun <- function(id) lint_rule_funs()[[id]]
 
 # ---- findings --------------------------------------------------------------------------
 
@@ -386,7 +419,7 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
     }
   }
   if (reader == "pandoc") {
-    pp <- if (exists("pandoc_path", mode = "function")) pandoc_path() else ""
+    pp <- pandoc_path()
     if (!nzchar(pp)) {
       lint_abort(paste0("lints(reader = \"pandoc\") needs Pandoc; none was found. ",
                         "Set the option `weft.pandoc` to its path (rule 2.10.3)."))

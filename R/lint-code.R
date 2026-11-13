@@ -1050,8 +1050,9 @@ dict_file_keys <- function(ctx) {
   f <- file.path(ctx$root, "dict.yml")
   res <- list(exists = file.exists(f), ok = TRUE, keys = character())
   if (res$exists) {
-    y <- tryCatch(yaml_read_file(f), error = function(e) NULL)
-    if (is.null(y) && length(read_source_lines(f))) {
+    # a successful parse that gives NULL (an empty file, or only comments) is an empty dictionary
+    y <- tryCatch(yaml_read_file(f), error = function(e) e)
+    if (inherits(y, "error")) {
       res$ok <- FALSE
       ctx$note("dict-key: dict.yml could not be read, so dictionary keys were not checked (rule 5.8.6).")
     } else if (is.list(y)) {

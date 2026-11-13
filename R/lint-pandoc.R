@@ -277,7 +277,7 @@ block_start_r <- function(src) {
           src, pos, pos + nchar(mk) - 1L, "block-start", mk,
           sprintf("Line %d inside a span starts with `%s`, which Pandoc reads as %s, so the span is cut in two (rule 2.10.5).",
                   ln, mk, block_marker_kind(mk)),
-          hint = "Re-wrap the span so that no line starts with it, or escape it (for example `\\#`).")
+          hint = "Re-wrap the span so that no line starts with it, or escape its first character (for example `\\:` or `\\-`).")
       }
     }
   }
@@ -345,7 +345,7 @@ block_start_fence <- function(src) {
       src, pos, pos + nchar(mk) - 1L, "block-start", mk,
       sprintf("Line %d inside a span starts with `%s`, which Pandoc reads as %s, so the span is cut in two (rule 2.10.5).",
               o, mk, block_marker_kind(mk)),
-      hint = "Re-wrap the span so that no line starts with it, or escape it (for example `\\#`).")
+      hint = "Re-wrap the span so that no line starts with it, or escape its first character (for example `\\:` or `\\-`).")
   }
   bind_findings(out)
 }
