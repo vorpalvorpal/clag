@@ -105,7 +105,7 @@ test_that("5e J24: tier 2, so absent from lints() by default", {
 # 6d: a span of the filter's grammar (if="ok") needs no knitr (N146), so the body is one outside it;
 # each G38 hint gains E73
 G5E_JL_BODY <- r"{Words [a site]{if="a && ok"} more.}"
-G5E_JL_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.7)."
+G5E_JL_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8)."
 G5E_JL_CHUNK <- c("```{julia}", "x = 1", "```")
 g5e_jl_engine <- function(lines) lint_fixture(list("a.qmd" = lines), rules = "engine", tier = 1:2)
 

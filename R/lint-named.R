@@ -76,7 +76,7 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
     if (length(f)) {
       p <- if (startsWith(f[2L], "/")) file.path(root, substring(f[2L], 2L)) else file.path(dir, f[2L])
       # the filter refuses a values file outside the project root (E32): so does the lint
-      txt <- if (path_inside(p, root)) tryCatch(read_source_text_or_null(p), error = function(e) NULL)
+      txt <- if (path_inside(p, root) && utils::file_test("-f", p)) read_source_text_or_null(p)
       if (!is.null(txt)) out$keys <- c(out$keys, values_keys(txt))
     } else {
       out$keys <- c(out$keys, values_keys(paste(b$body, collapse = "\n")))
@@ -86,7 +86,8 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
     inc <- regmatches(lines, regexec("\\{\\{<[ \t]*include[ \t]+([^ \t>]+)[ \t]*>\\}\\}", lines))
     for (m in inc[lengths(inc) > 0L]) {
       p <- if (startsWith(m[2L], "/")) file.path(root, substring(m[2L], 2L)) else file.path(dir, m[2L])
-      il <- tryCatch(read_source_lines(p), error = function(e) NULL)
+      if (!utils::file_test("-f", p)) next
+      il <- tryCatch(read_source_lines(p), weft_encoding_error = function(e) NULL)
       if (is.null(il)) next
       ich <- chunk_table(il, labelled_chunks(dequote_chunks(il)))
       sub <- named_sources(il, ich, dirname(p), root, depth + 1L)

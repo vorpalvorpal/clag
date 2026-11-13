@@ -49,12 +49,64 @@ mark_ranges <- function(n, starts, ends) {
   cumsum(d)[seq_len(n)] > 0
 }
 
+# The matches of `pat` in `x` as start, end and capture starts, in characters. On a text with
+# multi-byte characters R turns every match's byte offset into a character offset from the start of
+# the string, so a document's worth of matches is quadratic. Where the pattern's meaning does not
+# depend on character units (see byte_pattern_ok()) and the text is valid UTF-8, the match runs on
+# bytes and one map from byte to character, kept for the last text, turns the offsets back.
 gmatch <- function(pat, x) {
-  m <- gregexpr(pat, x, perl = TRUE)[[1L]]
+  cmap <- if (nchar(x, "bytes") > nchar(x) && byte_pattern_ok(pat, x)) byte_char_map(x)
+  m <- gregexpr(pat, x, perl = TRUE, useBytes = !is.null(cmap))[[1L]]
   if (m[1L] == -1L) return(list(s = integer(), e = integer(), cs = NULL))
   ml <- attr(m, "match.length")
-  list(s = as.integer(m), e = as.integer(m) + ml - 1L,
-       cs = attr(m, "capture.start"))
+  s <- as.integer(m)
+  cs <- attr(m, "capture.start")
+  if (is.null(cmap)) return(list(s = s, e = s + ml - 1L, cs = cs))
+  # the end of a match is the character that holds its last byte; an empty match ends before its start
+  e <- cmap[pmax(s + ml - 1L, 1L)]
+  e[ml == 0L] <- cmap[s[ml == 0L]] - 1L
+  if (!is.null(cs)) cs[cs > 0L] <- cmap[cs[cs > 0L]]
+  list(s = cmap[s], e = as.integer(e), cs = cs)
+}
+
+# One map per text, the last one asked for: the character that holds each byte (1-based), with one
+# more entry for the position after the last byte (an empty match there).
+gmatch_cache <- new.env(parent = emptyenv())
+gmatch_shapes <- new.env(parent = emptyenv())
+byte_char_map <- function(x) {
+  if (identical(gmatch_cache$text, x)) return(gmatch_cache$map)
+  cp <- utf8ToInt(x)
+  width <- 1L + (cp >= 0x80L) + (cp >= 0x800L) + (cp >= 0x10000L)
+  gmatch_cache$map <- c(rep.int(seq_along(cp), width), length(cp) + 1L)
+  gmatch_cache$text <- x
+  gmatch_cache$map
+}
+
+# Whether `pat` can run on the bytes of `x` and give the offsets of a run on its characters.
+# Audited by shape. It cannot when the pattern holds a non-ASCII character, `.`, `\p`, `\P`, `\X`,
+# `\R`, `\N`, `\C`, `\h`, `\H`, `\v`, `\V`, `\x` or `\0` (a character is one unit there); and a
+# caseless pattern needs a text without the two characters that fold to an ASCII letter (U+017F,
+# U+212A). A negated class, a literal, `\s`, `\S`, `\b`, `[[:alnum:]]`, `[[:punct:]]` and a
+# lookbehind of one ASCII character take the same bytes as characters, because every byte of a
+# multi-byte character falls on the same side of them. The one `.` in P2_PATTERN is the `\S.*$` of
+# the reference rule, where `.*` runs to the end of the line in either unit.
+byte_pattern_ok <- function(pat, x) {
+  ok <- gmatch_shapes[[pat]]
+  if (is.null(ok)) {
+    ok <- !grepl("[^\\x01-\\x7f]", pat, perl = TRUE, useBytes = TRUE) &&
+      !grepl("\\\\[pPXRNChHvVx0]", pat, perl = TRUE)
+    if (ok) {
+      rest <- gsub("\\S.*$", "", pat, fixed = TRUE)
+      rest <- gsub("\\\\.", "x", rest, perl = TRUE)              # an escape is one item
+      rest <- gsub("\\[:[a-z]+:\\]", "x", rest, perl = TRUE)     # a POSIX class is one item
+      rest <- gsub("\\[\\^?[^]]*\\]", "x", rest, perl = TRUE)    # a class is one item
+      ok <- !grepl(".", rest, fixed = TRUE)
+    }
+    assign(pat, ok, envir = gmatch_shapes)
+  }
+  if (!ok) return(FALSE)
+  if (grepl("(?i", pat, fixed = TRUE) && grepl("[ſK]", x, perl = TRUE)) return(FALSE)
+  validUTF8(x) && Encoding(x) %in% c("UTF-8", "unknown") && l10n_info()$`UTF-8`
 }
 
 # The first of `groups` that matched, for each match.
@@ -255,9 +307,7 @@ chunk_literals <- function(code, first_line, ls, which = c("weft_str", "phrase")
   sc <- sc[order(sc$line1, sc$col1), , drop = FALSE]
   if (!nrow(sc)) return(out)
   line <- first_line + sc$line1 - 1L
-  cc <- vapply(seq_len(nrow(sc)), function(k) {
-    parse_col_chars(code[sc$line1[k]], sc$col1[k])
-  }, 1L)
+  cc <- sc$col1   # getParseData() counts characters in a UTF-8 session
   data.frame(start = ls[line] + cc, raw = substr(sc$text, 2L, nchar(sc$text) - 1L),
              token = sc$text, line = as.integer(line), stringsAsFactors = FALSE)
 }
@@ -287,7 +337,7 @@ phrase_rows <- function(lit, chunk_label, file, config) {
 
 # Returns a data frame: kind (front, caption, weft_str, phrase), name, start, end
 # (file offsets of the characters that are prose), form ("scalar"/"block").
-source_pieces <- function(lines, ls, chunks, chs, cfg_file, front_ff) {
+source_pieces <- function(lines, ls, chunks, chs, front_ff) {
   n <- length(lines)
   le <- ls + nchar(lines) - 1
   P <- list()
@@ -486,7 +536,7 @@ mask_prose <- function(S) {
   nl <- length(S$lines)
   empty_regs <- new_regions()
   empty_regs <- with_attrs(empty_regs, character())
-  if (n == 0L) return(list(prose = "", regions = empty_regs, numeric_ok = integer(), notes = list()))
+  if (n == 0L) return(list(prose = "", regions = empty_regs))
   chars <- strsplit(text, "")[[1L]]
   at <- text_cutter(text)
   ls <- S$line_start
@@ -772,7 +822,7 @@ mask_prose <- function(S) {
     r
   })))
   if (!is.null(span_reg)) regions <- rbind(regions, span_reg)
-  list(prose = prose, regions = regions, notes = list())
+  list(prose = prose, regions = regions)
 }
 
 # ---- blocks ----------------------------------------------------------------------------
@@ -988,7 +1038,7 @@ read_source <- function(path, root, cfg) {
       rows$fblock[bad] <- NA_real_
     }
   }
-  pieces <- source_pieces(lines, ls, chunks, chs, NULL, ff)
+  pieces <- source_pieces(lines, ls, chunks, chs, ff)
   S <- new.env(parent = emptyenv())
   S$text <- text; S$lines <- lines; S$line_start <- ls
   S$inmeta <- inmeta; S$infence <- infence; S$pieces <- pieces; S$rows <- rows

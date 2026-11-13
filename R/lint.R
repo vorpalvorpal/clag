@@ -329,7 +329,7 @@ settings_root <- function(root, rel) {
 
 # The front matter of a file, read cheaply (for its `weft:` settings).
 doc_front <- function(path) {
-  text <- tryCatch(read_source_text_or_null(path), error = function(e) NULL)
+  text <- read_source_text_or_null(path)
   if (is.null(text) || !nzchar(text)) return(list())
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
   mb <- metadata_blocks(lines)

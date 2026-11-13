@@ -27,9 +27,19 @@ lint_cache <- function(ctx) {
   ctx$dl
 }
 
+# A document's source for a project rule, or NULL after a note when its `weft:` block or YAML is at
+# fault (weft_config_error, weft_yaml_error): the note names the file and the fault. Any other error
+# is a bug in the reader and propagates.
+lint_source_or_fault <- function(ctx, f, consequence) {
+  note <- function(e) {
+    ctx$note(sprintf("%s has a setting or YAML fault, so %s: %s", f, consequence, conditionMessage(e)))
+    NULL
+  }
+  tryCatch(ctx$source(f), weft_config_error = note, weft_yaml_error = note)
+}
+
 dl_ctx <- function(x) if (x %in% c("prose", "caption", "front-matter", "weft_str", "phrase", "chunk", "project")) x else "prose"
 
-dl_empty <- function() new_findings()
 
 # the folder part of a path relative to the root ("." at the root)
 dl_dir <- function(rel) {
@@ -285,8 +295,9 @@ project_index <- function(ctx) {
   auto <- list()
   srcs <- list()
   for (f in files) {
-    src <- tryCatch(ctx$source(f), error = function(e) NULL)
-    if (is.null(src) || isTRUE(src$invalid)) {
+    src <- lint_source_or_fault(ctx, f, "its anchors and references were not used (rule 5.7.1)")
+    if (is.null(src)) next
+    if (isTRUE(src$invalid)) {
       ctx$note(sprintf("%s could not be read, so its anchors and references were not used (rule 5.7.1).", f))
       next
     }
@@ -450,7 +461,7 @@ doc_inner_block <- function(src, pos) {
 
 lint_cite_key <- function(src, ctx) {
   rows <- doc_cite_rows(src)
-  if (!nrow(rows)) return(dl_empty())
+  if (!nrow(rows)) return(new_findings())
   known <- doc_bib(src, ctx)$keys
   out <- list()
   for (i in seq_len(nrow(rows))) {
@@ -473,7 +484,7 @@ lint_cite_key <- function(src, ctx) {
 
 lint_cite_bare <- function(src, ctx) {
   rows <- doc_cite_rows(src)
-  if (!nrow(rows)) return(dl_empty())
+  if (!nrow(rows)) return(new_findings())
   cit <- doc_citations(src)
   blk <- doc_inner_block(src, rows$start)
   b <- src$blocks
@@ -540,9 +551,9 @@ lint_citation_key <- function(src, ctx) {
 lint_xref <- function(ctx) {
   idx <- project_index(ctx)
   refs <- idx$refs
-  if (!nrow(refs)) return(dl_empty())
+  if (!nrow(refs)) return(new_findings())
   refs <- refs[refs$ref_file %in% ctx$files, , drop = FALSE]
-  if (!nrow(refs)) return(dl_empty())
+  if (!nrow(refs)) return(new_findings())
   anchor_ids <- unique(idx$anchors$id)
   auto_ids <- unique(unlist(idx$auto, use.names = FALSE))
   docs <- names(idx$srcs)
@@ -568,7 +579,7 @@ lint_xref <- function(ctx) {
       }, FALSE)
   }
   refs <- refs[bad, , drop = FALSE]
-  if (!nrow(refs)) return(dl_empty())
+  if (!nrow(refs)) return(new_findings())
   out <- lapply(unique(refs$ref_file), function(f) {
     r <- refs[refs$ref_file == f, , drop = FALSE]
     src <- idx$srcs[[f]]
@@ -583,11 +594,11 @@ lint_anchor_twice <- function(ctx) {
   idx <- project_index(ctx)
   a <- idx$anchors
   a <- a[!a$derived, , drop = FALSE]
-  if (!nrow(a)) return(dl_empty())
+  if (!nrow(a)) return(new_findings())
   a <- a[order(a$file, a$start, method = "radix"), , drop = FALSE]
   first <- !duplicated(a$id)
   later <- a[!first, , drop = FALSE]
-  if (!nrow(later)) return(dl_empty())
+  if (!nrow(later)) return(new_findings())
   firsts <- a[match(later$id, a$id), , drop = FALSE]
   out <- lapply(seq_len(nrow(later)), function(i) {
     f <- later$file[i]
@@ -605,20 +616,20 @@ lint_ref_label <- function(src, ctx) {
   rw <- src$rows
   rg <- src$regions
   rd <- rg[rg$type == "refdef", , drop = FALSE]
-  if (!nrow(rw) || !nrow(rd)) return(dl_empty())
+  if (!nrow(rw) || !nrow(rd)) return(new_findings())
   fold <- function(x) gsub("[ \t\n]+", " ", dl_trim(tolower(x)))
   rt <- src_substr(src, rd$start, rd$end)
   lab <- fold(sub("^[ \t]*\\[(.*?)\\]:.*$", "\\1", rt, perl = TRUE))
   k <- which(rw$kind %in% c("n", "if", "sign", "list", "cite", "text", "literal"))
-  if (!length(k)) return(dl_empty())
+  if (!length(k)) return(new_findings())
   sp <- rg[rg$type == "span", , drop = FALSE]
   m <- match(rw$fstart[k], sp$start)
   k <- k[!is.na(m)]
   m <- m[!is.na(m)]
-  if (!length(k)) return(dl_empty())
+  if (!length(k)) return(new_findings())
   br <- src_substr(src, sp$start[m] + 1L, sp$inner_end[m] - 1L)
   hit <- fold(br) %in% lab
-  if (!any(hit)) return(dl_empty())
+  if (!any(hit)) return(new_findings())
   s <- sp$start[m][hit]
   finding_at(src, s, sp$end[m][hit], "ref-label", br[hit],
              sprintf("The text of this span, `%s`, is also a reference-definition label in this document, so Pandoc reads it as a link (rule 5.7.1).", br[hit]),
@@ -629,9 +640,9 @@ lint_anchor_unused <- function(ctx) {
   idx <- project_index(ctx)
   a <- idx$anchors
   a <- a[!a$derived & a$file %in% ctx$files & grepl("^(?:fig|tbl|eq)-|^(?:fig|tab|eq):", a$id, perl = TRUE), , drop = FALSE]
-  if (!nrow(a)) return(dl_empty())
+  if (!nrow(a)) return(new_findings())
   a <- a[!a$id %in% idx$refs$id, , drop = FALSE]
-  if (!nrow(a)) return(dl_empty())
+  if (!nrow(a)) return(new_findings())
   out <- lapply(seq_len(nrow(a)), function(i) {
     finding_at(idx$srcs[[a$file[i]]], a$start[i], a$start[i], "anchor-unused", a$id[i],
                sprintf("The anchor `%s` is never referred to in the project (rule 5.7.2).", a$id[i]),
@@ -642,11 +653,11 @@ lint_anchor_unused <- function(ctx) {
 
 lint_xref_code <- function(src, ctx) {
   rg <- src$regions[src$regions$type == "code", , drop = FALSE]
-  if (!nrow(rg)) return(dl_empty())
+  if (!nrow(rg)) return(new_findings())
   txt <- src_substr(src, rg$start, rg$end)
   inner <- dl_trim(gsub("^`+|`+$", "", txt))
   ok <- grepl(paste0("^-?@(?i:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, "$"), inner, perl = TRUE)
-  if (!any(ok)) return(dl_empty())
+  if (!any(ok)) return(new_findings())
   tk <- regexpr("@", txt[ok], fixed = TRUE)
   s <- rg$start[ok] + as.integer(tk) - 1L
   txt_ref <- sub("^-", "", inner[ok])
@@ -659,7 +670,7 @@ lint_xref_code <- function(src, ctx) {
 
 lint_section_anchor <- function(src, ctx) {
   b <- src$blocks[src$blocks$type == "heading", , drop = FALSE]
-  if (!nrow(b)) return(dl_empty())
+  if (!nrow(b)) return(new_findings())
   out <- list()
   # a heading inside a callout or a tabset div is a title or a tab, not a section (review 3, question 4)
   dv <- src$divs
@@ -700,9 +711,9 @@ lint_section_anchor <- function(src, ctx) {
 
 lint_chunk_label <- function(src, ctx) {
   ch <- src$chunks
-  if (!nrow(ch)) return(dl_empty())
-  k <- which(!ch$explicit & !isFALSE_vec(ch$eval) & nzchar(ch$engine))
-  if (!length(k)) return(dl_empty())
+  if (!nrow(ch)) return(new_findings())
+  k <- which(!ch$explicit & (is.na(ch$eval) | ch$eval) & nzchar(ch$engine))
+  if (!length(k)) return(new_findings())
   first <- vapply(k, function(i) {
     cd <- ch$code[[i]]
     cd <- cd[!grepl("^[ \t]*(#.*)?$", cd)]
@@ -715,19 +726,18 @@ lint_chunk_label <- function(src, ctx) {
              "Give the chunk a label, as `#| label: name`.", context = "chunk")
 }
 
-isFALSE_vec <- function(x) !is.na(x) & !x
 
 lint_file_link <- function(src, ctx) {
   lk <- doc_links(src)
-  if (!nrow(lk)) return(dl_empty())
+  if (!nrow(lk)) return(new_findings())
   tg <- lk$target
   skip <- !nzchar(tg) | startsWith(tg, "#") | startsWith(tg, "//") | grepl("^[A-Za-z][A-Za-z0-9+.-]*:", tg)
   lk <- lk[!skip, , drop = FALSE]
-  if (!nrow(lk)) return(dl_empty())
+  if (!nrow(lk)) return(new_findings())
   path <- sub("[?#].*$", "", lk$target)
   lk <- lk[nzchar(path), , drop = FALSE]
   path <- path[nzchar(path)]
-  if (!nrow(lk)) return(dl_empty())
+  if (!nrow(lk)) return(new_findings())
   dec <- vapply(path, function(p) tryCatch(utils::URLdecode(p), error = function(e) p), "", USE.NAMES = FALSE)
   base <- dl_dir(src$file)
   full <- ifelse(startsWith(dec, "/"), file.path(ctx$root, sub("^/+", "", dec)),
@@ -739,7 +749,7 @@ lint_file_link <- function(src, ctx) {
     stem <- sub("\\.html?$", "", full[html], ignore.case = TRUE)
     gone[html] <- !vapply(stem, function(z) any(file.exists(paste0(z, c(".qmd", ".Rmd", ".rmd", ".md")))), NA)
   }
-  if (!any(gone)) return(dl_empty())
+  if (!any(gone)) return(new_findings())
   finding_at(src, lk$start[gone], lk$start[gone] + nchar(lk$target[gone]) - 1L, "file-link", path[gone],
              sprintf("The link target `%s` names no file (rule 5.8.4).", path[gone]),
              "Correct the path, which is read from this document's folder.")
@@ -762,7 +772,7 @@ lint_config_place <- function(ctx) {
   }
   if (file.exists(file.path(root, "_weft.yml"))) {
     for (f in ctx$report) {
-      src <- tryCatch(ctx$source(f), error = function(e) NULL)
+      src <- lint_source_or_fault(ctx, f, "its project-only settings were not checked")
       if (is.null(src) || isTRUE(src$invalid)) next
       for (m in src$meta) {
         w <- m$yaml$weft
@@ -825,7 +835,7 @@ lint_engine <- function(ctx) {
   for (f in ctx$report) {
     if (tolower(sub("^.*\\.", "", f)) != "qmd") next
     if (startsWith(basename(f), "_")) next
-    src <- tryCatch(ctx$source(f), error = function(e) NULL)
+    src <- lint_source_or_fault(ctx, f, "the engine rule did not check it")
     if (is.null(src) || isTRUE(src$invalid)) next
     rw <- src$rows
     held <- !rw$kind %in% c("bare", "link", "literal")
@@ -852,7 +862,7 @@ lint_engine <- function(ctx) {
       file = f, line = 1L, col = 1L, end_line = 1L, rule = "engine", context = "project", text = f,
       message = m$message,
       hint = paste(m$hint, paste0("Or write each value as a name, `x`{.num}, and publish it in code: then no ",
-                                  "knitr is needed (rule 1.12.7).")))
+                                  "knitr is needed (rule 1.12.8).")))
   }
   bind_findings(out)
 }
@@ -897,7 +907,7 @@ engine_message <- function(f, src) {
   }
   ch <- src$chunks
   eng <- tolower(ch$engine)
-  has_r <- any(eng == "r" & !isFALSE_vec(ch$eval))
+  has_r <- any(eng == "r" & (is.na(ch$eval) | ch$eval))
   if (!has_r && any(eng == "python")) {
     return(list(
       message = sprintf(paste0("%s holds weft constructs and Python chunks but is not marked `engine: knitr`, so ",
@@ -929,7 +939,7 @@ dl_knitr_doc <- function(src) {
   if (!is.null(eng)) return(is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr"))
   if (!is.null(src$front$jupyter)) return(FALSE)
   ch <- src$chunks
-  any(tolower(ch$engine) == "r" & !isFALSE_vec(ch$eval))
+  any(tolower(ch$engine) == "r" & (is.na(ch$eval) | ch$eval))
 }
 
 # The code spans of the prose that are not inside a .weft-literal span or div: start, end, text as written
@@ -950,12 +960,12 @@ dl_prose_code_spans <- function(src) {
 }
 
 lint_guest_inline <- function(src, ctx) {
-  if (!dl_knitr_doc(src)) return(dl_empty())
+  if (!dl_knitr_doc(src)) return(new_findings())
   cs <- dl_prose_code_spans(src)
   m <- regmatches(cs$inner, regexec("^\\{([A-Za-z][A-Za-z0-9_]*)\\} ", cs$inner))
   lang <- vapply(m, function(x) if (length(x)) x[2L] else NA_character_, "")
   ok <- !is.na(lang) & !(lang %in% c("r", "R", "ojs"))
-  if (!any(ok)) return(dl_empty())
+  if (!any(ok)) return(new_findings())
   cs <- cs[ok, , drop = FALSE]
   lang <- lang[ok]
   code <- dl_trim(cs$inner)
@@ -1075,7 +1085,7 @@ ojs_template_holes <- function(text) {
 }
 
 lint_ojs_value <- function(src, ctx) {
-  if (is_rmd(src)) return(dl_empty())
+  if (is_rmd(src)) return(new_findings())
   out <- list()
   cs <- dl_prose_code_spans(src)
   ok <- grepl("^\\{ojs\\} ", cs$inner)

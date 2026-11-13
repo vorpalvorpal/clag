@@ -6,7 +6,7 @@
 # 6d: a span of the filter's grammar (if="ok") needs no knitr (N146), so the body is one outside it
 G5E_BODY <- r"{Words [a site]{if="a && ok"} more.}"
 # 6d (E73): each G38 hint gains this sentence
-G5E_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.7)."
+G5E_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.8)."
 g5e_en_py <- c("```{python}", "x = 1", "```")
 g5e_en_jl <- c("```{julia}", "x = 1", "```")
 g5e_en_r <- c("```{r}", "x <- 1", "```")

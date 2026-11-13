@@ -99,8 +99,8 @@ W6D_E72 <- function(label, opt) {
                    "(rule 5.12.2)."), label, opt))
 }
 W6D_E73 <- paste0("Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed ",
-                  "(rule 1.12.7).")
+                  "(rule 1.12.8).")
 W6D_E74 <- function(file) {
   sprintf("%s holds named values, and the filter weft.lua is not installed: run use_quarto() (rule 5.8.9).", file)
 }
-W6D_E75 <- "A document on another engine can use named values instead (rule 1.12.7)."
+W6D_E75 <- "A document on another engine can use named values instead (rule 1.12.8)."

@@ -465,11 +465,6 @@ line_starts <- function(lines) {
   1 + c(0, cumsum(nchar(lines) + 1))[seq_along(lines)]
 }
 
-# The column (in characters) of a parse-data column. In a UTF-8 session `getParseData()` already
-# counts characters (review 3, finding 2), so this is the identity; every place that turns a
-# parse-data column into a string offset goes through it.
-parse_col_chars <- function(line, col) col
-
 # ---- caption rows ------------------------------------------------------------
 
 # The executed chunks of a document, each with its label (knitr's
@@ -709,7 +704,7 @@ scan_chunk_strings <- function(lines, ch, first, label, file, config, dq = NULL)
       tok <- consts$text[q]
       off <- rep(NA_real_, nchar(val))
       if (grepl("^[\"']", tok)) {
-        cc <- parse_col_chars(lines[line], consts$col1[q])
+        cc <- consts$col1[q]
         raw <- substr(tok, 2L, nchar(tok) - 1L)
         o <- lit_offsets(raw, ls[line] + cc + (if (is.null(dq)) 0 else dq[line]))
         if (length(o) == nchar(val)) off <- o

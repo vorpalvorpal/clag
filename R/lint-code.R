@@ -248,6 +248,16 @@ live_rows <- function(src) {
   !(!is.na(ln) & ln >= 1L & ic[pmax(ln, 1L)])
 }
 
+# TRUE for a condition made only of comparisons whose two operands are both literals (E4 says it, N11).
+cond_two_literals <- function(val) {
+  parts <- trim_ws(cond_parts(val))
+  if (!length(parts)) return(FALSE)
+  all(vapply(parts, function(part) {
+    m <- regmatches(part, regexec(COND_RE, part, perl = TRUE))[[1L]]
+    length(m) > 0L && all(grepl("^['0-9-]", m[c(2L, 4L)]))
+  }, NA))
+}
+
 # Every piece of R code in a document: the expression of each inline construct and the
 # code of each executed R chunk, parsed. `off` is the file offset of the piece's first
 # character, `line_off` the file offset of the start of each of its lines.
@@ -289,7 +299,7 @@ code_pieces <- function(src) {
       if (!nzchar(val)) next
       # a condition of two literals is E4 (N11), which says it; the lint would say it twice (N143)
       out[[length(out) + 1L]] <- mk(kind, rows$context[i], val, tk$vstart[j] + lead,
-                                    two_literals = grepl("compares two literals", rows$error[i], fixed = TRUE))
+                                    two_literals = !is.na(rows$error[i]) && nzchar(rows$error[i]) && cond_two_literals(val))
     }
   }
   ch <- src$chunks
@@ -314,10 +324,6 @@ piece_span <- function(p, i) {
   c(p$line_off[d$line1[i]] + d$col1[i] - 1, p$line_off[d$line2[i]] + d$col2[i] - 1)
 }
 
-lc_find <- function(src, s, e, rule, text, message, hint = NA_character_, context = "prose") {
-  finding_at(src, s, e, rule = rule, text = text, message = message, hint = hint, context = context)
-}
-
 # Findings from records (s, e, text, message, hint, context) kept in a list, built in one call:
 # a finding costs a data frame each when built one at a time (review 3, finding 10).
 lc_find_all <- function(src, rule, recs) {
@@ -338,7 +344,7 @@ lint_literal_value <- function(src, ctx) {
   for (p in lc_pieces(src, c("value", "bare", "n", "sign", "list"))) {
     if (p$kind %in% c("n", "sign", "list") && (is_backref(p$text) || identical(trim_ws(p$text), "."))) next
     if (!tree_literal(p$tree)) next
-    out[[length(out) + 1L]] <- lc_find(
+    out[[length(out) + 1L]] <- finding_at(
       src, p$off, p$off + nchar(p$text) - 1, "literal-value", p$text,
       sprintf("`%s` is made only of constants, so it is a number typed in the source (rule 5.6.1).", p$text),
       sprintf("Compute it, put it in the dictionary, or write [%s]{.weft-literal why=\"...\"}.", p$text), p$context)
@@ -461,7 +467,7 @@ lint_value_format <- function(src, ctx) {
         }
         if (is_fn(ci, FORMAT_FNS, "base")) {
           sp <- piece_span(p, ci$fpos)
-          out[[length(out) + 1L]] <- lc_find(
+          out[[length(out) + 1L]] <- finding_at(
             src, sp[1L], sp[2L], "value-format", ci$fn,
             sprintf("The value is formatted in code with `%s()` (rule 5.6.4).", ci$fn),
             "Return the raw number and use a class or `digits=` to format it.", p$context)
@@ -575,11 +581,16 @@ span_items <- function(src) {
   items
 }
 
-# where a file offset sits: prose, front matter, a caption or a weft_str() string
+# where a file offset sits: prose, front matter, a caption or a weft_str() string. The rows of the three
+# types are kept once per source.
 context_at <- function(src, pos) {
-  reg <- src$regions
   m <- c(yaml_field = "front-matter", caption = "caption", weft_str = "weft_str")
-  r <- reg[reg$type %in% names(m) & reg$start <= pos & reg$end >= pos, , drop = FALSE]
+  if (is.null(src$cache$context_regs)) {
+    reg <- src$regions
+    src$cache$context_regs <- reg[reg$type %in% names(m), , drop = FALSE]
+  }
+  reg <- src$cache$context_regs
+  r <- reg[reg$start <= pos & reg$end >= pos, , drop = FALSE]
   if (!nrow(r)) return("prose")
   unname(m[r$type[1L]])
 }
@@ -628,7 +639,7 @@ lint_lone_bar <- function(src, ctx) {
     if (it$close - it$open < 2) next
     inner <- src_substr(src, it$open + 1, it$close - 1)
     if (bar_count(inner) != 1L) next
-    out[[length(out) + 1L]] <- lc_find(
+    out[[length(out) + 1L]] <- finding_at(
       src, it$open + 1, it$close - 1, "lone-bar", inner,
       sprintf("The bracket `[%s]` holds one `|` and has no governor, so it is not read as arms (rule 5.3.3).", inner),
       "Add a governor (`n`, `if`, `sign`, `list`) or escape the bar as `\\|`.", context_at(src, it$open + 1))
@@ -656,7 +667,7 @@ lint_if_zero <- function(src, ctx) {
       }
     }
     if (!hit) next
-    out[[length(out) + 1L]] <- lc_find(
+    out[[length(out) + 1L]] <- finding_at(
       src, p$off, p$off + nchar(p$text) - 1, "if-zero", p$text,
       sprintf("The condition `%s` compares with 0, which is a threshold typed in the source (rule 5.3.3).", p$text),
       "A comparison with zero probably wants `sign`: write [a | b | c]{sign=\"...\"} with an arm for each of positive, negative and zero (rule 5.3.3).",
@@ -752,11 +763,11 @@ lint_name <- function(src, ctx) {
         } else {
           sprintf("`%s` is not a name weft knows on a construct (rule 5.3.3).", nm)
         }
-        out[[length(out) + 1L]] <- lc_find(src, pos, end, "name", nm, msg,
+        out[[length(out) + 1L]] <- finding_at(src, pos, end, "name", nm, msg,
           "Check the spelling, or list the name under `expected_names` in _weft.yml.", cx)
       } else if (it$kind == "span" && !gov &&
                  ((is_class && nm %in% fmt_classes) || (!is_class && tolower(nm) %in% RENDERER_KEYS))) {
-        out[[length(out) + 1L]] <- lc_find(src, pos, end, "name", nm,
+        out[[length(out) + 1L]] <- finding_at(src, pos, end, "name", nm,
           sprintf("`%s` formats a value, but the bracket has no governor key, so it formats nothing (rule 5.3.3).", nm),
           "Put it on inline code (`r x`{.num}) or add a governor key such as `n`.", cx)
       }
@@ -857,7 +868,7 @@ lint_tar_name <- function(src, ctx) {
     store <- if (is.na(r$store)) tar_default_store(ctx) else r$store
     have <- tar_store_names(ctx, store)
     if (is.null(have) || r$name %in% have) next
-    out[[length(out) + 1L]] <- lc_find(
+    out[[length(out) + 1L]] <- finding_at(
       src, r$start, r$end, "tar-name", r$name,
       sprintf("The target `%s` is not in the targets store `%s` (rule 5.8.2).", r$name, store),
       "Check the name, or build the target with tar_make().", r$context)
@@ -952,7 +963,7 @@ lint_tar_cache <- function(src, ctx) {
       }
       if (isTRUE(on)) {
         for (r in reads) {
-          out[[length(out) + 1L]] <- lc_find(
+          out[[length(out) + 1L]] <- finding_at(
             src, r$start, r$end, "tar-cache", r$name,
             sprintf("The chunk reads the target `%s` and has its cache on, so a rebuilt target is not picked up (rule 5.8.7).", r$name),
             "Turn the cache off for the chunk (`#| cache: false`); targets caches the value itself.", "chunk")
@@ -1000,7 +1011,7 @@ lint_dict_assign <- function(src, ctx) {
         if (!identical(lead_symbol(t, target), "dict")) next
         sp <- piece_span(p, target)
         tx <- node_text(t, target)
-        out[[length(out) + 1L]] <- lc_find(
+        out[[length(out) + 1L]] <- finding_at(
           src, sp[1L], sp[2L], "dict-assign", tx,
           sprintf("`%s` assigns to `dict`, which a document only reads (rule 5.8.3).", tx),
           "Put the value in dict.yml, or in the document's `weft: dict_local:`.", "chunk")
@@ -1009,7 +1020,7 @@ lint_dict_assign <- function(src, ctx) {
       ci <- call_info(t, i)
       if (is_fn(ci, "assign", "base") && length(ci$args) && identical(str_value(t, ci$args[[1L]]$node), "dict")) {
         sp <- piece_span(p, ci$args[[1L]]$node)
-        out[[length(out) + 1L]] <- lc_find(
+        out[[length(out) + 1L]] <- finding_at(
           src, sp[1L] + 1, sp[2L] - 1, "dict-assign", "dict",
           "`assign(\"dict\", ...)` assigns to `dict`, which a document only reads (rule 5.8.3).",
           "Put the value in dict.yml, or in the document's `weft: dict_local:`.", "chunk")
@@ -1095,7 +1106,7 @@ lint_dict_key <- function(src, ctx) {
       hint <- "Add the key to dict.yml, or correct the name."
     }
     if (is.null(msg)) next
-    out[[length(out) + 1L]] <- lc_find(src, r$start, r$end, "dict-key", r$key, msg, hint, r$context)
+    out[[length(out) + 1L]] <- finding_at(src, r$start, r$end, "dict-key", r$key, msg, hint, r$context)
   }
   bind_findings(out)
 }
@@ -1126,7 +1137,7 @@ lint_above_setup <- function(src, ctx) {
   for (i in keep) {
     tx <- src_substr(src, r$fstart[i], r$fend[i])
     if (nchar(tx) > 80L) tx <- substr(tx, 1L, 80L)
-    out[[length(out) + 1L]] <- lc_find(
+    out[[length(out) + 1L]] <- finding_at(
       src, r$fstart[i], r$fend[i], "above-setup", tx,
       sprintf("A construct sits above the chunk that calls weft_setup() (line %d), so it is read before weft is set up (rule 5.8.5).", open),
       "Move weft_setup() above it, or set it in the front matter (`knitr: opts_knit: weft:`) or .Rprofile.",

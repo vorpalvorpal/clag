@@ -8,7 +8,7 @@
 #    or a span whose governor is not a name or one comparison, rules 1.12.4 and
 #    1.12.5) and has no `engine: knitr` in its own front matter (an `engine:`
 #    in _quarto.yml or _metadata.yml does not count). Named values and spans of
-#    that grammar are the filter's and need no knitr (rule 1.12.7).
+#    that grammar are the filter's and need no knitr (rule 1.12.8).
 # 2. Opens the collection file, .weft/failures.jsonl, empty. Documents and the
 #    weft-check filter append to it while the render runs; the post-render
 #    script reports it and removes it (2.6.6, 2.9.5). Also writes .weft/run,
@@ -205,7 +205,7 @@ local({
     cat(bad, sep = "\n", file = stderr())
     cat("\nAdd `engine: knitr` to each file's own front matter (an `engine:` in _quarto.yml or\n",
         "_metadata.yml does not count). A document on another engine can use named values instead ",
-        "(rule 1.12.7).\n", sep = "", file = stderr())
+        "(rule 1.12.8).\n", sep = "", file = stderr())
     quit(save = "no", status = 1L)
   }
 
