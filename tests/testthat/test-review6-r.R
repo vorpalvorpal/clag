@@ -379,7 +379,7 @@ test_that("review-6 #20b: a values file that lies outside the project root does 
   # today: the file is read, the name counts as published, and no finding is made
   expect_identical(nrow(x), 1L)
   expect_identical(x$message, W6D_E70("depth"))
-  expect_identical(x$line, 7L)
+  expect_identical(x$line, 5L)    # the line of the value's use (N144), not of the block
 })
 
 test_that("review-6 #20b control: a values file inside the root, by a relative path, a root path or a path with ../ that stays inside, publishes", {

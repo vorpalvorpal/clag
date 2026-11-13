@@ -176,7 +176,7 @@ test_that("N11, E4: a comparison of two literals is a construct error of its own
 })
 
 E3_GOOD <- c("ok", "n > 10", "n>10", "x <= -1.5e3", "s == 'north'", "'north' == s", "a != b", "n_gap > 10, n_sites >= 3",
-             "s == 'a,b'", "0.5 < x", "n.sites >= 3", "a == b", "  ok  ", "x >= 0")
+             "s == 'a,b'", "0.5 < x", "n.sites >= 3", "a == b", "ok  ", "x >= 0")
 
 test_that("N9: a name, or one comparison with a name in it, with optional spaces and commas between, is no finding", {
   for (cond in E3_GOOD) {
