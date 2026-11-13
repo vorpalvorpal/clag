@@ -156,8 +156,8 @@ report:</p>
 <span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a></span>
 <span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a><span class="st">## Reading a failed-claim report</span></span>
 <span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a></span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="st">The report gives the sentence, the check and the value. Say which of the</span></span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="st">three looks wrong and why. Do not decide: the author does. Never edit the</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="st">The report gives the line, the expression, the check and the value. Say</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="st">which of the check and the value looks wrong and why. Do not decide: the author does. Never edit the</span></span>
 <span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="st">check or the value to make the claim true.</span></span>
 <span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a></span>
 <span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="st">## The trailer</span></span>
@@ -182,14 +182,15 @@ report:</p>
 <span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a><span class="do">## Draft mode</span></span>
 <span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a></span>
 <span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>With <span class="st">`</span><span class="at">draft: true</span><span class="st">`</span> (or <span class="st">`</span><span class="at">WEFT_DRAFT</span><span class="st">`</span>) a render passes everything. <span class="st">`</span><span class="at">verify()</span><span class="st">`</span></span>
-<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>refuses a draft, and the commit gate passes nothing <span class="cf">in</span> it. Do not leave a</span>
-<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>project <span class="cf">in</span> draft mode to get a result.</span>
+<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>refuses a draft, and the commit gate ignores it and judges every commit as</span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>usual. Do not leave a project <span class="cf">in</span> draft mode to get a result.</span>
 <span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a></span>
 <span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a><span class="do">## Before you commit and before you hand back</span></span>
 <span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a></span>
-<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists what the hook would refuse.</span>
-<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
-<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
+<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists every finding. <span class="st">`</span><span class="at">weft::gate()</span><span class="st">`</span></span>
+<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a>  judges the staged commit as the hook does.</span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
+<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
 <p>In the project, the placeholders in the last line hold the weft
 version and a hash, so that <code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> can tell
 whether you have edited the file.</p>

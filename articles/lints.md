@@ -122,7 +122,7 @@ lints()
     #>   12:39  numeral         "4" is a number typed in prose (rule 5.2.1).
     #>                          Write it as a value, put it in the dictionary, or mark it [4]{.weft-literal why="..."}.
     #>   13:14  literal-value   `3 + 4` is made only of constants, so it is a number typed in the source (rule 5.6.1).
-    #>                          Compute it, put it in the dictionary, or write [10]{.weft-literal why="..."}.
+    #>                          Compute it, put it in the dictionary, or write [3 + 4]{.weft-literal why="..."}.
     #>   14:11  construct       A formatter on an `if` span is an error (rule 1.5.7): .num.
     #>   18:12  numeral         "2" after "Figure" is a typed cross-reference number; use @fig-<label> (rule 5.2.4).
     #>                          Write @fig-<label> and give the target that label.
@@ -144,7 +144,7 @@ lints(tier = 2)
 #> 
 #> survey.qmd
 #>   14:29  if-zero     The condition `slope > 0` compares with 0, which is a threshold typed in the source (rule 5.3.3).
-#>                      Compare with a named value from the dictionary.
+#>                      A comparison with zero probably wants `sign`: write [a | b | c]{sign="..."} with an arm for each of positive, negative and zero (rule 5.3.3).
 #>   15:1   claim-word  Claim word "all" in a sentence with a value; check that the value still bears it out, or guard the word with an `if` span (rule 5.5.1).
 #>                      "All sites were sampled at `r n_sites` locations."
 #>   17:12  claim-word  Claim words "rose", "fell" in a sentence with no value: if it states a result, compute it (rule 5.5.1).

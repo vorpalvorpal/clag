@@ -213,7 +213,7 @@ with several problems:</p>
 <span><span class="co">#&gt;   12:39  numeral         "4" is a number typed in prose (rule 5.2.1).</span></span>
 <span><span class="co">#&gt;                          Write it as a value, put it in the dictionary, or mark it [4]{.weft-literal why="..."}.</span></span>
 <span><span class="co">#&gt;   13:14  literal-value   `3 + 4` is made only of constants, so it is a number typed in the source (rule 5.6.1).</span></span>
-<span><span class="co">#&gt;                          Compute it, put it in the dictionary, or write [10]{.weft-literal why="..."}.</span></span>
+<span><span class="co">#&gt;                          Compute it, put it in the dictionary, or write [3 + 4]{.weft-literal why="..."}.</span></span>
 <span><span class="co">#&gt;   14:11  construct       A formatter on an `if` span is an error (rule 1.5.7): .num.</span></span>
 <span><span class="co">#&gt;   18:12  numeral         "2" after "Figure" is a typed cross-reference number; use @fig-&lt;label&gt; (rule 5.2.4).</span></span>
 <span><span class="co">#&gt;                          Write @fig-&lt;label&gt; and give the target that label.</span></span>
@@ -232,7 +232,7 @@ heuristics:</p>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; survey.qmd</span></span>
 <span><span class="co">#&gt;   14:29  if-zero     The condition `slope &gt; 0` compares with 0, which is a threshold typed in the source (rule 5.3.3).</span></span>
-<span><span class="co">#&gt;                      Compare with a named value from the dictionary.</span></span>
+<span><span class="co">#&gt;                      A comparison with zero probably wants `sign`: write [a | b | c]{sign="..."} with an arm for each of positive, negative and zero (rule 5.3.3).</span></span>
 <span><span class="co">#&gt;   15:1   claim-word  Claim word "all" in a sentence with a value; check that the value still bears it out, or guard the word with an `if` span (rule 5.5.1).</span></span>
 <span><span class="co">#&gt;                      "All sites were sampled at `r n_sites` locations."</span></span>
 <span><span class="co">#&gt;   17:12  claim-word  Claim words "rose", "fell" in a sentence with no value: if it states a result, compute it (rule 5.5.1).</span></span>

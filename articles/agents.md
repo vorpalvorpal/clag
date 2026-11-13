@@ -84,8 +84,8 @@ on them chosen by the numbers. This file is written by `weft::use_agent_docs()`.
 
 ## Reading a failed-claim report
 
-The report gives the sentence, the check and the value. Say which of the
-three looks wrong and why. Do not decide: the author does. Never edit the
+The report gives the line, the expression, the check and the value. Say
+which of the check and the value looks wrong and why. Do not decide: the author does. Never edit the
 check or the value to make the claim true.
 
 ## The trailer
@@ -110,12 +110,13 @@ The hook refuses a commit that adds findings. Fix each one at its source:
 ## Draft mode
 
 With `draft: true` (or `WEFT_DRAFT`) a render passes everything. `verify()`
-refuses a draft, and the commit gate passes nothing in it. Do not leave a
-project in draft mode to get a result.
+refuses a draft, and the commit gate ignores it and judges every commit as
+usual. Do not leave a project in draft mode to get a result.
 
 ## Before you commit and before you hand back
 
-- `weft::lints()` before a commit: it lists what the hook would refuse.
+- `weft::lints()` before a commit: it lists every finding. `weft::gate()`
+  judges the staged commit as the hook does.
 - `weft::verify()` before handing work back: it renders and checks the claims.
 <!-- weft-file: use_agent_docs @VERSION@ @HASH@ -->
 ```
