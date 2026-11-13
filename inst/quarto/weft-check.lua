@@ -10,6 +10,9 @@
 --     `{r}`, and any code span whose text begins `r `
 --   * a leftover placeholder (private-use) character
 --   * the marker text `<<weft:` (rule 2.9.5)
+--   * in a document weft.lua resolved: text that shows `]{KEY=` for a weft key, which is a span Pandoc
+--     did not read (its value starts with a space), so that nothing resolved it
+--   * a named value in a front-matter field weft.lua does not resolve (rule 2.13.2)
 --
 -- Self-contained: it reads only Pandoc's tree, so it works when the weft
 -- package was never loaded and when the file was never knit (9.2.8).
@@ -24,15 +27,16 @@ local found = {}
 local seen = {}
 
 local KEYS = { n = true, ["if"] = true, sign = true, cite = true, list = true }
-local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true }
+local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true,
+                        unit = true }
 local TEXT_CLASSES = { a = true, cap = true, strong = true, em = true }
 local FORMATTER_CLASSES = {}
-for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl]]):gmatch("%S+") do
+for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl]]):gmatch("[^ \t\r\n]+") do
   FORMATTER_CLASSES[c] = true
 end
 
 local function excerpt(s)
-  s = s:gsub("\0", ""):gsub("%s+", " ")
+  s = s:gsub("\0", ""):gsub("[ \t\r\n]+", " ")
   if #s > 80 then s = s:sub(1, 77) .. "..." end
   return s
 end
@@ -60,15 +64,30 @@ end
 -- are ordinary prose, and so is `]{...}` (an escaped bracket: a span that
 -- was left as a span is found as one by check_span).
 local function attr_block_shown(s)
-  if s:find("[^%s{%]]{%s*%.[%a_]") then return true end
+  if s:find("[^ \t\r\n{%]]{[ \t\r\n]*%.[%a_]") then return true end
   local lower = s:lower()
   for k in pairs(KEYS) do
-    if lower:find("[^%s{%]]{%s*" .. k .. "%s*=") then return true end
+    if lower:find("[^ \t\r\n{%]]{[ \t\r\n]*" .. k .. "[ \t\r\n]*=") then return true end
   end
   for k in pairs(RENDERER_KEYS) do
-    if lower:find("[^%s{%]]{%s*" .. k .. "%s*=") then return true end
+    if lower:find("[^ \t\r\n{%]]{[ \t\r\n]*" .. k .. "[ \t\r\n]*=") then return true end
   end
   return false
+end
+
+-- Set in Pandoc(): weft.lua ran before this filter (it leaves `weft-resolved` in the metadata, and this
+-- filter takes it away), so the document is one the filter resolves.
+local FILTER_RAN = false
+
+-- the key of a span left as text in a document weft.lua resolved: `[a | b]{n=" k"}` is not read as a span by
+-- Pandoc, because its value starts with a space (review 6, #2)
+local function lost_span_key(s)
+  if not FILTER_RAN then return nil end
+  local lower = s:lower()
+  for k in pairs(KEYS) do
+    if lower:find("%]{[ \t\r\n]*" .. k .. "[ \t\r\n]*=") then return k end
+  end
+  return nil
 end
 
 local function has_attr(attr)
@@ -96,7 +115,7 @@ end
 
 -- A NAME (N6): the text of a named value
 local RESERVED = {}
-for w in ([[TRUE FALSE True False true false NA NULL None nothing missing Inf NaN]]):gmatch("%S+") do
+for w in ([[TRUE FALSE True False true false NA NULL None nothing missing Inf NaN]]):gmatch("[^ \t\r\n]+") do
   RESERVED[w] = true
 end
 local function is_name(s)
@@ -105,9 +124,31 @@ end
 
 local E35 = "a named value was not resolved: the filter weft.lua is not installed before weft-check.lua (rule 2.5.3)."
 
-local function check_code(el)
+-- the metadata fields weft.lua resolves (its META_FIELDS)
+local RESOLVED_FIELDS = { title = true, subtitle = true, abstract = true, description = true }
+
+-- `field` is the front-matter field the code span is in, or nil in the body
+local function check_code(el, field)
   local text = el.text
   local named = is_name(text)
+  if field and not RESOLVED_FIELDS[field] then
+    -- weft.lua is installed, and does not look in this field: say so, not that it is missing (review 6, #20a)
+    local function field_msg(shown)
+      add("leftover code", "a named value is in the front-matter field `" .. field .. "`, which weft.lua does not "
+          .. "resolve; it resolves title, subtitle, abstract and description (rule 2.13.2)", shown)
+    end
+    for _, c in ipairs(el.classes) do
+      if named and (FORMATTER_CLASSES[c] or TEXT_CLASSES[c] or c == "val") then
+        return field_msg("`" .. excerpt(text) .. "`{." .. c .. "}")
+      end
+    end
+    for k, _ in pairs(el.attributes) do
+      local l = k:lower()
+      if named and (KEYS[l] or RENDERER_KEYS[l]) then
+        return field_msg("`" .. excerpt(text) .. "`{" .. k .. "=...}")
+      end
+    end
+  end
   for _, c in ipairs(el.classes) do
     if FORMATTER_CLASSES[c] or TEXT_CLASSES[c] or c == "val" then
       if named then
@@ -162,10 +203,10 @@ end
 
 local function check_marker_text(all)
   if has_marker_in(all) then
-    for body in all:gmatch("<<weft:%s*([^>]*)>*") do
+    for body in all:gmatch("<<weft:[ \t\r\n]*([^>]*)>*") do
       add("marker", "the marker `<<weft: " .. excerpt(body) .. ">>` is in the text", body)
     end
-    if not all:find("<<weft:%s*[^>]*>") then
+    if not all:find("<<weft:[ \t\r\n]*[^>]*>") then
       add("marker", "the text `<<weft:` is in the document", "<<weft:")
     end
   end
@@ -185,6 +226,11 @@ end
 
 local function check_inlines(inlines)
   local plain, all = texts(inlines)
+  local lost = lost_span_key(plain)
+  if lost then
+    add("leftover attribute block", "a span with `" .. lost .. "=` was not read as a span, because Pandoc does not "
+        .. "read an attribute value that starts with a space; it is shown as text", excerpt(plain))
+  end
   check_marker_text(all)
   if has_placeholder(all) then
     add("placeholder", "a placeholder character is left in the text", excerpt(all))
@@ -243,7 +289,7 @@ local function draft_mode()
   if not f then return false end
   local draft = false
   for line in f:lines() do
-    local v = line:match("^draft:%s*([^#%s]*)")
+    local v = line:match("^draft:[ \t\r\n]*([^# \t\r\n]*)")
     if v then draft = truthy(v) end
   end
   f:close()
@@ -263,7 +309,7 @@ local function collect_path()
   if not f then return nil end
   local first = f:read("l") or ""
   f:close()
-  local mine = first:match('"run"%s*:%s*"([^"]*)"')
+  local mine = first:match('"run"[ \t\r\n]*:[ \t\r\n]*"([^"]*)"')
   local rf = find_upward(".weft/run")
   local id = nil
   if rf then id = rf:read("l"); rf:close() end
@@ -306,9 +352,9 @@ end
 local function json_line(item, file)
   local kind, line, chunk = item.kind, nil, nil
   if item.kind == "marker" then
-    kind = item.text:match("^%s*([^,>]-)%s*,") or item.text:match("^%s*([^>]-)%s*$") or "marker"
-    line = item.text:match("line%s+(%d+)")
-    chunk = item.text:match("chunk%s+([^%s>,]+)")
+    kind = item.text:match("^[ \t\r\n]*([^,>]-)[ \t\r\n]*,") or item.text:match("^[ \t\r\n]*([^>]-)[ \t\r\n]*$") or "marker"
+    line = item.text:match("line[ \t\r\n]+(%d+)")
+    chunk = item.text:match("chunk[ \t\r\n]+([^ \t\r\n>,]+)")
   end
   local parts = {
     '"source":"filter"',
@@ -329,6 +375,8 @@ local function is_marker(el)
 end
 
 function Pandoc(full)
+  FILTER_RAN = full.meta["weft-resolved"] ~= nil
+  if FILTER_RAN then full.meta["weft-resolved"] = nil end
   -- N94a: a span.weft-marker is unwrapped, and the marker text inside it is not reported
   local unwrapped, n_markers = nil, 0
   local function count(el) if is_marker(el) then n_markers = n_markers + 1 end end
@@ -341,9 +389,11 @@ function Pandoc(full)
   end
   local function result()
     if unwrapped then return unwrapped end
+    if FILTER_RAN then return full end
     return nil
   end
-  doc:walk({
+  -- the body here (a walk of the document would also walk its metadata, where a field is told apart below)
+  pandoc.Pandoc(doc.blocks, pandoc.Meta({})):walk({
     Inlines = function(inlines) check_inlines(inlines) end,
     Span = function(el) check_span(el) end,
     Code = function(el) check_code(el) end,
@@ -351,11 +401,16 @@ function Pandoc(full)
   })
   -- the metadata (title and the rest) carries inlines too
   pcall(function()
-    pandoc.Pandoc({}, doc.meta):walk({
-      Inlines = function(inlines) check_inlines(inlines) end,
-      Span = function(el) check_span(el) end,
-      Code = function(el) check_code(el) end,
-    })
+    local keys = {}
+    for key in pairs(doc.meta) do keys[#keys + 1] = key end
+    table.sort(keys)
+    for _, key in ipairs(keys) do
+      pandoc.Pandoc({}, pandoc.Meta({ [key] = doc.meta[key] })):walk({
+        Inlines = function(inlines) check_inlines(inlines) end,
+        Span = function(el) check_span(el) end,
+        Code = function(el) check_code(el, key) end,
+      })
+    end
   end)
 
   if #found == 0 then return result() end
