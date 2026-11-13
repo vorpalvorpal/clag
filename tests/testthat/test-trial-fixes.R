@@ -209,7 +209,7 @@ test_that("T5: a bare value printing NA, NaN, Inf or -Inf records one warned che
   expect_equal(nrow(k$warnings), 4L)
   expect_equal(nrow(k$failures), 0L)
   for (e in c("miss_v", "nan_v", "inf_v", "ninf_v")) {
-    expect_equal(sum(grepl(e, k$warnings$expr, fixed = TRUE)), 1L, label = e)
+    expect_equal(sum(grepl(paste0("\\b", e, "\\b"), k$warnings$expr)), 1L, label = e)
   }
 })
 
@@ -288,7 +288,7 @@ test_that("T6: a tbl(x, id = \"depths\") call defines the anchor tbl-depths", {
 test_that("T6: an anchor made by a call that nothing references is anchor-unused, at the call's line", {
   x <- t6_run("tbl(x, id = \"depths\")", rules = "anchor-unused")
   expect_texts(x, "anchor-unused", "tbl-depths")
-  expect_at(x, "anchor-unused", "tbl-depths", line = 5L)   # "Intro.", "", fence, then the call
+  expect_at(x, "anchor-unused", "tbl-depths", line = 4L)   # "Intro.", "", fence, then the call
   y <- t6_run("tbl(x, id = \"depths\")", rules = "anchor-unused", prose = "See @tbl-depths.")
   expect_none(y, "anchor-unused")
 })
@@ -296,7 +296,7 @@ test_that("T6: an anchor made by a call that nothing references is anchor-unused
 test_that("T6: two calls with the same id are anchor-twice, in one chunk or two files", {
   x <- t6_run(c("tbl(x, id = \"depths\")", "tbl(y, id = \"depths\")"), rules = "anchor-twice")
   expect_texts(x, "anchor-twice", "tbl-depths")
-  expect_at(x, "anchor-twice", "tbl-depths", line = 6L)
+  expect_at(x, "anchor-twice", "tbl-depths", line = 5L)
   y <- t6_run("tbl(x, id = \"depths\")", rules = "anchor-twice",
               extra = list("b.qmd" = c("Words.", "", t6_chunk("tbl(z, id = \"depths\")"))))
   expect_texts(y, "anchor-twice", "tbl-depths")
