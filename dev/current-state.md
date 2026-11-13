@@ -238,6 +238,12 @@ some form? Take obvious wins, but raise any major changes with me.
 
 4. Check documentation is up to date and then release v0.1"
 
+Robin on item 2, later the same day: "that wasn't an instruction to add
+these, just consider how they could be added and only add them if there
+is a non-brittle, not overly messy way to do so without significant
+trade offs. Use your judgement. It was also not an exclusive list, just
+obvious examples."
+
 Notes: item 4 lifts "no release" for a v0.1 release on GitHub only (not
 CRAN). Item 3 keeps the trial rules: the project is read-only, copies
 go in git-ignored `dev/trials/`, no data values or names of people in
