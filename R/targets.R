@@ -892,7 +892,10 @@ chapter_reads <- function(s) {
     files <- c(files, rel_path(root, norm_path(if (is_abs_path(p)) p else file.path(norm_path(getwd()), p))))
   }
   # the project's Python modules loaded by the end of the knit (G30)
-  files <- c(files, guest_project_modules(root), julia_project_files(root))
+  # a malformed reply from a guest is a failure of this knit, not a stop
+  files <- c(files,
+             guest_drain_guard(guest_project_modules(root), character()),
+             guest_drain_guard(julia_project_files(root), character()))
   files <- unique(enc2utf8(files[!is.na(files) & nzchar(files)]))
   files <- files[files == src | file.exists(file.path(root, files))]
   files <- sort(files, method = "radix")
