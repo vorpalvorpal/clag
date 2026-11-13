@@ -424,3 +424,13 @@ All seventeen proposals are accepted. Order and readings:
 - 9: the frame walk fails softly and gets a test.
 - 15: the two `units:::` calls move into one guarded function; the
   workaround itself stays until `units` releases the fix.
+- Added after reading `tarchetypes` 0.14.0 (its hooks build a pilot
+  target with `targets::tar_target_raw()` and copy `pilot$command` and
+  `pilot$deps` onto the target): `tar_dict_deps()` and
+  `unmark_command()` do the same, so the whole command object and the
+  dependencies are rebuilt together, instead of writing
+  `t$command$expr` and `t$deps` piecemeal. First check whether today's
+  partial edit shows a fault (a target that does not re-run when its
+  wrapped command or a dictionary entry changes) and pin it with a
+  test if it does. No request to `targets` is needed: its own
+  extension package edits targets this way.
