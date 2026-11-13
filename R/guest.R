@@ -267,6 +267,7 @@ guest_chunk_end <- function(options) {
   if (identical(tolower(as.character(options$engine %||% "")[1L]), "julia")) {
     # a Julia error stops the knit (J18), so only the log's records are here
     mine <- julia_drain()
+    julia_take_claims(s, label)
   } else {
     mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
     err <- guest_take_error()

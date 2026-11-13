@@ -1,0 +1,10 @@
+name = "Weft"
+uuid = "6f2d5b1e-3c1a-4f7e-9d3b-8a4c5e7f1b92"
+authors = ["Robin Shannon"]
+version = "0.1.0"
+
+[deps]
+Dates = "ade2ca70-3891-5945-98fb-dc099432e06a"
+
+[compat]
+julia = "1.6"

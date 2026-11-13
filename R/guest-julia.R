@@ -55,6 +55,8 @@ jl_register <- function() {
   }
   # the logger and the include record, once per Julia (J3, J4)
   JuliaCall::julia_call("WeftGuest.install")
+  # `using Weft` loads the package that ships with weft, with nothing to install (N60)
+  JuliaCall::julia_call("WeftGuest.add_load_path", system.file("julia", package = "weft"))
   weft_env$jl_registered <- TRUE
   invisible()
 }
@@ -62,11 +64,48 @@ jl_register <- function() {
 # Called on the first chunk of a knit whose engine is `julia` (J16): start Julia
 # as the engine would, and register. A failure is the engine's to report.
 julia_chunk_start <- function(options) {
-  if (isFALSE(options$eval) || !jl_available() || julia_running()) return(invisible())
-  home <- options[["engine.path"]]
-  if (is.list(home)) home <- home[["julia"]]
-  if (!is.character(home)) home <- NULL
-  tryCatch(julia_ensure("a Julia chunk", home), error = function(e) NULL)
+  if (isFALSE(options$eval) || !jl_available()) return(invisible())
+  if (!julia_running()) {
+    home <- options[["engine.path"]]
+    if (is.list(home)) home <- home[["julia"]]
+    if (!is.character(home)) home <- NULL
+    tryCatch(julia_ensure("a Julia chunk", home), error = function(e) NULL)
+  }
+  if (julia_running()) {
+    # Weft records claims for R from here (N56), and a chunk that stops on one
+    # still hands them over
+    tryCatch(JuliaCall::julia_call("WeftGuest.mark_knitr"), error = function(e) NULL)
+    julia_wrap_engine()
+  }
+  invisible()
+}
+
+# Wrap the knitr engine that runs Julia chunks, once: when a chunk stops with an
+# error (a failed @claim throws, J18), the claims it noted are added to the
+# knit's failures before the error goes on (N56).
+julia_wrap_engine <- function() {
+  cur <- knitr::knit_engines$get("julia")
+  if (!is.function(cur) || isTRUE(attr(cur, "weft"))) return(invisible())
+  new <- function(options) {
+    withCallingHandlers(cur(options), error = function(e) {
+      s <- active_state()
+      if (!is.null(s)) julia_take_claims(s, options$label)
+    })
+  }
+  attr(new, "weft") <- TRUE
+  knitr::knit_engines$set(julia = new)
+  invisible()
+}
+
+# The failed and warned claims Julia's Weft noted since the last call, added to
+# the knit's failures and warned checks at chunk `label`. Starts no Julia.
+julia_take_claims <- function(s, label) {
+  if (!julia_running()) return(invisible())
+  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain_claims"), error = function(e) NULL)
+  if (!is.character(txt) || length(txt) != 1L) return(invisible())
+  for (r in tryCatch(guest_json(txt), error = function(e) list())) {
+    guest_claim_record(s, as.character(r[[1L]]), as.character(r[[2L]]), as.character(r[[3L]]), label)
+  }
   invisible()
 }
 
