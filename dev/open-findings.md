@@ -390,3 +390,24 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     `.val` on a bool prints true/false (design-6 2A: "a bool `true` or
     `false`, a list its elements so printed"). Make the list follow
     2A, with a test first.
+15. 6h, julia engine. QuartoNotebookRunner drops `display()` output
+    from a cell that raises, so a failed `@claim` also prints its
+    block to stdout with `~~~~` fences (a backtick fence breaks
+    Quarto's own stdout fence) and the filter reads a carrier that is
+    the WHOLE text of a `cell-output-stdout` code block. If the cell
+    printed anything else first, the claim is not reported by the
+    filter (the cell error still shows E55). Accept a trailing carrier
+    fence, with tests.
+16. 6h: eight tests in `test-jl-put.R` and `test-jl-claim-engine.R`
+    cannot pass as written (fence lines expected in a JSON-only field;
+    `n_outputs()` misses Quarto's `<div id=... class="cell-output`;
+    f2 and f4 predate the stdout ruling). Amend in the closing round.
+17. Julia `put` under knitr queues records (`Weft.drain_puts()`) that
+    no R code reads, like Python's (finding 12). Wire both.
+18. E62 tells a Julia user to `Pkg.add` without saying which
+    environment; the form measured to work is `julia: {env:
+    ["JULIA_LOAD_PATH=..."]}` in `_quarto.yml`. Decide what
+    `use_quarto()` says or writes. `run_id` on a kept julia server
+    reads `QUARTO_DOCUMENT_PATH`, which can be stale.
+19. `test-julia-render.R` line 256 failed once in a combined run and
+    passed alone: possible order dependence on the kept server.
