@@ -587,3 +587,54 @@ To undo: each is a reading in code and tests, set out with its ruling in
 the review's "Rulings" section; reverse by restoring the design's
 original sentence in `dev/design-3.md` or `dev/design-4.md` and the test
 that pins the ruling.
+
+## 68. Python and Julia chunks are designed as guests of knitr (13 Nov)
+
+Robin chose architecture (a) of `dev/languages-study.md`: weft stays an
+R package on knitr, and Python and Julia chunks in an `.Rmd` or a
+knitr-engine `.qmd` become documented, tested and safe guests. The
+choices inside it were delegated. `dev/design-5.md` is the contract
+(G1 to G43, J1 to J5) and gives each choice (V1 to V20) with its
+alternatives; open questions O1 to O10 carry a recommended answer.
+
+What was measured first (reticulate 1.43.0, Python 3.15.0; numpy 2.5.4
+and pandas 3.1.1 only in a temporary environment):
+
+- The wrong integers arise inside reticulate's C++ conversion, before any
+  R code or S3 method sees the value: `2**53 + 1` arrives as `1L`,
+  `2**53` as `0L`, `2**70` as `-1L` with a Python error left pending.
+  numpy's `int64(2**53 + 1)` arrives one short. weft cannot tell such a
+  value from a right one afterwards, so it must read the unconverted
+  object.
+- Python calling `r.fmt_num(2**53 + 1)` hands R the same wrong `1`.
+- reticulate 1.43.0 does not convert pandas 3.1.1 objects at all.
+- R weft itself printed `fmt_num(999999999999999)` as
+  "1,000,000,000,000,000" and `fmt_num(2^53)` as
+  "9,007,199,254,740,990", through base R's `signif()` in
+  `round_half_away()`. Fixed first, in package 5a.
+
+Chosen, in one line each:
+
+- **V1** every `py$...` in an expression weft evaluates is read by weft's
+  own typed reader, not by reticulate's conversion; `py_value()` is the
+  route in R chunk code. Alternatives: a check after conversion
+  (impossible), an S3 method (never called), a weft `py` object in the
+  knit's environment (changes R chunk code), an accessor only (leaves the
+  usual spelling wrong).
+- **V2, V3** integers beyond ±2^53, and decimals of more than 15
+  significant digits, are refused, never rounded.
+- **V4** a guest value of the wrong kind given to `if`, `n`, `sign` or
+  `list` is a value error when the governor is exactly that read; R's own
+  length-zero vector stays "no value" (1.3.4 unchanged).
+- **V7** bare values are guarded too.
+- **V8** `weft_setup()` loads no Python; prose needs no `py` object.
+- **V9** function forms from Python are a module, `from weft import
+  fmt_num`, whose arguments are read by the typed rules;
+  `r.fmt_num()` is a tier-1 lint finding.
+- **V10, V11** Python warnings and `error: true` errors reach the
+  condition log; project Python modules reach the ledger's reads.
+- **V15** Julia: the static parts are built; reading Julia values is
+  designed and not built until a machine has Julia.
+- **V16** an Observable JS lint (tier 2) is in, as the last package.
+
+To undo: each V row of `dev/design-5.md` §3 names the place to change.
