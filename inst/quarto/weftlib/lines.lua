@@ -106,18 +106,31 @@ function M:locate(pos)
   return p[1], p[2]
 end
 
--- the file index (into self.files) and line of the next occurrence of needle
-function M:find(needle, ok)
+-- the next match of one needle: its start and end, or nil; nothing is committed
+function M:next_match(needle, ok)
   local from = self.cursor[needle] or 1
   while true do
     local s, e = self.text:find(needle, from, true)
     if not s then return nil end
-    if not ok or ok(self.text, s) then
-      self.cursor[needle] = e + 1
-      return self:locate(s)
-    end
+    if not ok or ok(self.text, s) then return s, e end
     from = s + 1
   end
+end
+
+-- the file index (into self.files) and line of the next occurrence of needle. A needle holding `|` is
+-- also searched in its escaped form `\|`, which a pipe table needs (the tree holds the unescaped
+-- text): the earlier of the two matches wins.
+function M:find(needle, ok)
+  local s, e = self:next_match(needle, ok)
+  local used = needle
+  if needle:find("|", 1, true) then
+    local esc = needle:gsub("|", "\\|")
+    local s2, e2 = self:next_match(esc, ok)
+    if s2 and (not s or s2 < s) then s, e, used = s2, e2, esc end
+  end
+  if not s then return nil end
+  self.cursor[used] = e + 1
+  return self:locate(s)
 end
 
 return M
