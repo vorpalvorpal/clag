@@ -207,7 +207,7 @@ test_that("E73 cites rule 1.12.8", {
 test_that("E75 cites rule 1.12.8", {
   script <- system.file("quarto", "weft-pre-render.R", package = "weft")
   if (!expect_precondition(nzchar(script) && file.exists(script), "the package ships its pre-render script")) return()
-  root <- lint_proj(list("a.qmd" = c("---", "title: t", "---", "", "The `depth`{.num} metres."),
+  root <- lint_proj(list("a.qmd" = c("---", "title: t", "---", "", "The `r depth`{.num} metres."),
                          "_quarto.yml" = c("project:", "  type: default", "format: html")))
   withr::local_envvar(c(QUARTO_PROJECT_INPUT_FILES = NA, WEFT_RUN = NA))
   out <- suppressWarnings(withr::with_dir(root, system2(file.path(R.home("bin"), "Rscript"), shQuote(script),

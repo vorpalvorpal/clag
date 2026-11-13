@@ -105,7 +105,7 @@ byte_pattern_ok <- function(pat, x) {
     assign(pat, ok, envir = gmatch_shapes)
   }
   if (!ok) return(FALSE)
-  if (grepl("(?i", pat, fixed = TRUE) && grepl("[ſK]", x, perl = TRUE)) return(FALSE)
+  if (grepl("(?i", pat, fixed = TRUE) && grepl("[\u017f\u212a]", x, perl = TRUE)) return(FALSE)
   validUTF8(x) && Encoding(x) %in% c("UTF-8", "unknown") && l10n_info()$`UTF-8`
 }
 
