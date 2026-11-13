@@ -190,6 +190,8 @@ doc_anchors <- function(src) dl_cached(src, "anchors", function() {
       out[[length(out) + 1L]] <- data.frame(id = lab, start = pos, derived = FALSE, stringsAsFactors = FALSE)
     }
   }
+  ca <- call_anchors(src)
+  if (nrow(ca)) out[[length(out) + 1L]] <- ca
   if (!length(out)) {
     return(data.frame(id = character(), start = integer(), derived = logical(), stringsAsFactors = FALSE))
   }
@@ -197,6 +199,39 @@ doc_anchors <- function(src) dl_cached(src, "anchors", function() {
   r$start <- as.integer(r$start)
   r
 })
+
+# The anchors that calls of the `anchor_calls` helpers make in the document's executed R chunks:
+# `prefix` and the literal string argument, at the call's offset. Read from the parse data the
+# code lints already build (code_pieces()), so nothing is parsed again; an argument that is not a
+# literal string is ignored, since its value is not known without running the code.
+call_anchors <- function(src) {
+  none <- data.frame(id = character(), start = integer(), derived = logical(), stringsAsFactors = FALSE)
+  specs <- check_anchor_calls(src$cfg$anchor_calls)
+  if (!length(specs)) return(none)
+  funs <- vapply(specs, function(e) e$fun, "")
+  out <- list()
+  for (p in lc_pieces(src, "chunk")) {
+    t <- p$tree
+    for (i in all_exprs(t)) {
+      ci <- call_info(t, i)
+      if (is.null(ci) || is.na(ci$fn)) next
+      for (sp in specs[funs == ci$fn]) {
+        node <- if (is.numeric(sp$arg)) {
+          if (sp$arg <= length(ci$args)) ci$args[[sp$arg]]$node else NA_integer_
+        } else {
+          j <- which(vapply(ci$args, function(a) identical(a$name, sp$arg), NA))
+          if (length(j)) ci$args[[j[1L]]]$node else NA_integer_
+        }
+        if (is.na(node)) next
+        v <- str_value(t, node)
+        if (is.na(v)) next
+        out[[length(out) + 1L]] <- data.frame(id = paste0(sp$prefix, v), start = piece_span(p, i)[1L],
+                                              derived = FALSE, stringsAsFactors = FALSE)
+      }
+    }
+  }
+  if (length(out)) do.call(rbind, out) else none
+}
 
 # The offset of a chunk's label: its `#| label:` value, else its place in the header.
 chunk_label_start <- function(src, k) {

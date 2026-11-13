@@ -704,7 +704,33 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (ev$claim_failed) {
       bare_aux$failed <<- "failed claim"
       paste0(ev$value, marker("failed claim", li$line, chunk_label))
-    } else ev$value
+    } else {
+      bare_missing_note(ev, label, li, if (is.null(line_info)) R$line_view[k] else (line_info$view %||% NA_integer_))
+      ev$value
+    }
+  }
+
+  # A bare value with no weft class that prints a missing or non-finite value is a warned check: the
+  # reader would see "NA" in the sentence. It is raised after the evaluation, outside the handlers
+  # that keep a chunk's conditions out of the document, so it reaches the caller as well as the
+  # warnings table and the condition log. `bare_missing: false` turns it off.
+  bare_missing_note <- function(ev, label, li, view) {
+    if (!isTRUE(cfg$bare_missing %||% TRUE)) return(invisible(NULL))
+    # knitr prints Inf as an entity in Markdown output; the reader sees the infinity sign
+    txt <- trim_ws(paste(ev$value, collapse = ""))
+    if (txt %in% c("&infin;", "-&infin;")) txt <- sub("&infin;", "Inf", txt, fixed = TRUE)
+    if (!(txt %in% c("NA", "NaN", "Inf", "-Inf"))) return(invisible(NULL))
+    if (any(grepl("^weft_", class(ev$aux$value)))) return(invisible(NULL))
+    msg <- sprintf("%s is a bare value that prints %s; it will read as %s in the text", label, txt, txt)
+    if (!strict) {
+      add_warning(s, "bare missing value", file = li$file, line = li$line, expr = label, detail = msg,
+                  chunk = chunk_label, option = NA_character_)
+      wh <- ledger_where(s, F, li$file, view, chunk_label)
+      log_condition(s, sprintf("%s:%d", li$file, li$line), "warning", msg, file = li$file,
+                    line = li$line, from = "prose", lsource = where_label(wh))
+    }
+    weft_warn(paste0("weft: ", msg), class = "weft_bare_missing_warning")
+    invisible(NULL)
   }
 
   render_value <- function(k) {

@@ -234,7 +234,12 @@ what you meant. Either one silences the warning.
 values**. Given to a formatter, a span or a phrase function, a missing value
 is a "no value" failure: the render fails at the end, and in draft mode the
 value prints as `<<weft: no value, line N>>`. A bare value with no attribute
-block prints `NA` as knitr does.
+block prints `NA` as knitr does, but a bare value whose printed text is
+exactly `NA`, `NaN`, `Inf` or `-Inf` is a warned check: the render does not
+fail, `last_knit()$warnings` holds a row for it, and the condition log
+records a warning of class `weft_bare_missing_warning`. A vector such as
+`c(1, NA)` records nothing. Set `bare_missing: false` in `_weft.yml` to turn
+the check off.
 
 A list class with `none` is the exception: an empty vector prints the
 `none` text, as in the "Flagged sites" example above.
@@ -337,6 +342,7 @@ values are:
 | `word_limit` | `100` | where `.word` switches to digits |
 | `date_format` | `"%-d %B %Y"` | the format of `.date` |
 | `governor_class` | `.num` | the class that formats the number of an `n` or `sign` span |
+| `bare_missing` | `true` | whether a bare value that prints a missing value is a warned check |
 
 With this `_weft.yml`:
 

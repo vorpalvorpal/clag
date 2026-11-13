@@ -251,10 +251,30 @@ since a commit.
 | `guard_words` | `25` | the length of an `if` arm that `long-guard` lists |
 | `expected_names` | `[]` | classes (`.foo`) and keys (`foo`) from other tools that `name` should accept |
 | `strict` | `[]` | tier-1 rules whose every instance fails `verify()` |
+| `anchor_calls` | `[]` | helper calls that define anchors, for `xref`, `anchor-twice` and `anchor-unused` |
 
 `strict` is for the end of adoption. Once a project has removed every typed
 number, `strict: [numeral]` makes `verify()` fail on any that remain,
 whether or not they were committed before.
+
+## Anchors made by a helper
+
+A project that makes its tables or figures with a helper, such as
+`tbl(x, id = "depths")`, can tell the lints about it:
+
+```yaml
+anchor_calls:
+  - fun: tbl
+    arg: id
+    prefix: "tbl-"
+```
+
+A call of `tbl()` in an executed R chunk, bare or as `pkg::tbl()`, then
+defines the anchor `tbl-depths`, at the call's line, for `xref`,
+`anchor-twice` and `anchor-unused`. `arg` is the name of the argument, or its
+position when it is a whole number; `prefix` is optional. Only a literal
+string counts: a computed id defines nothing, and no finding says so. An
+entry without `fun` or `arg` is a configuration error.
 
 ## The two readers
 

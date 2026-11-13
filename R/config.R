@@ -42,6 +42,7 @@ default_config <- function() {
     big_mark = ",",
     thousands_from = 1000,
     serial_comma = FALSE,
+    bare_missing = TRUE,
     minus = "\u2212",
     governor_class = ".num",
     pct_proportion = TRUE,
@@ -66,6 +67,7 @@ default_config <- function() {
     claim_cap = 20,
     guard_words = 25,
     expected_names = list(),
+    anchor_calls = list(),
     strict = character(),
     verify_skip = character(),
     weft_version = NULL
@@ -286,6 +288,7 @@ validate_config <- function(cfg) {
   whole("thousands_from")
   str("decimal_mark"); str("big_mark"); str("minus"); str("governor_class")
   lgl("pct_proportion"); lgl("draft"); lgl("ledger"); lgl("sentence_start_fail"); lgl("serial_comma")
+  lgl("bare_missing")
   str("date_format")
   uf <- cfg$unit_form
   if (!is.character(uf) || length(uf) != 1L || is.na(uf) || !uf %in% c("auto", "symbol", "name")) {
@@ -432,7 +435,34 @@ validate_lint_config <- function(cfg, raw = NULL) {
     is.character(u) && !anyNA(u) && all(grepl("^\\.?[^[:space:].]+$", u))
   })
   if (!ok) bad("expected_names", "a list of names, each `.class` or `key`", "5.3.3")
+  check_anchor_calls(cfg$anchor_calls)
   invisible(cfg)
+}
+
+# `anchor_calls`: a list of entries, each naming a helper function `fun` (a string) and the
+# argument `arg` of it that holds an anchor id (a name, or a whole position from 1), with an
+# optional string `prefix`. Returns the entries as lists of fun, arg and prefix; stops on a fault,
+# naming the setting, so that a misspelt entry does not quietly define nothing.
+check_anchor_calls <- function(v) {
+  bad <- function(what) {
+    weft_abort(sprintf("The setting `anchor_calls` must be a list of entries, each with a `fun` (a string), an `arg` (a name or a position from 1) and an optional string `prefix`; %s.", what),
+               "weft_config_error")
+  }
+  if (is.null(v) || (is.list(v) && !length(v))) return(list())
+  if (!is.list(v) || !is.null(names(v))) bad("it is not a list of entries")
+  str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(x)
+  lapply(seq_along(v), function(i) {
+    e <- v[[i]]
+    if (!is.list(e) || is.null(names(e))) bad(sprintf("entry %d is not a mapping", i))
+    if (!str1(e$fun)) bad(sprintf("entry %d has no `fun` string", i))
+    a <- e$arg
+    if (!(str1(a) || (is.numeric(a) && length(a) == 1L && is.finite(a) && a >= 1 && a == round(a)))) {
+      bad(sprintf("entry %d has no `arg` name or position", i))
+    }
+    pre <- e$prefix %||% ""
+    if (!(is.character(pre) && length(pre) == 1L && !is.na(pre))) bad(sprintf("entry %d has a `prefix` that is not a string", i))
+    list(fun = e$fun, arg = a, prefix = pre)
+  })
 }
 
 # A scalar setting written as a one-item list (`[true]`) is not a scalar.

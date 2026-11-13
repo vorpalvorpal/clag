@@ -218,6 +218,15 @@ Mean depth was `r depth`{.num} m.      depth is NA   →   <<weft: no value, lin
 Mean depth was `r depth` m.            depth is NA   →   Mean depth was NA m.
 ```
 
+**1.3.5** A bare value with no weft class whose printed text is exactly `NA`,
+`NaN`, `Inf` or `-Inf` is a warned check (2.4.6, 2.6.10) of kind "bare missing
+value": its detail gives the expression and the printed text and says the
+value is bare. It is raised as a warning of class `weft_bare_missing_warning`
+and `weft_warning`, recorded in `last_knit()$warnings` and the condition log
+as a prose warning, and never fails the render; the text still prints as in
+1.3.4. A vector that merely holds a missing element, an ordinary number and
+text record nothing. The setting `bare_missing` (9.1.5) turns the check off.
+
 ### 1.4 Formatting
 
 **1.4.1** Formatting runs in four fixed stages, whatever order the classes are
@@ -3706,6 +3715,15 @@ referenced (`anchor-unused`); and a cross-reference written inside a code
 span, which prints as literal text (`xref-code`), except inside an HTML
 comment.
 
+**5.7.3** A project names the helper functions that make anchors in its
+executed R chunks with the setting `anchor_calls` (9.1.5): a list of entries,
+each with `fun`, `arg` and an optional `prefix` (default none). A call of
+`fun`, bare or as `pkg::fun`, defines the anchor `prefix` followed by the
+literal string in its argument `arg`, at the call's line, for `xref`,
+`anchor-twice` and `anchor-unused` alike. `arg` is a name, or a position when
+it is a whole number from 1. An argument that is not a literal string defines
+nothing, and no finding says so. Without the setting nothing changes.
+
 ### 5.8 Hygiene
 
 | # | Id | Rule | Tier |
@@ -4609,6 +4627,8 @@ claim_words: {add: [], drop: []}   # 5.5.4
 claim_cap: 20          # 5.5.3: claim-word sentences listed per file by changes()
 guard_words: 25        # 3.1.9: words in the longest arm of an `if` before it is listed
 expected_names: []     # 5.3.3: classes (".foo") and keys ("foo") the project expects
+bare_missing: true     # 1.3.5: false turns the warned check on a bare NA, NaN, Inf or -Inf off
+anchor_calls: []       # 5.7.3: helper calls that define anchors: fun, arg, optional prefix
 strict: []             # 8.1.3: tier-1 rule ids whose every instance fails verify()
 verify_skip: []        # 8.1.4: parts of verify() switched off: lints, decisions, render, ledger
 weft_version: null     # 9.5.4: the weft version that set the project up
@@ -4627,7 +4647,9 @@ nothing. `verify_skip` takes some of `lints`, `decisions`, `render` and
 record.
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
-`false`, and so is `ledger`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
+`false`, and so are `ledger` and `bare_missing`. An `anchor_calls` entry
+without `fun` or `arg`, or whose `fun` or `prefix` is not a string, is a
+`weft_config_error` naming `anchor_calls` (5.7.3). `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
 when the configuration is read (9.1.3); for `unit_form` it is a
 `weft_config_error`. `unit_defaults` is `weft` or `si`, and may be set in a
 document's `weft:` as well; any other value is a `weft_config_error`:
