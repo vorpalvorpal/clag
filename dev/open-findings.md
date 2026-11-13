@@ -418,3 +418,7 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     so. Decide whether an `if` span should fail too. Also: the comment at
     `inst/quarto/weft.lua:266` cites rule 1.12.8 for the float's text,
     which is 1.12.2 in the spec.
+21. Found by the route analysis of the trial chapter (14 Nov): an inline R
+    value whose result lands inside a code span is not a scanner row, so
+    the gate and the lints never see it. Reproduce and decide whether it
+    should be a row.
