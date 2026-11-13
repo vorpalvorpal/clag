@@ -405,7 +405,6 @@ test_that("1.9.1: ordinary spans, links, citations, footnotes are not constructs
     "`code`",
     "`x <- 1`{.r}",
     "`{python} x`",
-    "`a | b`{.num}",
     "$a | b$",
     "a [] b"
   )

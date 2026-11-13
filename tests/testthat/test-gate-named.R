@@ -97,7 +97,7 @@ test_that("N147: removing one of two named values on a line removes one", {
 })
 
 test_that("N147: adding a named value or a filter span, renaming a value, or moving one in the file removes nothing", {
-  d1 <- g_scenario(list("ch1.qmd" = gdoc("Plain words.", gpy)),
+  d1 <- g_scenario(list("ch1.qmd" = gdoc("Plain words.", gpy), "_quarto.yml" = W6D_FILTER_YML),
                    list("ch1.qmd" = gdoc(c("The `depth`{.num} metres.", "", FILTER_SPAN_SRC$n), gpy)))
   r1 <- g_gate(d1)
   expect_identical(r1$n_removed, 0L)

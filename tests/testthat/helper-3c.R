@@ -30,7 +30,7 @@ expect_c3 <- function(lines, rule, want = character(), ext = c("qmd", "Rmd"), la
 
 # a table of cases (list of list(src =, want =)) each inside a paragraph
 expect_c3_cases <- function(cases, rule, ext = c("qmd", "Rmd")) {
-  for (cs in cases) expect_c3(c3_para(cs$src), rule, cs$want, ext = ext, label = cs$src)
+  for (cs in cases) expect_c3(c3_para(cs$src), rule, cs$want, ext = if (is.null(cs$ext)) ext else cs$ext, label = cs$src)
 }
 
 # front matter holding `abstract` as a block scalar (so constructs are allowed there)

@@ -1554,3 +1554,24 @@ one line number was miscounted; Pandoc does not read an attribute value
 with leading spaces as a span; a failing render writes no output, so
 two exit-1 checks run the document directly; and the stand-ins for
 chunk-printed text now use names the source line cannot match.
+
+## Rulings after 6d (orchestrator, 13 Nov, under delegation)
+
+Accepted choices of the 6d implementer, spec text for 6j:
+
+- A filter document is decided from source lines: an `.Rmd` never is;
+  `engine: knitr` is not; otherwise an `engine:` or `jupyter:` key, or
+  no executed `{r}` chunk, makes it one. So a bare `.qmd` with no chunk
+  is the filter's.
+- R values always have resolver `hooks`. `unit` counts as a renderer
+  key for N5. E7/E8 are not checked statically.
+- `named-unpublished` gives one finding per name, at its first use,
+  and its hint covers open finding 5 (a governor name in a document
+  with no named span is not published automatically).
+
+Older pins changed because the rules changed: the G38/J25 engine tests
+use a span outside the filter's grammar and their hints gain E73; a
+literal-against-literal `if` in a bare `.qmd` is E4 (N143), not
+`inert-check`; a pipe inside a named value is E1 (N7); `n=3` in a bare
+`.qmd` is E5; the gate scenario for added named values lists the
+filter, since E74 otherwise is a new finding.

@@ -102,7 +102,7 @@ test_that("1.10.1 (rmarkdown): a caption written in the chunk header is scanned,
 
 test_that("1.10.7 + 1.10.3 + 1.10.4 + 2.3.5: the static errors are on the rows, found from the source; their legal neighbours have none", {
   head <- c("---", "title: \"t\"", "engine: knitr", "---", "")
-  front <- function(field) scan_doc(c("---", field, "---", "", "Body."))
+  front <- function(field) scan_doc(c("---", "engine: knitr", field, "---", "", "Body."))
   # front matter: quoted and plain scalars are errors, block scalars are not (1.10.7)
   for (f in c("title: \"Report [a | # sites]{n=3}\"", "title: 'Report [a | b]{if=\"TRUE\"}'",
               "abstract: Report [a | # sites]{n=3} here")) {

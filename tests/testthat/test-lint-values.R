@@ -188,7 +188,7 @@ INERT_CASES <- list(
   list(src = "`r claim(x, . > 0)`",                     want = character()),
   list(src = "`r claim(x, nrow(d) > 0)`",               want = character()),
   list(src = r"---([a]{if="TRUE"})---",                 want = "TRUE"),
-  list(src = r"---([a|b]{if="1 > 0"})---",              want = "1 > 0"),   # K6: any arm count
+  list(src = r"---([a|b]{if="1 > 0"})---",              want = "1 > 0", ext = "Rmd"),   # K6; a bare .qmd is the filter's (N143)
   list(src = r"---([a]{if="ok"})---",                   want = character()),
   list(src = r"---([a|b]{if="ok > 0"})---",             want = character()),
   list(src = "`r weft::claim(x, TRUE)`",                want = "TRUE"),

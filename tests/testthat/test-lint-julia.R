@@ -102,7 +102,10 @@ test_that("5e J24: tier 2, so absent from lints() by default", {
 
 # ---- J25: the engine message for Julia ---------------------------------------------------------------------
 
-G5E_JL_BODY <- r"{Words [a site]{if="ok"} more.}"
+# 6d: a span of the filter's grammar (if="ok") needs no knitr (N146), so the body is one outside it;
+# each G38 hint gains E73
+G5E_JL_BODY <- r"{Words [a site]{if="a && ok"} more.}"
+G5E_JL_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.7)."
 G5E_JL_CHUNK <- c("```{julia}", "x = 1", "```")
 g5e_jl_engine <- function(lines) lint_fixture(list("a.qmd" = lines), rules = "engine", tier = 1:2)
 
@@ -111,8 +114,8 @@ test_that("5e J25: case 3's hint names jl_value", {
   expect_identical(nrow(x), 1L)
   expect_identical(x$message, paste0("a.qmd holds weft constructs and Julia chunks but is not marked `engine: knitr`, ",
     "so Quarto would run it with its julia engine, which does not evaluate weft constructs (rule 5.8.9)."))
-  expect_identical(x$hint, paste0("Add `engine: knitr` to its front matter. Julia chunks then run through JuliaCall, ",
-    "and a Julia value reaches prose as `r jl_value(\"x\")`."))
+  expect_identical(x$hint, paste(paste0("Add `engine: knitr` to its front matter. Julia chunks then run through JuliaCall, ",
+    "and a Julia value reaches prose as `r jl_value(\"x\")`."), G5E_JL_E73))
 })
 
 test_that("5e J25: case 1 with engine: julia has the Julia hint", {
@@ -120,8 +123,8 @@ test_that("5e J25: case 1 with engine: julia has the Julia hint", {
   expect_identical(nrow(x), 1L)
   expect_identical(x$message, paste0("a.qmd holds weft constructs and is marked `engine: julia`; weft constructs ",
     "are evaluated only under `engine: knitr` (rule 5.8.9)."))
-  expect_identical(x$hint, paste0("Change it to `engine: knitr`. Julia chunks then run through JuliaCall, and a ",
-    "Julia value reaches prose as `r jl_value(\"x\")`."))
+  expect_identical(x$hint, paste(paste0("Change it to `engine: knitr`. Julia chunks then run through JuliaCall, and a ",
+    "Julia value reaches prose as `r jl_value(\"x\")`."), G5E_JL_E73))
 })
 
 test_that("5e J25: case 1 with engine: jupyter, or a jupyter: key, keeps G38's hint", {
@@ -130,7 +133,7 @@ test_that("5e J25: case 1 with engine: jupyter, or a jupyter: key, keeps G38's h
   for (front in c("engine: jupyter", "jupyter: julia-1.13")) {
     x <- g5e_jl_engine(f3d_doc(c(G5E_JL_BODY, "", G5E_JL_CHUNK), front))
     expect_identical(nrow(x), 1L, label = front)
-    expect_identical(x$hint, py_hint, label = front)
+    expect_identical(x$hint, paste(py_hint, G5E_JL_E73), label = front)
   }
 })
 
