@@ -107,6 +107,9 @@ round_half_away <- function(x, nd) {
   if (x == 0) return(0)
   sgn <- sign(x)
   a <- abs(x)
+  # A whole number up to 2^53 is exact, and rounding it to whole or more
+  # places changes nothing; going through signif() would cut it to 15 digits.
+  if (nd >= 0 && a <= 2^53 && a == floor(a)) return(x)
   if (nd >= 0) {
     y <- a * 10^nd
     if (!is.finite(y)) return(x)
@@ -116,6 +119,21 @@ round_half_away <- function(x, nd) {
     r <- floor(signif(a / p, 15) + 0.5) * p
   }
   sgn * r
+}
+
+# A non-negative number as fixed-point text with `nd` decimals. Up to 2^53 every
+# digit of a whole number is exact, so sprintf() is right. Beyond it a double
+# has no more than 15 trustworthy significant digits (rule 1.4.13): the digits
+# after the fifteenth print as zeros, never the binary expansion.
+fixed_text <- function(a, nd) {
+  if (a <= 2^53) return(sprintf(paste0("%.", nd, "f"), a))
+  e <- sprintf("%.14e", a)
+  mant <- sub("e.*$", "", e)
+  ex <- as.integer(sub("^.*e", "", e))
+  dig <- sub(".", "", mant, fixed = TRUE)
+  int <- if (ex >= 14L) paste0(dig, strrep("0", ex - 14L)) else
+    return(sprintf(paste0("%.", nd, "f"), a))
+  if (nd > 0L) paste0(int, ".", strrep("0", nd)) else int
 }
 
 # One number printed by rule 1.4.13: returns text, the number as printed and
@@ -131,7 +149,7 @@ print_one <- function(v, digits, sigfig, cfg, quantity = FALSE) {
     nd <- if ((if (quantity) is_whole_q(v) else is_whole(v))) 0L else as.integer(cfg$digits)
     s <- round_half_away(v, nd)
   }
-  str <- sprintf(paste0("%.", nd, "f"), abs(s))
+  str <- fixed_text(abs(s), nd)
   num <- as.numeric(str)
   neg <- s < 0 && num != 0
   parts <- strsplit(str, ".", fixed = TRUE)[[1]]
