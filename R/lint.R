@@ -239,8 +239,8 @@ print.weft_findings <- function(x, max = 200, ...) {
         }
         cat(ascii_escape(sprintf("  %-*s  %-*s  %s", wp, pos[i], wr, d$rule[i], msg)), "\n", sep = "")
         if (!is.null(more)) cat(pad, ascii_escape(more), "\n", sep = "")
-        if (!is.na(d$hint[i])) cat(pad, ascii_escape(d$hint[i]), "\n", sep = "")
-        if (!is.na(d$sentence[i])) cat(pad, ascii_escape(paste0("\"", d$sentence[i], "\"")), "\n", sep = "")
+        if (!is.null(d$hint) && !is.na(d$hint[i])) cat(pad, ascii_escape(d$hint[i]), "\n", sep = "")
+        if (!is.null(d$sentence) && !is.na(d$sentence[i])) cat(pad, ascii_escape(paste0("\"", d$sentence[i], "\"")), "\n", sep = "")
       }
     }
     if (n > length(shown)) {

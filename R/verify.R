@@ -357,6 +357,12 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
     added_n <- fe$n
     removed <- removed_of(base)
   }
+  if (have_base && !is.null(gi) && is.null(base)) {
+    # no baseline holding _weft.yml: there is no "added" to judge against, and listing every finding as
+    # added would bury the report (as changes() and the gate, this case judges nothing)
+    tier2 <- tier2[0L, , drop = FALSE]
+    notes <- c(notes, "tier 2 was not judged: no baseline commit holds _weft.yml, so no line counts as added")
+  }
   if (nrow(tier2)) {
     add_for <- list()
     for (f in unique(tier2$file)) {

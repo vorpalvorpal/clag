@@ -32,6 +32,9 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
   st$wrappers <- list()
   st$names <- NULL
   st$files <- character()  # literal paths given to source() and sys.source()
+  st$here_files <- character() # paths given as here::here(...): relative to the project root
+  st$unnamed <- character()    # reads whose target name could not be worked out
+  st$called <- character()     # the functions a call of which has been seen (see add_read's `via`)
 
   add_key <- function(k) {
     if (k %in% keys) st$keys <- c(st$keys, k) else st$unknown <- c(st$unknown, k)
@@ -127,8 +130,33 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     out
   }
 
-  add_read <- function(nm, store, expr) {
-    st$reads[[length(st$reads) + 1L]] <- list(name = nm, store = store, expr = expr)
+  # `via` marks a read made from the body of a function when the store is one of its parameters: a call
+  # of that function gives its own store, so the read made from the default stands only if no call is seen
+  add_read <- function(nm, store, expr, via = NULL) {
+    st$reads[[length(st$reads) + 1L]] <- list(name = nm, store = store, expr = expr, via = via)
+  }
+
+  # a path built only from string literals, with paste0() and file.path(): the only calls evaluated,
+  # since they cannot run anything of the author's
+  static_chr <- function(e) {
+    l <- lit_chr(e)
+    if (!is.null(l)) return(l)
+    if (!is.call(e) || !is.symbol(e[[1L]])) return(NULL)
+    h <- as.character(e[[1L]])
+    if (!h %in% c("paste0", "file.path")) return(NULL)
+    a <- as.list(e)[-1L]
+    if (!length(a) || (!is.null(names(a)) && any(nzchar(names(a))))) return(NULL)
+    parts <- lapply(a, static_chr)
+    if (any(vapply(parts, is.null, NA))) return(NULL)
+    paste(unlist(parts), collapse = if (h == "paste0") "" else "/")
+  }
+  # TRUE for a call of here() or here::here()
+  is_here <- function(e) {
+    if (!is.call(e)) return(FALSE)
+    h <- e[[1L]]
+    if (is.symbol(h)) return(identical(as.character(h), "here"))
+    is.call(h) && length(h) == 3L && is.symbol(h[[1L]]) && as.character(h[[1L]]) %in% c("::", ":::") &&
+      identical(h[[2L]], quote(here)) && identical(h[[3L]], quote(here))
   }
 
   record_target <- function(fname, x) {
@@ -203,8 +231,30 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
       st$wrappers[[st$cur]] <- list(param = wrapper_param, store = store, embraced = embraced,
                                     expr = if (is.null(sp)) sexpr else NULL, store_param = sp)
     }
-    for (nm in as.character(names_found)) add_read(nm, store, sexpr)
-    rest <- args[setdiff(seq_along(args), i)]
+    # a read of a literal name through a store that is a parameter of the function (with a default or
+    # not): a call of the function gives the store (call_wrapper), and until one is seen the read stands
+    # on the parameter's default, which is evaluated when the knit ends, as R would at knit time
+    via <- NULL
+    rexpr <- sexpr
+    if (is.null(wrapper_param) && !is.null(sp) && !is.null(st$cur) && length(names_found)) {
+      f <- lookup(st$cur)
+      if (is.function(f) && sp %in% names(formals(f))) {
+        old <- st$wrappers[[st$cur]]
+        fixed <- as.character(names_found)
+        if (!is.null(old) && is.null(old$param)) fixed <- unique(c(old$fixed, fixed))
+        st$wrappers[[st$cur]] <- list(param = NULL, fixed = fixed, store = store, embraced = FALSE,
+                                      expr = NULL, store_param = sp)
+        via <- st$cur
+        d <- formal_default(f, sp)
+        if (!is.null(d)) rexpr <- d
+      }
+    }
+    # a name that is computed, not given: nothing to record, so it is said (rule 7.2.2)
+    if (!is.na(i) && is.null(wrapper_param) && !length(names_found) && is.null(lit_chr(args[[i]]))) {
+      st$unnamed <- c(st$unnamed, paste(deparse(args[[i]], width.cutoff = 500L), collapse = " "))
+    }
+    for (nm in as.character(names_found)) add_read(nm, store, rexpr, via)
+    rest <-args[setdiff(seq_along(args), i)]
     for (a in rest) if (!missing(a)) walk(a)
     invisible()
   }
@@ -217,9 +267,15 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     mc <- tryCatch(match.call(f, x, expand.dots = FALSE), error = function(e) NULL)
     if (is.null(mc)) return(invisible())
     # an argument the call omits takes the reader's default
-    arg <- mc[[w$param]]
-    if (is.null(arg)) arg <- formal_default(f, w$param)
-    nms <- literal_names(arg, sym = isTRUE(w$embraced))
+    if (is.null(w$param)) {
+      # the names are literal in the reader's body: this call supplies the store
+      nms <- w$fixed
+      st$called <- unique(c(st$called, hname))
+    } else {
+      arg <- mc[[w$param]]
+      if (is.null(arg)) arg <- formal_default(f, w$param)
+      nms <- literal_names(arg, sym = isTRUE(w$embraced))
+    }
     if (!length(nms)) return(invisible())
     store <- w$store
     expr <- w$expr
@@ -288,8 +344,17 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
       k <- which(an == "file")[1L]
       if (is.na(k)) k <- setdiff(which(an == ""), 1L)[1L]
       if (!is.na(k)) {
-        l <- lit_chr(x[[k]])
-        if (!is.null(l)) st$files <- c(st$files, l)
+        a <- x[[k]]
+        if (is_here(a)) {
+          pa <- as.list(a)[-1L]
+          if (length(pa) && is.null(names(pa))) {
+            parts <- lapply(pa, static_chr)
+            if (!any(vapply(parts, is.null, NA))) st$here_files <- c(st$here_files, paste(unlist(parts), collapse = "/"))
+          }
+        } else {
+          l <- static_chr(a)
+          if (!is.null(l)) st$files <- c(st$files, l)
+        }
       }
     }
     if (identical(hname, "function") && n >= 3L) {
@@ -349,9 +414,14 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     invisible()
   }
 
+  reads_now <- function() {
+    Filter(function(r) is.null(r$via) || !r$via %in% st$called, st$reads)
+  }
+
   result <- function() {
-    nm <- vapply(st$reads, function(r) r$name, "")
-    sr <- vapply(st$reads, function(r) r$store, "")
+    rd <- reads_now()
+    nm <- vapply(rd, function(r) r$name, "")
+    sr <- vapply(rd, function(r) r$store, "")
     tg <- unique(data.frame(name = as.character(nm), store = as.character(sr),
                             stringsAsFactors = FALSE))
     rownames(tg) <- NULL
@@ -362,8 +432,9 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
          targets = tg)
   }
   # every read with the `store` expression it gave when that was not a literal
-  store_exprs <- function() st$reads
+  store_exprs <- function() reads_now()
   list(add = add, result = result, store_exprs = store_exprs, source_files = function() st$files,
+       here_files = function() st$here_files, unnamed = function() unique(st$unnamed),
        set_all = function() st$all <- TRUE)
 }
 
@@ -891,6 +962,9 @@ chapter_reads <- function(s) {
   for (p in w$source_files()) {
     files <- c(files, rel_path(root, norm_path(if (is_abs_path(p)) p else file.path(norm_path(getwd()), p))))
   }
+  # here::here() is the project root, taken to be the ledger's root (it is not evaluated: the session's
+  # project need not be the document's)
+  for (p in w$here_files()) files <- c(files, rel_path(root, norm_path(file.path(root, p))))
   # the project's Python modules loaded by the end of the knit (G30)
   # a malformed reply from a guest is a failure of this knit, not a stop
   files <- c(files,
@@ -926,6 +1000,13 @@ chapter_reads <- function(s) {
   }
   tg <- unique(tg)
   rownames(tg) <- NULL
+  if (length(w$unnamed())) {
+    un <- w$unnamed()
+    ledger_warn(sprintf(paste0(
+      "weft: the name of %d target read%s could not be worked out (%s), so %s not recorded (rule 7.2.2); ",
+      "name the target in the call, or in a call of the reader."), length(un), if (length(un) == 1L) "" else "s",
+      paste0("`", utils::head(un, 3L), "`", collapse = ", "), if (length(un) == 1L) "it is" else "they are"))
+  }
   if (length(unresolved)) {
     ledger_warn(sprintf(paste0(
       "weft: the `store` of the read of %s could not be worked out; the read is recorded under the ",
