@@ -434,3 +434,19 @@ All seventeen proposals are accepted. Order and readings:
   wrapped command or a dictionary entry changes) and pin it with a
   test if it does. No request to `targets` is needed: its own
   extension package edits targets this way.
+- Revised on Robin's word ("can we just use the tarchetypes functions
+  rather than copying them?"): do not copy the pilot code. Use the
+  exported `tarchetypes::tar_hook_outer()` for the `dict_unmark()`
+  wrap and `tarchetypes::tar_hook_before()` (a hook that names the
+  `dict_<key>` targets read, `set_deps = TRUE`) for the dependencies,
+  wherever they give what today's code gives; the `tar_dict` tests are
+  the guard. Targets whose command is not one expression are filtered
+  out first, as the hooks refuse them. For report targets
+  (`tar_quarto()`, `tar_render()` and their `_rep` forms), whose
+  dependencies are set from the report's source and not from the
+  command's code, test whether a hook can add a dependency without
+  losing the others; if not, keep one direct `t$deps` union there, in
+  one small function with a comment saying why. Never call an
+  unexported function of `tarchetypes`. `tarchetypes` stays in
+  Suggests, with a clear error from `tar_dict_deps()` when it is
+  missing.
