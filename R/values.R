@@ -53,6 +53,16 @@ values_str <- function(x) {
 # double (N47). `x` is finite.
 float_text <- function(x) {
   out <- sprintf("%.15g", x)
+  # a subnormal has fewer digits than a normal double: take the first digit count that reads back
+  # (5e-324, not 4.94...e-324)
+  sub <- which(abs(x) < 2.2250738585072014e-308 & x != 0)
+  for (i in sub) {
+    for (d in seq_len(17L)) {
+      t <- sprintf(paste0("%.", d, "g"), x[i])
+      if (as.numeric(t) == x[i]) break
+    }
+    out[i] <- t
+  }
   for (d in c(16L, 17L)) {
     redo <- !(as.numeric(out) == x)
     if (!any(redo)) break
@@ -133,7 +143,8 @@ values_record <- function(x) {
   }
   if (inherits(x, "units")) return(values_refusal("E44", E44_TAIL))
   plain <- inherits(x, c("integer64", "factor", "Date")) ||
-    (!is.object(x) && is.atomic(x) && is.null(dim(x)))
+    (!is.object(x) && (is.logical(x) || is.integer(x) || is.double(x) || is.character(x)) &&
+       is.null(dim(x)))
   if (!plain) {
     return(values_refusal("E45", sprintf(paste0(
       "is an R %s, which weft does not publish. Publish a bool, number, string, ",
@@ -147,7 +158,8 @@ values_record <- function(x) {
   nm <- names(x)
   if (!inherits(x, "integer64")) names(x) <- NULL
   sc <- values_scalars(x)
-  if (n == 1L) return(list(json = sc$json, code = NULL))
+  # a named vector of length 1 is a list of one with its key; an unnamed one is a scalar
+  if (n == 1L && is.null(nm)) return(list(json = sc$json, code = NULL))
   kinds <- unique(sc$kind[sc$kind != "missing"])
   of <- if (length(kinds)) kinds[1L] else if (n == 0L) values_empty_kind(x) else "missing"
   keys <- if (is.null(nm)) "null" else
@@ -486,16 +498,21 @@ values_names <- function(s) {
 
 # The names put by weft_put() wait for the next block of prose.
 values_wait <- function(s, recs) {
+  values_wait_json(s, lapply(recs, `[[`, "json"))
+}
+
+# The same for records already written as JSON texts (a named list of strings): weft_put()'s, and those that
+# Python's put() and Julia's put hand over (N42, N70).
+values_wait_json <- function(s, jsons) {
   label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
   cell <- if (is.character(label) && length(label) == 1L) label else NULL
   if (identical(tryCatch(knitr::opts_current$get("results"), error = function(e) NULL), "asis")) {
     # the text the chunk prints after the call sees the names
-    values_note_put(s, names(recs))
-    cat("\n", values_fenced(values_json(lapply(recs, `[[`, "json"), cell = cell, run = values_run())),
-        "\n", sep = "")
+    values_note_put(s, names(jsons))
+    cat("\n", values_fenced(values_json(jsons, cell = cell, run = values_run())), "\n", sep = "")
     return(invisible())
   }
-  for (nm in names(recs)) s$waiting[[nm]] <- recs[[nm]]$json
+  for (nm in names(jsons)) s$waiting[[nm]] <- jsons[[nm]]
   s$waiting_cell <- cell %||% s$waiting_cell
   invisible()
 }
@@ -532,6 +549,9 @@ values_pending <- function(s) {
     s$auto[[nm]] <- list(value = v, json = json)
     if (is.null(last) || !identical(json, last$json)) fresh[[nm]] <- json
   }
+  # names bound in Python's __main__, after auto() was called in a Python chunk (N71)
+  py <- guest_auto_changes(nms)
+  for (nm in setdiff(names(py), names(fresh))) fresh[[nm]] <- py[[nm]]
   put <- s$waiting
   if (!length(fresh) && !length(put)) return(NULL)
   # a name that put published wins over the auto value in the same block

@@ -56,7 +56,7 @@ test_that("N47: a finite double is a float record with the shortest round-trip t
 
 test_that("N47: the float text is the first of %.15g, %.16g, %.17g that reads back, and matches N22's shape", {
   xs <- c(0.1, 0.2, 0.3, 1 / 3, 2 / 3, 0.1 + 0.2, pi, exp(1), sqrt(2), 1e23, 1e-7,
-          123456.789, 2^53, 2^53 + 2, 1 / 7, 1e100, 5e-324,
+          123456.789, 2^53, 2^53 + 2, 1 / 7, 1e100,
           -0.0, 12345678901234567890, 0.007, 100)
   for (x in xs) {
     rec <- b6_rec(x)
@@ -117,12 +117,12 @@ test_that("N22: a missing record has no value (absent or null)", {
 
 # ---- named scalars ---------------------------------------------------------
 
-test_that("N47: a length-1 named vector is a scalar and its name is dropped", {
-  b6_expect_rec(c(a = 2L), b6_e_int("2"))
-  b6_expect_rec(c(depth = 3.5), b6_e_float("3.5"))
-  b6_expect_rec(c(k = "x"), b6_e_str("x"))
+test_that("N47 (ruling 14 of the stage 6 review): a length-1 named vector is a list of one with its key", {
+  b6_expect_rec(c(a = 2L), b6_e_list("int", list(b6_e_int("2")), keys = "a"))
+  b6_expect_rec(c(depth = 3.5), b6_e_list("float", list(b6_e_float("3.5")), keys = "depth"))
+  b6_expect_rec(c(k = "x"), b6_e_list("string", list(b6_e_str("x")), keys = "k"))
   rec <- b6_rec(c(depth = 3.5))
-  expect_identical(rec$t, "float")
+  expect_identical(rec$t, "list")
 })
 
 # ---- vectors ---------------------------------------------------------------
