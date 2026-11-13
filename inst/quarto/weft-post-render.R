@@ -97,13 +97,16 @@ local({
     all <- paste(x, collapse = "")
     src <- field(all, "source")
     if (is.na(src) || !(src %in% run_files)) next
-    if (nzchar(run_id) && identical(field(all, "run"), run_id)) next
+    # a stamp of this run is current, unless the filter wrote `fresh: false` into it: the values it
+    # checked came from freeze or a cache (N91, N121). Its failures were collected in this run.
+    same_run <- nzchar(run_id) && identical(field(all, "run"), run_id)
+    if (same_run && !identical(field(all, "fresh"), "false")) next
     fl <- grep("^\\s*\\{\"source\"", x, value = TRUE)
     chk <- suppressWarnings(as.integer(field(all, "checks")))
     frozen[[src]] <- list(
       checks = if (is.na(chk)) 0L else chk,
       executed = field(all, "executed"),
-      failures = lapply(sub(",\\s*$", "", fl), record))
+      failures = if (same_run) list() else lapply(sub(",\\s*$", "", fl), record))
   }
 
   # a document served from freeze that has no stamp at all (a fresh clone:

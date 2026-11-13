@@ -224,8 +224,19 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
       if (dir.exists(file.path(root, "_freeze"))) freeze_backup(root, verify_stem(rendered), all_stems, run)
       on.exit(freeze_restore(root, all_stems), add = TRUE)
     }
+    # N122: a kept kernel would serve the values of an earlier render. `.weft/run` holds this run's id before
+    # the render (the pre-render script writes the same id), `--execute-daemon-restart` restarts the daemon,
+    # and a julia server is ended first (measured 5).
+    write_lines_atomic(run, file.path(weft_state_dir(root), "run"))
+    julia <- rendered[vapply(rendered, function(rel) verify_uses_julia(root, rel), NA)]
+    if (length(julia)) {
+      verify_run(q, c("call", "engine", "julia", "kill"), root, run, one)
+      notes <- c(notes, sprintf(paste0("%s: on the julia engine, so `quarto call engine julia kill` ended the julia ",
+                                       "server before the render, to keep its values from an earlier render (rule 8.1.3)"),
+                                julia))
+    }
     for (cl in calls) {
-      s <- verify_run(q, c("render", cl), root, run, one)
+      s <- verify_run(q, c("render", cl, "--execute-daemon-restart"), root, run, one)
       if (file.exists(one)) all_log <- c(all_log, readLines(one, warn = FALSE))
       if (s != 0L) status <- s
     }
@@ -261,7 +272,21 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
     detail <- paste0(detail, sprintf("; %d failure%s, %d not executed", nrow(knit), if (nrow(knit) == 1L) "" else "s",
                                      length(unexec)))
   }
-  list(status = status, knit = knit, unexecuted = unexec, log = logl, detail = detail, notes = notes)
+  list(status = status, knit = knit, unexecuted = unexec, unfresh = stamps$unfresh, log = logl, detail = detail,
+       notes = notes)
+}
+
+# Does a document use the julia engine: `engine: julia` in its front matter, or a julia chunk?
+verify_uses_julia <- function(root, rel) {
+  x <- tryCatch(readLines(file.path(root, rel), warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+  if (length(x) && grepl("^---[ \t\r]*$", x[1L])) {
+    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", x[-1L]))
+    if (length(cl)) {
+      fm <- x[1L + seq_len(cl[1L] - 1L)]
+      if (any(grepl("^engine[ \t]*:[ \t]*[\"']?julia[\"']?[ \t]*(#.*)?$", fm))) return(TRUE)
+    }
+  }
+  any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*julia[ \t,}]", x))
 }
 
 # does the document hold a weft construct (G11, count > 0)?
@@ -276,12 +301,15 @@ verify_has_constructs <- function(root, rel) {
 verify_read_stamps <- function(root, docs, run) {
   failures <- list()
   current <- character()
+  unfresh <- character()
   for (rel in docs) {
     f <- file.path(root, ".weft", "stamps", stamp_file_name(rel))
     if (!file.exists(f)) next
     s <- tryCatch(jsonlite::fromJSON(f, simplifyVector = FALSE), error = function(e) NULL)
     if (!is.list(s) || !identical(as.character(s$run %||% ""), run)) next
     current <- c(current, rel)
+    # N120: the stamp says the values were not computed in this run
+    if (identical(s$fresh, FALSE)) unfresh <- c(unfresh, rel)
     for (y in s$failures) {
       if (identical(y$level, "warn")) next
       ch <- function(k) if (is.null(y[[k]]) || is.na(y[[k]])) NA_character_ else as.character(y[[k]])
@@ -292,6 +320,6 @@ verify_read_stamps <- function(root, docs, run) {
         option = ch("option"), chunk_line = it("chunk_line"), stringsAsFactors = FALSE)
     }
   }
-  list(current = current,
+  list(current = current, unfresh = unfresh,
        failures = if (length(failures)) do.call(rbind, failures) else failures_frame_empty())
 }

@@ -28,7 +28,7 @@ verify_abort <- function(message, ...) weft_abort(message, "weft_verify_error", 
 #' @param path A file or folder inside the project.
 #' @return A `weft_verify`, invisibly, when the check passed: a list with `ok`, `parts`
 #'   (`part`, `status`, `detail`), `errors`, `added`, `strict`, `names`, `tier2` (each a
-#'   `weft_findings`), `removed`, `decisions`, `knit`, `unexecuted`, `stale`, `tolerated`,
+#'   `weft_findings`), `removed`, `decisions`, `knit`, `unexecuted`, `unfresh`, `stale`, `tolerated`,
 #'   `log`, `notes` and `seconds`. The report is printed to stderr with [message()].
 #' @export
 verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
@@ -120,7 +120,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
               strict = as_weft_findings(empty_plain_findings()), names = as_weft_findings(empty_plain_findings()),
               removed = construct_empty(), tier2 = as_weft_findings(empty_plain_findings()),
               decisions = verify_empty_decisions(), decision_error = NULL,
-              knit = failures_frame_empty(), unexecuted = character(), log = character(),
+              knit = failures_frame_empty(), unexecuted = character(), unfresh = character(), log = character(),
               stale = verify_empty_stale(), tolerated = data.frame(rule = character(), n = integer(),
                                                                    stringsAsFactors = FALSE))
   reasons <- 0L
@@ -161,8 +161,9 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
     notes <- c(notes, rr$notes)
     res$knit <- rr$knit
     res$unexecuted <- rr$unexecuted
+    res$unfresh <- rr$unfresh
     res$log <- rr$log
-    n <- nrow(rr$knit) + length(rr$unexecuted) + (rr$status != 0L)
+    n <- nrow(rr$knit) + length(rr$unexecuted) + length(rr$unfresh) + (rr$status != 0L)
     reasons <- reasons + n
     set_part("render", if (n) "failed" else "ran", rr$detail)
   }
@@ -183,12 +184,12 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   }
 
   out <- c(list(ok = reasons == 0L, parts = parts), res[c("errors", "added", "strict", "names", "removed", "tier2",
-                                                          "decisions", "decision_error", "knit", "unexecuted", "stale",
-                                                          "tolerated", "log")],
+                                                          "decisions", "decision_error", "knit", "unexecuted", "unfresh",
+                                                          "stale", "tolerated", "log")],
            list(notes = unique(notes), since = if (have_base) since_sha else NA_character_,
                 seconds = proc.time()[["elapsed"]] - t0))
   out <- out[c("ok", "parts", "errors", "added", "strict", "names", "removed", "tier2", "decisions", "decision_error",
-               "knit", "unexecuted", "stale", "tolerated", "log", "notes", "since", "seconds")]
+               "knit", "unexecuted", "unfresh", "stale", "tolerated", "log", "notes", "since", "seconds")]
   class(out) <- "weft_verify"
   message(paste(verify_report_lines(out), collapse = "\n"))
   if (out$ok) return(invisible(out))
@@ -501,8 +502,9 @@ verify_report_lines <- function(x) {
   }
   sec("Knit-time failures", kl)
   sec("Not executed in this render",
-      if (length(x$unexecuted)) sprintf("  %s: not executed in this render: served from freeze, or knit without weft active",
-                                        x$unexecuted) else character())
+      c(if (length(x$unexecuted)) sprintf("  %s: not executed in this render: served from freeze, or knit without weft active",
+                                          x$unexecuted),
+        if (length(x$unfresh)) sprintf("  %s: its values were not computed in this run (rule 2.13.8).", x$unfresh)))
   sec("Render log", if (length(x$log)) paste0("  ", x$log) else character())
   st <- x$stale
   sl <- character()
