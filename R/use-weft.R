@@ -417,16 +417,14 @@ use_doc_front <- function(lines) {
   lines[seq_len(cl[1L] - 1L)[-1L]]
 }
 
-# does a .qmd need `engine: knitr` (the rule of use_setup(): no engine: or
-# jupyter: key, and not another engine's chunks alone)
+# does a .qmd need `engine: knitr`: the rule of use_setup() (qmd_needs_engine()), on the parsed front
+# matter. Front matter that does not parse is not something use_setup() can fix, so it is not flagged.
 qmd_lacks_engine <- function(lines) {
   fm <- use_doc_front(lines)
-  if (any(grepl("^(engine|jupyter)\\s*:", fm))) return(FALSE)
   body <- if (length(fm)) lines[-seq_len(length(fm) + 2L)] else lines
-  chunks <- sub("^\\s*`{3,}\\s*\\{\\s*([A-Za-z0-9_]+).*$", "\\1",
-                grep("^\\s*`{3,}\\s*\\{\\s*[A-Za-z0-9_]+", body, value = TRUE))
-  chunks <- tolower(chunks)
-  !(any(chunks %in% c("python", "julia")) && !("r" %in% chunks))
+  y <- tryCatch(fm_parse(fm), error = function(e) NULL)
+  if (is.null(y) || (length(fm) && !is.list(y))) return(FALSE)
+  qmd_needs_engine(names(y), body)
 }
 
 status_activation <- function(root) {

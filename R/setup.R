@@ -289,6 +289,16 @@ fm_child_indent <- function(lines, a, b, default) {
   if (!length(body)) default else yml_indent(lines[body[1]])
 }
 
+# Does a .qmd need `engine: knitr`: no `engine:` or `jupyter:` key in its front matter, and not another
+# engine's chunks alone. The one rule, used by use_setup() and by status().
+qmd_needs_engine <- function(fm_names, body) {
+  if (any(c("engine", "jupyter") %in% fm_names)) return(FALSE)
+  chunks <- sub("^\\s*`{3,}\\s*\\{\\s*([A-Za-z0-9_]+).*$", "\\1",
+                grep("^\\s*`{3,}\\s*\\{\\s*[A-Za-z0-9_]+", body, value = TRUE))
+  chunks <- tolower(chunks)
+  !(any(chunks %in% c("python", "julia")) && !("r" %in% chunks))
+}
+
 # front matter lines (may be empty) -> list(lines =, what =) with what weft needs
 fm_plan_doc <- function(old, want) {
   n <- length(old)
@@ -319,15 +329,9 @@ fm_plan_doc <- function(old, want) {
     if (!identical(r, new)) what <- c(what, "adds the weft setup line")
     new <- r
   }
-  if (want$engine && !("engine" %in% names(y)) && !("jupyter" %in% names(y))) {
-    chunks <- sub("^\\s*`{3,}\\s*\\{\\s*([A-Za-z0-9_]+).*$", "\\1",
-                  grep("^\\s*`{3,}\\s*\\{\\s*[A-Za-z0-9_]+", body, value = TRUE))
-    chunks <- tolower(chunks)
-    other <- any(chunks %in% c("python", "julia"))
-    if (!(other && !("r" %in% chunks))) {
-      new <- c(new, "engine: knitr")
-      what <- c(what, "adds engine: knitr")
-    }
+  if (want$engine && qmd_needs_engine(names(y), body)) {
+    new <- c(new, "engine: knitr")
+    what <- c(what, "adds engine: knitr")
   }
   if (want$filter) {
     r <- fm_add_filter(new, y)
