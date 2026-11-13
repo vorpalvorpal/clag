@@ -685,6 +685,22 @@ sentence_cuts <- function(para, keep, lang) {
   out
 }
 
+# The paragraph breaks (a newline, blank space, a newline) of the block `out`: the
+# position after each break, scanning left to right, and the start of every break.
+# A block's entries all ask about the same text, so the last answer is kept.
+paragraph_cache <- new.env(parent = emptyenv())
+
+paragraph_breaks <- function(out) {
+  if (identical(paragraph_cache$out, out)) return(paragraph_cache$breaks)
+  m <- gregexpr("\n[ \t]*\n", out)[[1L]]
+  ends <- if (m[1L] > 0L) m + attr(m, "match.length") else integer()
+  starts <- gregexpr("(?=\n[ \t]*\n)", out, perl = TRUE)[[1L]]
+  breaks <- list(ends = ends, starts = starts[starts > 0L])
+  paragraph_cache$out <- out
+  paragraph_cache$breaks <- breaks
+  breaks
+}
+
 ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
   n <- nchar(out)
   if (is.na(a) || is.na(b)) return(collapse_ws(out))
@@ -703,12 +719,12 @@ ledger_sentence_at <- function(out, a, b, whole = FALSE, front = FALSE) {
     return(sentence_cut(collapse_ws(paste(lines[lo:hi], collapse = " "))))
   }
   if (whole) return(sentence_cut_around(out, a, b, 1L, n))
-  before <- substr(out, 1L, a - 1L)
-  after <- substr(out, b + 1L, n)
-  m <- gregexpr("\n[ \t]*\n", before)[[1L]]
-  if (m[1L] > 0L) ps <- max(m + attr(m, "match.length"))
-  m <- regexpr("\n[ \t]*\n", after)
-  if (m > 0L) pe <- b + m - 1L
+  pb <- paragraph_breaks(out)
+  # the paragraph starts after the last break that ends before `a` and stops
+  # before the first break that starts after `b`
+  if (any(pb$ends <= a)) ps <- max(pb$ends[pb$ends <= a])
+  later <- pb$starts[pb$starts > b]
+  if (length(later)) pe <- min(later) - 1L
   ps <- max(ps, 1L)
   para <- substr(out, ps, pe)
   a2 <- a - ps + 1L

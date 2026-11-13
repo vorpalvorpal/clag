@@ -543,9 +543,15 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
 
   # Sentence starts (5.10.1): a value or span of the prose whose printed text
   # opens a sentence with a digit or a lower-case letter.
+  # Only the end of what precedes the construct decides: its blankness (the
+  # first non-blank character of the block, found once), and its last two
+  # lines, which hold every test below. A run of blank space that ends in
+  # two newlines is a paragraph break, so no test reaches further back.
+  first_ink <- regexpr("[^ \t\r\n]", text)
   starts_sentence <- function(st) {
-    pre <- substr(text, 1L, st - 1L)
-    if (!nzchar(trim_ws(pre))) return(TRUE)
+    if (first_ink < 0L || first_ink >= st) return(TRUE)
+    k <- sum(nlpos < st)
+    pre <- substr(text, if (k >= 2L) nlpos[k - 1L] + 1L else 1L, st - 1L)
     # after the end of a sentence
     if (grepl("[.?!][]\"')*_~]*[ \t\n]+$", pre)) return(TRUE)
     # a new paragraph
