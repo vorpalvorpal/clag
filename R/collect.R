@@ -217,16 +217,26 @@ record_knit <- function(s, fr) {
     paste0("  \"failures\": [", if (length(lines)) "" else "]"),
     if (length(lines)) c(paste0("    ", lines, c(rep(",", length(lines) - 1L), "")), "  ]"),
     "}")
-  ok <- tryCatch({
+  tryCatch({
     dir <- weft_state_dir(root, "stamps")
     write_lines_atomic(stamp, file.path(dir, stamp_file_name(src)))
-    TRUE
-  }, error = function(e) FALSE, warning = function(w) FALSE)
+  }, error = function(e) {
+    ledger_warn(sprintf("weft: the stamp for %s could not be written: %s (rule 2.9.2).",
+                        src, conditionMessage(e)))
+  }, warning = function(w) {
+    ledger_warn(sprintf("weft: the stamp for %s could not be written: %s (rule 2.9.2).",
+                        src, conditionMessage(w)))
+  })
   write_draft_failures(s, src, c(lines, wlines))
   coll <- collection_path(root)
   if (is.na(coll)) return(invisible(FALSE))
   if (length(c(lines, wlines))) cat(c(lines, wlines), file = coll, sep = "\n", append = TRUE)
   invisible(TRUE)
+}
+
+draft_write_warn <- function(path, cond) {
+  ledger_warn(sprintf("weft: the draft failures file %s could not be written: %s (rule 9.4.2).",
+                      basename(path), conditionMessage(cond)))
 }
 
 # In draft mode, in a project that has been set up, the failures are also
@@ -244,6 +254,7 @@ write_draft_failures <- function(s, src, lines) {
   if (!isTRUE(s$config$draft)) return(invisible())
   tryCatch(
     write_lines_atomic(c("[", paste0("  ", lines, c(rep(",", length(lines) - 1L), "")), "]"), path),
-    error = function(e) NULL, warning = function(w) NULL)
+    error = function(e) draft_write_warn(path, e),
+    warning = function(w) draft_write_warn(path, w))
   invisible()
 }
