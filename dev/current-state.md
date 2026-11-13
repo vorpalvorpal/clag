@@ -391,3 +391,35 @@ or hold); no answer yet.
 - Open with Robin: default of `output_missing` (warn chosen); guest
   `chunk_claims` later or never; table digests for Jupyter/Julia;
   Windows CI job; v0.1 before or after stage 7.
+
+## units 1.0-1.7 and the crash (14 Nov, morning)
+
+- Upstream merged its own rework of `install_unit()`/`remove_unit()`
+  (r-quantities/units PR 449, fixes issue 448, replaces PR 447). Version
+  1.0-1.7 is on GitHub only; CRAN has 1.0-1.
+- Robin: "Make the minimum units package the new fixed version, and then
+  drop using the units internals." Measured against 1.0-1.7: 11 of 963
+  unit tests fail, all because a database id can no longer be redefined
+  (`gal` as the US gallon: `remove_unit(name = "gal")` warns and does
+  nothing; the re-install is refused). Everything else is removable
+  workaround: delete the internals section of `R/unit-names.R`, rewrite
+  `ud_tables_key` without `default_units_xml`, delete the early refusal
+  and the clean-up after a failed install in `R/unit-defaults.R`, rewrite
+  `ud_install_problem` for the new error text; DESCRIPTION needs
+  `units (>= 1.0-1.7)` and `Remotes: r-quantities/units`; tests to change
+  are `test-sweep-g.R` G3 and `test-review-2x.R:338-345, 492-512`.
+- Robin then: "Pause the change. Ask upstream for a public override."
+  Posted https://github.com/r-quantities/units/issues/451. The units
+  change in weft is PAUSED until upstream answers or Robin says otherwise.
+  Nothing more is posted there without Robin's say.
+- The machine seized at about 07:26: `securityd` aborted ("error
+  destroying Mutex: 16") under heavy keychain traffic and memory pressure,
+  the login keychain locked, and every keychain read raised a password
+  prompt; `gh` and the agents lost their sign-in. Robin restarted. Rules
+  since: one heavy agent at a time; no whole-suite run alongside agents;
+  no installs or git operations that touch the keychain (fetch tarballs
+  with curl); no force-pushes (a brief that asked for one was refused).
+- The scratchpad was wiped: `suite/fresh-suite.sh` and `jupyter-venv/`
+  must be rebuilt before the next whole-suite run.
+- Uncommitted survivors: stage 7 test files for 7a, 7c, 7d (never run),
+  and feature F9 half-appended to `dev/design-7.md`.
