@@ -21,14 +21,18 @@ M.DEFAULTS = {
   digits = 1, decimal_mark = ".", big_mark = ",", thousands_from = 1000, minus = "\u{2212}",
   governor_class = "num", pct_proportion = true, serial_comma = false, count_threshold = 10,
   word_limit = 100, date_format = "%-d %B %Y", draft = false, ledger = true,
+  p_label = "p", output_refs = "fail", output_missing = "warn", output_markup = "fail",
 }
 
 local KINDS = {
   digits = "int", thousands_from = "int", count_threshold = "int", word_limit = "int",
   pct_proportion = "bool", serial_comma = "bool", draft = "bool", ledger = "bool",
   decimal_mark = "str", big_mark = "str", minus = "str", governor_class = "str", date_format = "str",
+  p_label = "str", p_digits = "pdig",
+  output_refs = "sev", output_missing = "sev", output_markup = "sev",
 }
-local WHAT = { int = "whole number", bool = "true or false", str = "string" }
+local WHAT = { int = "whole number", bool = "true or false", str = "string",
+               pdig = "whole number from 1 to 6, or null", sev = "fail, warn or off" }
 
 local function trim(s) return (s:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
 
@@ -220,7 +224,16 @@ local function apply(cfg, problems, file, key, rest)
   if not want then return end
   local kind, v = scalar(rest)
   local ok = false
-  if want == "int" then ok = kind == "int"
+  if want == "pdig" then
+    -- p_digits: a whole number from 1 to 6, or null (the default, so nil)
+    if kind == "bare" and (v == "null" or v == "Null" or v == "NULL" or v == "~") then
+      cfg[key] = nil
+      return
+    end
+    ok = kind == "int" and v >= 1 and v <= 6
+  elseif want == "sev" then
+    ok = kind == "bare" and (v == "fail" or v == "warn" or v == "off")
+  elseif want == "int" then ok = kind == "int"
   elseif want == "bool" then ok = kind == "bool"
   else ok = kind == "str" or kind == "bare" or kind == "int" or kind == "bool" end
   if ok and want == "str" and (kind == "int" or kind == "bool") then
@@ -228,6 +241,8 @@ local function apply(cfg, problems, file, key, rest)
   end
   if not ok then
     problems[#problems + 1] = { file = file, key = key, value = trim((rest:gsub("[ \t\r\n]+#.*$", ""))), what = WHAT[want] }
+    -- a wrong value in a later source gives the default, not an earlier source's value (E33)
+    if want == "pdig" or want == "sev" then cfg[key] = M.DEFAULTS[key] end
   else
     cfg[key] = v
   end

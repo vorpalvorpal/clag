@@ -52,6 +52,13 @@ default_config <- function() {
     ledger = TRUE,
     date_format = "%-d %B %Y",
     ci_level = 0.95,
+    ci_short = FALSE,
+    p_digits = NULL,
+    p_label = "p",
+    output_refs = "fail",
+    output_missing = "warn",
+    output_markup = "fail",
+    chunk_claims = "stop",
     about_tolerance = 0.05,
     sentence_start_fail = FALSE,
     bibliography = character(),
@@ -312,6 +319,26 @@ validate_config <- function(cfg) {
         (open && v >= 1) || v > 1) bad(nm, "a proportion between 0 and 1")
   }
   prop("ci_level"); prop("about_tolerance", open = FALSE)
+  lgl("ci_short")
+  pd <- cfg$p_digits
+  if (!is.null(pd) && (!is.numeric(pd) || length(pd) != 1L || !is.finite(pd) ||
+                       pd < 1 || pd > 6 || pd != round(pd))) {
+    weft_abort("The setting `p_digits` must be a whole number from 1 to 6, or null.",
+               "weft_config_error")
+  }
+  if (!is.character(cfg$p_label) || length(cfg$p_label) != 1L || is.na(cfg$p_label)) {
+    weft_abort("The setting `p_label` must be a single string.", "weft_config_error")
+  }
+  for (nm in c("output_refs", "output_missing", "output_markup")) {
+    v <- cfg[[nm]]
+    if (!is.character(v) || length(v) != 1L || is.na(v) || !v %in% c("fail", "warn", "off")) {
+      weft_abort(sprintf("The setting `%s` must be fail, warn or off.", nm), "weft_config_error")
+    }
+  }
+  cc <- cfg$chunk_claims
+  if (!is.character(cc) || length(cc) != 1L || is.na(cc) || !cc %in% c("stop", "collect")) {
+    weft_abort("The setting `chunk_claims` must be stop or collect.", "weft_config_error")
+  }
   cfg$bibliography <- as.character(unlist(cfg$bibliography))
   if (nzchar(cfg$decimal_mark) && identical(cfg$decimal_mark, cfg$big_mark)) {
     weft_abort("`decimal_mark` and `big_mark` must differ.", "weft_config_error")
