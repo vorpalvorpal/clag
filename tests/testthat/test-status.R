@@ -85,10 +85,10 @@ test_that("4b G39: setup is ok when the recorded version is the installed one, a
 
 test_that("4b G39/G32: a recorded version that differs is outdated, naming both versions", {
   dir <- st_full()
-  st_set_yml(dir, c("draft: false", "weft_version: 0.0.1"))
+  st_set_yml(dir, c("draft: false", "weft_version: 0.0.0.1"))
   st <- h4_status(dir)
   expect_identical(h4_state(st, "setup"), "outdated")
-  expect_match(h4_detail(st, "setup"), "0.0.1", fixed = TRUE)
+  expect_match(h4_detail(st, "setup"), "0.0.0.1", fixed = TRUE)
   expect_match(h4_detail(st, "setup"), u4_version(), fixed = TRUE)
   expect_match(st_next(st), "^Next: run weft::use_(setup|weft)\\(\\) to ")
 })

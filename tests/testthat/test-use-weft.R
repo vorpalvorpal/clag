@@ -141,7 +141,7 @@ test_that("4b G38: the weft_version line is set to the installed version", {
 
 test_that("4b G32/G38: an older weft_version line is updated in place, the author's other lines kept in order", {
   dir <- uw_repo(list(`index.qmd` = u4_qmd(),
-                      `_weft.yml` = c("draft: false", "weft_version: 0.0.1", "label_words: [Station]")))
+                      `_weft.yml` = c("draft: false", "weft_version: 0.0.0.1", "label_words: [Station]")))
   h4_weft(dir)
   x <- u4_read(dir, "_weft.yml")
   expect_identical(x[1], "draft: false")

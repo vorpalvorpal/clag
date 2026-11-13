@@ -262,7 +262,7 @@ test_that("4d G35/G32: an existing _weft.yml without the line gains it, appended
 })
 
 test_that("4d G32: an existing weft_version line is kept as it is, even when it differs (use_weft() updates it, use_setup() does not)", {
-  q <- qproj(list(`index.qmd` = u4_qmd(), `_weft.yml` = c("digits: 2", "weft_version: 0.0.1")))
+  q <- qproj(list(`index.qmd` = u4_qmd(), `_weft.yml` = c("digits: 2", "weft_version: 0.0.0.1")))
   before <- u4_md5(q)["_weft.yml"]
   u4_use(q)
   expect_identical(u4_md5(q)["_weft.yml"], before)

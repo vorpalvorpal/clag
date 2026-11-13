@@ -43,7 +43,9 @@ use_weft <- function(path = ".") {
   setup_what <- c(
     vapply(Filter(function(w) !is.null(w$new), setup$writes),
            function(w) sprintf("%s (%s)", w$rel, w$state), ""),
-    if (!is.null(vline)) "_weft.yml (edit)")
+    if (!is.null(vline)) {
+      if (record_is_newer(recorded_version(root))) "_weft.yml (edit, downgrade)" else "_weft.yml (edit)"
+    })
   add("use_setup", if (length(setup_what)) paste(setup_what, collapse = ", ") else "nothing to change",
       function() {
         written <- character()
@@ -315,7 +317,11 @@ status <- function(path = ".") {
       add("setup", "ok", sprintf("_weft.yml does not record a weft version (not recorded; installed: %s)", inst))
     } else if (!identical(rec, inst)) {
       add("setup", "outdated", sprintf("_weft.yml records weft %s (installed: %s)", rec, inst),
-          "use_weft", "update the files weft installed and the record")
+          "use_weft", if (record_is_newer(rec, inst)) {
+            "take the project back to the installed weft (a downgrade; or update weft)"
+          } else {
+            "update the files weft installed and the record"
+          })
     } else {
       add("setup", "ok", sprintf("_weft.yml records weft %s (installed: %s)", rec, inst))
     }

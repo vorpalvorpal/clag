@@ -232,10 +232,22 @@ verify_version_warning <- function(root) {
   rec <- recorded_version(root)
   now <- weft_version_string()
   if (is.na(rec) || identical(rec, now)) return(invisible())
-  rlang::warn(sprintf(paste0("This project records weft %s in _weft.yml, and weft %s is installed. ",
-                             "Run weft::use_weft() to update the files weft installed and the record (rule 9.5.4)."),
-                      rec, now), class = c("weft_version_warning", "weft_warning"))
+  msg <- if (record_is_newer(rec, now)) {
+    sprintf(paste0("This project records weft %s in _weft.yml, and weft %s is installed, older than the %s ",
+                   "this project records. Update weft, or run weft::use_weft() to take the project back to %s ",
+                   "(rule 9.5.4)."), rec, now, rec, now)
+  } else {
+    sprintf(paste0("This project records weft %s in _weft.yml, and weft %s is installed. ",
+                   "Run weft::use_weft() to update the files weft installed and the record (rule 9.5.4)."),
+            rec, now)
+  }
+  rlang::warn(msg, class = c("weft_version_warning", "weft_warning"))
   invisible()
+}
+
+# Does the project record a weft newer than the installed one? (then use_weft() is a downgrade)
+record_is_newer <- function(rec, now = weft_version_string()) {
+  !is.na(rec) && !is.na(now) && utils::compareVersion(rec, now) > 0L
 }
 
 # ---- git ----------------------------------------------------------------------------------------

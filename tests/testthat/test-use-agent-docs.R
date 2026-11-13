@@ -215,7 +215,7 @@ test_that("4b G40: a skill from an older template (marker and hash valid) is rep
   d <- ad_proj()
   h4_agent(d)
   cur <- readLines(skill(d))
-  old <- h4_forge(cur, function(b) c(b[1:2], "An older line.", b[-(1:2)]), version = "0.0.1")
+  old <- h4_forge(cur, function(b) c(b[1:2], "An older line.", b[-(1:2)]), version = "0.0.0.1")
   expect_true(h4_marker_valid(old))
   writeLines(old, skill(d))
   h4_agent(d)

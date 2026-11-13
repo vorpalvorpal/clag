@@ -371,7 +371,7 @@ h4_block_lines <- function(inner = H4_AGENTS_INNER, version = u4_version()) {
 # an older block: other text in it, the version and hash matching
 h4_block_old <- function() {
   inner <- sub("never `dict$key`", "never `dict$key` (old wording)", H4_AGENTS_INNER, fixed = TRUE)
-  h4_block_lines(inner, version = "0.0.1")
+  h4_block_lines(inner, version = "0.0.0.1")
 }
 
 # Find the block in `lines`: list(start, end, version, hash, inner, hash_ok) or NULL.
