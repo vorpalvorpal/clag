@@ -330,8 +330,9 @@ lines_hold_construct <- function(lines) {
   rw <- tryCatch(scan_document(lines, file = NA_character_), error = function(e) NULL)
   if (is.null(rw) || !nrow(rw)) return(FALSE)
   held <- !rw$kind %in% c("bare", "link", "literal")
+  # the scanner's "outside the filter's grammar" errors, by the rule each cites (1.12.4 to 1.12.6, 1.12.10)
   ours <- rw$resolver %in% "filter" &
-    !(rw$kind != "named" & !is.na(rw$error) & grepl("(rule 1[.]12[.][45])", rw$error))
+    !(rw$kind != "named" & !is.na(rw$error) & grepl("(rule 1[.]12[.](4|5|6|10))", rw$error, fixed = FALSE))
   any(held & !ours)
 }
 
