@@ -173,6 +173,8 @@ guest_module <- function(read) {
 # running; this neither starts it nor loads anything else.
 guest_load <- function() {
   sys <- reticulate::import("sys", convert = FALSE)
+  # the package `weft` first: weft_guest.py takes its classifier from it (N60)
+  guest_register_forms(sys)
   have <- tryCatch(reticulate::py_get_item(sys$modules, "weft_guest"), error = function(e) NULL)
   if (is.null(have) || !reticulate::py_has_attr(have, "classify_json")) {
     path <- system.file("python", "weft_guest.py", package = "weft")
@@ -185,7 +187,6 @@ guest_load <- function() {
   weft_env$guest_mod <- have
   if (!isTRUE(weft_env$py_registered)) {
     weft_env$py_registered <- TRUE
-    guest_register_forms(sys)
     have$install_recorder()
   }
   have
@@ -340,12 +341,15 @@ guest_form <- function(name) {
   }
 }
 
-# Put the module `weft` into sys.modules, unless another module of that name
-# is there (G23): weft then leaves it alone and warns once per R session.
+# Put the package `weft` (inst/python/weft, rule N60) into sys.modules and give
+# it R's function forms (G19) and the knitr back end of claim() (N52). A `weft`
+# already loaded that carries `__weft_package__` (this package, installed by
+# pip) is used as it is (G23); any other module of that name is left alone, and
+# weft warns once per R session.
 guest_register_forms <- function(sys) {
-  have <- tryCatch(reticulate::py_get_item(sys$modules, "weft"), error = function(e) NULL)
-  if (!is.null(have)) {
-    if (!reticulate::py_has_attr(have, "__weft_r__") && !isTRUE(weft_env$m17_warned)) {
+  m <- tryCatch(reticulate::py_get_item(sys$modules, "weft"), error = function(e) NULL)
+  if (!is.null(m) && !reticulate::py_has_attr(m, "__weft_package__")) {
+    if (!reticulate::py_has_attr(m, "__weft_r__") && !isTRUE(weft_env$m17_warned)) {
       weft_env$m17_warned <- TRUE
       rlang::warn(paste0("A Python module named `weft` is already loaded, so weft's function forms ",
                          "are not registered (rule 2.12.8)."),
@@ -353,12 +357,51 @@ guest_register_forms <- function(sys) {
     }
     return(invisible())
   }
-  m <- reticulate::import("types", convert = FALSE)$ModuleType("weft")
+  if (is.null(m)) {
+    dir <- system.file("python", "weft", package = "weft")
+    iu <- reticulate::import("importlib.util", convert = FALSE)
+    spec <- iu$spec_from_file_location("weft", file.path(dir, "__init__.py"),
+                                       submodule_search_locations = list(dir))
+    m <- iu$module_from_spec(spec)
+    reticulate::py_set_item(sys$modules, "weft", m)
+    ok <- tryCatch({
+      spec$loader$exec_module(m)
+      TRUE
+    }, error = function(e) e)
+    if (inherits(ok, "error")) {
+      tryCatch(reticulate::py_del_item(sys$modules, "weft"), error = function(e) NULL)
+      stop(ok)
+    }
+  }
   for (nm in guest_form_names) {
     reticulate::py_set_attr(m, nm, reticulate::r_to_py(guest_form(nm), convert = FALSE))
   }
   reticulate::py_set_attr(m, "__weft_r__", reticulate::r_to_py(TRUE))
-  reticulate::py_set_item(sys$modules, "weft", m)
+  be <- reticulate::py_get_attr(m, "_backend")
+  be$set_knitr(reticulate::r_to_py(guest_claim_report, convert = FALSE))
+  invisible()
+}
+
+# The knitr back end of Python's claim() (N52): one failed or warned check,
+# recorded in the knit in progress as a failed check in R chunk code is
+# (2.4.4), located by the chunk's label. Python hands over unconverted
+# strings. FALSE when no knit is running: claim() then raises, or warns, by
+# itself (N54).
+guest_claim_report <- function(level, expr, detail) {
+  s <- active_state()
+  if (is.null(s)) return(FALSE)
+  guest_claim_record(s, as.character(reticulate::py_to_r(level)),
+                     as.character(reticulate::py_to_r(expr)), as.character(reticulate::py_to_r(detail)))
+  TRUE
+}
+
+# Add a guest claim's outcome to the failures (level "fail") or the warned
+# checks (level "warn") of `s`, at chunk `label` (default: the chunk running).
+guest_claim_record <- function(s, level, expr, detail, label = NULL) {
+  if (is.null(label)) label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+  label <- if (is.null(label)) NA_character_ else as.character(label)
+  add <- if (identical(level, "warn")) add_warning else add_failure
+  add(s, "failed claim", file = current_file_name(s), chunk = label, expr = expr, detail = detail)
   invisible()
 }
 

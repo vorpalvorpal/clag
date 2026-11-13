@@ -14,12 +14,12 @@
 
 # ---- G19: the names the module holds ----------------------------------------------------
 
-test_that("G19: the module holds exactly the 26 formatter and phrase names, plus __weft_r__ = True", {
+test_that("G19: the module holds exactly the 26 formatter and phrase names and the six of N59 (claim, put, auto, three exceptions), plus __weft_r__ = True", {
   py_forms_ready()
   own <- reticulate::py_eval(paste0(
     "sorted(n for n in vars(__import__('weft')) ",
-    "if not (n.startswith('__') and n.endswith('__')))"))
-  expect_identical(sort(own), sort(g5c_names))
+    "if not n.startswith('_'))"))
+  expect_identical(sort(own), sort(c(g5c_names, "claim", "put", "auto", "ClaimFailed", "WeftError", "PublishError")))
   expect_identical(reticulate::py_eval("__import__('weft').__weft_r__ is True"), TRUE)
 })
 
@@ -31,9 +31,9 @@ test_that("G19: every name in the module is callable", {
   expect_true(ok)
 })
 
-test_that("G19: claim, u, fmt_unit, lookup, brk, glue_vec and the dictionary functions are not there: each import is Python's ImportError", {
+test_that("G19: u, fmt_unit, lookup, brk, glue_vec and the dictionary functions are not there: each import is Python's ImportError", {
   py_forms_ready()
-  for (n in c("claim", "u", "fmt_unit", "lookup", "brk", "glue_vec", "read_dict",
+  for (n in c("u", "fmt_unit", "lookup", "brk", "glue_vec", "read_dict",
               "dict_glossary", "dict_vale", "dict_seed", "clamp")) {
     r <- py_try(sprintf("from weft import %s", n))
     expect_false(r$ok, label = n)
