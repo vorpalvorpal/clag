@@ -371,3 +371,23 @@ H. No register generation from commit trailers.
 Order agreed: plus sign, C, D, A, then the rest. B1 to B7 (Lua parity) were
 listed for Robin with my lean (B1 yes with strict evaluation, the rest no
 or hold); no answer yet.
+
+## More rulings (14 Nov)
+
+- B1 and B2 of the Lua parity study are declined ("Yes skip B1,2"). The
+  condition language stays: six comparators, commas, `!name`. The
+  named-values article gains "for anything richer, publish a bool" and
+  states the six comparators plainly. B3 to B7 stay held.
+- Robin asked about one value checked with differing conditions across a
+  document, where deleting the strictest check loosens it silently.
+  Approved ("Yes, sounds good"): (1) the gate, when a check is removed,
+  says whether a remaining check implies it or whether it was the
+  strictest on that pair; (2) a report function of checks grouped by
+  value, flagging differing operators or literals, not a lint; (3) the
+  claims article recommends checking once where the value is made. Only
+  for conditions the static tools can read (plain comparisons of names
+  and literals); other checks are grouped by text. Stage 7 package 7j,
+  feature F9.
+- Open with Robin: default of `output_missing` (warn chosen); guest
+  `chunk_claims` later or never; table digests for Jupyter/Julia;
+  Windows CI job; v0.1 before or after stage 7.
