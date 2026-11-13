@@ -12,8 +12,6 @@ XREF_PREFIXES <- c("fig", "tbl", "lst", "sec", "eq", "thm", "lem", "cor", "prp",
 XREF_ID_RE <- paste0("^(?i:", paste(XREF_PREFIXES, collapse = "|"), ")-")
 # an anchor id as the document defines it: the first letter of a reference is lowered
 xref_id_norm <- function(id) paste0(tolower(substr(id, 1L, 1L)), substring(id, 2L))
-# keys that a `config-place` finding looks for in a document's `weft:` (stage 4 adds its switch key)
-CONFIG_PLACE_KEYS <- c("draft", "decisions")
 
 # ---- small helpers -----------------------------------------------------------------------
 
@@ -769,7 +767,7 @@ lint_config_place <- function(ctx) {
       for (m in src$meta) {
         w <- m$yaml$weft
         if (!is.list(w) || is.null(names(w))) next
-        keys <- intersect(names(w), CONFIG_PLACE_KEYS)
+        keys <- intersect(names(w), project_only_settings())
         for (key in keys) {
           idx <- m$open:m$close
           ln <- NA_integer_
