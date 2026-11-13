@@ -198,7 +198,8 @@ test_that("6a: the committed numbers.tsv has the record column, and every num an
   expect_identical(names(d), CONF5)
   if (!"record" %in% names(d)) return(invisible())
   expect_gte(sum(d$classes %in% IMPLEMENTED), 300)
-  expect_true(all(d$classes %in% IMPLEMENTED), info = "numbers.tsv holds only classes the first stage implements")
+  expect_true(all(d$classes %in% c(IMPLEMENTED, "num plus", "pct plus")),
+              info = "numbers.tsv holds only classes the filter implements (the plus rows are test-lua-plus.R's)")
   for_each_pandoc(function(p) expect_table_prints(d, p, what = "numbers.tsv"))
 })
 
@@ -390,6 +391,7 @@ test_that("6a N85: the independent oracle agrees with R on the committed numbers
   d <- read_tsv(file.path(cdir(), "numbers.tsv"))
   checked <- 0L; bad <- character()
   for (i in seq_len(nrow(d))) {
+    if (!d$classes[i] %in% IMPLEMENTED) next   # the plus rows have no oracle here (test-lua-plus.R)
     x <- eval(parse(text = d$value[i]), baseenv())
     v <- if (is.integer(x)) sprintf("%d", x) else n47_float_text(x)
     if (!is.integer(x) && (sig_digits(v) > 15 || (x != 0 && abs(x) < 1e-9) ||
