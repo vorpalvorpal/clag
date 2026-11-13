@@ -40,9 +40,9 @@ test_that("N46, N30: a file written by weft_values_write() is read through a `fi
 test_that("N46, N47, N30: every record kind survives the round trip, as it would in an in-document block", {
   vw_local_no_run()
   lines <- vw_write(flag = TRUE, off = FALSE, n = 3L, x = 3.14159, e = 1e23,
-                    s = "north", when = as.Date("2026-11-13"), gap = NA, nothing = NULL, inf = Inf,
+                    s = "north", when = as.Date("2026-11-13"), gap = NA, nil = NULL, inf = Inf,
                     ids = c(4L, 5L, 6L), tags = c(a = "x", b = "y"), nums = c(1.5, 2.5), none = integer(0))
-  names_used <- c("flag", "off", "n", "x", "e", "s", "when", "gap", "nothing", "inf")
+  names_used <- c("flag", "off", "n", "x", "e", "s", "when", "gap", "nil", "inf")
   use <- paste(sprintf("%s `%s`{.val}.", names_used, names_used), collapse = "\n\n")
   tail_md <- c("", use)
   inline <- filter_md(c(carrier_raw(paste(lines, collapse = "\n")), tail_md), to = "plain",
@@ -58,10 +58,10 @@ test_that("N46, N47, N30: every record kind survives the round trip, as it would
                    gsub(":[0-9]+  ", ":N  ", gsub("line [0-9]+", "line N", inline$stderr)))
   paras <- vw_paras(viafile)
   expect_length(paras, length(names_used))
-  expect_identical(paras[[1]], "flag TRUE.")
+  expect_identical(paras[[1]], "flag true.")
   expect_identical(paras[[3]], "n 3.")
-  expect_identical(paras[[5]], "x 3.14159.")
-  expect_identical(paras[[7]], "s north.")
+  expect_identical(paras[[4]], "x 3.14159.")
+  expect_identical(paras[[6]], "s north.")
   expect_false(any(grepl("<<weft: (construct error|value error)", paras)))
 })
 
@@ -121,7 +121,7 @@ test_that("N46, N27: two chapters of one project read one written file and agree
 })
 
 # needs 6g
-test_that("N112, N46: the ledger header holds the md5 of the file weft_values_write() wrote", {
+test_that("N112, N46: the ledger header holds the hash of the file weft_values_write() wrote", {
   vw_local_no_run()
   dir <- withr::local_tempdir()
   p <- file.path(dir, "v.json")
@@ -131,5 +131,5 @@ test_that("N112, N46: the ledger header holds the md5 of the file weft_values_wr
                    weft_yml = c("draft: false", "ledger: true"), env = c(WEFT_RUN = "R1"))
   expect_identical(res$status, 0L)
   h <- g6_header(res)
-  expect_identical(h$files[[VW_PATH]], unname(tools::md5sum(p)))
+  expect_identical(h$files[[VW_PATH]], weft:::file_hash(p))
 })

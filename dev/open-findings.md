@@ -385,3 +385,7 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     automatically only when the source holds a named span) and
     publishes a too-long list as an error record where `put()` raises.
     Check both against the design in the stage 6 review.
+14. A `list` governor over bools prints TRUE/FALSE (6f's choice) while
+    `.val` on a bool prints true/false (design-6 2A: "a bool `true` or
+    `false`, a list its elements so printed"). Make the list follow
+    2A, with a test first.

@@ -231,7 +231,7 @@ test_that("N28, N30: a file that does not hold schema 1 is one construct error a
     md <- c("::: {#cell-f .cell}", fv_block(SURVEY), ":::", "", fv_use("d"))
     res <- filter_md(md, files = files, to = "plain", env = draft1)
     expect_identical(res$status, 0L, label = id)
-    expect_identical(trimws(res$output), "Use <<weft: no value, line 5>>.", label = id)
+    expect_identical(trimws(res$output), "Use <<weft: no value, line 6>>.", label = id)
     e <- fm_entry(res$stderr, "^  doc\\.md chunk f( |$)")
     expect_true(e$found, label = paste("an entry for", id))
     expect_match(e$head, "\\[construct error\\]", label = id)
@@ -303,11 +303,11 @@ fv_md5 <- function(text_lines) {
   p <- tempfile("md5-")
   on.exit(unlink(p))
   writeBin(charToRaw(paste0(paste(text_lines, collapse = "\n"), "\n")), p)
-  unname(tools::md5sum(p))
+  weft:::file_hash(p)
 }
 
 # needs 6g
-test_that("N112, N30: the ledger header's files hold every values file read, with the md5 of its bytes", {
+test_that("N112, N30: the ledger header's files hold every values file read, with the hash of its bytes", {
   lines <- strsplit(fv_file(d = fr_int("7")), "\n", fixed = TRUE)[[1]]
   files <- setNames(list(lines), SURVEY)
   md <- c(fv_block(SURVEY), "", "Use `d`{.num}.")
@@ -316,7 +316,7 @@ test_that("N112, N30: the ledger header's files hold every values file read, wit
   h <- g6_header(res)
   expect_setequal(names(h$files), c("doc.md", SURVEY))
   expect_identical(h$files[[SURVEY]], fv_md5(lines))
-  expect_match(h$files[["doc.md"]], "^[0-9a-f]{32}$")
+  expect_match(h$files[["doc.md"]], "^[0-9a-f]{16}$")
 })
 
 # needs 6g

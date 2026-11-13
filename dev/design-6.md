@@ -1648,3 +1648,18 @@ Accepted choices of the 6g implementer, spec text for 6j:
 
 One 6g test amended: it expected `.num` to print 3.14159 in full; the
 default `digits` is 1, so it now uses `.val`.
+
+## Rulings after 6i (orchestrator, 13 Nov, under delegation)
+
+- A values file must resolve inside the project root (the folder of
+  `_weft.yml`, else `_quarto.yml`, else the document's). A relative
+  path is taken from the document's folder, a path starting `/` from
+  the root. Anything that escapes the root, a drive or `//` form, a
+  directory, a missing file, a body on a `file=` block, a file over
+  5,000,000 bytes, or a malformed or non-schema-1 file is E32 with a
+  short reason. Symbolic links are not resolved (pure Lua cannot).
+- Each values file read is listed once in the ledger header's `files`
+  by its path from the root, hashed as any other file.
+- Five 6i tests amended: the hash is xxhash64 (16 hex), not md5; one
+  line number; `nothing` is a reserved word and cannot be a name; a
+  bool prints `true` under `.val`; two paragraph indexes were off.
