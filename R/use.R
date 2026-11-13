@@ -66,16 +66,7 @@ use_quarto <- function(path = ".") {
     if (!nzchar(p)) tool_abort(paste0("weft's own file inst/quarto/", f, " is missing"))
     p
   }
-  # the resolver filter weft.lua loads its modules from the folder weftlib/ beside it (N80)
-  libs <- sort(list.files(file.path(dirname(src("weft.lua")), "weftlib"), pattern = "[.]lua$"))
-  copies <- c(
-    "_extensions/weft-check/_extension.yml" = "_extension.yml",
-    "_extensions/weft-check/weft.lua"       = "weft.lua",
-    stats::setNames(file.path("weftlib", libs), file.path("_extensions/weft-check/weftlib", libs)),
-    "_extensions/weft-check/weft-check.lua" = "weft-check.lua",
-    "_weft/pre-render.R"                    = "weft-pre-render.R",
-    "_weft/post-render.R"                   = "weft-post-render.R"
-  )
+  copies <- quarto_copies()
   sources <- vapply(copies, src, "")
   names(sources) <- names(copies)
   weft_yml <- file.path(path, "_weft.yml")
@@ -151,7 +142,11 @@ MSG_E61 <- paste0("Install the Python package in the Python Quarto uses: ",
                   "pip install \"git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python\"")
 
 MSG_E62 <- paste0("Install the Julia package: using Pkg; ",
-                  "Pkg.add(url = \"https://github.com/vorpalvorpal/weft\", subdir = \"inst/julia/Weft\")")
+                  "Pkg.add(url = \"https://github.com/vorpalvorpal/weft\", subdir = \"inst/julia/Weft\"). ",
+                  "Quarto's Julia worker does not read JULIA_LOAD_PATH from the shell, so tell it where the ",
+                  "package is in _quarto.yml: julia: {env: [\"JULIA_LOAD_PATH=<the folder that holds the Weft ",
+                  "package>:\"]}, that is a julia: key with an env: list holding JULIA_LOAD_PATH=, a folder and ",
+                  "a trailing colon.")
 
 # Does Quarto run this .qmd on the jupyter engine (N74): `engine: jupyter` or a `jupyter:` key; with neither
 # an `engine:` key nor an executed {r} chunk, a {python} chunk. `engine: knitr` (or any other) is not.

@@ -1,11 +1,18 @@
 # use_weft() and status(): the installers in order from one plan, and the report
 # of what is installed (design-4 G38, G39, G32, H26, H35).
 
-QUARTO_COPIES <- c(
-  "_extensions/weft-check/_extension.yml" = "_extension.yml",
-  "_extensions/weft-check/weft-check.lua" = "weft-check.lua",
-  "_weft/pre-render.R"                    = "weft-pre-render.R",
-  "_weft/post-render.R"                   = "weft-post-render.R")
+# The files use_quarto() copies into a project: the path under the project root, named, and the file of the
+# package's inst/quarto it comes from. The resolver filter loads its modules from weftlib/ beside it (N80), so
+# weft.lua and each weftlib/*.lua are in the list: status() and the rollback see them.
+quarto_copies <- function() {
+  libs <- sort(list.files(file.path(system.file("quarto", package = "weft"), "weftlib"), pattern = "[.]lua$"))
+  c("_extensions/weft-check/_extension.yml" = "_extension.yml",
+    "_extensions/weft-check/weft.lua"       = "weft.lua",
+    stats::setNames(file.path("weftlib", libs), file.path("_extensions/weft-check/weftlib", libs)),
+    "_extensions/weft-check/weft-check.lua" = "weft-check.lua",
+    "_weft/pre-render.R"                    = "weft-pre-render.R",
+    "_weft/post-render.R"                   = "weft-post-render.R")
+}
 
 # ---- use_weft() -----------------------------------------------------------------
 
@@ -119,12 +126,7 @@ use_weft <- function(path = ".") {
     vapply(setup$writes, `[[`, "", "path"), file.path(root, "_weft.yml"),
     if (!is.null(find_quarto_root(root))) {
       qr <- find_quarto_root(root)
-      xdir <- file.path(system.file("quarto", package = "weft"), "weftlib")
-      libs <- sort(list.files(xdir, pattern = "[.]lua$"))
-      # use_quarto() also writes the resolver filter and its modules (N80)
-      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, QUARTO_MARKERS),
-        file.path(qr, "_extensions/weft-check/weft.lua"),
-        file.path(qr, "_extensions/weft-check/weftlib", libs))
+      c(file.path(qr, names(quarto_copies())), file.path(qr, QUARTO_MARKERS))
     },
     file.path(root, "dict.yml"), file.path(root, "_weft", "dict.schema.json"),
     if (g$ok) vapply(hp$items, `[[`, "", "path"),
@@ -239,10 +241,11 @@ quarto_plan <- function(qroot) {
                               "  post-render: _weft/post-render.R"), collapse = "\n")))
   }
   out <- character()
-  for (rel in names(QUARTO_COPIES)) {
+  copies <- quarto_copies()
+  for (rel in names(copies)) {
     dest <- file.path(qroot, rel)
     place_check(dest, qroot)
-    src <- inst_file("quarto", QUARTO_COPIES[[rel]])
+    src <- inst_file("quarto", copies[[rel]])
     if (!file.exists(dest)) {
       out <- c(out, sprintf("%s (new)", rel))
     } else if (!identical(unname(tools::md5sum(dest)), unname(tools::md5sum(src)))) {
@@ -479,9 +482,10 @@ status_quarto <- function(root) {
   if (is.null(qroot)) return(list(state = "n/a", detail = "not a Quarto project"))
   missing <- character()
   differs <- character()
-  for (rel in names(QUARTO_COPIES)) {
+  copies <- quarto_copies()
+  for (rel in names(copies)) {
     dest <- file.path(qroot, rel)
-    src <- system.file("quarto", QUARTO_COPIES[[rel]], package = "weft")
+    src <- system.file("quarto", copies[[rel]], package = "weft")
     if (!file.exists(dest)) missing <- c(missing, rel)
     else if (nzchar(src) && !identical(unname(tools::md5sum(dest)), unname(tools::md5sum(src)))) {
       differs <- c(differs, rel)

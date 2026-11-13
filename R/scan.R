@@ -946,10 +946,15 @@ cond_part_error <- function(part) {
 }
 
 # The grammar errors of a span's governor in a document the filter resolves (N9-N12; E3-E5).
-filter_governor_errors <- function(kind, expr) {
+filter_governor_errors <- function(kind, expr, check_space = TRUE) {
   v <- trim_ws(expr)
   bad <- function(extra) {
     sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.5).", v, kind, extra)
+  }
+  # Pandoc does not read an attribute value that starts with a space, so the span would print as text
+  if (check_space && grepl("^[ \t\r\n]", expr)) {
+    return(sprintf(paste0("The value of `%s` starts with a space, which Pandoc does not read as an ",
+                          "attribute, so the span would print as it is; remove the space (rule 1.12.5)."), kind))
   }
   switch(kind,
     `if` = unlist(lapply(trim_ws(cond_parts(v)), cond_part_error), use.names = FALSE) %||% character(),
@@ -1354,7 +1359,8 @@ handle_bracket <- function(S, p, parent) {
     }
     if (blk$ok && !is.na(expr) && S$filter_doc) {
       # a document the filter resolves: the governor is judged by N9-N12, never by R's parser (N141)
-      errs <- c(errs, filter_governor_errors(kind, expr))
+      # (a single-quoted value is already an error, so it is not also reported for its space)
+      errs <- c(errs, filter_governor_errors(kind, expr, !any(grepl("single-quoted", errs, fixed = TRUE))))
     } else if (blk$ok && !is.na(expr)) {
       if (kind %in% c("n", "sign") && is_backref(expr)) {
         # a back-reference is an id, not R (1.7.6, 5.3.5)

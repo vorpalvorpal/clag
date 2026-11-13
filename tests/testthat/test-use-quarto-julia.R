@@ -43,7 +43,10 @@ ujl_says <- function(dir) {
 }
 ujl_n <- function(x, text) sum(grepl(text, x, fixed = TRUE))
 
-E62_TEXT <- "Install the Julia package: using Pkg; Pkg.add(url = \"https://github.com/vorpalvorpal/weft\", subdir = \"inst/julia/Weft\")"
+E62_TEXT <- paste0("Install the Julia package: using Pkg; Pkg.add(url = \"https://github.com/vorpalvorpal/weft\", subdir = \"inst/julia/Weft\"). ",
+                   "Quarto's Julia worker does not read JULIA_LOAD_PATH from the shell, so tell it where the package is in _quarto.yml: ",
+                   "julia: {env: [\"JULIA_LOAD_PATH=<the folder that holds the Weft package>:\"]}, that is a julia: key with an env: list ",
+                   "holding JULIA_LOAD_PATH=, a folder and a trailing colon.")
 E61_TEXT <- "Install the Python package in the Python Quarto uses: pip install \"git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python\""
 
 test_that("N74: use_quarto() prints E62 for a project with a julia-engine document, whichever way the engine is chosen", {

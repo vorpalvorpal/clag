@@ -47,6 +47,21 @@ values_keys <- function(text) {
   names(x$values) %||% character()
 }
 
+# TRUE when `p` lies inside `root`, by its text with `.` and `..` folded (the file need not exist).
+path_inside <- function(p, root) {
+  fold <- function(x) {
+    parts <- strsplit(gsub("\\", "/", x, fixed = TRUE), "/", fixed = TRUE)[[1L]]
+    out <- character()
+    for (q in parts[nzchar(parts) & parts != "."]) {
+      if (q == "..") out <- out[-length(out)] else out <- c(out, q)
+    }
+    out
+  }
+  r <- fold(root)
+  f <- fold(p)
+  length(f) > length(r) && identical(f[seq_along(r)], r)
+}
+
 # What a text publishes or runs, for the search of N144: the code of its executed chunks, the keys of its
 # hand-written blocks and of the values files they read, and the same of the files it includes (at most 8
 # deep).
@@ -60,7 +75,8 @@ named_sources <- function(lines, chunks, dir, root, depth = 0L) {
     f <- regmatches(b$attrs[1L], regexec("file[ \t]*=[ \t]*\"([^\"]*)\"", b$attrs[1L]))[[1L]]
     if (length(f)) {
       p <- if (startsWith(f[2L], "/")) file.path(root, substring(f[2L], 2L)) else file.path(dir, f[2L])
-      txt <- tryCatch(read_source_text_or_null(p), error = function(e) NULL)
+      # the filter refuses a values file outside the project root (E32): so does the lint
+      txt <- if (path_inside(p, root)) tryCatch(read_source_text_or_null(p), error = function(e) NULL)
       if (!is.null(txt)) out$keys <- c(out$keys, values_keys(txt))
     } else {
       out$keys <- c(out$keys, values_keys(paste(b$body, collapse = "\n")))
@@ -134,6 +150,17 @@ code_calls <- function(code, re) {
   any(grepl(re, code, perl = TRUE))
 }
 
+# The names of `names` that a Python cell assigns at the start of a line (`n = 1`, `n += 1`, `n: int = 1`).
+assigned_names <- function(code, names) {
+  code <- code[!grepl("^[ \t]*#", code)]
+  if (!length(names) || !length(code)) return(character())
+  hit <- vapply(names, function(x) {
+    grepl(paste0("^[ \t]*", gsub(".", "\\.", x, fixed = TRUE),
+                 "[ \t]*(?::[^=]*)?(?:\\*\\*|//|>>|<<|[-+*/%@&|^])?=(?!=)"), code, perl = TRUE)
+  }, logical(length(code)))
+  names[colSums(matrix(hit, nrow = length(code))) > 0L]
+}
+
 lint_publish_hidden <- function(src, ctx) {
   ch <- src$chunks
   if (!nrow(ch)) return(new_findings())
@@ -141,6 +168,10 @@ lint_publish_hidden <- function(src, ctx) {
   cand <- which(eng %in% c("python", "julia") & ch$eval %in% TRUE)
   if (!length(cand) || dl_knitr_doc(src)) return(new_findings())
   out <- list()
+  # a document that calls auto() in an executed Python chunk, and the names its prose uses (from the rows
+  # the scanner already holds); both are looked up only when a hidden Python chunk is met
+  auto_doc <- NULL
+  used <- NULL
   for (k in cand) {
     opt <- hidden_option(ch$options[[k]])
     if (is.null(opt)) next
@@ -154,6 +185,23 @@ lint_publish_hidden <- function(src, ctx) {
                        "that shows its output, with echo: false if the code should not show (rule 5.12.2)."),
                 ch$label[k], opt),
         "Use echo: false to hide the code, not include: false or output: false.", context = "chunk")
+    }
+    if (identical(eng[k], "python") && !code_calls(code, PUT_RE[["python"]])) {
+      if (is.null(auto_doc)) {
+        py <- cand[eng[cand] == "python"]
+        auto_doc <- any(vapply(py, function(j) code_calls(ch$code[[j]], AUTO_RE), NA))
+        used <- if (auto_doc) unique(named_uses(src$rows)$name) else character()
+      }
+      hit <- if (auto_doc) assigned_names(code, used) else character()
+      if (length(hit)) {
+        out[[length(out) + 1L]] <- finding_at(
+          src, s, e, "publish-hidden", ch$label[k],
+          sprintf(paste0("chunk `%s` has %s and assigns `%s`, which the text uses; auto() publishes a name when it ",
+                         "changes, but a hidden cell's output is dropped, so the text keeps the value from an ",
+                         "earlier cell (rule 5.12.2)."), ch$label[k], opt, hit[1L]),
+          "Assign the name in a chunk that shows its output, with echo: false if the code should not show.",
+          context = "chunk")
+      }
     }
     if (identical(eng[k], "python") && code_calls(code, AUTO_RE)) {
       out[[length(out) + 1L]] <- finding_at(
