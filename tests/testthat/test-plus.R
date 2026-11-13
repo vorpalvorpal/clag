@@ -66,7 +66,7 @@ test_that("N4: a negative number prints the minus setting, unchanged", {
   expect_equal(p7_txt(fmt_num(-1.25, plus = TRUE)), paste0(P7_MINUS, "1.3"))
   expect_equal(p7_txt(fmt_pct(-0.12, plus = TRUE)), paste0(P7_MINUS, "12%"))
   expect_equal(p7_txt(fmt_num(-1.25)), paste0(P7_MINUS, "1.3"))   # control
-  g2_cfg("minus: \"-\"")
+  p7_cfg("minus: \"-\"")
   expect_equal(p7_txt(fmt_num(-1.25, plus = TRUE)), "-1.3")
   expect_equal(p7_txt(fmt_num(1.25, plus = TRUE)), "+1.3")
 })
@@ -81,7 +81,7 @@ test_that("N5: after a clamp() relation, the plus takes the minus's place", {
 })
 
 test_that("N5: after a unit written before its number and its space", {
-  g2_cfg(c("units:", "  zzgbd:", "    is: base", "    before: true", "    symbol: \"$\"",
+  p7_cfg(c("units:", "  zzgbd:", "    is: base", "    before: true", "    symbol: \"$\"",
            "    space: false", "    name: dollar"))
   expect_equal(p7_txt(fmt_num(u(5, zzgbd), plus = TRUE)), "$+5")
   expect_equal(p7_txt(fmt_num(u(-5, zzgbd), plus = TRUE)), paste0("$", P7_MINUS, "5"))
@@ -175,7 +175,7 @@ test_that("E1: the scanner finds .plus with a conflicting class from the source"
 })
 
 test_that("E1: a project formatter of the number stage is a construct error", {
-  g2_cfg(c("formatters:", "  .compact:", "    function: base::round", "    stage: number"))
+  p7_cfg(c("formatters:", "  .compact:", "    function: base::round", "    stage: number"))
   e <- tryCatch(weft:::apply_formatters(3, c(".compact", ".plus")), error = function(e) e)
   expect_s3_class(e, "weft_construct_error")
   expect_equal(conditionMessage(e), E1(".compact"))
@@ -184,7 +184,7 @@ test_that("E1: a project formatter of the number stage is a construct error", {
 })
 
 test_that("E1: a project formatter of the text stage is allowed (control: it is not the number stage)", {
-  g2_cfg(c("formatters:", "  .shout:", "    function: base::toupper", "    stage: text"))
+  p7_cfg(c("formatters:", "  .shout:", "    function: base::toupper", "    stage: text"))
   expect_equal(p7_app(1.25, c(".num", ".plus", ".shout")), "+1.3")
 })
 
@@ -236,7 +236,7 @@ test_that("E3: plus must be TRUE or FALSE (weft_construct_error)", {
 # ---- N10: no setting --------------------------------------------------------
 
 test_that("N10: a project cannot make .plus the default (control)", {
-  suppressWarnings(g2_cfg("plus: true"))
+  suppressWarnings(p7_cfg("plus: true"))
   expect_equal(p7_txt(fmt_num(1.25)), "1.3")
   expect_equal(p7_txt(fmt_pct(0.12)), "12%")
 })
@@ -367,7 +367,8 @@ test_that("F1 knit: .plus in a document prints N2 to N7", {
 test_that("F1 knit: the printed-as-zero check of N3 is recorded once", {
   res <- p7_knit(c("A `r 0.04`{.num .plus} B."))
   expect_equal(res$text, "A 0.0 B.")
-  expect_length(d2_of_class(res, "weft_zero_warning"), 1L)
+  # the knit reports its warned checks in one message, not as a condition each
+  expect_equal(sum(grepl("^weft: 1 warned check", d2_msgs(res$conds))), 1L)
 })
 
 test_that("E1 knit: .plus with .sci stops the render with E1's text", {

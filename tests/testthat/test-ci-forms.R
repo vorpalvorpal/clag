@@ -53,7 +53,7 @@ test_that("N12: pct prints every number as .pct prints it; digits and sigfig act
 })
 
 test_that("N12: pct with pct_proportion false takes the numbers as percentages already", {
-  g2_cfg("pct_proportion: false")
+  p7_cfg("pct_proportion: false")
   expect_equal(p7_txt(ci(12, 8, 16, pct = TRUE)), "12% (95% CI 8% to 16%)")
   expect_equal(p7_txt(ci(3.1, 1.2, 5.2, pct = TRUE, plus = TRUE, short = TRUE)),
                "+3.1% (+1.2% to +5.2%)")
@@ -89,20 +89,20 @@ test_that("N12: the checks on lo, hi and est are on the raw numbers, as now", {
 
 test_that("N12: short = NULL takes the setting ci_short (default false)", {
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9, short = NULL)), "2.1 (95% CI 1.3 to 2.9)")
-  g2_cfg("ci_short: true")
+  p7_cfg("ci_short: true")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9)), "2.1 (1.3 to 2.9)")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9, short = NULL)), "2.1 (1.3 to 2.9)")
   expect_equal(p7_txt(ci(0.12, 0.08, 0.16, pct = TRUE, plus = TRUE)), "+12% (+8% to +16%)")
 })
 
 test_that("N12: short = FALSE beats ci_short: true", {
-  g2_cfg("ci_short: true")
+  p7_cfg("ci_short: true")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9, short = FALSE)), "2.1 (95% CI 1.3 to 2.9)")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9, level = 0.9, short = FALSE)), "2.1 (90% CI 1.3 to 2.9)")
 })
 
 test_that("N12: ci_short: false is the default behaviour (control)", {
-  g2_cfg("ci_short: false")
+  p7_cfg("ci_short: false")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9)), "2.1 (95% CI 1.3 to 2.9)")
 })
 
@@ -118,7 +118,7 @@ test_that("E4: short with a level given in the call is a value error", {
 })
 
 test_that("E4: the same under ci_short: true, with short left to the setting", {
-  g2_cfg("ci_short: true")
+  p7_cfg("ci_short: true")
   e <- tryCatch(ci(1, 0, 2, level = 0.9), error = function(e) e)
   expect_s3_class(e, "weft_value_error")
   expect_equal(conditionMessage(e), E4("0.9"))
@@ -130,10 +130,10 @@ test_that("E4: a level given with short = FALSE, or with short left at its defau
 })
 
 test_that("E4: the setting ci_level with the short form is not an error", {
-  g2_cfg("ci_level: 0.9")
+  p7_cfg("ci_level: 0.9")
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9)), "2.1 (90% CI 1.3 to 2.9)")             # control
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9, short = TRUE)), "2.1 (1.3 to 2.9)")
-  g2_cfg(c("ci_level: 0.9", "ci_short: true"))
+  p7_cfg(c("ci_level: 0.9", "ci_short: true"))
   expect_equal(p7_txt(ci(2.1, 1.3, 2.9)), "2.1 (1.3 to 2.9)")
 })
 

@@ -196,14 +196,20 @@ Effects were small (`r fit$p`{.p label=""}).
   the error of today.)
 - **N21. With `digits` d** (the key, else the setting `p_digits`): a value
   below 10^-d prints "p < 0.0…01" with d decimals (relation `<`, number
-  10^-d); a value above 1 − 10^-d prints "p > 0.9…9" (relation `>`, number
-  1 − 10^-d); any other value is rounded half away from zero to d decimals
+  10^-d); a value that rounds to 1 at d decimals (1 − 0.5 × 10^-d and above)
+  prints "p > 0.9…9" (relation `>`, number 1 − 10^-d); any other value is rounded half away from zero to d decimals
   and printed with exactly d decimals (relation `=`).
   - d = 3: `0` "p < 0.001"; `0.0004` "p < 0.001"; `0.001` "p = 0.001";
     `0.046` "p = 0.046"; `0.12` "p = 0.120"; `0.9994` "p = 0.999";
     `0.9996` "p > 0.999"; `1` "p > 0.999".
   - d = 2: `0.004` "p < 0.01"; `0.046` "p = 0.05"; `0.995` "p > 0.99".
   - d = 4: `0.00004` "p < 0.0001"; `0.05` "p = 0.0500".
+  - Settled when 7a was built (14 Nov): the lower bound is judged on the raw
+    value and the upper on the rounded one, as the examples have it
+    (`0.9994` is above 0.999 and prints "="; `0.0006` prints "<", not
+    "p = 0.001"). Both printed statements are true of the value. The
+    alternative, rounding first at both ends, would print "p = 0.001" for
+    0.0006.
 - **N22. Without** `digits` or `p_digits`, 1.4.17 is unchanged.
 - **N23. `label`** sets the text before the relation; its default is the
   setting `p_label`, whose default is `p`. `label="q"` prints "q = 0.046"

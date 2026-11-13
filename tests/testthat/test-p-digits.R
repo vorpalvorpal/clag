@@ -148,7 +148,7 @@ test_that("N23: digits and label together", {
 })
 
 test_that("N21/N23: the decimal mark applies to the digits and keeps the label", {
-  g2_cfg(c("decimal_mark: \",\"", "big_mark: \".\""))
+  p7_cfg(c("decimal_mark: \",\"", "big_mark: \".\""))
   expect_equal(p7_txt(fmt_p(0.046, digits = 3)), "p = 0,046")
   expect_equal(p7_txt(fmt_p(0.0004, digits = 3)), "p < 0,001")
   expect_equal(p7_txt(fmt_p(0.12, digits = 3, label = "")), "0,120")
@@ -268,7 +268,7 @@ test_that("N24: a code span whose only attribute is label is not a named value a
 # ---- N25: settings ----------------------------------------------------------
 
 test_that("N25: p_digits from the settings", {
-  g2_cfg("p_digits: 3")
+  p7_cfg("p_digits: 3")
   expect_equal(p7_txt(fmt_p(0.12)), "p = 0.120")
   expect_equal(p7_txt(fmt_p(0.0004)), "p < 0.001")
   expect_equal(p7_txt(fmt_p(0.9996)), "p > 0.999")
@@ -277,45 +277,45 @@ test_that("N25: p_digits from the settings", {
 })
 
 test_that("N25: a digits key (or argument) beats p_digits", {
-  g2_cfg("p_digits: 3")
+  p7_cfg("p_digits: 3")
   expect_equal(p7_txt(fmt_p(0.12, digits = 2)), "p = 0.12")
   expect_equal(p7_app(0.12, ".p", list(digits = "2")), "p = 0.12")
   expect_equal(p7_app(0.046, ".p", list(digits = "4")), "p = 0.0460")
 })
 
 test_that("N25: p_digits null is the rule of 1.4.17", {
-  g2_cfg("p_digits: null")
+  p7_cfg("p_digits: null")
   expect_equal(p7_txt(fmt_p(0.12)), "p = 0.12")
   expect_equal(p7_txt(fmt_p(0.0004)), "p < 0.001")
 })
 
 test_that("N25: p_label from the settings, and an empty one", {
-  g2_cfg("p_label: q")
+  p7_cfg("p_label: q")
   expect_equal(p7_txt(fmt_p(0.046)), "q = 0.046")
   expect_equal(p7_app(0.0004, ".p"), "q < 0.001")
-  g2_cfg("p_label: \"\"")
+  p7_cfg("p_label: \"\"")
   expect_equal(p7_txt(fmt_p(0.046)), "0.046")
   expect_equal(p7_app(0.995, ".p"), "> 0.99")
 })
 
 test_that("N25: a label key (or argument) beats p_label, an empty key too", {
-  g2_cfg("p_label: q")
+  p7_cfg("p_label: q")
   expect_equal(p7_txt(fmt_p(0.046, label = "p")), "p = 0.046")
   expect_equal(p7_app(0.046, ".p", list(label = "r")), "r = 0.046")
   expect_equal(p7_txt(fmt_p(0.046, label = "")), "0.046")
   expect_equal(p7_app(0.046, ".p", list(label = "")), "0.046")
-  g2_cfg("p_label: \"\"")
+  p7_cfg("p_label: \"\"")
   expect_equal(p7_txt(fmt_p(0.046, label = "p")), "p = 0.046")
 })
 
 test_that("N25: both settings together, and keys beating each", {
-  g2_cfg(c("p_digits: 3", "p_label: q"))
+  p7_cfg(c("p_digits: 3", "p_label: q"))
   expect_equal(p7_txt(fmt_p(0.12)), "q = 0.120")
   expect_equal(p7_txt(fmt_p(0.12, digits = 2, label = "p")), "p = 0.12")
 })
 
 test_that("N22/N25: the default setting for p_label is p (control)", {
-  g2_cfg(NULL)
+  p7_cfg(NULL)
   expect_equal(p7_txt(fmt_p(0.046)), "p = 0.046")
 })
 

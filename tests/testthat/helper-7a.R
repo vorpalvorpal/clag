@@ -69,3 +69,15 @@ p7_knit <- function(lines, yml = character(), may_fail = FALSE) {
 p7_err_msg <- function(expr) {
   tryCatch({ expr; "" }, error = function(e) conditionMessage(e))
 }
+
+# g2_cfg() reads a configuration but only the knit hook installs one, so a
+# direct call of a formatter would never see the settings. p7_cfg() installs
+# what it read for the calling test and puts the earlier one back at its end.
+p7_cfg <- function(yml = NULL, front = list(), env = parent.frame()) {
+  cfg <- g2_cfg(yml, front = front, env = env)
+  we <- weft:::weft_env
+  old <- we$config
+  we$config <- cfg
+  withr::defer(we$config <- old, envir = env)
+  invisible(cfg)
+}

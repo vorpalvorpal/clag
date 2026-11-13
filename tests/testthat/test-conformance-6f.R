@@ -94,7 +94,7 @@ test_that("6f: a row's keys use only the conventions: render keys, cfg.NAME and 
     for (k in d$keys[nzchar(d$keys)]) {
       for (p in strsplit(k, " ", fixed = TRUE)[[1]]) {
         nm <- sub("=.*$", "", p)
-        expect_true(nm %in% c("digits", "sigfig", "sep", "last", "trunc", "none", "span") ||
+        expect_true(nm %in% c("digits", "sigfig", "sep", "last", "trunc", "none", "span", "label") ||
                       startsWith(nm, "cfg."), info = paste(s, p))
         expect_false(grepl("%[^2]|%2[^05]", p), info = paste(s, "only %20 and %25 are escapes:", p))
       }
