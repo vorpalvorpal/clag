@@ -95,6 +95,16 @@ split_cells <- function(x) {
 # every XML file of the database, a copy kept in the user's cache directory serves the
 # next session unless the option `weft.units_cache` is FALSE. A changed database, or a cache that cannot be read or written, is a read
 # of the XML as before.
+# Whether a cached copy has the columns, as text, that ud_db() and tok_resolve_db() read.
+ud_tables_shape_ok <- function(x) {
+  v_cols <- c("symbol", "symbol_aliases", "name_singular", "name_singular_aliases",
+              "name_plural", "name_plural_aliases", "def")
+  pf_cols <- c("symbol", "symbol_aliases", "name", "value")
+  is.data.frame(x$v) && is.data.frame(x$pf) &&
+    all(v_cols %in% names(x$v)) && all(vapply(x$v[v_cols], is.character, NA)) &&
+    all(pf_cols %in% names(x$pf))
+}
+
 ud_tables <- function() {
   key <- ud_tables_key()
   if (!is.null(un_cache$tables) && identical(un_cache$tables_key, key)) return(un_cache$tables)
@@ -107,7 +117,7 @@ ud_tables <- function() {
       f <- ud_tables_file(key)
       if (file.exists(f)) {
         x <- readRDS(f)
-        if (is.list(x) && identical(x$key, key) && is.data.frame(x$v) && is.data.frame(x$pf)) x else NULL
+        if (is.list(x) && identical(x$key, key) && ud_tables_shape_ok(x)) x else NULL
       }
     }, error = function(e) NULL, warning = function(w) NULL)
   }
