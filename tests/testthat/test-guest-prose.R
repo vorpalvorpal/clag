@@ -307,8 +307,11 @@ test_that("G4 + G8: py_value() is on the search path in a knit and reads in R ch
 
 test_that("G8: py_value() of 2**53 + 1 in R chunk code stops the chunk with the message", {
   res <- k5(c("```{r}", "x <- py_value(\"t_g5_b53\")", "```", "", "After."), py = PY_MAIN)
-  expect_true(res$failed)
-  expect_true(grepl(m1("`py_value(\"t_g5_b53\")`", "9007199254740993"), res$message, fixed = TRUE))
+  # knitr::knit() alone keeps going after a chunk error and prints it (rmarkdown::render() would stop), so
+  # the message is looked for in the failure message or in the chunk's printed error, white space squashed
+  seen <- gsub("\\s+", " ", gsub("\n## ?", " ", paste(c(res$message, res$text), collapse = "\n")))
+  expect_true(grepl(m1("`py_value(\"t_g5_b53\")`", "9007199254740993"), seen, fixed = TRUE))
+  expect_false(any(grepl("After 1", res$text, fixed = TRUE)))
 })
 
 # ---- G17a: other weft-evaluated places -------------------------------------------------------
@@ -327,7 +330,8 @@ test_that("G17a: a caption construct on an R chunk reads Python values by G9", {
   expect_false(any(grepl("Big 1 m.", res$text, fixed = TRUE)))
   f <- res$failures
   expect_true(any(f$kind == "value error"))
-  expect_true(any(vapply(f$detail, function(d) identical(msg5(d), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
+  expect_true(any(vapply(f$detail, function(d) # a failure in a chunk option names the option first ("fig.cap: ..."), as every such failure does
+    identical(sub("^fig\\.cap: ", "", msg5(d)), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
 })
 
 test_that("G17a: weft_str() in an R chunk reads Python values by G9 and collects its failures", {
@@ -343,7 +347,8 @@ test_that("G17a: weft_str() in an R chunk reads Python values by G9 and collects
   expect_true("WSD: 3.1 m" %in% res$text)
   expect_false(any(grepl("^WSB: 1 m", res$text)))
   expect_true(any(vapply(res$failures$detail,
-                         function(d) identical(msg5(d), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
+                         function(d) # a failure in a chunk option names the option first ("fig.cap: ..."), as every such failure does
+    identical(sub("^fig\\.cap: ", "", msg5(d)), m1("`py$t_g5_b53`", "9007199254740993")), NA)))
 })
 
 test_that("G17a: outside a knit weft_str() stops at once with the value error", {

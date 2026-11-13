@@ -497,7 +497,8 @@ test_that("G16: a refused read leaves no pending Python error", {
 
 test_that("G16: a read assigns no name in Python's main module", {
   skip_if_no_python()
-  py_set(t_g5_st = "{'a': [1, 2]}", t_g5_st2 = "[1, 'a']")
+  # a mapping of scalars: one that holds a list is refused (M4), and this test is about names, not kinds
+  py_set(t_g5_st = "{'a': 1, 'b': 2}", t_g5_st2 = "[1, 'a']")
   before <- reticulate::py_eval("sorted(globals().keys())")
   invisible(py_value("t_g5_st"))
   invisible(py_value("t_g5_st", "a"))

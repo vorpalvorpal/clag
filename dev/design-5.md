@@ -1731,3 +1731,24 @@ unguarded form is silently wrong; `jl_value("x")` for Julia, because
 no such habit exists and JuliaCall's own failures are loud. Package 5e
 builds the Julia lint texts J23 to J25 in place of what G34, G37 and
 G38 said of Julia.
+
+## 5b as built, and three test disputes ruled (orchestrator, 13 Nov)
+
+5b is on `main`. The three tests the implementer left failing were
+test faults, amended by the orchestrator:
+
+- G16 used a mapping holding a list as its fixture, which M4 refuses.
+  The test is about names, so the fixture is now a mapping of scalars.
+- G8 in R chunk code expected the knit to fail. `knitr::knit()` alone
+  prints a chunk error and goes on; `rmarkdown::render()` stops. The
+  test now looks for the message in either place.
+- G17a compared a caption failure's detail without the `fig.cap: `
+  prefix that every chunk-option failure carries.
+
+As built, beyond the note: a refusal found on one element of a list
+says "Element N of `py$xs` is ..."; M1 and M2 on an element name the
+read and show the digits, with no index. `py_value(nm)` with a
+non-literal argument reads the name `nm` evaluates to, and messages
+show the evaluated call. Before starting Python, weft sets
+`RETICULATE_USE_MANAGED_VENV=no` for that call only when it is unset,
+so reticulate does not create an environment of its own.
