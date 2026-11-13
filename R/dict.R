@@ -211,6 +211,14 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   if (length(raw) && !is.null(tk) && nrow(tk) == length(raw)) {
     names(raw) <- tk$key
     key_line <- tk$line + offset
+  } else if (length(raw) && any(grepl("^weft_k[0-9]+$", names(raw)))) {
+    # a key YAML reads but the key pattern does not (a tag, or `? `): the stand-in
+    # names would reach the caller
+    odd <- setdiff(names(raw)[!grepl("^weft_k[0-9]+$", names(raw))], tk$key)
+    prob(paste0("a top-level key is written in a form weft does not read (a tag, or `? `)",
+                if (length(odd)) paste0(": ", paste0("`", odd, "`", collapse = ", ")) else "",
+                "; write it as `key:`"), "4.2.1")
+    raw <- list()
   }
   keys <- names(raw) %||% character()
   repeated <- duplicated(keys)
