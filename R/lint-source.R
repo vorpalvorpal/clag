@@ -957,7 +957,9 @@ read_source <- function(path, root, cfg) {
     inchunk <- ci > 0L & rows$line <= chunks$close[pmax(ci, 1L)]
     eng_r <- ifelse(inchunk, tolower(chunks$engine[pmax(ci, 1L)]) == "r", TRUE)
     ev <- ifelse(inchunk, chunks$eval[pmax(ci, 1L)], TRUE)
-    drop <- (rows$context == "weft_str" & (!eng_r | !ev)) | (rows$context == "caption" & !eng_r)
+    # a caption construct on another engine's chunk is kept when it carries its error (2.3.5, rule 5.11)
+    drop <- (rows$context == "weft_str" & (!eng_r | !ev)) |
+      (rows$context == "caption" & !eng_r & is.na(rows$error))
     if (any(drop)) {
       newidx <- cumsum(!drop)
       rows <- rows[!drop, , drop = FALSE]

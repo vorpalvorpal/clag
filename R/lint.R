@@ -58,7 +58,11 @@ lint_rule_table_build <- function() {
     r("config-place", "5.8.8", 1, "project", "A project setting in a place that is not the project's."),
     r("engine", "5.8.9", 1, "project", "A document with constructs that is not knitr's."),
     r("figure", "5.9.1", 1, "file", "A figure with no label, caption or alt text."),
-    r("table-caption", "5.9.1", 1, "file", "A table with no caption.")))
+    r("table-caption", "5.9.1", 1, "file", "A table with no caption."),
+    r("guest-inline", "5.11.1", 1, "file", "Inline code in another language, which knitr does not run."),
+    r("guest-call", "5.11.2", 1, "file", "A weft function called from Python through `r.`."),
+    r("guest-read", "5.11.3", 2, "file", "A value read from Python or Julia that weft does not check."),
+    r("ojs-value", "5.11.4", 2, "file", "An Observable value computed in the reader's browser.")))
 }
 
 #' The static lints
@@ -111,7 +115,11 @@ lint_rule_funs <- function() {
     `config-place` = lint_config_place,
     `engine` = lint_engine,
     `figure` = lint_figure,
-    `table-caption` = lint_table_caption
+    `table-caption` = lint_table_caption,
+    `guest-inline` = lint_guest_inline,
+    `guest-call` = lint_guest_call,
+    `guest-read` = lint_guest_read,
+    `ojs-value` = lint_ojs_value
   )
 }
 

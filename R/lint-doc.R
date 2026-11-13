@@ -833,13 +833,254 @@ lint_engine <- function(ctx) {
     if (is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
+    m <- engine_message(f, src)
     out[[length(out) + 1L]] <- new_findings(
       file = f, line = 1L, col = 1L, end_line = 1L, rule = "engine", context = "project", text = f,
-      message = sprintf("%s holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).", f),
-      hint = "Add `engine: knitr` to its front matter.")
+      message = m$message, hint = m$hint)
   }
   bind_findings(out)
 }
+
+# The message and hint of the `engine` lint, by case (rule 5.8.9): 1, another engine named in the front
+# matter; 2, Python chunks and no executed R chunk; 3, Julia chunks and no executed R chunk; 4, the rest.
+engine_message <- function(f, src) {
+  front <- src$front
+  key <- function(nm) {
+    v <- front[[nm]]
+    if (is.character(v) && length(v) == 1L) paste0(nm, ": ", v) else nm
+  }
+  marked <- if (!is.null(front$engine)) key("engine") else if (!is.null(front$jupyter)) key("jupyter") else NULL
+  if (!is.null(marked)) {
+    julia <- identical(marked, "engine: julia")
+    lang <- if (julia) "Julia" else "Python"
+    how <- if (julia) "`r jl_value(\"x\")`" else "`r py$x`"
+    tool <- if (julia) "JuliaCall" else "reticulate"
+    return(list(
+      message = sprintf(paste0("%s holds weft constructs and is marked `%s`; weft constructs are evaluated only ",
+                               "under `engine: knitr` (rule 5.8.9)."), f, marked),
+      hint = sprintf("Change it to `engine: knitr`. %s chunks then run through %s, and a %s value reaches prose as %s.",
+                     lang, tool, lang, how)))
+  }
+  ch <- src$chunks
+  eng <- tolower(ch$engine)
+  has_r <- any(eng == "r" & !isFALSE_vec(ch$eval))
+  if (!has_r && any(eng == "python")) {
+    return(list(
+      message = sprintf(paste0("%s holds weft constructs and Python chunks but is not marked `engine: knitr`, so ",
+                               "Quarto would run it with Jupyter, which does not evaluate weft constructs ",
+                               "(rule 5.8.9)."), f),
+      hint = paste0("Add `engine: knitr` to its front matter. Python chunks then run through reticulate, and a ",
+                    "Python value reaches prose as `r py$x`.")))
+  }
+  if (!has_r && any(eng == "julia")) {
+    return(list(
+      message = sprintf(paste0("%s holds weft constructs and Julia chunks but is not marked `engine: knitr`, so ",
+                               "Quarto would run it with its julia engine, which does not evaluate weft constructs ",
+                               "(rule 5.8.9)."), f),
+      hint = paste0("Add `engine: knitr` to its front matter. Julia chunks then run through JuliaCall, and a Julia ",
+                    "value reaches prose as `r jl_value(\"x\")`.")))
+  }
+  list(
+    message = sprintf("%s holds weft constructs but is not marked `engine: knitr` and no document includes it (rule 5.8.9).", f),
+    hint = "Add `engine: knitr` to its front matter.")
+}
+
+# ---- guest languages (5.11.1, 5.11.2) and Observable (5.11.4) ---------------------------------------------
+
+# Does knitr knit this document: an .Rmd; a .qmd marked `engine: knitr`, or with an executed {r} chunk and no
+# `engine:` or `jupyter:` key.
+dl_knitr_doc <- function(src) {
+  if (is_rmd(src)) return(TRUE)
+  eng <- src$front$engine
+  if (!is.null(eng)) return(is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr"))
+  if (!is.null(src$front$jupyter)) return(FALSE)
+  ch <- src$chunks
+  any(tolower(ch$engine) == "r" & !isFALSE_vec(ch$eval))
+}
+
+# The code spans of the prose that are not inside a .weft-literal span or div: start, end, text as written
+# and the code between the backticks.
+dl_prose_code_spans <- function(src) {
+  rg <- src$regions
+  cd <- rg[rg$type == "code", , drop = FALSE]
+  if (!nrow(cd)) return(data.frame(start = numeric(), end = numeric(), text = character(), inner = character(),
+                                   stringsAsFactors = FALSE))
+  lit <- rg[rg$type == "literal" | (rg$type == "div" & grepl("weft-literal", rg$name, fixed = TRUE)), , drop = FALSE]
+  if (nrow(lit)) {
+    inside <- vapply(seq_len(nrow(cd)), function(i) any(lit$start <= cd$start[i] & lit$end >= cd$end[i]), NA)
+    cd <- cd[!inside, , drop = FALSE]
+  }
+  txt <- if (nrow(cd)) src_substr(src, cd$start, cd$end) else character()
+  data.frame(start = cd$start, end = cd$end, text = txt, inner = gsub("^`+|`+$", "", txt),
+             stringsAsFactors = FALSE)
+}
+
+lint_guest_inline <- function(src, ctx) {
+  if (!dl_knitr_doc(src)) return(dl_empty())
+  cs <- dl_prose_code_spans(src)
+  m <- regmatches(cs$inner, regexec("^\\{([A-Za-z][A-Za-z0-9_]*)\\} ", cs$inner))
+  lang <- vapply(m, function(x) if (length(x)) x[2L] else NA_character_, "")
+  ok <- !is.na(lang) & !(lang %in% c("r", "R", "ojs"))
+  if (!any(ok)) return(dl_empty())
+  cs <- cs[ok, , drop = FALSE]
+  lang <- lang[ok]
+  code <- dl_trim(cs$inner)
+  msg <- vapply(seq_along(lang), function(i) {
+    switch(tolower(lang[i]),
+      python = sprintf(paste0("`%s` is inline Python, which the knitr engine does not run: it would print as code. ",
+                              "Bind the value to a name in a Python chunk and write `r py$name` (rule 5.11.1)."), code[i]),
+      julia = sprintf(paste0("`%s` is inline Julia, which the knitr engine does not run: it would print as code. ",
+                             "Bind the value to a name in a Julia chunk and write `r jl_value(\"name\")` (rule 5.11.1)."),
+                      code[i]),
+      sprintf("`%s` is inline %s code, which the knitr engine does not run: it would print as code (rule 5.11.1).",
+              code[i], lang[i]))
+  }, "")
+  finding_at(src, cs$start, cs$end, "guest-inline", cs$text, msg,
+             "A value from another language reaches prose through R; see vignette(\"languages\", package = \"weft\").")
+}
+
+# the names of weft's Python module (G19), which `r.NAME(` would call through reticulate; `claim` is not there
+GUEST_PY_MODULE_NAMES <- c("fmt_num", "fmt_pct", "fmt_sci", "fmt_p", "fmt_date", "fmt_no", "fmt_word", "fmt_count",
+                           "fmt_ord", "fmt_and", "fmt_or", "fmt_pairs", "fmt_range", "fmt_ul", "fmt_ol", "fmt_dl",
+                           "fmt_a", "fmt_cap", "fmt_strong", "fmt_em", "plural", "ci", "pm", "about", "of_n",
+                           "weft_str", "claim")
+
+lint_guest_call <- function(src, ctx) {
+  ch <- src$chunks
+  re <- paste0("(?<![A-Za-z0-9_.])r\\.(", paste(GUEST_PY_MODULE_NAMES, collapse = "|"), ")\\(")
+  out <- list()
+  for (k in seq_len(nrow(ch))) {
+    if (!identical(tolower(ch$engine[k]), "python") || isFALSE(ch$eval[k])) next
+    code <- ch$code[[k]]
+    cl <- ch$code_line[k]
+    if (!length(code) || is.na(cl)) next
+    ln <- cl + seq_along(code) - 1L
+    if (max(ln) > length(src$lines)) next
+    for (i in which(!grepl("^[ \t]*#", code))) {
+      m <- gregexpr(re, code[i], perl = TRUE)[[1L]]
+      if (m[1L] < 0L) next
+      nm <- substring(code[i], m + 2L, m + attr(m, "match.length") - 2L)
+      for (j in seq_along(m)) {
+        s <- src$line_start[ln[i]] + m[j] - 1
+        msg <- if (identical(nm[j], "claim")) {
+          paste0("`claim()` cannot be called from Python: a check is written in R, in prose, ",
+                 "as `r claim(py$n, . > 10)` (rule 5.11.2).")
+        } else {
+          sprintf(paste0("`r.%s()` passes its arguments through reticulate, which can turn a Python int into a wrong ",
+                         "number with no error. Write `from weft import %s` and call `%s()` (rule 5.11.2)."),
+                  nm[j], nm[j], nm[j])
+        }
+        out[[length(out) + 1L]] <- finding_at(src, s, s + attr(m, "match.length")[j] - 1, "guest-call",
+                                              paste0("r.", nm[j], "("), msg)
+      }
+    }
+  }
+  bind_findings(out)
+}
+
+# Each `${` of a template literal tagged `md` or `html` in JavaScript text: a list of c(start, end) character
+# indexes of the whole `${...}`. A small scanner: strings, comments, nested templates and braces; not a parser.
+ojs_template_holes <- function(text) {
+  ch <- strsplit(text, "")[[1L]]
+  n <- length(ch)
+  holes <- list()
+  tag_before <- function(i) {
+    j <- i - 1L
+    while (j >= 1L && grepl("[A-Za-z0-9_$]", ch[j])) j <- j - 1L
+    if (j == i - 1L) "" else paste(ch[(j + 1L):(i - 1L)], collapse = "")
+  }
+  scan_code <- function(i, in_hole) {
+    depth <- 0L
+    while (i <= n) {
+      c <- ch[i]
+      nx <- if (i < n) ch[i + 1L] else ""
+      if (c == "/" && nx == "/") {
+        while (i <= n && ch[i] != "\n") i <- i + 1L
+      } else if (c == "/" && nx == "*") {
+        i <- i + 2L
+        while (i < n && !(ch[i] == "*" && ch[i + 1L] == "/")) i <- i + 1L
+        i <- i + 2L
+      } else if (c == "'" || c == "\"") {
+        i <- i + 1L
+        while (i <= n && ch[i] != c && ch[i] != "\n") i <- i + if (ch[i] == "\\") 2L else 1L
+        i <- i + 1L
+      } else if (c == "`") {
+        i <- scan_template(i, tag_before(i))
+      } else if (in_hole && c == "{") {
+        depth <- depth + 1L
+        i <- i + 1L
+      } else if (in_hole && c == "}") {
+        if (depth == 0L) return(i)
+        depth <- depth - 1L
+        i <- i + 1L
+      } else {
+        i <- i + 1L
+      }
+    }
+    n + 1L
+  }
+  scan_template <- function(i, tag) {
+    j <- i + 1L
+    while (j <= n) {
+      if (ch[j] == "\\") {
+        j <- j + 2L
+      } else if (ch[j] == "`") {
+        return(j + 1L)
+      } else if (ch[j] == "$" && j < n && ch[j + 1L] == "{") {
+        e <- scan_code(j + 2L, TRUE)
+        if (tag %in% c("md", "html")) holes[[length(holes) + 1L]] <<- c(j, min(e, n))
+        j <- e + 1L
+      } else {
+        j <- j + 1L
+      }
+    }
+    n + 1L
+  }
+  scan_code(1L, FALSE)
+  holes
+}
+
+lint_ojs_value <- function(src, ctx) {
+  if (is_rmd(src)) return(dl_empty())
+  out <- list()
+  cs <- dl_prose_code_spans(src)
+  ok <- grepl("^\\{ojs\\} ", cs$inner)
+  if (any(ok)) {
+    cs <- cs[ok, , drop = FALSE]
+    code <- dl_trim(cs$inner)
+    out[[1L]] <- finding_at(
+      src, cs$start, cs$end, "ojs-value", cs$text,
+      sprintf(paste0("`%s` is computed in the reader's browser after weft's checks have run, so weft cannot vouch ",
+                     "for it (rule 5.11.4)."), code), OJS_HINT)
+  }
+  ch <- src$chunks
+  for (k in seq_len(nrow(ch))) {
+    if (!identical(tolower(ch$engine[k]), "ojs")) next
+    code <- ch$code[[k]]
+    cl <- ch$code_line[k]
+    if (!length(code) || is.na(cl)) next
+    ln <- cl + seq_along(code) - 1L
+    if (max(ln) > length(src$lines)) next
+    holes <- ojs_template_holes(paste(code, collapse = "\n"))
+    if (!length(holes)) next
+    # the file offset of each character of the joined code
+    offs <- unlist(lapply(seq_along(code), function(i) {
+      c(src$line_start[ln[i]] + seq_len(nchar(code[i])) - 1, if (i < length(code)) src$line_start[ln[i]] + nchar(code[i]))
+    }))
+    txt <- paste(code, collapse = "\n")
+    for (h in holes) {
+      t <- substr(txt, h[1L], h[2L])
+      out[[length(out) + 1L]] <- finding_at(
+        src, offs[h[1L]], offs[h[2L]], "ojs-value", t,
+        sprintf(paste0("`%s` in an Observable template is computed in the reader's browser after weft's checks have ",
+                       "run, so weft cannot vouch for it (rule 5.11.4)."), t), OJS_HINT)
+    }
+  }
+  bind_findings(out)
+}
+
+OJS_HINT <- paste0("Compute the value when the document renders, in R or Python, and print it as a weft value; ",
+                   "or mark the text [...]{.weft-literal why=\"...\"}.")
 
 # ---- figures and tables (L35) ----------------------------------------------------------------------------
 

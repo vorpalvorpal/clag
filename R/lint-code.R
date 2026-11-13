@@ -1132,3 +1132,125 @@ lint_above_setup <- function(src, ctx) {
   }
   bind_findings(out)
 }
+
+# ---- guest-read (5.11.3) -----------------------------------------------------------------
+
+GUEST_RETICULATE_CALLS <- c("py_eval", "py_to_r", "py_get_attr", "py_call", "import_main")
+GUEST_JULIA_CALLS <- c("julia_eval", "julia_call")
+
+# Is node i the object `py` (or `reticulate::py`)?
+gr_is_py <- function(t, i) {
+  tk <- t$pd$token
+  if (tk[i] != "expr") return(FALSE)
+  k <- t$kids[[i]]
+  if (length(k) == 1L) return(tk[k] == "SYMBOL" && identical(t$pd$text[k], "py"))
+  length(k) == 3L && tk[k[1L]] == "SYMBOL_PACKAGE" && identical(t$pd$text[k[1L]], "reticulate") &&
+    tk[k[2L]] == "NS_GET" && tk[k[3L]] == "SYMBOL" && identical(t$pd$text[k[3L]], "py")
+}
+
+# The path of a read `py$a[["b"]]` as the strings py_value() takes: character() for `py` itself,
+# NULL when node i is no read of py.
+gr_read_path <- function(t, i) {
+  if (gr_is_py(t, i)) return(character())
+  tk <- t$pd$token
+  if (tk[i] != "expr") return(NULL)
+  k <- t$kids[[i]]
+  if (length(k) < 3L || tk[k[1L]] != "expr") return(NULL)
+  one <- NULL
+  if (length(k) == 3L && tk[k[2L]] == "'$'") {
+    n <- k[3L]
+    one <- if (tk[n] %in% c("SYMBOL", "SYMBOL_FUNCTION_CALL")) t$pd$text[n]
+           else if (tk[n] == "STR_CONST") str_value(t, n)
+  } else if (length(k) == 5L && tk[k[2L]] == "LBB" && tk[k[3L]] == "expr") {
+    sv <- str_value(t, k[3L])
+    one <- if (is.na(sv)) node_text(t, k[3L]) else sv
+  }
+  if (is.null(one) || is.na(one)) return(NULL)
+  base <- gr_read_path(t, k[1L])
+  if (is.null(base)) return(NULL)
+  c(base, one)
+}
+
+gr_quote_path <- function(path) paste0("\"", gsub("\"", "\\\\\"", path), "\"", collapse = ", ")
+
+# Is node i the target of an assignment?
+gr_is_target <- function(t, i) {
+  p <- t$par[i]
+  if (is.na(p)) return(FALSE)
+  pk <- t$kids[[p]]
+  if (length(pk) != 3L) return(FALSE)
+  op <- t$pd$token[pk[2L]]
+  (op %in% c("LEFT_ASSIGN", "EQ_ASSIGN") && pk[1L] == i) || (op == "RIGHT_ASSIGN" && pk[3L] == i)
+}
+
+# the reads of `py` in the code of an executed R chunk: the outermost of each chain, not an assignment's target
+gr_chunk_reads <- function(p) {
+  t <- p$tree
+  out <- list()
+  for (i in all_exprs(t)) {
+    path <- gr_read_path(t, i)
+    if (is.null(path) || !length(path)) next
+    par <- t$par[i]
+    if (!is.na(par) && t$kids[[par]][1L] == i && length(t$kids[[par]]) >= 3L &&
+        length(gr_read_path(t, par))) next
+    if (gr_is_target(t, i)) next
+    sp <- piece_span(p, i)
+    txt <- node_text(t, i)
+    out[[length(out) + 1L]] <- list(
+      s = sp[1L], e = sp[2L], text = txt, context = p$context, hint = NA_character_,
+      message = sprintf(paste0("`%s` in R code is converted by reticulate, which can turn a Python int into a wrong ",
+                               "number with no error. For a value that reaches prose, read it with py_value(%s) ",
+                               "(rule 5.11.3)."), txt, gr_quote_path(path)))
+  }
+  out
+}
+
+# the calls weft does not check in an expression it evaluates: the outermost of each nest
+gr_prose_calls <- function(p) {
+  t <- p$tree
+  tk <- t$pd$token
+  hits <- list()
+  for (i in all_exprs(t)) {
+    ci <- call_info(t, i)
+    pkg <- NULL
+    if (is_fn(ci, GUEST_RETICULATE_CALLS, "reticulate")) {
+      pkg <- "reticulate"
+    } else if (is_fn(ci, GUEST_JULIA_CALLS, "JuliaCall")) {
+      pkg <- "JuliaCall"
+    } else if (tk[i] == "expr") {
+      k <- t$kids[[i]]
+      if (length(k) >= 3L && tk[k[2L]] == "'('" && length(gr_read_path(t, k[1L]))) pkg <- "reticulate"
+    }
+    if (!is.null(pkg)) hits[[as.character(i)]] <- pkg
+  }
+  out <- list()
+  for (nm in names(hits)) {
+    i <- as.integer(nm)
+    a <- t$par[i]
+    nested <- FALSE
+    while (!is.na(a)) {
+      if (as.character(a) %in% names(hits)) { nested <- TRUE; break }
+      a <- t$par[a]
+    }
+    if (nested) next
+    sp <- piece_span(p, i)
+    txt <- node_text(t, i)
+    msg <- if (identical(hits[[nm]], "JuliaCall")) {
+      sprintf(paste0("`%s` is converted by JuliaCall, which stops on a whole number beyond ±2^31 and crashes R ",
+                     "on a Julia missing. Read a Julia value with jl_value() (rule 5.11.3)."), txt)
+    } else {
+      sprintf("`%s` is converted by reticulate, which weft does not check (rule 5.11.3).", txt)
+    }
+    out[[length(out) + 1L]] <- list(s = sp[1L], e = sp[2L], text = txt, context = p$context,
+                                    hint = NA_character_, message = msg)
+  }
+  out
+}
+
+lint_guest_read <- function(src, ctx) {
+  out <- list()
+  for (p in lc_pieces(src, c("chunk", "value", "bare", "n", "sign", "list", "if"))) {
+    out <- c(out, if (identical(p$kind, "chunk")) gr_chunk_reads(p) else gr_prose_calls(p))
+  }
+  lc_find_all(src, "guest-read", out)
+}
