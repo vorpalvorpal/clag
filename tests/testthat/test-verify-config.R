@@ -325,7 +325,7 @@ test_that("4c G32, H37: use_quarto() writes a _weft.yml with no version, so a pr
 })
 
 test_that("4c G32: use_weft() updates an existing version line in place, and the warning stops", {
-  skip_if_not("use_weft" %in% getNamespaceExports("weft"), "use_weft() is not built yet (package 4b)")
+  if (!expect_precondition("use_weft" %in% getNamespaceExports("weft"), "weft exports use_weft()")) return(invisible())
   v4_env()
   p <- v4_proj(list(`_quarto.yml` = U4_QUARTO_YML, "a.qmd" = V4_PLAIN_DOC),
                weft_yml = c("digits: 2", paste0("weft_version: ", v4_other_version()), "serial_comma: true"))

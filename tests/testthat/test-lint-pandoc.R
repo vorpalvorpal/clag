@@ -6,8 +6,7 @@
 # ---- pandoc_path(): the order and the version ---------------------------------------------------
 
 test_that("3b L15: pandoc_path() returns one string, empty when none is found", {
-  skip_if(!exists("pandoc_path", envir = asNamespace("weft"), inherits = FALSE),
-          "pandoc_path() not built yet")
+  if (!expect_built("pandoc_path")) return(invisible())
   p <- weft:::pandoc_path()
   expect_type(p, "character")
   expect_length(p, 1L)

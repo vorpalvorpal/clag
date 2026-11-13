@@ -667,7 +667,7 @@ ladder_line <- function(res, line) {
 test_that("2h L17: last_knit()$constructs has unit_picked: the rung printed, as written in the ladder; NA with no unit key", {
   res <- ladder_knit()$a
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the document did not render")
+  if (res$failed) return(invisible())
   cs <- res$knit$constructs
   expect_true("unit_picked" %in% names(cs))
   expect_equal(ladder_line(res, 1)$unit_picked, "km")
@@ -679,14 +679,14 @@ test_that("2h L17: last_knit()$constructs has unit_picked: the rung printed, as 
 
 test_that("2h L17: unit_picked is the rung as written, for a rung that is not the last", {
   res <- ladder_knit()$a
-  skip_if(res$failed, "the document did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(ladder_line(res, 13)$unit_picked, "m")                      # 0.04 m printed 0.0 in the first rung
 })
 
 test_that("2h 1.5.13: in a pipe-table cell \\| in unit is the separator, in a value and in a span", {
   res <- ladder_knit()$a
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the document did not render")
+  if (res$failed) return(invisible())
   row <- f2_unesc(res$text[grepl("were", res$text, fixed = TRUE)])   # the table row, as pandoc lays it out
   expect_length(row, 1L)
   expect_true(grepl(f2("1.5~km"), row, fixed = TRUE), label = row)
@@ -699,7 +699,7 @@ test_that("2h 1.5.13: in a pipe-table cell \\| in unit is the separator, in a va
 
 test_that("2h L5/5.3.2: a value error in a knit is a collected failure naming the rung", {
   res <- f2_render(c("E `r u(5, m)`{unit=\"mm|kg\"} here.", "", "F `r u(5, m)`{.num} fine."))
-  skip_if(res$failed, "the document did not render")
+  if (!expect_rendered(res)) return(invisible())
   f <- f2_failures(res)
   expect_length(f, 1L)
   expect_true(grepl("kg", f, fixed = TRUE), label = f)
@@ -715,7 +715,7 @@ test_that("2h L17: a construct error in a knit stops it with the weft_construct_
 
 test_that("2h 4.4.23 zero rule: the warned check is recorded once in a knit and its advice names the ladder", {
   res <- ladder_knit()$a
-  skip_if(res$failed, "the document did not render")
+  if (!expect_rendered(res)) return(invisible())
   w <- res$knit$warnings
   r <- w[w$line == res$offset + 13, , drop = FALSE]
   expect_equal(NROW(r), 1L)
@@ -725,7 +725,7 @@ test_that("2h 4.4.23 zero rule: the warned check is recorded once in a knit and 
 
 test_that("2h determinism: one value twice in a document, and across two knits, prints in the same rung", {
   both <- ladder_knit()
-  skip_if(both$a$failed || both$b$failed, "the document did not render")
+  if (!(expect_rendered(both$a) & expect_rendered(both$b))) return(invisible())
   ta <- f2_unesc(both$a$text)
   tb <- f2_unesc(both$b$text)
   expect_equal(ta, tb)

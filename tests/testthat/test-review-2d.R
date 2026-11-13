@@ -295,7 +295,7 @@ test_that("review 2d #7: `format: typst` without -o is quiet as well", {
   skip_if_no_quarto()
   dir <- d2r_qdir(d2r_qdoc("Value `r k` here.", "typst"))
   r <- qrender(dir, "doc.qmd")
-  skip_if(r$status != 0L, "this Quarto cannot render typst here")
+  if (!expect_precondition(r$status == 0L, "Quarto renders the typst fixture")) return(invisible())
   expect_true(file.exists(d2_path(dir, source = "doc.qmd")))
   expect_false(grepl("WEFT_OUTPUT", r$log, fixed = TRUE))
   expect_false(grepl("not visible to weft", r$log, fixed = TRUE))
@@ -366,10 +366,16 @@ test_that("review 2d #9: a generated anchor after an explicit one of the same na
 })
 
 test_that("review 2d #9: adding an unrelated heading above does not re-key a section pinned with an id", {
-  res <- d2_render(c("## Methods", "", "A `r x0`.", "", "## Other {#methods}", "", "B `r x1`."), code = "x0 <- 0; x1 <- 1")
-  e <- d2_ledger(res)
-  expect_identical(d2_one(e, expr = "x0")$section, "methods")
-  expect_identical(d2_one(e, expr = "x1")$section, "methods")
+  base <- c("## Methods", "", "A `r x0`.", "", "## Other {#methods}", "", "B `r x1`.")
+  code <- "x0 <- 0; x1 <- 1; x2 <- 2"
+  before <- d2_ledger(d2_render(base, code = code))
+  expect_identical(d2_one(before, expr = "x0")$section, "methods")
+  expect_identical(d2_one(before, expr = "x1")$section, "methods")
+  # an unrelated heading, with a value of its own, is added above the pinned section
+  after <- d2_ledger(d2_render(c("## Intro", "", "C `r x2`.", "", base), code = code))
+  expect_identical(d2_one(after, expr = "x2")$section, "intro")       # the added heading is read
+  expect_identical(d2_one(after, expr = "x1")$section, d2_one(before, expr = "x1")$section)
+  expect_identical(d2_one(after, expr = "x0")$section, d2_one(before, expr = "x0")$section)
 })
 
 test_that("review 2d #9 control: repeated generated headings take -1, -2 in order", {
@@ -687,7 +693,8 @@ test_that("review 2d F: the same under LC_ALL=POSIX", {
   dir <- normalizePath(withr::local_tempdir())
   write_doc("Value `r k`.", TRUE, "k <- 1", NULL, D2_SETUP, "doc", "rmd", dir = dir)
   out <- d2r_child(dir, "POSIX")
-  skip_if(!any(grepl("UTF8: FALSE", out, fixed = TRUE)), "POSIX is a UTF-8 locale here")
+  if (!expect_precondition(any(grepl("UTF8:", out, fixed = TRUE)), "the child R started and reported its locale")) return(invisible())
+  skip_if(any(grepl("UTF8: TRUE", out, fixed = TRUE)), "POSIX is a UTF-8 locale here")
   expect_true(any(grepl("LEDGER: FALSE", out, fixed = TRUE)))
   expect_length(grep("^WARN:.*weft_ledger_warning", out), 1L)
 })
@@ -698,7 +705,8 @@ test_that("review 2d F control: in a UTF-8 session the child writes both files a
   dir <- normalizePath(withr::local_tempdir())
   write_doc("Value `r k`.", TRUE, "k <- 1", NULL, D2_SETUP, "doc", "rmd", dir = dir)
   out <- d2r_child(dir, "en_US.UTF-8")
-  skip_if(!any(grepl("UTF8: TRUE", out, fixed = TRUE)), "en_US.UTF-8 is not available here")
+  if (!expect_precondition(any(grepl("UTF8:", out, fixed = TRUE)), "the child R started and reported its locale")) return(invisible())
+  skip_if(any(grepl("UTF8: FALSE", out, fixed = TRUE)), "en_US.UTF-8 is not available here")
   expect_true(any(grepl("LEDGER: TRUE", out, fixed = TRUE)))
   expect_true(any(grepl("LOG: TRUE", out, fixed = TRUE)))
   expect_length(grep("weft_ledger_warning", out), 0L)

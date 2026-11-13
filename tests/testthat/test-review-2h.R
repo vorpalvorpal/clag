@@ -285,7 +285,7 @@ r2h_pick_line <- function(res, line) {
 
 test_that("review 2h #9: unit_picked is NA for a construct that failed after the pick", {
   res <- r2h_pick_knit()
-  skip_if(res$failed, "the document did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_true(any(grepl("no value", res$text, fixed = TRUE)), label = "the construct failed with a marker")
   row <- r2h_pick_line(res, 1)
   expect_equal(nrow(row), 1L)
@@ -294,7 +294,7 @@ test_that("review 2h #9: unit_picked is NA for a construct that failed after the
 
 test_that("review 2h #9: controls - a construct that printed has its rung, one that failed before the pick has NA", {
   res <- r2h_pick_knit()
-  skip_if(res$failed, "the document did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(r2h_pick_line(res, 3)$unit_picked, "km")
   expect_true(is.na(r2h_pick_line(res, 5)$unit_picked))
 })

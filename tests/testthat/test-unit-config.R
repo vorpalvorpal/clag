@@ -274,7 +274,7 @@ doc_render <- local({
 test_that("2f precedence: default < _weft.yml < document < the use, and units merge per unit (9.1.1, U21)", {
   res <- doc_render()
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the document did not render")
+  if (res$failed) return(invisible())
   got <- f2_unesc(split_cases(res, length(DOC_CASES)))
   for (i in seq_along(DOC_WANT)) expect_equal(got[i], f2(DOC_WANT[i]), label = DOC_CASES[i])
 })
@@ -322,7 +322,7 @@ de_render <- local({
 test_that("2f lang de: a symbol prints, a name and a unit with no symbol are errors where they would print (1.6.8)", {
   res <- de_render()
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the batch did not render")
+  if (res$failed) return(invisible())
   got <- f2_cases(res, length(DE_CASES))
   expect_equal(got[1], f2("5~m"))
   expect_equal(got[6], "35%")
@@ -334,7 +334,7 @@ test_that("2f lang de: a symbol prints, a name and a unit with no symbol are err
 
 test_that("2f lang de: the value error for a unit with no symbol names the unit, the lang and symbol: (1.6.8)", {
   res <- de_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   ft <- f2_failures(res)
   hit <- ft[grepl("year", ft, fixed = TRUE)]
   expect_gte(length(hit), 1L)

@@ -295,13 +295,7 @@ test_that("review-4 #7: two sibling projects count their own documents once (nei
 R4_SITE_DOC <- c("---", "title: A", "---", "", "Intro paragraph one.", "", "Second paragraph here.", "",
                  "Third paragraph of text.", "", "[a site | # sites]{n=\"k\"}", "", "Last paragraph.")
 
-r4_need_engine <- function() {
-  x <- tryCatch(lints(lint_proj(list("a.qmd" = R4_SITE_DOC))), error = function(e) NULL)
-  testthat::skip_if(is.null(x) || !("engine" %in% x$rule), "lint rule `engine` is not built")
-}
-
 test_that("review-4 #8: renaming a .qmd that lacks `engine: knitr` passes the gate", {
-  r4_need_engine()
   d <- g_scenario(list("a.qmd" = R4_SITE_DOC), list("a.qmd" = NULL, "b.qmd" = R4_SITE_DOC))
   res <- g_gate(d)
   expect_identical(nrow(res$added), 0L)
@@ -309,7 +303,6 @@ test_that("review-4 #8: renaming a .qmd that lacks `engine: knitr` passes the ga
 })
 
 test_that("review-4 #8: a rename with a small edit passes too", {
-  r4_need_engine()
   edited <- sub("Last paragraph.", "Final paragraph.", R4_SITE_DOC, fixed = TRUE)
   d <- g_scenario(list("a.qmd" = R4_SITE_DOC), list("a.qmd" = NULL, "b.qmd" = edited))
   res <- g_gate(d)
@@ -318,8 +311,6 @@ test_that("review-4 #8: a rename with a small edit passes too", {
 })
 
 test_that("review-4 #8: a rename plus a newly typed number is still refused, for the number only", {
-  r4_need_engine()
-  v4_need("numeral")
   d <- g_scenario(list("a.qmd" = R4_SITE_DOC),
                   list("a.qmd" = NULL, "b.qmd" = c(R4_SITE_DOC, "", "Flow rose by 45% in March.")))
   res <- g_gate(d)
@@ -329,14 +320,12 @@ test_that("review-4 #8: a rename plus a newly typed number is still refused, for
 })
 
 test_that("review-4 #8: a copy (the old file stays) is a new file lacking the marker: refused (neighbour guard)", {
-  r4_need_engine()
   d <- g_scenario(list("a.qmd" = R4_SITE_DOC), list("b.qmd" = R4_SITE_DOC))
   expect_false(g_gate(d)$ok)
 })
 
 test_that("review-4 #8: through the installed hook a `git mv` of such a document is committed", {
   skip_on_os("windows")
-  r4_need_engine()
   dir <- h4_repo(list("a.qmd" = R4_SITE_DOC))
   h4_hooks(dir)
   g_ok_git(dir, "mv", "a.qmd", "b.qmd")
@@ -422,7 +411,6 @@ test_that("review-4 #11: a foreign hook that is not executable is left as it is 
 # ---- #12: the count of findings added -------------------------------------------------------------------------------------
 
 test_that("review-4 #12: verify() counts the excess of a key, not the instances it lists", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("a.qmd" = c("We saw `r x` and 45% today.", G_ENGINE)), git = TRUE)
   g_write(p$top, "a.qmd", c("We saw 45% and 45% today.", G_ENGINE))
@@ -697,7 +685,7 @@ test_that("review-4 Q3: a stem with a stamp of a later run keeps its entry, with
   expect_identical(r4_entry(p$root, "c"), "OLD c")       # no stamp: restored
   expect_false(dir.exists(v4_backup_dir(p$root)))
   said <- c(r$report, r$res$notes, vapply(r$warnings, conditionMessage, ""))
-  expect_true(any(grepl("newer|kept|keeps|current", said)))
+  expect_true(any(grepl("the document's stamp is of a newer run", said, fixed = TRUE)))
 })
 
 test_that("review-4 Q3: verify(files = b) keeps the entry of a, which stays after a pass", {
@@ -725,7 +713,6 @@ test_that("review-4 Q3: a manifest with no run id (older versions) restores ever
 # ---- Q5: a project that did not exist at `since` ------------------------------------------------------------------------------------------
 
 test_that("review-4 Q5: a project whose _weft.yml is not in HEAD has nothing added, and the report says it is a baseline", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("a.qmd" = g_num_doc("45%")), git = TRUE, weft_yml = NULL)
   f3_write(file.path(p$root, "_weft.yml"), "draft: false")
@@ -737,7 +724,6 @@ test_that("review-4 Q5: a project whose _weft.yml is not in HEAD has nothing add
 })
 
 test_that("review-4 Q5: a new folder of a repository that has commits: nothing is added, and the report says baseline", {
-  v4_need("numeral")
   v4_env()
   top <- g_repo(list("README.md" = "Outside the project."), weft = character())
   f3_write(file.path(top, "proj", "_weft.yml"), "draft: false")

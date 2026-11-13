@@ -423,7 +423,7 @@ names_us <- local({
 test_that("2f lang en-US: the en-US spellings apply to names, not to symbols (U8, 4.4.16)", {
   res <- names_us()
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the batch did not render")
+  if (res$failed) return(invisible())
   got <- f2_unesc(split_cases(res, length(BATCH_NAMES_US)))
   for (i in seq_along(WANT_NAMES_US)) {
     expect_equal(got[i], f2(WANT_NAMES_US[i]), label = BATCH_NAMES_US[i])

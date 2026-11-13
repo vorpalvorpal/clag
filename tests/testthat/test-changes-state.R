@@ -20,7 +20,7 @@ test_that("2e-2 helper: a header with nested 2e fields reads back, and the hashe
 
 test_that("2e-2 helper: the helper's hashes agree with 2e-1's file_hash() and dict_entry_hashes() once built", {
   ns <- asNamespace("weft")
-  skip_if_not(exists("file_hash", ns) && exists("dict_entry_hashes", ns), "2e-1 is not built yet")
+  if (!(expect_built("file_hash") & expect_built("dict_entry_hashes"))) return(invisible())
   dir <- e2x_state_project()
   expect_identical(weft:::file_hash(file.path(dir, "doc.qmd")), e2x_file_hash(file.path(dir, "doc.qmd")))
   expect_identical(weft:::dict_entry_hashes(file.path(dir, "dict.yml")), e2x_dict_hashes(file.path(dir, "dict.yml")))

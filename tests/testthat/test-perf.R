@@ -15,7 +15,7 @@ test_that("the units database read is kept in the session and on disk, keyed on 
   expect_true(is.data.frame(a$v) && is.data.frame(a$pf))
   expect_identical(weft:::ud_tables(), a)          # the session's copy
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   f <- weft:::ud_tables_file(key)
   expect_true(file.exists(f))                      # and the disk copy
   uc$tables <- NULL
@@ -40,7 +40,16 @@ test_that("a paragraph's sentence cuts are kept, and a changed paragraph or lang
   }
   c1 <- at(p1)
   expect_identical(at(p1), c1)
-  p2 <- "Another opening. First sentence here. The mean was 4.5 mm today. Last one."
+  # kept: the answer is in the cache under its key, and a second ask is served from there (shown by
+  # planting a different answer under the key and getting it back)
+  key1 <- paste("", p1, sep = "\r\001")
+  cache <- weft:::sentence_cache
+  expect_true(exists(key1, envir = cache))
+  withr::defer(assign(key1, c1, envir = cache))
+  assign(key1, list(win = c(1L, 1L), cuts = 99L), envir = cache)
+  expect_identical(at(p1)$cuts, 99L)
+  assign(key1, c1, envir = cache)
+  p2<- "Another opening. First sentence here. The mean was 4.5 mm today. Last one."
   c2 <- at(p2)
   expect_false(identical(c1$cuts, c2$cuts))
   expect_identical(c2$cuts, at(p2)$cuts)

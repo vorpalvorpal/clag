@@ -25,7 +25,7 @@ r2x_batch <- function(cases, front = NULL, files = NULL) {
   res <- render_rmd(batch_cases(cases), front = front, files = files, in_process = TRUE,
                     env = c(WEFT_DRAFT = "1"), format = "knit")
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the batch did not render")
+  if (res$failed) return(invisible())
   f2_unesc(split_cases(res, length(cases)))
 }
 
@@ -89,7 +89,7 @@ r2x_glossary_md <- function(lines) {
   res <- render_rmd(lines, files = list(dict.yml = R2X_DICT), format = "md", in_process = TRUE,
                     env = c(WEFT_DRAFT = "1"))
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the document did not render")
+  if (res$failed) return(invisible())
   res$text
 }
 
@@ -99,7 +99,7 @@ test_that("review 2x #2: the paragraph after the glossary chunk is its own parag
   i <- grep("^After the glossary\\.", txt)
   expect_false(any(grepl("distance\\.\\s+After", txt)), label = paste(txt, collapse = " | "))
   expect_length(i, 1)
-  skip_if(length(i) != 1)
+  if (length(i) != 1) return(invisible())
   expect_true(i > 1 && !nzchar(trimws(txt[i - 1])), label = paste(txt, collapse = " | "))   # a blank line before it
   expect_true(any(grepl("Stop distance.", txt, fixed = TRUE)))
 })
@@ -111,7 +111,7 @@ test_that("review 2x #2: the same with echo = FALSE, and with text before the ch
   i <- grep("^After the glossary\\.", txt)
   expect_false(any(grepl("distance\\.\\s+After", txt)), label = paste(txt, collapse = " | "))
   expect_length(i, 1); expect_length(j, 1)
-  skip_if(length(i) != 1 || length(j) != 1)
+  if (length(i) != 1 || length(j) != 1) return(invisible())
   expect_true(!nzchar(trimws(txt[i - 1])), label = paste(txt, collapse = " | "))
 })
 
@@ -125,7 +125,7 @@ test_that("review 2x #2: in HTML the paragraph after the glossary is a <p>, not 
       rmarkdown::render(d$input, rmarkdown::html_fragment(), output_file = out, quiet = TRUE, envir = new.env())))
     NULL
   }, error = function(e) e)
-  skip_if(!is.null(res), "the render failed")
+  if (!expect_precondition(is.null(res), paste("the render succeeded:", if (!is.null(res)) conditionMessage(res)))) return(invisible())
   html <- paste(readLines(out, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
   expect_true(grepl("<p>After the glossary.</p>", html, fixed = TRUE), label = html)
   expect_false(grepl("Stop distance\\.\\s*After", html))

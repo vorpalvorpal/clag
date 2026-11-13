@@ -177,7 +177,7 @@ disp_render <- local({
 test_that("2f display: in a knit, dict.yml and dict_local apply display when read (4.2.7)", {
   res <- disp_render()
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the batch did not render")
+  if (res$failed) return(invisible())
   got <- f2_unesc(split_cases(res, length(DISP_CASES)))
   for (i in seq_along(DISP_WANT)) expect_equal(got[i], f2(DISP_WANT[i]), label = DISP_CASES[i])
 })

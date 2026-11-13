@@ -85,13 +85,12 @@ test_that("review 2e2 #1: outputs that differ and are not each their source's ba
 # ---- 2, 4, 5: names ------------------------------------------------------------------------------
 
 put_or_skip <- function(dir, source, ..., output = NULL) {
-  ok <- tryCatch({
-    if (is.null(output)) e2x_put_ledger(dir, source, ...) else e2x_put_ledger(dir, source, ..., output = output)
-    TRUE
-  }, error = function(e) FALSE, warning = function(w) FALSE)
-  testthat::skip_if_not(ok && file.exists(file.path(dir, "_weft", "ledger", source,
-                        paste0(if (is.null(output)) sub("\\.[A-Za-z]+$", "", basename(source)) else output, ".jsonl"))),
-                        "this file system refuses the name")
+  # skip only when the operating system refuses the name; any other error or warning fails the test
+  skip_if_fs_refuses(
+    if (is.null(output)) e2x_put_ledger(dir, source, ...) else e2x_put_ledger(dir, source, ..., output = output))
+  expect_true(file.exists(file.path(dir, "_weft", "ledger", source,
+                paste0(if (is.null(output)) sub("\\.[A-Za-z]+$", "", basename(source)) else output, ".jsonl"))),
+              label = "the ledger fixture was written")
 }
 
 test_that("review 2e2 #2: a non-ASCII source name is compared", {

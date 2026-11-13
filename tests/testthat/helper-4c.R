@@ -168,20 +168,6 @@ v4_plant_stale_ledger <- function(root, source = "a.qmd") {
   invisible(root)
 }
 
-# Skip the calling test when a lint rule is not built yet: `files` (named list as for lint_proj()) must
-# give at least one finding of `rule` under lints(). Stage 3 builds the rules beyond `construct`.
-v4_need_rule <- function(rule, files) {
-  root <- lint_proj(files)
-  x <- tryCatch(lints(root, tier = 1:2), error = function(e) NULL)
-  testthat::skip_if(is.null(x) || !(rule %in% x$rule), sprintf("lint rule `%s` is not built yet", rule))
-}
-V4_PROBE <- list(
-  numeral = list("probe.qmd" = c("Intro paragraph.", "", "Flow rose by 45% in March.")),
-  `claim-word` = list("probe.qmd" = c("Intro paragraph.", "", "All `r n` sites rose.")),
-  xref = list("probe.qmd" = "See @sec-nowhere for more.")
-)
-v4_need <- function(...) for (r in c(...)) v4_need_rule(r, V4_PROBE[[r]])
-
 # ---- documents ----------------------------------------------------------------------------------------
 
 # a document that holds a construct (a value) and nothing the static lints object to

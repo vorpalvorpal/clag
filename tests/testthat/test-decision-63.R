@@ -24,7 +24,7 @@ test_that("decision 63 W1: with weft.units_cache unset, the disk copy is written
   a <- weft:::ud_tables()
   expect_true(is.data.frame(a$v) && is.data.frame(a$pf))
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   f <- weft:::ud_tables_file(key)
   expect_true(file.exists(f))
   expect_true(startsWith(normalizePath(f, mustWork = FALSE), normalizePath(cache)))
@@ -36,7 +36,7 @@ test_that("decision 63 W1: with weft.units_cache unset, a new session reads the 
   withr::local_options(weft.units_cache = NULL)
   a <- weft:::ud_tables()
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   expect_true(file.exists(weft:::ud_tables_file(key)))
   uc$tables <- NULL
   expect_identical(weft:::ud_tables()$v, a$v)
@@ -48,7 +48,7 @@ test_that("decision 63 W1: weft.units_cache = FALSE writes nothing to disk", {
   a <- weft:::ud_tables()
   expect_true(is.data.frame(a$v))                    # still answered, from the read
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   expect_false(file.exists(weft:::ud_tables_file(key)))
   expect_identical(w1_disk_files(cache), character())
 })
@@ -59,7 +59,7 @@ test_that("decision 63 W1: weft.units_cache = FALSE does not read a copy that is
   withr::local_options(weft.units_cache = TRUE)
   a <- weft:::ud_tables()
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   f <- weft:::ud_tables_file(key)
   expect_true(file.exists(f))                        # control: written under TRUE
   # put a marker in the copy; a read from disk would return it, a read of the database would not
@@ -73,7 +73,7 @@ test_that("decision 63 W1: weft.units_cache = FALSE does not read a copy that is
   uc$tables <- NULL
   withr::local_options(weft.units_cache = TRUE)
   b <- weft:::ud_tables()
-  skip_if(identical(b$v, a$v), "the copy on disk is not read back as saved, so the planted marker cannot be told")
+  if (!expect_precondition(!identical(b$v, a$v), "the copy on disk is read back as saved")) return(invisible())
   expect_identical(nrow(b$v), 0L)
 })
 
@@ -82,7 +82,7 @@ test_that("decision 63 W1 control: weft.units_cache = TRUE writes the disk copy,
   withr::local_options(weft.units_cache = TRUE)
   weft:::ud_tables()
   key <- weft:::ud_tables_key()
-  skip_if(is.null(key))
+  if (!expect_precondition(!is.null(key), "ud_tables_key() gives a key")) return(invisible())
   expect_true(file.exists(weft:::ud_tables_file(key)))
 })
 

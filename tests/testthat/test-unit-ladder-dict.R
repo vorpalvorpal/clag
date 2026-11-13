@@ -252,7 +252,6 @@ test_that("2h 4.2.6 control: a good entry beside a bad one reads nothing, and th
 
 test_that("2h 4.2.1: the schema accepts a display unit as a string and as a one-item list, and refuses an empty list", {
   skip_if_not_installed("jsonlite")
-  skip_if_not(exists("schema_errors"), "the schema helper is not loaded")
   base <- "a: {value: 2000, type: quantity, unit: m, display: %s, definition: x}"
   for (disp in c("\"km\"", "[km]")) {
     expect_identical(schema_errors(sprintf(base, disp)), character(), label = disp)
@@ -306,7 +305,7 @@ ld_render <- local({
 test_that("2h 4.2.7: in a knit, dict.yml and dict_local apply a single display unit when read", {
   res <- ld_render()
   expect_false(res$failed, label = res$message)
-  skip_if(res$failed, "the batch did not render")
+  if (res$failed) return(invisible())
   got <- f2_unesc(split_cases(res, length(LD_CASES)))
   for (i in seq_along(LD_WANT)) expect_equal(got[i], f2(LD_WANT[i]), label = LD_CASES[i])
 })

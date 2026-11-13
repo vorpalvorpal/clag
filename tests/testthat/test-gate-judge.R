@@ -179,7 +179,7 @@ test_that("4a G10: a tier-2 finding is not judged and not reported (6.2.7)", {
   g_write(d, "ch1.qmd", c(G_PROSE, "", F3D_CLAIMS[[1]]))
   g_add(d)
   tier2 <- lints(d, rules = "claim-word", tier = 2)                        # the premise: the work tree has one
-  skip_if(!"claim-word" %in% tier2$rule, "claim-word does not flag the sentence (needs 3b)")
+  if (!expect_precondition("claim-word" %in% tier2$rule, "claim-word flags the sentence in the work tree")) return(invisible())
   res <- g_gate(d)
   expect_true(res$ok)
   expect_identical(nrow(res$added), 0L)

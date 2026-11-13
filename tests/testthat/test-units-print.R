@@ -384,7 +384,7 @@ test_that("2b render: the batch renders (a failure is collected in draft mode)",
 
 test_that("2b render: every construct form of the table prints as the contract says", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   got <- b2b_got()
   for (i in seq_along(B2B_WANT)) {
     if (is.na(B2B_WANT[i])) next
@@ -394,13 +394,13 @@ test_that("2b render: every construct form of the table prints as the contract s
 
 test_that("2b render: x + a mass is the 'no value' failure quoting units' message (table)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_true(any(grepl("cannot convert kg into m", b2b_failures_text(), fixed = TRUE)))
 })
 
 test_that("2b render: .pct on a quantity with a unit is a value error naming .pct and m (D27)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   ft <- b2b_failures_text()
   hit <- ft[grepl("cannot format a quantity in m", ft, fixed = TRUE)]
   expect_gte(length(hit), 1L)
@@ -409,13 +409,13 @@ test_that("2b render: .pct on a quantity with a unit is a value error naming .pc
 
 test_that("2b render: no failure other than the two the batch asks for", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(length(b2b_failures_text()), 2L)
 })
 
 test_that("2b render: a span with an n or sign governor that is a quantity prints # with its unit (4.4.4 reversed, table)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   got <- b2b_got()
   expect_equal(got[23], paste0("0.5", NB, "m metres"))
   expect_equal(got[27], paste0("1", NB, "m metre"))
@@ -424,19 +424,19 @@ test_that("2b render: a span with an n or sign governor that is a quantity print
 
 test_that("2b render: the record behind an id holds no unit, so a governor on the id prints the unit from the value (4.4.4 reversed, K1)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(b2b_got()[25], paste0("0.5", NB, "m and 0.5", NB, "m metres"))
 })
 
 test_that("2b render: a bare value prints as stock knitr prints it (4.4.10)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(b2b_got()[24], "0.5")
 })
 
 test_that("2b render: a ratio of two quantities prints as a plain number (D30)", {
   res <- b2b_render()
-  skip_if(res$failed, "the batch did not render")
+  if (!expect_rendered(res)) return(invisible())
   expect_equal(b2b_got()[28], "2")
 })
 

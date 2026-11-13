@@ -357,7 +357,7 @@ test_that("review closing #12: units_reset() removes a project's registered unit
   cl_units_clean()
   i2_text(CL_SRC, CL_A)
   ns <- asNamespace("weft")
-  skip_if_not(exists("units_reset", ns, inherits = FALSE), "units_reset() is not defined")
+  if (!expect_built("units_reset")) return(invisible())
   get("units_reset", ns)()
   r <- i2_run(CL_SRC)
   shown <- if (!is.null(r$e)) "error" else r$v
@@ -369,7 +369,7 @@ test_that("review closing #12: units_reset() removes a project's registered unit
 test_that("review 2e1 D: the pre-render script writes .weft/.gitignore holding *", {
   skip_on_cran()
   script <- system.file("quarto", "weft-pre-render.R", package = "weft")
-  skip_if_not(nzchar(script) && file.exists(script), "the pre-render script is not available")
+  if (!expect_precondition(nzchar(script) && file.exists(script), "the package ships its pre-render script")) return(invisible())
   d <- withr::local_tempdir()
   e1_put(d, list("_quarto.yml" = c("project:", "  type: default"), "plain.qmd" = c("---", "title: p", "---", "", "Text.")))
   withr::with_dir(d, system2(file.path(R.home("bin"), "Rscript"), shQuote(script), stdout = FALSE, stderr = FALSE))

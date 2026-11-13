@@ -1,7 +1,7 @@
 # Package 4c: verify()'s static part (dev/design-4.md G23, G24 parts 1 and 2, G27, G28, G29; H17-H19; section 5
 # "test-verify-static.R"). No render happens here: every call is `static = TRUE` or is made with a stand-in
 # quarto that records whether it was called. Fixtures use the `construct` rule where they can; tests that
-# need a stage 3 rule that is not built yet skip (v4_need()). Helpers: helper-4c.R, helper-4a.R, helper-3.R.
+# need a stage 3 rule use it as built. Helpers: helper-4c.R, helper-4a.R, helper-3.R.
 # ASCII only. Invented content only.
 
 # the failure signal of G27: a weft_verify_error holding the result
@@ -188,7 +188,7 @@ test_that("4c G24: block-start and read are construct errors too (the other two 
   # an unreadable file: bytes that are not UTF-8 in a document
   p <- v4_proj(list("a.qmd" = as.raw(c(0x41, 0x20, 0xff, 0xfe, 0x0a))), git = TRUE)
   r <- v4_verify(p$root, static = TRUE)
-  if (is.null(r$err)) skip("this build reads that file; no `read` finding to judge")
+  if (!expect_precondition(!is.null(r$err), "an unreadable document gives a read finding")) return(invisible())
   expect_verify_failed(r)
   expect_true(all(r$res$errors$rule %in% c("construct", "block-start", "read")))
 })
@@ -196,7 +196,6 @@ test_that("4c G24: block-start and read are construct errors too (the other two 
 # ---- findings added since a commit (G24.1, G10) -------------------------------------------------------
 
 test_that("4c G24: since fails on a finding added, listed at its line, and a finding already in HEAD does not", {
-  v4_need("numeral")
   v4_env()
   s <- st_two_commits(list("ch1.qmd" = G_PROSE), list("ch1.qmd" = g_num_doc("45%")))
   r <- v4_verify(s$p$root, since = s$base, static = TRUE)
@@ -220,7 +219,6 @@ test_that("4c G24: since fails on a finding added, listed at its line, and a fin
 })
 
 test_that("4c G24: with no since, the comparison is with HEAD and counts the work tree", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = G_PROSE), git = TRUE)
   g_write(p$top, "ch1.qmd", g_num_doc("45%"))   # not committed, not staged
@@ -236,7 +234,6 @@ test_that("4c G24: with no since, the comparison is with HEAD and counts the wor
 })
 
 test_that("4c G24: a finding in an unchanged chapter caused by removing an anchor is added, and listed there (rule 6.2.4)", {
-  v4_need("xref")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = c("## Limits {#sec-limits}", "", "Text."), "ch2.qmd" = "See @sec-limits for more."),
                git = TRUE)
@@ -276,7 +273,6 @@ test_that("4c G24: since reports constructs removed and does not fail on them, t
 # ---- tolerated and strict (G24.1, G26, 8.1.2, 8.1.3) --------------------------------------------------
 
 test_that("4c G28: a tolerated finding fails nothing and is totalled, rule by rule", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = g_num_doc(c("45%", "37%"))), git = TRUE)
   r <- v4_verify(p$root, static = TRUE)
@@ -292,7 +288,6 @@ test_that("4c G28: a tolerated finding fails nothing and is totalled, rule by ru
 })
 
 test_that("4c G28: construct-error rules are not in the tolerated totals", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("a.qmd" = g_bad_doc(), "b.qmd" = g_num_doc("45%")), git = TRUE)
   r <- v4_verify(p$root, static = TRUE)
@@ -302,7 +297,6 @@ test_that("4c G28: construct-error rules are not in the tolerated totals", {
 })
 
 test_that("4c G24: a rule in strict fails on every instance, though HEAD held them all", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = g_num_doc(c("45%", "37%"))), git = TRUE,
                weft_yml = c("draft: false", "strict: [numeral]"))
@@ -321,7 +315,6 @@ test_that("4c G24: a rule in strict fails on every instance, though HEAD held th
 })
 
 test_that("4c G24: strict also holds without git, where nothing is compared", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = g_num_doc("45%")), weft_yml = c("draft: false", "strict: [numeral]"))
   r <- v4_verify(p$root, static = TRUE)
@@ -352,7 +345,6 @@ test_that("4c G24, H5: a tar-name finding fails verify() though HEAD held it", {
 # ---- tier 2 on added lines (H18, G16) -----------------------------------------------------------------
 
 test_that("4c G24, H18: tier-2 findings are listed for the lines added since, and fail nothing", {
-  v4_need("claim-word")
   v4_env()
   s <- st_two_commits(
     list("ch1.qmd" = c("Intro.", "", V4_CLAIM_WORD)),
@@ -368,7 +360,6 @@ test_that("4c G24, H18: tier-2 findings are listed for the lines added since, an
 })
 
 test_that("4c G24: with no since, every line counts as added for tier 2", {
-  v4_need("claim-word")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = c("Intro.", "", V4_CLAIM_WORD)))      # no git
   r <- v4_verify(p$root, static = TRUE)
@@ -379,7 +370,6 @@ test_that("4c G24: with no since, every line counts as added for tier 2", {
 # ---- no git, no commit (H19, G24.1) -------------------------------------------------------------------
 
 test_that("4c G24, H19: without git findings are counted, not compared, and the note says so", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = g_num_doc("45%")))
   r <- v4_verify(p$root, static = TRUE)
@@ -522,7 +512,6 @@ test_that("4c G24: the static run of a project with no _weft.yml passes (only re
 # ---- a project in a subfolder of a repository ---------------------------------------------------------
 
 test_that("4c G23: a project in a subfolder of a repository is compared by its own files", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = G_PROSE), git = TRUE, sub = TRUE)
   g_write(p$root, "ch1.qmd", g_num_doc("45%"))
@@ -534,7 +523,6 @@ test_that("4c G23: a project in a subfolder of a repository is compared by its o
 # ---- nothing is written outside the project -----------------------------------------------------------
 
 test_that("4c G3: a static run writes nothing outside the project and moves nothing in git", {
-  v4_need("numeral")
   v4_env()
   p <- v4_proj(list("ch1.qmd" = g_num_doc("45%"), "ch2.qmd" = G_PROSE), git = TRUE, sub = TRUE)
   g_write(p$root, "ch2.qmd", g_num_doc("37%"))

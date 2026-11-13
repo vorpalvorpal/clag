@@ -212,11 +212,11 @@ test_that("4a H5 [3c]: tar-name belongs to verify(): a typo against a real store
     })
     TRUE
   }, error = function(e) FALSE)
-  skip_if(!ok, "could not build a targets store here")
+  if (!expect_precondition(ok, "the fixture built a targets store")) return(invisible())
   g_write(d, "ch1.qmd", c(G_PROSE, "", "```{r chk-a}", "tar_read(fitt)", "```"))
   g_add(d, "ch1.qmd")
   work <- lints(d, rules = "tar-name", tier = 1)             # the premise: the work tree's store flags it
-  skip_if(!"fitt" %in% work$text, "tar-name does not flag the typo against the store here")
+  if (!expect_precondition("fitt" %in% work$text, "tar-name flags the typo against the store in the work tree")) return(invisible())
   res <- g_gate(d)
   expect_true(res$ok)
   expect_false(any(res$excess$rule == "tar-name"))

@@ -250,7 +250,7 @@ rca_unescape <- function() {
     e <- find(x)
     if (!is.null(e)) break
   }
-  if (is.null(e)) skip("no unescape() in the post-render script")
+  if (!expect_precondition(!is.null(e), "the post-render script defines unescape()")) return(invisible())
   env <- new.env(parent = baseenv())
   eval(e, env)
   env$unescape
