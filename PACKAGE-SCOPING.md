@@ -1223,18 +1223,34 @@ file, its captions in chunk options and the literal strings passed to
 `weft_str()`. The lints, the gate, the ledger, `arms()` and the
 end-of-document check all take from it what the constructs are and where.
 
-**2.10.3** The static lints read Pandoc's tree only for the prose between
-constructs. The source is parsed with `commonmark_x+sourcepos` by the Pandoc
-that Quarto ships, with the range of every construct's code and attribute
-block masked first (2.10.5), so positions are unchanged.
+**2.10.3** The static lints tell prose from code, math, links and raw content
+with the package's own reader, a function over the source text that returns
+the prose as a string as long as the file, every other character blanked.
+It runs no Pandoc, and gives the same answer on every machine. Under
+`lints(reader = "pandoc")` the source is also parsed with
+`commonmark_x+sourcepos` by Pandoc, taken from the option `weft.pandoc`, the
+variable `WEFT_PANDOC`, Quarto's own copy, `rmarkdown`'s or the path, at
+version 3.0 or later, with the range of every construct's code and attribute
+block masked first (2.10.5), so positions are unchanged. A character is then
+prose only when both readers say so. Without Pandoc that call is an error.
+Pandoc is optional, and is also the reference the tests compare the own
+reader with.
 
-**2.10.4** That reader does not parse citations. Citation brackets are
-recognised by pattern (5.1.4).
+**2.10.4** Neither reader parses citations. Citation brackets are recognised by
+pattern (5.1.4).
 
 **2.10.5** A construct is masked with one letter repeated to the length of
 its range, never with spaces. A line break inside the range is kept. The
-scanner then checks that masking changed the type of no block. A change is a
-tier-1 failure naming the line.
+rule `block-start` (tier 1) finds a line inside a span that Pandoc's
+`markdown` reader, the one Quarto and R Markdown use, cuts a paragraph at,
+since the span is then cut in two. Only three lines cut one: a closed
+backtick fence, a lone line of `-` or `=` (a setext underline) and a
+definition line (`:` and spaces, then text). `#`, `>`, a list marker, `:::`,
+`~~~`, `$$`, a pipe-table line and a fence with no closer do not, and are not
+findings. It also finds a construct that starts a line indented four spaces or
+more after a blank line outside a list, which is code. Under
+`reader = "pandoc"` the unmasked source is read too, and any block whose type
+or start line differs between the two trees is a finding at that line.
 
 **2.10.6** Every YAML metadata block, the front matter and any later one
 (1.10.9), is masked before the prose is parsed. The text of `title`,
@@ -1273,8 +1289,12 @@ failed check, reported with the error's message.
 **3.1.5** A failure is collected or immediate by context (§2.4), unless the
 check is a warned one (3.1.11).
 
-**3.1.6** A check with no `.` and no variable cannot fail (`claim(x, TRUE)`, a
-one-arm `if="TRUE"`). It is a tier-1 lint error.
+**3.1.6** A check with no `.` and no variable cannot fail (`claim(x, TRUE)`,
+`claim(x, 1 > 0)`), and an `if` whose condition holds no symbol and no call
+other than operators and parentheses always takes the same arm (`if="TRUE"`,
+`if="1 > 0"`), with one arm or two. Both are the tier-1 rule `inert-check`.
+A call can vary, so `if="knitr::is_html_output()"` and `if="interactive()"`
+are not inert. A check piped to `claim()` is read as the call it makes.
 
 **3.1.7** A phrase is guarded by a one-arm `if` (1.5.5). There is no function
 form.
@@ -1288,7 +1308,9 @@ what is computed.
 [All `r nrow(mod)` models rise]{if="all(mod$rising)"}
 ```
 
-**3.1.9** A guarded bracket longer than a set token count is listed (tier 2).
+**3.1.9** A guarded bracket whose longest arm is longer than a set count of
+words is listed (tier 2, `long-guard`). The count is `guard_words`, 25 unless
+set; a value inside the arm counts as one word.
 
 **3.1.10** `claim(x)` with no check is an error. Written in prose or in an
 attribute value, it is a construct error found from the source (§5.3).
@@ -2638,8 +2660,17 @@ unique.
 
 ### 5.1 General
 
-**5.1.1** Each lint ships as a function returning a structured result, and as
-an entry in the gate (§6) or in `verify()` (§8).
+**5.1.1** Each lint is a rule with a stable id, run by `lints()`, which
+returns a data frame of findings, and is an entry in the gate (§6) or in
+`verify()` (§8). A finding has the file, the line and column where its text
+starts, the last line it covers, the rule id, the tier, the number of the
+rule in this chapter, the context it was found in (prose, caption, front
+matter, `weft_str()` string, phrase, chunk or project), the text the gate
+counts (6.2.3), a message that ends with the rule number, and a hint. Rows
+that agree in file, line, column, rule, text and message are one.
+`lint_rules()` lists the ids, rule numbers, tiers and scopes (`file` or
+`project`). The ids are given in this chapter, and the rule numbers in the
+tables of 5.3.3 and 5.8 are the ones `lint_rules()` cites.
 
 **5.1.2** Every lint and check declares a tier.
 
@@ -2651,7 +2682,21 @@ an entry in the gate (§6) or in `verify()` (§8).
 
 **5.1.3** The lints read the prose of each source file, the captions written
 in chunk options, the literal strings passed to `weft_str()`, and the
-front-matter fields of 1.10.7 in every metadata block (2.10.6).
+front-matter fields of 1.10.7 in every metadata block (2.10.6). A file that is
+not UTF-8 gives one finding, `read` (tier 1), and no other.
+
+**5.1.4** Constructs come from the scanner (2.10.2), prose from the package's
+own reader (2.10.3). What a lint skips is decided by what the source is: code,
+math, link target, raw block. There are two exceptions. A citation bracket is
+recognised by pattern (2.10.4), and the pattern leaves a bracket that is
+followed by an attribute block to be a span, whose text is prose. The numeral
+rule reads math (5.2.6). Code rules read executed R chunks only: a chunk with
+`eval: false` or another engine gives nothing. A pipe (`|>` or `%>%`) is read
+as the call it makes, so `n |> claim(. > 10)` is `claim(n, . > 10)`.
+
+**5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
+added material is the lines git's diff shows as added since the comparison
+point (7.3.2).
 
 **5.1.6** The phrases of a `lookup()` or `brk()` written in a document's chunk
 are read for numerals (§5.2): a numeral in a phrase usually repeats a bound
@@ -2659,25 +2704,38 @@ that the same call computes with. Their claim words are not listed, because
 the call that chooses the phrase is the guard (5.5.2). Phrases held in the
 dictionary or in a package's R code are not read.
 
-**5.1.4** Constructs come from the scanner (2.10.2), prose tokens from
-Pandoc's tree (2.10.3). What a lint skips is decided by node type: code, math,
-link target, raw block. There are two exceptions. A citation bracket is
-recognised by pattern (2.10.4). The numeral rule reads math (5.2.6).
+**5.1.7** `lints(path, files, rules, tier, reader)`. `path` is a file or a
+folder; the project root is found from it, and a project need not be set up.
+`files` limits the findings reported to those documents. `rules` names rules
+by id, and `tier` is 1, 2 or both. When `tier` is not given, a rule named in
+`rules` runs whatever its tier, and with no `rules` the tier is 1: tier 2 is
+listed over added material by `changes()` (5.1.5), and over a whole file only
+when asked for. When `tier` is given and a named rule lies outside it, a note
+says so. `reader` is `"weft"`, the package's own reader and the default, or
+`"pandoc"` (2.10.3). An unknown rule id is an error that offers the nearest.
 
-**5.1.5** Tier 2 scopes to newly added material, not to the corpus. Newly
-added material is the lines git's diff shows as added since the comparison
-point (7.3.2).
+**5.1.8** Every `.qmd`, `.Rmd` and `.rmd` under the root is read, whatever
+`files` says, because ids, anchors, includes and child documents are
+project-wide. Folders whose name starts with `.`, and `renv`, are skipped.
+Folders whose name starts with `_` (an include folder, `_partials`) are read
+for anchors and for what they include, and are not linted; `_site`, `_book`,
+`_freeze` and `_extensions` are not read. A `.md` file is read for anchors
+only. Each document's settings are `_weft.yml` merged with its own `weft:`
+key; the lints read the YAML and install no units.
 
 ### 5.2 Numerals — tier 1
 
 **5.2.1** Every numeral in prose is a value, or sits inside a `cite` span or a
-`.weft-literal` span or block.
+`.weft-literal` span or block. The rule is `numeral`. It reads the body, the
+captions, the fields of 1.10.7, the strings of `weft_str()` and the phrases
+of 5.1.6, and reports each numeral with its position.
 
 **5.2.2** A numeral is judged at character level, word by word. A word whose
 first letter-or-digit is a digit is a numeral, whatever follows it: "12",
 "−0.5", "45%", "11-year", "3rd", "1990s", "10x". A word whose first
 letter-or-digit is a letter is a name, whatever digits it contains: "CO2",
-"PM2.5".
+"PM2.5". A word ends at white space and at `=`, `<`, `>`, `≤`, `≥`, `≈` and
+`≠`, so `p<0.05` and `n=12` hold the typed numerals `0.05` and `12`.
 
 **5.2.3** The rule is judged against `HEAD` (6.2.2): a commit fails when it
 adds a typed numeral. The numerals a document held when weft was adopted are
@@ -2687,13 +2745,17 @@ strict (8.1.3).
 
 **5.2.4** Two exemptions are configurable (§9.1). A numeral that follows a
 label word is exempt. The label words are the author's, set in `_weft.yml` or
-a document's front matter, and the list starts empty. `label_seed()` proposes
-candidates (9.5.5). A numeral after a word Quarto can cross-reference
-(Figure, Fig., Table, Section, Chapter, Equation, Appendix) fails like any
-other typed numeral, and its message says to use a cross-reference. The
-author may still add such a word to the list, for a document that cites
-another document's tables. A four-digit year is not exempt by default: a year
-in prose is often a stipulation that belongs in the dictionary.
+a document's front matter, and the list starts empty. A label word is matched
+as typed, with punctuation around it ignored (`(Site 3)`, `Site: 3`).
+`label_seed()` proposes candidates (9.5.5). A numeral after a word Quarto can
+cross-reference (Figure, Fig., Table, Section, Chapter, Equation, Appendix,
+in any letter case and in the plural) fails like any other typed numeral, and
+its message says to use a cross-reference. The author may still add such a
+word to the list, for a document that cites another document's tables. A
+four-digit year is not exempt by default: a year in prose is often a
+stipulation that belongs in the dictionary. `numeral_years: true` exempts a
+four-digit year from 1000 to 2999, a year range (`2016-17`, `2016-2017`), a
+decade (`2010s`) and a possessive year (`2019's`).
 
 **5.2.5** A `.weft-literal` mark exempts numerals only. Every other prose lint
 still reads the marked text.
@@ -2715,7 +2777,11 @@ $p = `r p_val`{.p}$                 construct error
 ### 5.3 Construct errors — tier 1
 
 **5.3.1** A construct error is found from the source by the scanner, without
-running R. The gate fails on one, and a render stops at one (2.6.5).
+running R. The gate fails on one, and a render stops at one (2.6.5). The rule
+is `construct`; it gives one finding per line of the scanner's message, in
+every context, and cites the rule number the message names, else 5.3.1.
+A line inside a span that Pandoc cuts a paragraph at is a separate rule,
+`block-start` (2.10.5).
 
 - more than one of `n`, `if`, `sign`, `list`, `cite` in one block; any of
   them on a value (1.1.5, 1.3.3)
@@ -2779,22 +2845,31 @@ stops the render. Each is a collected failure with a marker (2.6.8, 2.6.9),
 and the render fails at the end with all of them listed, as it does for
 failed checks. A missing value is collected the same way (1.3.4).
 
-**5.3.3** Three tier-2 warnings sit beside them.
+**5.3.3** Three tier-2 warnings sit beside them, each its own rule, all
+numbered 5.3.3.
 
-- A bracketed span with a single `|` (1.5.12) between its words and no
-  governor key is listed as a probable construct.
-- An `if` whose condition compares a value with zero is listed as probably
-  wanting `sign`.
-- A class or key on a weft construct that is not weft's (1.2.5), not one of
-  Pandoc's (`.smallcaps`, `.underline`, `.mark`, `custom-style`), and not
-  listed in the configuration as a name the project expects (9.1.2) is
+- `lone-bar`: a bracketed span with a single `|` (1.5.12) between its words
+  and no governor or marker key is listed as a probable construct. A span in
+  a pipe-table row, an escaped `\|` and a `|` inside nested code or brackets
+  do not count.
+- `if-zero`: an `if` whose condition compares a value with zero (`>`, `<`,
+  `>=`, `<=`, `==`, `!=`) is listed as probably wanting `sign`.
+- `name`: a class or key on a weft construct that is not weft's (1.2.5), not
+  one of Pandoc's (`.smallcaps`, `.underline`, `.mark`, `custom-style`), and
+  not listed in the configuration as a name the project expects (9.1.2) is
   listed. So is a formatter class or a renderer key on a bracket with no
   governor or marker key (1.1.9). So is a key or a class within one edit of a
   weft name on any bracketed span or inline code, construct or not
   (`[add more]{iff="n_gap > 10"}`): a misspelt key leaves an ordinary span,
-  and this is the only place it shows. The report gives the nearest weft name
-  when one is close, including a class that differs from one only in letter
-  case (`.Num`, 1.2.10).
+  and this is the only place it shows. An edit is an insertion, a deletion, a
+  substitution or the swap of two neighbours (`.nmu`). A name of fewer than
+  three characters is compared only for letter case. The report gives the
+  nearest weft name when one is close, including a class that differs from
+  one only in letter case (`.Num`, 1.2.10). A key that differs from a weft key
+  only in letter case is that key (1.2.10). Two weft names one edit apart are
+  not listed. On a code span, a class that is a Pandoc highlighting language
+  (the fixed list of `pandoc --list-highlight-languages`: `.cpp`, `.r`,
+  `.python`) is never listed.
 
 **5.3.4** knitr reads inline R only when `r` is followed by a space on the
 same line. A code span that opens with `r` and then a line break is left by
@@ -2810,15 +2885,20 @@ hook runs.
 ### 5.4 Marker spans and citations — tier 1
 
 **5.4.1** Every key of a `cite` span follows Pandoc's key grammar and resolves
-in the bibliography. This is checked statically, and again at knit time.
+in the bibliography. This is checked statically (`cite-key`), and again at
+knit time.
 
 **5.4.2** The block that holds a `cite` span in the bare form cites each of
-its keys, as `@key`, `-@key` or `@{key}`. The block is the innermost one in
-Pandoc's tree: a paragraph, a list item, a table cell, a footnote or a
-caption. A span in the citation form meets this by what it emits. This check
-is static only.
+its keys, as `@key`, `-@key` or `@{key}`. The block is the innermost one as
+the package's reader finds it (2.10.3): a paragraph, a list item, a table
+cell, a footnote or a caption. A span in the citation form meets this by what
+it emits. This check is static only (`cite-bare`).
 
-**5.4.3** Every citation key in the document resolves in the bibliography.
+**5.4.3** Every citation key in the document resolves in the bibliography
+(`citation-key`). A reference whose prefix is a Quarto cross-reference type,
+in any letter case (`@fig-x`, `@Fig-x`, `@Tbl-x`), is a cross-reference
+(5.7.1), not a citation, and `a@b.org` is neither. A bibliography file that is
+named and missing is one finding, at the line that names it.
 
 **5.4.4** The bibliography is every file named by `bibliography:`, and every
 entry under `references:`, in the document's front matter and in the project
@@ -2834,66 +2914,119 @@ not seen. It is named in the configuration.
 
 ### 5.5 Claim words — tier 2
 
-**5.5.1** Number words, quantifiers, extrema and direction words ("two",
-"all", "none", "only", "largest", "rose", "majority") are listed in two cases:
-a claim word in the same sentence as a value, and a claim word in a newly
-added sentence with no value at all.
+**5.5.1** Quantifiers, extrema and direction words ("all", "none", "only",
+"largest", "rose", "significantly") are listed in two cases: a claim word in
+the same sentence as a value, and a claim word in a newly added sentence with
+no value at all. The rule is `claim-word`, and it gives one finding per
+sentence, naming its claim words. It reads prose, captions, front matter and
+`weft_str()` strings, and not phrases (5.1.6). A sentence has a value when a
+value, a bare value, an `n`, a `sign` or a `list` span starts inside it; an
+`if` guard or a `cite` span is not a value. Number words ("one", "two") and
+the bare comparatives ("more", "less", "above", "below") are not claim words:
+on a real manuscript they flagged most sentences, and a flag that most prose
+carries tells an author nothing.
 
 **5.5.2** A claim word inside an `if` or a `sign` span is guarded, and is not
 listed. An `n` span chooses a plural form and checks nothing about the words,
 so a claim word inside one is listed as it would be outside.
 
-**5.5.3** The list is capped. Beyond a set number of added sentences it gives
-a count.
+**5.5.3** The list is capped. When a file has more added sentences with claim
+words than `claim_cap` (20 unless set), `changes()` gives one count instead of
+the sentences.
 
-**5.5.4** The lexicon ships with the package and is configurable.
+**5.5.4** The default lexicon is 69 English words in three lists, `quantifier`,
+`extremum` and `direction`, shipped as `inst/weft-claim-words.yml`. It is used
+when the document's `lang` is missing or starts `en`, and under any other
+`lang` there are no claim words. `claim_words` in the configuration adds
+words (`add`) and drops them (`drop`), so a project can restore a word the
+default leaves out.
 
 ### 5.6 Value expressions
 
 **5.6.1** A **literal value** is a value whose expression is made only of
 constants and operators: `` `r 10` ``, `` `r 2 * 5` ``. It renders. A commit
-that adds one fails (6.2.2, tier 1). A number that cannot be computed is
-written as a `.weft-literal` with its `why` (1.8.9).
+that adds one fails (6.2.2, tier 1, `literal-value`). The expression of an
+`n`, `sign` or `list` governor is read the same way, so `{n="3"}` is a
+literal value, and a back-reference is not. A number that cannot be computed
+is written as a `.weft-literal` with its `why` (1.8.9).
 
 **5.6.2** A numeric constant inside a computation (`x * 100`) is listed
-(tier 2).
+(tier 2, `value-constant`). `0` and `1` are not listed, and neither is a later
+argument of a formatting call named in 5.6.4 (`round(x, 2)`).
 
 **5.6.3** Constants inside the check arguments of a `claim()` call are exempt.
 
 **5.6.4** A value whose outermost call is `round()`, `signif()`, `format()`,
-`formatC()`, `prettyNum()` or `sprintf()` is listed (tier 2). It formats
-outside the stages, so it has no printed record, and `round()` drops trailing
-zeros ("1.50" prints "1.5").
+`formatC()`, `prettyNum()` or `sprintf()` is listed (tier 2, `value-format`),
+looking through parentheses, `base::`, a pipe and the first argument of
+`claim()`. It formats outside the stages, so it has no printed record, and
+`round()` drops trailing zeros ("1.50" prints "1.5").
 
 ### 5.7 Cross-references
 
 **5.7.1** Book-wide, because ids share one namespace. Tier 1:
 
-- every reference resolves to an anchor; no anchor is defined twice
-- no governed span's text matches a defined reference-link label
-  (`[foo]: url`), which Pandoc would read as a link
+- every reference resolves to an anchor (`xref`); no anchor is defined twice
+  (`anchor-twice`, one finding for each later definition, naming the first)
+- no governed span's text matches a reference-link label defined in the same
+  document (`[foo]: url`), which Pandoc would read as a link (`ref-label`);
+  Pandoc resolves a label within one document, so this check is per document
+
+An anchor is any `{#id}` outside a construct, a chunk label that starts with a
+cross-reference prefix, and, in an `.Rmd`, a chunk label as `fig:` and `tab:`.
+Anchors are read from every document of the project, including those in `_`
+folders (5.1.8) and `.md` files. A heading's automatic id serves `#x` links
+only. A reference is `@prefix-x` (the prefix in any letter case), `\@ref(x)`
+or a link to `#x` or `file#x`.
 
 **5.7.2** Tier 2: a figure, table or equation anchor that is defined and never
-referenced.
+referenced (`anchor-unused`); and a cross-reference written inside a code
+span, which prints as literal text (`xref-code`), except inside an HTML
+comment.
 
 ### 5.8 Hygiene
 
-| # | Rule | Tier |
-|---|---|---|
-| 1 | every section has an explicit anchor, and every chunk a label | 1 |
-| 2 | every `tar_read()` and `tar_load()` names a target in the manifest | 1 |
-| 3 | chunk code does not assign to `dict` or redefine one of its keys | 1 |
-| 4 | internal file links resolve | 1 |
-| 5 | in a document activated from a setup chunk, no construct sits above that chunk | 1 |
-| 6 | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
-| 7 | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
-| 8 | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
-| 9 | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8) | 1 |
+| # | Id | Rule | Tier |
+|---|---|---|---|
+| 1 | `section-anchor`, `chunk-label` | every section has an explicit anchor, and every chunk a label | 1 |
+| 2 | `tar-name` | every `tar_read()` and `tar_load()` names a target in the pipeline's store | 1 |
+| 3 | `dict-assign` | chunk code does not assign to `dict` or redefine one of its keys | 1 |
+| 4 | `file-link` | internal file links resolve | 1 |
+| 5 | `above-setup` | in a document activated from a setup chunk, no construct sits above that chunk | 1 |
+| 6 | `dict-key` | every `dict$key` and `dict_local$key` read names a key that exists, under the rules of §4.3 | 1 |
+| 7 | `tar-cache` | a chunk that reads a pipeline target (`tar_read()`, `tar_load()`) does not have `cache: true` | 1 |
+| 8 | `config-place` | no `weft:` key in `_quarto.yml` or `_metadata.yml` (9.1.1); where `_weft.yml` exists, no `draft` and no part switched off in a document's front matter (9.1.4) | 1 |
+| 9 | `engine` | a `.qmd` that holds a construct, and is rendered on its own rather than included or knit as a child, has `engine: knitr` in its own front matter (9.2.8) | 1 |
+
+- Rule 1: `section-anchor` skips a heading inside a callout or a
+  `.panel-tabset` div, which is not a section, and reads a setext underline
+  only under a one-line paragraph. `chunk-label` reads an executed chunk of
+  any engine, and not one with `eval: false`.
+- Rule 2: target names come from the store's metadata (the literal `store=`,
+  else `_targets.yaml`, else `_targets`), so no `_targets.R` and no project
+  code runs. A target defined and never built is reported until it is built.
+  With no store, or without `targets` installed, there is a note and no
+  finding. A name that is not a literal is not guessed.
+- Rule 4: a link or image target with no scheme, read from the document's
+  folder, or from the root when it starts with `/`. A link to a rendered
+  output (`other.html`) passes when its source document (`other.qmd`,
+  `.Rmd` or `.md`) exists beside it; a PDF the render produces is not
+  checked.
+- Rule 8: `config-place` reports a `weft:` key in the project files only when
+  the whole project is linted.
+- Rules 2, 3, 6 and 7 read executed R chunks, inline expressions and governor
+  expressions, and read a piped call as the call it makes (5.1.4).
 
 ### 5.9 Figures and tables
 
-**5.9.1** Tier 1: every figure has a label, a caption and alt text; every
-table has a caption.
+**5.9.1** Tier 1: every figure has a label, a caption and alt text (`figure`);
+every table has a caption (`table-caption`). A figure or table is recognised
+by its source, not by running code: a chunk labelled `fig-` or `tbl-` or given
+a caption option, an image alone in its paragraph, a pipe or grid table, or a
+`#fig-` or `#tbl-` div, which supplies the label, caption and alt text of what
+it holds. A table's caption is a `:` line or a `Table:` line (also `table:`),
+before or after it. A chunk that plots with neither label nor caption is not
+seen. One finding is made for each missing part.
 
 **5.9.2** A caption is prose, whether it is written in a chunk option or in a
 figure or table div. Every prose lint applies to it.
@@ -3216,9 +3349,9 @@ order-of-magnitude change is a factor of ten or more, with a tolerance for
 rounding. The rest follow, ranked (tier 3): a change to a value next to a claim
 word, that is, in the same sentence, ranks above one that is not. The entry's
 own text is removed from the sentence, as a whole word, before the claim words
-are looked for. Until stage 3 supplies its lexicon the claim words are an
-interim list: English only, and broad. The number words (`one` to `twelve`,
-`first`, `second`, `third`) are not on it.
+are looked for. The claim words are the default lexicon of 5.5.4, English
+only. The number words (`one` to `twelve`, `first`, `second`, `third`) are not
+on it.
 
 **7.3.5** It also lists the entries added and removed, each with its
 sentence; the new conditions (7.4.4); and the tier-2 findings on material
@@ -3424,7 +3557,8 @@ rule 8), and its message names `_weft.yml`.
 | the severity list | 7.4.2 |
 | the rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
-| the claim-word lexicon | 5.5.4 |
+| the claim-word lexicon, words added and dropped; the cap on listed sentences | 5.5.4, 5.5.3 |
+| the word count above which a guarded bracket is listed | 3.1.9 |
 | whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
 | parts switched off (project only where `_weft.yml` exists) | 8.1.4, 9.1.4 |
@@ -3453,7 +3587,17 @@ units: {}              # 9.1.7
 decisions: github      # github, github:<owner>/<repo>, a file pattern, a function (9.1.8)
 formatters: {}         # 1.4.8
 severity: []           # 7.4.2, added to the shipped patterns
+label_words: []        # 5.2.4: words after which a numeral is exempt, as typed ("Site")
+numeral_years: false   # 5.2.4: true exempts a four-digit year, 1000 to 2999
+claim_words: {add: [], drop: []}   # 5.5.4
+claim_cap: 20          # 5.5.3: claim-word sentences listed per file by changes()
+guard_words: 25        # 3.1.9: words in the longest arm of an `if` before it is listed
+expected_names: []     # 5.3.3: classes (".foo") and keys ("foo") the project expects
 ```
+
+A wrong value for `label_words`, `numeral_years`, `claim_words`, `claim_cap`,
+`guard_words` or `expected_names` is a `weft_config_error` naming the setting
+and the rule.
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
 `false`, and so is `ledger`. `unit_form` is `auto`, `symbol` or `name`. Any other value is an error
@@ -3737,7 +3881,13 @@ refuses to run in it (8.1.5).
 
 **9.5.1** `recall_check()`: given recorded findings and a pre-remediation
 commit, runs a lint against the historical state and reports what fraction of
-the findings it reproduces, and how much else it flags. It is a sanity check
+the findings it reproduces, and how much else it flags. A recorded finding
+carries a quotation, or a file and a line; the quotation is searched for in
+the prose of the documents, and a finding with neither is not located. A
+finding is reproduced when a finding of the rule starts in a sentence its
+location overlaps, or, for a location outside any prose sentence (a chunk
+header or option, a caption), on a line the rule flagged. It returns one row
+per rule and a last row for all rules together, with the verdicts below. It is a sanity check
 on one lint: a result of none reproduced, or of nearly everything flagged,
 sends the lint back to design. It does not rank layers and does not remove
 one.
@@ -3773,7 +3923,9 @@ a mismatch.
 **9.5.5** `label_seed()` counts each capitalised word followed by a numeral
 ("Site 3", "Zone 2", "Stage 1") in the existing prose, and proposes the words
 as candidate label words (5.2.4), each with its count. The author chooses
-which go in the list.
+which go in the list. A word counts only when the very next word is a numeral;
+cross-reference words, label words already set and common prepositions and
+quantifiers are not proposed.
 
 ---
 
@@ -4356,15 +4508,20 @@ failure would last one render.
 
 **2.10.2, 2.10.3** Two readers of one syntax can disagree, and Pandoc's
 position-tracking reader does disagree with its markdown reader on attribute
-blocks (§18). So one reader, the scanner, owns the constructs. Pandoc is
-kept for what it does well: telling prose from code, math, links and raw
-content in everything that is not a construct.
+blocks (§18). So one reader, the scanner, owns the constructs. The prose
+between them is read by the package's own reader by default, because a gate
+that counts findings against `HEAD` must not depend on which Pandoc is
+installed, and a Pandoc read of each chapter costs more than the budget of
+half a second. Pandoc stays available, and the tests hold the two readers to
+the same answer.
 
 **2.10.5** Four spaces at the start of a line make an indented code block. A
 paragraph that begins with a construct, masked with spaces, became code, and
 the lints skipped it. A letter keeps a paragraph a paragraph; the check
-catches any case the letter does not, such as `# ` left at the start of a line
-inside an arm (Q9).
+catches any case the letter does not, such as a closed fence or a lone line of
+`-` left at the start of a line inside an arm (Q9). Not every line start cuts
+a span: Pandoc's `markdown` reader keeps one whole across a wrapped `#`, `>` or
+list marker, so those are not findings.
 
 **2.10.6** The lints read no front matter, and the abstract holds more claims
 than any other paragraph (1.10.9). Unmasked, the position-tracking reader read
@@ -4715,7 +4872,9 @@ ordinary Pandoc span that prints both arms. An `if` on a sign has no arm for
 zero and no rule for a value that prints as zero.
 
 **5.5** Claim words carry a data claim often but not reliably, so they are
-tier 2.
+tier 2. The list is short because a long one, with number words and bare
+comparatives, flagged two sentences in three of a real manuscript (decision
+66).
 
 **5.1.5** git's diff already knows what was added, and a check that judges
 only changed material is the one that gets read (Tricorder reports on changed
@@ -5499,12 +5658,14 @@ does not list a slip between them, because both names are weft's. Each slip
 prints something visibly different, except `.or` written for `.ord` on a
 single number, which prints the bare number.
 
-**Q9 — When the scanner and Pandoc disagree.** A re-wrap can leave `# ` at
-the start of a line inside an arm. At knit time the scanner still resolves the
-span. Pandoc's static tree reads a heading there. The span is still counted,
-so the gate sees no removal; the block-type check of 2.10.5 fails a file in
-that state, naming the line. That check needs the unmasked tree as well as
-the masked one; its cost to the gate (Q11) is not measured.
+**Q9 — When the scanner and Pandoc disagree.** A re-wrap can leave a line at
+the start of a line inside an arm that Pandoc cuts a paragraph at: a closed
+fence, a lone line of `-` or `=`, a definition line (2.10.5). At knit time the
+scanner still resolves the span, and Pandoc's tree cuts it. The span is still
+counted, so the gate sees no removal; `block-start` fails a file in that
+state, naming the line. By default it finds these from the source text with no
+Pandoc; the comparison of the unmasked tree with the masked one runs only under
+`reader = "pandoc"`, and its cost to the gate (Q11) is not measured.
 
 **Q10 — A late abstract in a book.** In a book's docx, a chapter's late
 `abstract:` becomes the abstract of the whole book (1.10.9).

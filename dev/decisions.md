@@ -532,3 +532,58 @@ teaches an author to ignore it. A project restores any word through
 its own claim-word setting. The evidence is thin (16 located
 findings, one manuscript); undo by restoring the list in
 `inst/weft-claim-words.yml` from commit 5940aeb.
+
+## 67. The stage 3 and stage 4 reviews changed the designs (13 Nov)
+
+Each review (`dev/review-3.md`, `dev/review-4.md`) ended in rulings under
+delegation. Most findings were fixed as the reviewer directed; these
+design questions were decided otherwise than the design had it. The
+spec's chapter 5 and the notes of 2.10 carry the stage 3 ones.
+
+Stage 3:
+
+- **`block-start` is narrowed to what Pandoc's `markdown` reader cuts a
+  paragraph at**: a closed backtick fence, a lone line of `-` or `=`, a
+  definition line. Alternative: CommonMark's list (`#`, `>`, list
+  markers, `:::`, `~~~`); refused, since a check with Pandoc as Quarto
+  ships it showed those keep a span whole, so the rule flagged spans
+  that render correctly.
+- **A rule named in `rules` runs whatever its tier** when `tier` is not
+  given, with a note when `tier` is given and excludes it. Alternative:
+  filter by the default tier and say nothing; refused, since "no
+  findings" then reads as "the rule passed".
+- **Anchors are read from documents in `_` folders** (not `_site`,
+  `_book`, `_freeze`, `_extensions`), and those files are not linted.
+  Alternative: keep skipping them; refused, since Quarto's include
+  convention put `{#sec-x}` there and every reference to it was a
+  tier-1 `xref`.
+- **Ruling 12 as revised:** a Pandoc highlighting-language class on a
+  code span is never a `name` finding; any other class one edit from a
+  weft class is still flagged on a code span. Alternative (the first
+  ruling): flag only a name on a span with a governor or key; refused,
+  since a mistyped `.num` on an inline value would pass, and six design
+  tests pin it.
+
+Stage 4:
+
+- **Q1, G12: claims are counted apart from values and spans** (positive
+  part of removed less added for each). Alternative: one net count;
+  refused, since a deleted `claim()` hid behind an added value.
+- **Q3, G25 step 1: the manifest records the run id**, and a backup
+  from a killed run is restored unless a later complete render made the
+  entry. Alternatives: restore always (the build), which replaces fresh
+  entries with stale ones; and decide by file times, refused since the
+  killed run's half-written files are newer than its manifest.
+- **Q5, G23: when `_weft.yml` is absent at `since`, nothing counts as
+  added**, and the report says so (as F6 does for the gate). Alternative:
+  count every tolerated finding as added; refused, since a new project
+  in an old repository then failed `verify()`.
+- **Q7, G18: when `_weft.yml` does not read at HEAD only the findings
+  comparison is skipped**; the removal count still runs. Alternative:
+  skip both (the build); refused, since a commit could then remove
+  constructs with no trailer.
+
+To undo: each is a reading in code and tests, set out with its ruling in
+the review's "Rulings" section; reverse by restoring the design's
+original sentence in `dev/design-3.md` or `dev/design-4.md` and the test
+that pins the ruling.

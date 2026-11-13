@@ -338,7 +338,7 @@ From stage 0 (counts in `dev/build-log.md`):
   years.
 - S3. `xref-code` does not fire inside an HTML comment of several lines
   that holds a blank line and an indented line.
-- S4. The default claim-word list is the 30 words of decision 66.
+- S4. The default claim-word list is the 69 words of decision 66.
 
 Not fixed, recorded in `dev/open-findings.md`: a label word joined to
 another by a hyphen (`SIGNAL-SF 2`) is not exempt; `table-caption`
