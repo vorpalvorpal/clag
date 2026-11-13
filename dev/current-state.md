@@ -71,61 +71,66 @@ first, then `dev/build-log.md`.
   (19011f6) and wait for the stage 3 rules; then the 4a implementer,
   then 4b installers and 4c `verify()` (test-writers, then
   implementers, in parallel). Owed: `test-gate-edits.R`.
-- **As of 5ca2514**: ALL packages are built and on `main` (stage 3 with
-  its review fixes and decision 66; 4a gate; 4b installers; 4c
-  `verify()`; 4d `use_setup()`). Whole suite at def127c: 3,902 tests,
-  4 failing, all four since corrected as test faults (eaa865a).
-  `dev/review-4.md` (17 findings, 7 design questions, rulings at its
-  end, two of them refined) has its failing regression tests on `main`
-  (`test-review-4.R`, 52 tests, 35 failing by design). WAITING for the
-  5-hour usage window to reset (a background sleep notifies), THEN:
-  1. stage 4 fixer (sonnet, worktree): make `test-review-4.R` pass per
-     the rulings; it will change the hook and CI templates (#13, #14),
-     after which `h4_hook_expected` / `h4_ci_expected` in
-     `helper-4b.R` need a test editor; no test for #9 (cache identity)
-     exists, the fixer implements it from the ruling;
-  2. `test-gate-edits.R` (owed, design-4 section 5);
-  3. spec editor: `PACKAGE-SCOPING.md` for stage 3 (section 5,
-     design-3 readings, review-3 rulings, decision 66), stage 4
-     (sections 6, 8, 9, design-4 readings, review-4 rulings), and
-     decisions 64 to 67 (write 67 for the review-4 design changes);
-  4. whole suite on a `git archive` export, `devtools::check()`;
-  5. build log totals;
-  6. NEW from Robin (13 Nov, after the stage 4 review): "When you have
-     finished the build. Look through the entire code base and look
-     for what should be refactored or simplified or made more robust
-     or otherwise improved, and then do it. And also create thorough
-     documentation for the package and publish it on GitHub." So after
-     the build: (a) an opus survey of the whole code base for
-     refactoring, simplification and robustness, rulings, then the
-     work under the whole suite (behaviour-preserving, in small
-     commits); (b) thorough documentation (README, vignettes or
-     articles, reference pages, a pkgdown site) published on GitHub.
-     This lifts the build prompt's "do not publish a website" for the
-     documentation only. Check the repository's visibility first
-     (`gh repo view --json visibility`): if it is private, a Pages
-     site would be public, so say so and choose with care. DONE
-     ALREADY: the repository is PUBLIC and was renamed on Robin's
-     word ("Rename the repo as well") from `vorpalvorpal/clag` to
-     `vorpalvorpal/weft`; `origin` points there. The local folder
-     stays `/Users/rjs/dev/clag` (session paths depend on it).
-     ALSO from Robin: "include speed optimisations and the test suite
-     in the code review. Speed optimisations should only be taken
-     when they are real and they don't degrade code quality." So the
-     survey covers `R/`, `inst/` and `tests/`; a speed change needs a
-     before and after measurement and must not make the code worse.
-     Robin on "real": "both that it existed, and that it was an
-     actual gain. Eg 1ms speed up on a rarely used function isn't
-     real. Look where actual bottlenecks are, and target those." So:
-     profile first (render of a real-sized document, `lints()` over a
-     project, `gate()` warm and cold, `verify(static = TRUE)`, package
-     load, the test suite's slowest files), rank by time a user
-     actually waits, and touch only the top few;
-  7. closing report.
-  Lesson: a helper defined twice in `R/` silently replaces the first
-  (it broke `lints()` once); check with
+- **As of e8c1609 the BUILD IS FINISHED**: every package on `main`,
+  both reviews fixed (`dev/review-3.md`, `dev/review-4.md`), spec
+  current for stages 0 to 4 (decisions 1 to 67), the 72 gate edits
+  ported. Whole suite at ac4a339: 3,955 tests, 0 failing, 1 skipped
+  (plus 74 gate-edits tests run apart). `devtools::check()` was
+  started on e8c1609 (output in the scratchpad `suite/check.out`);
+  put its result in the build log.
+- **Post-build work Robin asked for (13 Nov)**, in his words: "Look
+  through the entire code base and look for what should be refactored
+  or simplified or made more robust or otherwise improved, and then
+  do it. And also create thorough documentation for the package and
+  publish it on GitHub." "Rename the repo as well." (done: the
+  repository is `vorpalvorpal/weft`, public; the local folder stays
+  `/Users/rjs/dev/clag`.) "Also include speed optimisations and the
+  test suite in the code review. Speed optimisations should only be
+  taken when they are real and they don't degrade code quality."
+  "Real meant both that it existed, and that it was an actual gain.
+  Eg 1ms speed up on a rarely used function isn't real. Look where
+  actual bottlenecks are, and target those."
+  - PROFILE (done; installed package, medians): knit of a realistic
+    chapter 1.1 s with weft against 0.02 s plain (quadratic per
+    document in `starts_sentence` / `ledger_sentence_at`, and a second
+    scan at knit start); `lints()` on a real-size project 52 s tier 1,
+    67 s tiers 1:2, of which 28 s is the reading floor (`line_texts()`
+    slicing the whole text per line, about seven times per file) and
+    `mask_prose()` recomputed per rule; `gate()` cold 5 to 10 s,
+    `verify(static = TRUE)` 8 s, `changes()` 2.9 s (all lints);
+    test suite 18.6 min, 20 slowest files 583 s (real renders and
+    `tar_make`). NOT worth touching: package load 0.07 s, config and
+    dictionary reads, `status()`, `use_weft()`, warm gate 0.12 s, the
+    filter's 0.3 s, the first unit use 0.6 s cold.
+  - RUNNING in worktrees: two speed fixers (lint reader: `R/scan*.R`,
+    `R/lint-*.R`, `R/changes.R`; knit path: `R/resolve.R`,
+    `R/ledger.R`, `R/hooks.R`), outputs to stay identical.
+  - RUNNING read-only: four opus reviewers writing
+    `dev/review-code-a.md` (rendering core), `-b.md` (units,
+    dictionary, targets, ledger, config), `-c.md` (lints, gate,
+    verify, installers), `-tests.md` (the test suite). THEN: rule on
+    the proposals (append rulings to each file), carry them out after
+    the speed fixes merge, in small behaviour-preserving commits by
+    area in worktrees, whole suite after each merge.
+  - THEN documentation: README, articles (getting started, values and
+    formatters, wording and claims, units and the dictionary, targets,
+    lints, the gate and verify, setting up a project, for agents),
+    complete reference pages with examples, `_pkgdown.yml`, the site
+    built and published to GitHub Pages of `vorpalvorpal/weft`
+    (`gh-pages` branch or a Pages workflow), `URL` in DESCRIPTION.
+    Nothing to CRAN, no release.
+  - CLEAN UP at the end: delete the scratchpad folder `prof/real/` (a
+    copy of the real manuscript made by the profiler), scratch
+    libraries, worktrees; `find dev/trials -type l` must give 0.
+  - THEN the closing report (what is built and passing, trial and
+    stage 0 headlines, decisions one line each, items waiting on
+    Robin incl. units PR #447 / issue #448 and `dev/open-findings.md`,
+    what is untested: Render buttons, interactive chunks, Windows,
+    real renv).
+  Lesson: a helper defined twice in `R/` silently replaces the first;
+  after every merge run
   `grep -hoE '^[A-Za-z_.][A-Za-z0-9_.]* *(<-|=) *function' R/*.R | sed -E 's/ *(<-|=).*//' | sort | uniq -d`
-  after every merge.
+  (must print nothing).
 - **Stage 0 has run** (scripts and outputs under
   `dev/trials/stage0/`, git-ignored). Counts are to go into
   `dev/build-log.md`: 46 files, 5,508 sentences, 83.5 s; `construct`
