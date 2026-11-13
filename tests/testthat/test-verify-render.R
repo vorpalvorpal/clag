@@ -111,7 +111,7 @@ test_that("4c G25: one `quarto render` in the root, with no files, output to a l
   r <- v4_verify(p$root)
   expect_verify_passed(r)
   expect_length(v4_log(fq, "calls"), 1L)
-  expect_identical(v4_log(fq, "args"), "render")
+  expect_identical(v4_log(fq, "args"), c("render", "--execute-daemon-restart"))
   expect_identical(normalizePath(v4_log(fq, "cwd")), normalizePath(p$root))
   run <- v4_log(fq, "run")
   expect_match(run, V4_RUN_RE)
@@ -136,13 +136,13 @@ test_that("4c G25, G29: verify(files =) renders the named documents only: `quart
   p <- fk_proj(list("a.qmd" = V4_CONSTRUCT_DOC, "b.qmd" = V4_CONSTRUCT_DOC, "sub/c.qmd" = V4_PLAIN_DOC), git = TRUE)
   r <- v4_verify(p$root, files = "a.qmd")
   expect_verify_passed(r)
-  expect_identical(v4_log(fq, "args"), c("render", "a.qmd"))
+  expect_identical(v4_log(fq, "args"), c("render", "a.qmd", "--execute-daemon-restart"))
   fq2 <- v4_fake_quarto(body = v4_sh_stamp("a.qmd"))   # sub/c.qmd holds no construct: no stamp needed
   r2 <- v4_verify(p$root, files = c("a.qmd", "sub/c.qmd"))
   expect_verify_passed(r2)
   # review-4 #4: several files are rendered one `quarto render <file>` at a time (Quarto renders the first
   # of `render a b` and hands the second to Pandoc)
-  expect_identical(v4_log(fq2, "renders"), c("render a.qmd", "render sub/c.qmd"))
+  expect_identical(v4_log(fq2, "renders"), c("render a.qmd --execute-daemon-restart", "render sub/c.qmd --execute-daemon-restart"))
 })
 
 test_that("4c G25: QUARTO_PATH names the quarto that is run (it comes first)", {

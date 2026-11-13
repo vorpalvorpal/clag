@@ -181,7 +181,7 @@ test_that("review-4 #4: several files are rendered by one `quarto render <file>`
                quarto_yml = V4_QUARTO_YML)
   r <- v4_verify(p$root, files = c("a.qmd", "b.qmd"))
   expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "")
-  expect_identical(v4_log(fq, "renders"), c("render a.qmd", "render b.qmd"))
+  expect_identical(v4_log(fq, "renders"), c("render a.qmd --execute-daemon-restart", "render b.qmd --execute-daemon-restart"))
 })
 
 test_that("review-4 #4: one file is `render <file>` and no files is a plain `render` in a Quarto project (neighbour guard)", {
@@ -189,10 +189,10 @@ test_that("review-4 #4: one file is `render <file>` and no files is a plain `ren
   fq <- v4_fake_quarto(body = v4_sh_stamp("a.qmd"))
   p <- v4_proj(list("a.qmd" = V4_CONSTRUCT_DOC, "b.qmd" = V4_PLAIN_DOC), git = TRUE, quarto_yml = V4_QUARTO_YML)
   expect_null(v4_verify(p$root, files = "a.qmd")$err)
-  expect_identical(v4_log(fq, "renders"), "render a.qmd")
+  expect_identical(v4_log(fq, "renders"), "render a.qmd --execute-daemon-restart")
   fq2 <- v4_fake_quarto(body = v4_sh_stamp("a.qmd"))
   expect_null(v4_verify(p$root)$err)
-  expect_identical(v4_log(fq2, "renders"), "render")
+  expect_identical(v4_log(fq2, "renders"), "render --execute-daemon-restart")
 })
 
 test_that("review-4 #5: with no _quarto.yml each document is rendered by name, and the report counts what was rendered", {
@@ -202,7 +202,7 @@ test_that("review-4 #5: with no _quarto.yml each document is rendered by name, a
   expect_false(file.exists(file.path(p$root, "_quarto.yml")))
   r <- v4_verify(p$root)
   expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "")
-  expect_identical(v4_log(fq, "renders"), c("render a.qmd", "render b.qmd"))
+  expect_identical(v4_log(fq, "renders"), c("render a.qmd --execute-daemon-restart", "render b.qmd --execute-daemon-restart"))
   expect_match(v4_detail(r$value, "render"), "\\b2 documents rendered")
 })
 
@@ -212,7 +212,7 @@ test_that("review-4 #5: a lone document with no _quarto.yml is rendered by its n
   p <- v4_proj(list("daily.qmd" = V4_CONSTRUCT_DOC), git = FALSE)
   r <- v4_verify(p$root)
   expect_null(r$err, label = if (!is.null(r$err)) conditionMessage(r$err) else "")
-  expect_identical(v4_log(fq, "renders"), "render daily.qmd")
+  expect_identical(v4_log(fq, "renders"), "render daily.qmd --execute-daemon-restart")
 })
 
 # ---- #6: the render list ----------------------------------------------------------------------------------------
