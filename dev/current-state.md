@@ -230,6 +230,12 @@ recovered from the session transcript
 (`~/.claude/projects/-Users-rjs-dev-clag/329c9209-...jsonl`) or redone
 before the closing report. Briefs now say: delete only files you made.
 
+Update: both drafts were recovered from the transcript (scratchpad
+`rmdfix-recovered/`). Robin said to post the issue; it is
+https://github.com/rstudio/rmarkdown/issues/2648 (13 Nov). The patch is
+not redone and no PR is open; Robin: "if they accept, it can be." Do
+not reply to maintainers there without Robin's say.
+
 Stage 6 position: 6a, 6b, 6k, 6c, 6d, 6f merged on local `main`; 6g
 tests merged, implementer next; then 6e, 6h, 6i, 6j. Pushed through
 dd63c56. The CI fix (R's lib on `LD_LIBRARY_PATH`) is unpushed.
