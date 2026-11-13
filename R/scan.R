@@ -56,6 +56,15 @@ new_scan <- function(text, file, first_line, config) {
   S
 }
 
+# The `n` lines of `text`, cut in one pass (the last may be empty). `substring()` with a start
+# for each line walks a non-ASCII string from its beginning every time, so it is quadratic.
+cut_lines <- function(text, n) {
+  x <- strsplit(text, "\n", fixed = TRUE)[[1L]]
+  length(x) <- n
+  x[is.na(x)] <- ""
+  x
+}
+
 # Fenced blocks (executed chunks and not): the scanner leaves them alone.
 find_fences <- function(S) {
   S$f_start <- integer()
@@ -63,7 +72,7 @@ find_fences <- function(S) {
   if (S$n == 0L) return(invisible())
   ls <- c(1L, S$nl + 1L)
   le <- c(S$nl - 1L, S$n)
-  lines <- substring(S$text, ls, le)
+  lines <- cut_lines(S$text, length(ls))
   open_re <- "^[ \t]*((?:>[ \t]*)*)(`{3,}|~{3,})(.*)$"
   m <- regmatches(lines, regexec(open_re, lines, perl = TRUE))
   k <- 1L
@@ -122,7 +131,7 @@ find_tables <- function(S) {
   if (S$n == 0L) return(invisible())
   ls <- c(1L, S$nl + 1L)
   le <- c(S$nl - 1L, S$n)
-  lines <- substring(S$text, ls, le)
+  lines <- cut_lines(S$text, length(ls))
   delim <- grepl("\\|", lines) &
     grepl("^[ \t]*\\|?[ \t]*:?-+:?[ \t]*(\\|[ \t]*:?-+:?[ \t]*)*\\|?[ \t\r]*$", lines)
   # the header and the delimiter row must have the same number of cells

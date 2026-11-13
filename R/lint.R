@@ -473,7 +473,7 @@ lint_construct <- function(src, ctx) {
     }, "", USE.NAMES = FALSE)
     s <- r$fstart[i]
     en <- r$fend[i]
-    txt <- substr(src$text, s, en)
+    txt <- src_substr(src, s, en)
     if (nchar(txt) > 80L) txt <- substr(txt, 1L, 80L)
     new_findings(file = src$file, line = src_line_of(src, s), col = src_col_of(src, s),
                  end_line = src_line_of(src, en), rule = "construct", spec = spec,

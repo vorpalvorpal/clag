@@ -13,6 +13,32 @@ src_col_of <- function(src, pos) {
   as.integer(pos - src$line_start[pmax(l, 1L)] + 1)
 }
 
+# Pieces of a text by character offset: `substring(text, start, stop)`. For a text with non-ASCII
+# characters substring() walks the string from its start for every piece, so a document's worth of
+# pieces is quadratic. The cutter splits such a text into characters once and cuts from those.
+text_cutter <- function(text) {
+  if (nchar(text, "bytes") == nchar(text)) return(function(start, stop) substring(text, start, stop))
+  chars <- strsplit(text, "")[[1L]]
+  function(start, stop) {
+    if (!length(start) || !length(stop)) return(character())
+    k <- max(length(start), length(stop))
+    start <- pmax(rep_len(start, k), 1L)
+    stop <- pmin(rep_len(stop, k), length(chars))
+    vapply(seq_len(k), function(i) {
+      if (is.na(start[i]) || is.na(stop[i])) NA_character_
+      else if (start[i] > stop[i]) ""
+      else paste(chars[start[i]:stop[i]], collapse = "")
+    }, "")
+  }
+}
+
+# The same for a source's own text; the cutter is kept on the source, so it goes with it.
+src_substr <- function(src, start, stop) {
+  if (is.null(src$cache)) return(substring(src$text, start, stop))
+  if (is.null(src$cache$cut)) src$cache$cut <- text_cutter(src$text)
+  src$cache$cut(start, stop)
+}
+
 # Logical vector of length n, TRUE inside any [starts[i], ends[i]].
 mark_ranges <- function(n, starts, ends) {
   ok <- !is.na(starts) & !is.na(ends) & ends >= starts
@@ -472,6 +498,7 @@ mask_prose <- function(S) {
   empty_regs <- with_attrs(empty_regs, character())
   if (n == 0L) return(list(prose = "", regions = empty_regs, numeric_ok = integer(), notes = list()))
   chars <- strsplit(text, "")[[1L]]
+  at <- text_cutter(text)
   ls <- S$line_start
   lc <- rep.int(seq_len(nl), nchar(S$lines) + 1L)[seq_len(n)]
   # which lines are not body
@@ -491,7 +518,7 @@ mask_prose <- function(S) {
     invisible()
   }
   cur <- function() paste(chars, collapse = "")
-  line_texts <- function(w) substring(w, ls, ls + nchar(S$lines) - 1L)
+  line_texts <- function(w) cut_lines(w, nl)
   work <- cur()
 
   # divs (whole fence lines)
@@ -574,7 +601,7 @@ mask_prose <- function(S) {
         ii <- which(ty == kk)
         if (!length(ii)) next
         pat <- if (kk == "md") "^[ \t]*\\{[^{}\\n]*\\}" else "^\\{[^{}\\n]*\\}"
-        sub_txt <- substring(text, e[ii] + 1L, e[ii] + 300L)
+        sub_txt <- at(e[ii] + 1L, e[ii] + 300L)
         m <- regexpr(pat, sub_txt, perl = TRUE)
         has <- which(m > 0L)
         if (length(has)) {
@@ -585,7 +612,7 @@ mask_prose <- function(S) {
           if (kk == "cod") {
             r <- new_regions("code_attr", s[ii][has], ae)
             r$attr_start <- as; r$attr_end <- ae
-            r <- with_attrs(r, substring(text, as, ae))
+            r <- with_attrs(r, at(as, ae))
             code_attr[[length(code_attr) + 1L]] <- r
           }
         }
@@ -603,7 +630,7 @@ mask_prose <- function(S) {
   span_reg <- NULL
   if (length(gs$s)) {
     # the last "]{" opens the attribute block
-    ap <- vapply(substring(work, gs$s, gs$e), function(x) {
+    ap <- vapply(text_cutter(work)(gs$s, gs$e), function(x) {
       m <- gregexpr("]{", x, fixed = TRUE)[[1L]]
       as.integer(m[length(m)])
     }, 1L)
@@ -613,7 +640,7 @@ mask_prose <- function(S) {
     r$inner_end <- as - 1L
     r$attr_start <- as
     r$attr_end <- gs$e
-    r <- with_attrs(r, substring(text, as, gs$e))
+    r <- with_attrs(r, at(as, gs$e))
     span_reg <- r
   }
 
@@ -630,8 +657,8 @@ mask_prose <- function(S) {
     ty <- match_type(g, c("cb", "xr2", "xa", "cbr", "xr", "ct"))
     blank(g$s, g$e)
     isx <- ty %in% c("xr2", "xa", "xr")
-    addreg("crossref", g$s[isx], g$e[isx], name = substring(text, g$s, g$e)[isx])
-    addreg("citation", g$s[!isx], g$e[!isx], name = substring(text, g$s, g$e)[!isx])
+    addreg("crossref", g$s[isx], g$e[isx], name = at(g$s, g$e)[isx])
+    addreg("citation", g$s[!isx], g$e[!isx], name = at(g$s, g$e)[!isx])
     work <- cur()
   }
 
@@ -639,7 +666,7 @@ mask_prose <- function(S) {
   g <- gmatch("\\[\\^[^\\]\\s]+\\]:?", work)
   if (length(g$s)) {
     blank(g$s, g$e)
-    addreg("footnote", g$s, g$e, name = substring(text, g$s, g$e))
+    addreg("footnote", g$s, g$e, name = at(g$s, g$e))
     work <- cur()
   }
   inl <- inline_footnotes(work)
@@ -664,7 +691,7 @@ mask_prose <- function(S) {
   g <- gmatch("(?<=\\])(?:\\((?:[^()\\n]|\\([^()\\n]*\\))*\\)|\\[[^\\]\\n]*\\])", work)
   if (length(g$s)) {
     blank(g$s, g$e)
-    sub_txt <- substring(text, g$e + 1L, g$e + 300L)
+    sub_txt <- at(g$e + 1L, g$e + 300L)
     m <- regexpr("^\\{[^{}\\n]*\\}", sub_txt, perl = TRUE)
     has <- which(m > 0L)
     if (length(has)) blank(g$e[has] + 1L, g$e[has] + attr(m, "match.length")[has])
@@ -1041,9 +1068,10 @@ source_sentences <- function(src) {
   out <- list()
   b <- src$blocks
   lang <- if (is.na(src$lang)) "" else src$lang
+  prose_at <- text_cutter(src$prose)
   for (i in seq_len(nrow(b))) {
-    t <- substr(src$text, b$start[i], b$end[i])
-    pr <- substr(src$prose, b$start[i], b$end[i])
+    t <- src_substr(src, b$start[i], b$end[i])
+    pr <- prose_at(b$start[i], b$end[i])
     if (!grepl("[^ \n]", pr)) next
     nc <- nchar(t)
     cuts <- sentence_cuts(t, NULL, lang)$cuts

@@ -426,7 +426,7 @@ lint_value_constant <- function(src, ctx) {
     for (f in value_constants(p)) {
       s <- p$line_off[d$line1[f$from]] + d$col1[f$from] - 1
       e <- p$line_off[d$line2[f$to]] + d$col2[f$to] - 1
-      tx <- substr(src$text, s, e)
+      tx <- src_substr(src, s, e)
       recs[[length(recs) + 1L]] <- list(
         s = s, e = e, text = tx,
         message = sprintf("The constant `%s` is typed inside a value (rule 5.6.2).", tx),
@@ -549,7 +549,7 @@ span_items <- function(src) {
   add_span <- function(open, close, astart, aend, row) {
     if (open %in% seen) return(invisible())
     seen <<- c(seen, open)
-    tk <- attr_tokens(substr(src$text, astart, aend), astart)
+    tk <- attr_tokens(src_substr(src, astart, aend), astart)
     items[[length(items) + 1L]] <<- list(kind = "span", open = open, close = close, astart = astart,
                                          aend = aend, toks = tk, row = row)
   }
@@ -558,14 +558,14 @@ span_items <- function(src) {
     add_span(sp$inner_start[i], sp$inner_end[i], sp$attr_start[i], sp$attr_end[i], row)
   }
   for (i in seq_len(nrow(sp))) {
-    nested <- find_spans(substr(src$text, sp$start[i], sp$end[i]), sp$start[i])
+    nested <- find_spans(src_substr(src, sp$start[i], sp$end[i]), sp$start[i])
     for (j in seq_len(nrow(nested))) {
       add_span(nested$open[j], nested$close[j], nested$astart[j], nested$aend[j], NA_integer_)
     }
   }
   ca <- reg[reg$type == "code_attr" & !is.na(reg$attr_start), , drop = FALSE]
   for (i in seq_len(nrow(ca))) {
-    tk <- attr_tokens(substr(src$text, ca$attr_start[i], ca$attr_end[i]), ca$attr_start[i])
+    tk <- attr_tokens(src_substr(src, ca$attr_start[i], ca$attr_end[i]), ca$attr_start[i])
     items[[length(items) + 1L]] <- list(kind = "code", open = ca$start[i], close = NA_real_,
                                         astart = ca$attr_start[i], aend = ca$attr_end[i], toks = tk,
                                         row = match(ca$start[i], rows$fstart))
@@ -625,7 +625,7 @@ lint_lone_bar <- function(src, ctx) {
     keys <- tolower(it$toks$name[it$toks$type == "key"])
     if (any(keys %in% c(GOVERNOR_KEYS))) next
     if (it$close - it$open < 2) next
-    inner <- substr(src$text, it$open + 1, it$close - 1)
+    inner <- src_substr(src, it$open + 1, it$close - 1)
     if (bar_count(inner) != 1L) next
     out[[length(out) + 1L]] <- lc_find(
       src, it$open + 1, it$close - 1, "lone-bar", inner,
@@ -1120,7 +1120,7 @@ lint_above_setup <- function(src, ctx) {
                   live_rows(src))
   out <- list()
   for (i in keep) {
-    tx <- substr(src$text, r$fstart[i], r$fend[i])
+    tx <- src_substr(src, r$fstart[i], r$fend[i])
     if (nchar(tx) > 80L) tx <- substr(tx, 1L, 80L)
     out[[length(out) + 1L]] <- lc_find(
       src, r$fstart[i], r$fend[i], "above-setup", tx,

@@ -37,14 +37,23 @@ block_context <- function(src, blk) {
   out
 }
 
-# the words of a prose string: file offsets of each word's first and last character
-prose_words <- function(prose) {
-  m <- gregexpr(WORD_RE, prose, perl = TRUE)[[1L]]
-  if (m[[1L]] == -1L) return(list(s = integer(), e = integer(), w = character()))
-  s <- as.integer(m)
-  e <- s + attr(m, "match.length") - 1L
-  list(s = s, e = e, w = substring(prose, s, e))
+# every match of `pat` in `text` that does not run across a line: file offsets of its first and
+# last character, and the matched strings. A non-ASCII pattern or text makes one gregexpr() over a
+# whole document quadratic (each match is found again from the start), so match line by line.
+line_matches <- function(pat, text) {
+  lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
+  m <- gregexpr(pat, lines, perl = TRUE)
+  st <- unlist(m)
+  if (is.null(st) || all(st == -1L)) return(list(s = integer(), e = integer(), w = character()))
+  len <- unlist(lapply(m, attr, "match.length"))
+  off <- cumsum(c(0L, nchar(lines) + 1L))[seq_along(lines)]
+  ok <- st > 0L
+  s <- as.integer(st + rep.int(off, lengths(m)))[ok]
+  list(s = s, e = s + len[ok] - 1L, w = unlist(regmatches(lines, m)))
 }
+
+# the words of a prose string: file offsets of each word's first and last character
+prose_words <- function(prose) line_matches(WORD_RE, prose)
 
 # where numerals are exempt: inside a cite span, a .weft-literal span or div
 numeral_exempt_mask <- function(src) {
@@ -141,7 +150,7 @@ numeral_math <- function(src) {
   txt <- list()
   for (i in mi) {
     s <- rg$start[i]
-    t <- substr(src$text, s, rg$end[i])
+    t <- src_substr(src, s, rg$end[i])
     # inline R and code spans are masked
     m <- gregexpr("(`+)[^`]*\\1", t, perl = TRUE)
     regmatches(t, m) <- lapply(regmatches(t, m), function(x) strrep(" ", nchar(x)))
@@ -203,10 +212,10 @@ lint_claim_word <- function(src, ctx) {
   prose <- lint_prose_view(src, ctx)
   sent <- lint_sentences(src, ctx, prose)
   if (!nrow(sent)) return(new_findings())
-  m <- gregexpr("\\p{L}+", prose, perl = TRUE)[[1L]]
-  if (m[[1L]] == -1L) return(new_findings())
-  ps <- as.integer(m)
-  run <- tolower(substring(prose, ps, ps + attr(m, "match.length") - 1L))
+  lw <- line_matches("\\p{L}+", prose)
+  if (!length(lw$s)) return(new_findings())
+  ps <- lw$s
+  run <- tolower(lw$w)
   hit <- run %in% lex
   if (!any(hit)) return(new_findings())
   ps <- ps[hit]
@@ -243,7 +252,7 @@ lint_claim_word <- function(src, ctx) {
                         "a value; check that the value still bears it out, or guard the word with an `if` span",
                         "no value: if it states a result, compute it"))
   # the design's punctuation: "; check" and ": if" sit inside the one sentence
-  sentence <- gsub("[[:space:]]+", " ", trimws(substring(src$text, sent$start[si], sent$end[si])))
+  sentence <- gsub("[[:space:]]+", " ", trimws(src_substr(src, sent$start[si], sent$end[si])))
   f <- finding_at(src, first, sent$end[si], "claim-word", vapply(words, paste, "", collapse = ", "), msg,
                   context = block_context(src, sent$block[si]), sentence = sentence)
   f$end_line <- as.integer(sent$end_line[si])

@@ -129,7 +129,7 @@ doc_links <- function(src) dl_cached(src, "links", function() {
   empty <- data.frame(start = integer(), target = character(), kind = character(), rstart = integer(),
                       rend = integer(), stringsAsFactors = FALSE)
   if (!nrow(rg)) return(empty)
-  txt <- substring(src$text, rg$start, rg$end)
+  txt <- src_substr(src, rg$start, rg$end)
   m <- regexpr("(?s)^!?\\[.*\\]\\(\\s*(<[^>]*>|[^\\s)]*)", txt, perl = TRUE)
   ok <- m > 0L
   if (!any(ok)) return(empty)
@@ -236,7 +236,7 @@ doc_refs <- function(src) dl_cached(src, "refs", function() {
   }
   ct <- rg[rg$type == "citation", , drop = FALSE]
   if (nrow(ct)) {
-    txt <- substring(src$text, ct$start, ct$end)
+    txt <- src_substr(src, ct$start, ct$end)
     pat <- paste0("(?<![[:alnum:]_])-?(@)((?i:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, ")")
     mm <- dl_matches(pat, txt)
     for (i in seq_along(mm)) {
@@ -410,7 +410,7 @@ doc_cite_rows <- function(src) {
   if (!length(k)) return(empty)
   val <- rw$expr[k]
   for (i in which(is.na(val))) {
-    at <- if (is.na(rw$fblock[k[i]])) "" else substr(src$text, rw$fblock[k[i]], rw$fend[k[i]])
+    at <- if (is.na(rw$fblock[k[i]])) "" else src_substr(src, rw$fblock[k[i]], rw$fend[k[i]])
     m <- regmatches(at, regexec("cite[ \t]*=[ \t]*(?:\"([^\"]*)\"|'([^']*)')", at, perl = TRUE))[[1L]]
     val[i] <- if (length(m)) paste0(m[2L], m[3L]) else ""
   }
@@ -424,7 +424,7 @@ doc_citations <- function(src) dl_cached(src, "citations", function() {
   rg <- src$regions[src$regions$type == "citation", , drop = FALSE]
   empty <- data.frame(key = character(), at = integer(), stringsAsFactors = FALSE)
   if (!nrow(rg)) return(empty)
-  txt <- substring(src$text, rg$start, rg$end)
+  txt <- src_substr(src, rg$start, rg$end)
   pat <- paste0("(?<![[:alnum:]_])-?(@)(?:\\{([^}\n]*)\\}|(", CITE_KEY_RE, "))")
   mm <- dl_matches(pat, txt)
   out <- list()
@@ -460,7 +460,7 @@ lint_cite_key <- function(src, ctx) {
     keys <- keys[nzchar(keys)]
     bad <- unique(keys[!keys %in% known])
     if (!length(bad)) next
-    rt <- substr(src$text, rows$start[i], rows$end[i])
+    rt <- src_substr(src, rows$start[i], rows$end[i])
     pos <- vapply(bad, function(k) {
       p <- regexpr(k, rt, fixed = TRUE)
       as.integer(rows$start[i] + (if (p > 0L) p - 1L else 0L))
@@ -490,7 +490,7 @@ lint_cite_bare <- function(src, ctx) {
     }
     bad <- keys[!keys %in% written]
     if (!length(bad)) next
-    rt <- substr(src$text, rows$start[i], rows$end[i])
+    rt <- src_substr(src, rows$start[i], rows$end[i])
     pos <- vapply(bad, function(k) {
       p <- regexpr(k, rt, fixed = TRUE)
       as.integer(rows$start[i] + (if (p > 0L) p - 1L else 0L))
@@ -609,7 +609,7 @@ lint_ref_label <- function(src, ctx) {
   rd <- rg[rg$type == "refdef", , drop = FALSE]
   if (!nrow(rw) || !nrow(rd)) return(dl_empty())
   fold <- function(x) gsub("[ \t\n]+", " ", dl_trim(tolower(x)))
-  rt <- substring(src$text, rd$start, rd$end)
+  rt <- src_substr(src, rd$start, rd$end)
   lab <- fold(sub("^[ \t]*\\[(.*?)\\]:.*$", "\\1", rt, perl = TRUE))
   k <- which(rw$kind %in% c("n", "if", "sign", "list", "cite", "text", "literal"))
   if (!length(k)) return(dl_empty())
@@ -618,7 +618,7 @@ lint_ref_label <- function(src, ctx) {
   k <- k[!is.na(m)]
   m <- m[!is.na(m)]
   if (!length(k)) return(dl_empty())
-  br <- substring(src$text, sp$start[m] + 1L, sp$inner_end[m] - 1L)
+  br <- src_substr(src, sp$start[m] + 1L, sp$inner_end[m] - 1L)
   hit <- fold(br) %in% lab
   if (!any(hit)) return(dl_empty())
   s <- sp$start[m][hit]
@@ -645,7 +645,7 @@ lint_anchor_unused <- function(ctx) {
 lint_xref_code <- function(src, ctx) {
   rg <- src$regions[src$regions$type == "code", , drop = FALSE]
   if (!nrow(rg)) return(dl_empty())
-  txt <- substring(src$text, rg$start, rg$end)
+  txt <- src_substr(src, rg$start, rg$end)
   inner <- dl_trim(gsub("^`+|`+$", "", txt))
   ok <- grepl(paste0("^-?@(?i:", paste(XREF_PREFIXES, collapse = "|"), ")-", KEY_BODY, "$"), inner, perl = TRUE)
   if (!any(ok)) return(dl_empty())
@@ -670,7 +670,7 @@ lint_section_anchor <- function(src, ctx) {
   }
   for (i in seq_len(nrow(b))) {
     if (!is.null(dv) && nrow(dv) && any(dv$open < b$line[i] & dv$close > b$line[i])) next
-    t <- substr(src$text, b$start[i], b$end[i])
+    t <- src_substr(src, b$start[i], b$end[i])
     off <- 0L
     atx <- regexpr("^ {0,3}#{1,6}[ \t]+", t, perl = TRUE)
     if (atx > 0L) {
@@ -866,7 +866,7 @@ dl_has_option <- function(opts, keys) {
 
 # the attribute block straight after an offset (as a string, "" when none)
 dl_attr_after <- function(src, pos) {
-  t <- substr(src$text, pos + 1L, pos + 400L)
+  t <- src_substr(src, pos + 1L, pos + 400L)
   m <- regmatches(t, regexpr("^\\{[^{}\n]*\\}", t, perl = TRUE))
   if (length(m)) m else ""
 }
@@ -931,7 +931,7 @@ lint_figure <- function(src, ctx) {
     cb <- blk[blk$type == "caption" & blk$line > fd$open[i] & blk$end_line < fd$close[i], , drop = FALSE]
     has_cap <- FALSE
     for (j in seq_len(nrow(cb))) {
-      t <- substr(src$text, cb$start[j], cb$end[j])
+      t <- src_substr(src, cb$start[j], cb$end[j])
       t <- gsub("!\\[.*?\\]\\([^)]*\\)(\\{[^{}]*\\})?", "", t, perl = TRUE)
       if (nzchar(dl_trim(t))) has_cap <- TRUE
     }
@@ -943,7 +943,7 @@ lint_figure <- function(src, ctx) {
     if (length(inside)) {
       alt_ok <- FALSE
       for (j in inside) {
-        br <- sub("(?s)^!\\[(.*)\\]\\(.*$", "\\1", substr(src$text, im$start[j], im$end[j]), perl = TRUE)
+        br <- sub("(?s)^!\\[(.*)\\]\\(.*$", "\\1", src_substr(src, im$start[j], im$end[j]), perl = TRUE)
         at <- dl_attr_after(src, im$end[j])
         if (nzchar(dl_trim(br)) || grepl("fig-alt[ \t]*=[ \t]*[\"'][^\"']", at)) alt_ok <- TRUE
       }
@@ -963,12 +963,12 @@ lint_figure <- function(src, ctx) {
       p <- which(paras$start <= im$start[j] & paras$end >= im$end[j])
       if (!length(p)) next
       p <- p[1L]
-      before <- substr(src$text, paras$start[p], im$start[j] - 1L)
-      after <- substr(src$text, im$end[j] + 1L, paras$end[p])
+      before <- src_substr(src, paras$start[p], im$start[j] - 1L)
+      after <- src_substr(src, im$end[j] + 1L, paras$end[p])
       at <- dl_attr_after(src, im$end[j])
       if (nzchar(at)) after <- substring(after, nchar(at) + 1L)
       if (nzchar(dl_trim(before)) || nzchar(dl_trim(after))) next
-      br <- sub("(?s)^!\\[(.*)\\]\\(.*$", "\\1", substr(src$text, im$start[j], im$end[j]), perl = TRUE)
+      br <- sub("(?s)^!\\[(.*)\\]\\(.*$", "\\1", src_substr(src, im$start[j], im$end[j]), perl = TRUE)
       tg <- lk$target[lk$rstart == im$start[j]]
       tg <- if (length(tg)) tg[1L] else ""
       atq <- dl_unquote(at)

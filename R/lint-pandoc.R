@@ -249,7 +249,7 @@ block_start_r <- function(src) {
   parts <- list()
   # (a) a line inside a span that starts a block
   span <- r$kind %in% c("n", "if", "sign", "list", "cite", "text", "literal") & r$context == "prose" &
-    !is.na(r$fblock) & substring(src$text, r$fstart, r$fstart) == "["
+    !is.na(r$fblock) & src_substr(src, r$fstart, r$fstart) == "["
   i <- which(span)
   if (length(i)) {
     l1 <- src_line_of(src, r$fstart[i])
@@ -301,7 +301,7 @@ block_start_r <- function(src) {
       cand <- cand & blank[pmax(ln - 1L, 1L)] & !inlist[ln]
       j <- c1[cand]
       if (length(j)) {
-        txt <- substring(src$text, r$fstart[j], pmin(r$fend[j], r$fstart[j] + 79L))
+        txt <- src_substr(src, r$fstart[j], pmin(r$fend[j], r$fstart[j] + 79L))
         parts[[length(parts) + 1L]] <- finding_at(
           src, r$fstart[j], r$fend[j], "block-start", txt,
           sprintf("Line %d starts a construct indented four spaces or more after a blank line, which Pandoc reads as code, so it is not a construct (rule 2.10.5).",
