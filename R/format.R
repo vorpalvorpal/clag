@@ -163,6 +163,10 @@ print_one <- function(v, digits, sigfig, cfg, quantity = FALSE) {
   list(text = txt, number = num, decimals = nd > 0L)
 }
 
+# `digits` and `sigfig` above this are a construct error, not an R error from
+# sprintf() (which stops at 8192 characters).
+MAX_PLACES <- 100
+
 key_number <- function(keys, name) {
   v <- keys[[name]]
   if (is.null(v)) return(NULL)
@@ -171,7 +175,44 @@ key_number <- function(keys, name) {
     construct_error(sprintf("`%s` must be a whole number, not negative (got `%s`).",
                             name, paste(format(v), collapse = " ")))
   }
+  if (name %in% c("digits", "sigfig") && out > MAX_PLACES) {
+    construct_error(sprintf("`%s` must be at most %d (got `%s`).",
+                            name, MAX_PLACES, paste(format(v), collapse = " ")))
+  }
   out
+}
+
+# A printed number never shows the binary tail: a double holds about 15
+# significant digits, so when the printed text would show more, the digits are
+# those of the number rounded to 15 significant digits and the places asked for
+# beyond them are zeros. `p` is the result of print_one().
+zero_noise <- function(p, cfg, keep = 15L) {
+  txt <- p$text
+  dm <- cfg$decimal_mark
+  at <- regexpr(dm, txt, fixed = TRUE)
+  if (!isTRUE(p$decimals) || at < 0L || !is.finite(p$number)) return(txt)
+  head <- substr(txt, 1L, at - 1L)
+  frac <- substr(txt, at + nchar(dm), nchar(txt))
+  digits_of <- function(x) gsub("[^0-9]", "", x)
+  lead <- sub("[0-9].*$", "", head)   # a minus sign
+  all_digits <- sub("^0+", "", paste0(digits_of(head), frac))
+  if (nchar(all_digits) <= keep) return(txt)
+  x <- abs(p$number)
+  r <- sprintf(paste0("%.", keep - 1L, "e"), x)
+  ds <- sub("\\.", "", sub("e.*$", "", r))
+  E <- as.integer(sub("^.*e", "", r))
+  if (x == 0 || E + 1L >= keep) return(txt)
+  if (E >= 0L) {
+    ip <- substr(ds, 1L, E + 1L)
+    fp <- substr(ds, E + 2L, nchar(ds))
+  } else {
+    ip <- "0"
+    fp <- paste0(strrep("0", -E - 1L), ds)
+  }
+  nd <- nchar(frac)
+  fp <- substr(paste0(fp, strrep("0", nd)), 1L, nd)
+  if (x >= (cfg$thousands_from %||% 1000)) ip <- group_int(ip, cfg$big_mark)
+  paste0(lead, ip, dm, fp)
 }
 
 # `bound` marks the elements that are a clamp() bound: under default digits
@@ -199,6 +240,7 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
     if (class == ".sci") return(sci_one(v, digits, sigfig, cfg))
     sv <- if (class == ".pct" && isTRUE(cfg$pct_proportion)) v * 100 else v
     p <- print_one(sv, digits, sigfig, cfg, quantity)
+    p$text <- zero_noise(p, cfg)
     if (default && p$number == 0 && sv != 0 && !whole(sv)) {
       if (bound[i]) {
         nd <- 0L
@@ -323,19 +365,26 @@ ordinal_suffix <- function(n) {
 EN_MONTHS <- c("January", "February", "March", "April", "May", "June", "July",
                "August", "September", "October", "November", "December")
 
+EN_WEEKDAYS <- c("Sunday", "Monday", "Tuesday", "Wednesday", "Thursday",
+                 "Friday", "Saturday")
+
 # One date or date-time printed by the `date_format` setting. `%-d` and `%-m`
-# (no leading zero) and the month names are expanded here, so the result does
+# (no leading zero) and the month and weekday names are expanded here, so the result does
 # not depend on the platform's strftime or on the locale (English words,
 # rule 1.6.8).
 format_dates <- function(x, fmt) {
   lt <- if (inherits(x, "POSIXt")) as.POSIXlt(x) else as.POSIXlt(x, tz = "UTC")
   vapply(seq_along(lt$mday), function(i) {
-    f <- fmt
+    f <- gsub("%%", "\001", fmt, fixed = TRUE)
     f <- gsub("%-d", as.character(lt$mday[i]), f, fixed = TRUE)
     f <- gsub("%-m", as.character(lt$mon[i] + 1L), f, fixed = TRUE)
     f <- gsub("%B", EN_MONTHS[lt$mon[i] + 1L], f, fixed = TRUE)
     f <- gsub("%b", substr(EN_MONTHS[lt$mon[i] + 1L], 1L, 3L), f, fixed = TRUE)
-    format(lt[i], f)
+    f <- gsub("%A", EN_WEEKDAYS[lt$wday[i] + 1L], f, fixed = TRUE)
+    f <- gsub("%a", substr(EN_WEEKDAYS[lt$wday[i] + 1L], 1L, 3L), f, fixed = TRUE)
+    f <- gsub("%p", if (isTRUE(lt$hour[i] >= 12)) "PM" else "AM", f, fixed = TRUE)
+    f <- format(lt[i], f)
+    gsub("\001", "%", f, fixed = TRUE)
   }, "")
 }
 
@@ -382,7 +431,7 @@ NUMBER_WORDS <- c("zero", "one", "two", "three", "four", "five", "six", "seven",
                   "nineteen", "twenty", "thirty", "forty", "fifty", "sixty",
                   "seventy", "eighty", "ninety", "hundred", "thousand", "million",
                   "billion")
-vowel_sound <- function(text, minus = "\u2212") {
+vowel_sound <- function(text, minus = "\u2212", decimal_mark = ".", big_mark = ",") {
   orig <- text
   # emphasis marks and a minus sign do not count: "a \u22128", "an **8**"
   text <- sub("^[*_~]*", "", text)
@@ -391,9 +440,16 @@ vowel_sound <- function(text, minus = "\u2212") {
       return(FALSE)
     }
   }
-  m <- regmatches(text, regexpr("^[0-9][0-9,]*", text))
+  # leading digits and big marks only: the decimal mark ends the run
+  chars <- strsplit(text, "")[[1]]
+  bm <- if (nzchar(big_mark)) strsplit(big_mark, "")[[1]] else character()
+  n <- 0L
+  while (n < length(chars) && (chars[n + 1L] %in% as.character(0:9) ||
+                               (n > 0L && chars[n + 1L] %in% bm &&
+                                !identical(chars[n + 1L], decimal_mark)))) n <- n + 1L
+  m <- if (n > 0L) paste(chars[seq_len(n)], collapse = "") else character()
   if (length(m)) {
-    d <- gsub(",", "", m, fixed = TRUE)
+    d <- gsub("[^0-9]", "", m)
     L <- nchar(d)
     k <- if (L %% 3L == 0L) 3L else L %% 3L
     g <- as.integer(substr(d, 1L, k))
@@ -411,10 +467,10 @@ vowel_sound <- function(text, minus = "\u2212") {
     orig))
 }
 
-add_article <- function(text, minus = "\u2212") {
+add_article <- function(text, minus = "\u2212", decimal_mark = ".", big_mark = ",") {
   vapply(text, function(t) {
     if (!nzchar(t)) return(t)
-    paste0(if (vowel_sound(t, minus)) "an " else "a ", t)
+    paste0(if (vowel_sound(t, minus, decimal_mark, big_mark)) "an " else "a ", t)
   }, "", USE.NAMES = FALSE)
 }
 
@@ -649,7 +705,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
     # a class a text already carries is applied once (4.4.8)
     cl <- setdiff(classes, prior_tc)
-    if (".a" %in% cl) text <- add_article(text, cfg$minus)
+    if (".a" %in% cl) text <- add_article(text, cfg$minus, cfg$decimal_mark %||% ".", cfg$big_mark %||% ",")
     if (".cap" %in% cl && !keep_case) text <- capitalise(text)
     if (".em" %in% cl) text <- wrap(text, "*")
     if (".strong" %in% cl) text <- wrap(text, "**")
