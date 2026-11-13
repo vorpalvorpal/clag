@@ -263,7 +263,7 @@ end
 
 local function kind_name(r) return cond.kind_name(r.t) end
 
--- A float's text in one form, whatever the writer wrote (1.12.8, N8): the shortest digits, no trailing `.0`,
+-- A float's text in one form, whatever the writer wrote (1.12.2, N8): the shortest digits, no trailing `.0`,
 -- fixed notation for a decimal exponent from -4 to 14 and the exponent form of R (`1e+23`, `5e-324`) outside.
 local function float_text(v)
   local neg = v:sub(1, 1) == "-"
@@ -1368,16 +1368,15 @@ end
 local function resolve_if(el, value, ctx, shown, info, c)
   local nodes, err = cond.parse(value)
   if not nodes then
-    local msg
-    if err.id == "E4" then
-      msg = string.format("`%s` compares two literals and has no name, so it is always the same (rule 1.12.4).", err.part)
-    else
-      msg = string.format("`%s` is not a name or one comparison of names, numbers and 'strings'; bind the condition to a name in code (rule 1.12.4).", err.part)
-    end
+    local msg = cond.message(err)
     return { fail("construct error", info, msg) }
   end
   if formatter_class_of(c) then
     return { fail("construct error", info, "A formatter on an `if` span is an error (rule 1.5.7).") }
+  end
+  do
+    local kind, detail = check_implemented(c)
+    if kind then return { fail(kind, info, detail) } end
   end
   local arms = split_arms(el.content)
   if #arms > 2 then
@@ -2251,52 +2250,6 @@ values_file_text = function(path)
   return text
 end
 
--- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
--- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
--- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown.
-local function source_is_knitr(path, text)
-  if not path then return false end
-  local low = path:lower()
-  if low:match("%.rmd$") or low:match("%.rmarkdown$") or low:match("%.knit%.md$") then return true end
-  if not low:match("%.qmd$") or not text then return false end
-  local lines = {}
-  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
-  if lines[1] and lines[1]:match("^%-%-%-[ \t\r\n]*$") then
-    local fm, closed = {}, false
-    for i = 2, #lines do
-      if lines[i]:match("^%-%-%-[ \t\r\n]*$") or lines[i]:match("^%.%.%.[ \t\r\n]*$") then closed = true; break end
-      fm[#fm + 1] = lines[i]
-    end
-    if closed then
-      for _, l in ipairs(fm) do
-        local v = l:match("^engine[ \t\r\n]*:(.*)$")
-        if v then
-          v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
-          v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
-          return v:lower() == "knitr"
-        end
-      end
-      for _, l in ipairs(fm) do
-        if l:match("^jupyter[ \t\r\n]*:") then return false end
-      end
-    end
-  end
-  for i, l in ipairs(lines) do
-    if l:match("^[ \t>]*```+[ \t]*{[ \t]*[rR][ \t,}]") then
-      local off = l:match("[ ,{]eval[ \t]*=[ \t]*FALSE[ \t]*[,}]") or l:match("[ ,{]eval[ \t]*=[ \t]*F[ \t]*[,}]")
-      local j = i + 1
-      while not off and lines[j] and lines[j]:match("^[ \t>]*#|") do
-        local v = lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
-                  or lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
-        if v == "false" or v == "no" or v == "FALSE" then off = true end
-        j = j + 1
-      end
-      if not off then return true end
-    end
-  end
-  return false
-end
-
 -- the output's name: WEFT_OUTPUT, else Pandoc's output file, else the source's name, with no folder or extension
 local function output_name()
   local function strip(x) return (base_of(x):gsub("%.[^.]*$", "")) end
@@ -2469,7 +2422,7 @@ function Pandoc(doc)
   end
   S.ledger_on = S.root ~= nil and cfg.ledger ~= false
   -- N92: a document the knitr hooks resolve, by its source, or by the hooks' stamp of this run
-  S.knitr = source_is_knitr(path, text)
+  S.knitr = config.source_is_knitr(path, text)
   if not S.knitr and S.root and S.src_rel and S.current_run then
     local old = stamp.read(S.root .. "/.weft/stamps/" .. stamp.file_name(S.src_rel))
     if old and old.run == S.current_run then

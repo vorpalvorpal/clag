@@ -120,7 +120,7 @@ local({
   reserved <- c("TRUE", "FALSE", "True", "False", "true", "false", "NA", "NULL", "None", "nothing",
                 "missing", "Inf", "NaN")
   is_name <- function(x) {
-    grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}$", x, perl = TRUE) && !grepl("[.]$", x) && !(x %in% reserved)
+    grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}\\z", x, perl = TRUE) && !grepl("[.]$", x) && !(x %in% reserved)
   }
   operand <- "(?:'[^'\\\\]*'|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
   comparison <- paste0("^(", operand, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", operand, ")$")

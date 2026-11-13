@@ -59,8 +59,8 @@ function M.split(value)
   return parts
 end
 
+-- an operand carries no whitespace of its own: only a space or a tab may stand around the operator (R's rule)
 local function operand(text)
-  text = trim(text)
   if text:match("^'[^'\\]*'$") then return { str = text:sub(2, -2) } end
   if text:match("^%-?%d+$") or text:match("^%-?%d+%.%d+$") or text:match("^%-?%d+[eE][+-]?%d+$")
      or text:match("^%-?%d+%.%d+[eE][+-]?%d+$") then
@@ -110,12 +110,20 @@ function M.parse_part(raw)
     return nil, { id = "E3", part = text }
   end
   if not op then return nil, { id = "E3", part = text } end
-  local left, right = text:sub(1, i - 1), text:sub(i + #op)
+  local left, right = text:sub(1, i - 1):gsub("[ \t]+$", ""), text:sub(i + #op):gsub("^[ \t]+", "")
   if has_compare_char(right) then return nil, { id = "E3", part = text } end
   local a, b = operand(left), operand(right)
   if not a or not b then return nil, { id = "E3", part = text } end
   if not a.name and not b.name then return nil, { id = "E4", part = text } end
   return { text = text, op = op, a = a, b = b }
+end
+
+-- the text of the E3 and E4 error of a part (rule 1.12.4); err is the second value of parse()
+function M.message(err)
+  if err.id == "E4" then
+    return string.format("`%s` compares two literals and has no name, so it is always the same (rule 1.12.4).", err.part)
+  end
+  return string.format("`%s` is not a name or one comparison of names, numbers and 'strings'; bind the condition to a name in code (rule 1.12.4).", err.part)
 end
 
 function M.parse(value)

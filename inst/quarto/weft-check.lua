@@ -273,11 +273,11 @@ local function start_dirs()
   return dirs
 end
 
--- find `rel` in a directory or a parent of it (at most 8 levels)
+-- find `rel` in a directory or a parent of it (the folder and 8 parents)
 local function find_upward(rel)
   for _, d in ipairs(start_dirs()) do
     local cur = d
-    for _ = 1, 8 do
+    for _ = 1, 9 do
       local p = cur .. "/" .. rel
       local f = io.open(p, "r")
       if f then return f, p end

@@ -111,7 +111,7 @@ const RESERVED = ("TRUE", "FALSE", "True", "False", "true", "false", "NA", "NULL
 
 "True for a NAME (N6)."
 function is_name(s::AbstractString)
-    occursin(r"^[A-Za-z_][A-Za-z0-9_.]{0,63}$", s) && !endswith(s, ".") && !(s in RESERVED)
+    occursin(r"^[A-Za-z_][A-Za-z0-9_.]{0,63}\z", s) && !endswith(s, ".") && !(s in RESERVED)
 end
 
 const MAX_LIST = 10000

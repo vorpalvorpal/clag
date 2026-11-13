@@ -360,10 +360,10 @@ local function read_file(path)
   return s
 end
 
--- find a file by name in a folder or a parent of it (at most 8 levels)
+-- find a file by name in a folder or a parent of it (the folder and 8 parents)
 function M.find_upward(start_dir, rel)
   local cur = start_dir
-  for _ = 1, 8 do
+  for _ = 1, 9 do
     local p = cur .. "/" .. rel
     local f = io.open(p, "r")
     if f then f:close(); return p end
@@ -372,6 +372,52 @@ function M.find_upward(start_dir, rel)
     cur = parent
   end
   return nil
+end
+
+-- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
+-- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
+-- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown.
+function M.source_is_knitr(path, text)
+  if not path then return false end
+  local low = path:lower()
+  if low:match("%.rmd$") or low:match("%.rmarkdown$") or low:match("%.knit%.md$") then return true end
+  if not low:match("%.qmd$") or not text then return false end
+  local lines = {}
+  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
+  if lines[1] and lines[1]:match("^%-%-%-[ \t\r\n]*$") then
+    local fm, closed = {}, false
+    for i = 2, #lines do
+      if lines[i]:match("^%-%-%-[ \t\r\n]*$") or lines[i]:match("^%.%.%.[ \t\r\n]*$") then closed = true; break end
+      fm[#fm + 1] = lines[i]
+    end
+    if closed then
+      for _, l in ipairs(fm) do
+        local v = l:match("^engine[ \t\r\n]*:(.*)$")
+        if v then
+          v = v:gsub("[ \t\r\n]+#.*$", ""):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
+          v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
+          return v:lower() == "knitr"
+        end
+      end
+      for _, l in ipairs(fm) do
+        if l:match("^jupyter[ \t\r\n]*:") then return false end
+      end
+    end
+  end
+  for i, l in ipairs(lines) do
+    if l:match("^[ \t>]*```+[ \t]*{[ \t]*[rR][ \t,}]") then
+      local off = l:match("[ ,{]eval[ \t]*=[ \t]*FALSE[ \t]*[,}]") or l:match("[ ,{]eval[ \t]*=[ \t]*F[ \t]*[,}]")
+      local j = i + 1
+      while not off and lines[j] and lines[j]:match("^[ \t>]*#|") do
+        local v = lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
+                  or lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
+        if v == "false" or v == "no" or v == "FALSE" then off = true end
+        j = j + 1
+      end
+      if not off then return true end
+    end
+  end
+  return false
 end
 
 -- source_path: the document's path, or nil; source_text: its text, or nil; cwd: the working folder

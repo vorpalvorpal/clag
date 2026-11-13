@@ -8,9 +8,7 @@
 SCAN_SPECIAL <- c("`", "[", "]", "$", "\\", "<")
 GOVERNOR_KEYS <- c("n", "if", "sign", "cite", "list")
 WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "unit", "sep", "last", "trunc", "none")
-# Named values (rules 1.12.1-1.12.5): the words that are not names, in any language.
-NAME_RESERVED <- c("TRUE", "FALSE", "True", "False", "true", "false", "NA", "NULL", "None", "nothing",
-                   "missing", "Inf", "NaN")
+# Named values (rules 1.12.1-1.12.5): the words that are not names are VALUES_RESERVED (R/values.R).
 # The keys that make a code span a named value (N5); a governor key does not.
 NAMED_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none")
 # The placeholder `#` of an arm template (1.5.8).
@@ -910,10 +908,7 @@ lower_keys <- function(nms) ifelse(tolower(nms) %in% WEFT_KEYS, tolower(nms), nm
 
 # A NAME (N6): ASCII, a letter or `_` and then letters, digits, `_` or `.`, at most 64 characters, not
 # ending in a dot, and not one of the reserved words.
-is_weft_name <- function(x) {
-  length(x) == 1L && !is.na(x) && grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}$", x, perl = TRUE) &&
-    !grepl(".", substring(x, nchar(x)), fixed = TRUE) && !(x %in% NAME_RESERVED)
-}
+is_weft_name <- function(x) length(x) == 1L && isTRUE(values_name_ok(x))
 
 # The construct error of a `claim` or `level` key on a named value or a span the filter resolves (S1);
 # the text is the filter's (weft.lua, check_key_error).
