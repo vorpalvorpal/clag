@@ -343,18 +343,15 @@ test_that("N21/N48: `at` is whole seconds since 1970 at the time of the publish"
 
 # ---- draft mode --------------------------------------------------------------------------
 
-test_that("draft mode: the blocks are written as usual, and a failed claim in a chunk does not stop the knit", {
-  src <- c(
-    chunk("calc", "depth <- 3.14159", "claim(2, . > 10)"),
-    "Uses `depth`{.num}."
-  )
-  res <- b6_knit(src, draft = TRUE)
+test_that("draft mode: the blocks are written as usual, and a failed claim in a chunk still stops the knit (decision 36)", {
+  res <- b6_knit(c(chunk("calc", "depth <- 3.14159"), "Uses `depth`{.num}."), draft = TRUE)
   b6_expect_knitted(res)
   expect_length(res$blocks, 1L)
   expect_identical(block_value(res$blocks[[1]], "depth"), b6_e_float("3.14159"))
-  # control: the same document without draft stops on the claim
-  res2 <- b6_knit(src, draft = FALSE)
-  expect_true(res2$failed)
+  # a failed check in chunk code is left alone in draft mode: it stops the knit either way
+  src <- c(chunk("calc", "depth <- 3.14159", "claim(2, . > 10)"), "Uses `depth`{.num}.")
+  expect_true(b6_knit(src, draft = TRUE)$failed)
+  expect_true(b6_knit(src, draft = FALSE)$failed)
 })
 
 # ---- no named value: today's output (the stop-line of 6b) -----------------------------------

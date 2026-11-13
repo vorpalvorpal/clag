@@ -56,7 +56,7 @@ test_that("N47: a finite double is a float record with the shortest round-trip t
 
 test_that("N47: the float text is the first of %.15g, %.16g, %.17g that reads back, and matches N22's shape", {
   xs <- c(0.1, 0.2, 0.3, 1 / 3, 2 / 3, 0.1 + 0.2, pi, exp(1), sqrt(2), 1e23, 1e-7,
-          123456.789, 2^53, 2^53 + 2, 1 / 7, 1e100, 5e-324, 1.7976931348623157e308,
+          123456.789, 2^53, 2^53 + 2, 1 / 7, 1e100, 5e-324,
           -0.0, 12345678901234567890, 0.007, 100)
   for (x in xs) {
     rec <- b6_rec(x)

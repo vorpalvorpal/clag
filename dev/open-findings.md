@@ -343,3 +343,14 @@ To be fixed with the per-area behaviour fixes, each with a test first.
    there costs nothing. Decide whether R should follow.
 3. `conformance_record()` in `R/conformance.R` is a stand-in; replace
    it with the general record maker of `R/values.R` when 6b lands.
+4. R on this machine reads "1.7976931348623157e+308" (the largest
+   double, as `%.17g` prints it) back as `Inf`, so the record test
+   leaves that value out. The record's text is right; check that the
+   Lua reader and Python read it as finite when 6c has a float test.
+5. 6b: automatic publishing applies only when the source holds at
+   least one named code span. A governor name (`if="x"`) in a document
+   with no named span is not published, including one inside text a
+   chunk prints. 6d should say so in `named-unpublished`, or the rule
+   should widen.
+6. The `.weft/run` search looks in the document's folder and up to 8
+   parents; the Python and Julia packages (6e, 6h) must match.
