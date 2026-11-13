@@ -199,6 +199,25 @@ The sections above are history; this one is current.
   `lang/`, virtualenvs; `find dev/trials -type l` must give 0);
   closing report.
 
+## Position after 6a (13 Nov, late; read this first)
+
+Stage 6 (`dev/design-6.md`, decision 70) is being built. Local `main`
+is ahead of origin and holds failing-by-design tests for 6b and 6k, so
+it is not pushed until those land.
+
+- **6a merged**: `inst/quarto/weftlib/num.lua`, the `record` column,
+  `exact.tsv`. Ruling: the whole-value test keeps `.pct` below
+  2^53 / 100 (open finding 1 of stage 6 in `dev/open-findings.md`).
+- **6b, 6k**: implementers running in worktrees. 6k measures risk R6
+  first (`using Weft` under JuliaCall).
+- **6c**: test-writer running. Implementer next (needs only 6a).
+- **CI**: `R-CMD-check` on 4cc0652 passed set-up, then every Julia
+  test failed and R segfaulted on Linux. A diagnosis agent is on it;
+  its fix goes out with the next push. `pkgdown` is green.
+- Next: merge 6b and 6k, run `fresh-suite.sh`, push; 6d tests and
+  build (after 6k); then 6f, 6g, 6e, 6h, 6i, 6j; an independent review
+  of stage 6; Jupyter in the check workflow.
+
 ## Queue
 
 1. Waiting items W1 to W4 (decision 63): units cache on by default;
