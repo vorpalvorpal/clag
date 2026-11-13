@@ -324,6 +324,16 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
   added_n <- 0L
   removed <- construct_empty()
   base <- NULL
+  # the constructs the commit held and the work tree no longer does (8.2.2): listed, not judged
+  removed_of <- function(base) {
+    rows <- lapply(docs, function(rel) {
+      tryCatch({
+        src <- lint_open(root, rel)
+        if (isTRUE(src$invalid)) construct_empty() else working_constructs(src)
+      }, error = function(e) construct_empty())
+    })
+    constructs_removed(list(base$constructs), bind_plain(rows, construct_empty()))$rows
+  }
   if (have_base && !is.null(gi)) {
     if (file.exists(file.path(root, "_weft.yml")) && !verify_weft_at(gi, since_sha)) {
       # the project did not exist at `since`: that commit is the baseline (design question 5)
@@ -335,15 +345,16 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
     if (!is.null(base) && !is.null(base$error)) {
       notes <- c(notes, sprintf("_weft.yml did not read at %s (%s); findings are not compared",
                                 substr(since_sha, 1L, 7L), gsub("\n", " ", base$error)))
-      if (!is.null(base$constructs)) removed <- verify_removed(root, base, docs)
+      if (!is.null(base$constructs)) removed <- removed_of(base)
       base <- NULL
     }
   }
   if (!is.null(base)) {
-    va <- verify_added(gi, since_sha, tol, base)
-    added <- va$findings
-    added_n <- va$n
-    removed <- verify_removed(root, base, docs)
+    bf <- base$findings[!(base$findings$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]
+    fe <- findings_excess(tol, list(bf), function(rel) verify_added_lines(gi, since_sha, rel, rel %in% base$docs))
+    added <- fe$added
+    added_n <- fe$n
+    removed <- removed_of(base)
   }
   if (nrow(tier2)) {
     keep <- vapply(seq_len(nrow(tier2)), function(i) NA, NA)
@@ -396,68 +407,6 @@ verify_base_side <- function(gi, since_sha, files_rel) {
       r$findings <- r$findings[sc != "file" | r$findings$file %in% files_rel, , drop = FALSE]
     }
   }
-  r
-}
-
-# The findings of the work tree that the commit did not hold (G10): by rule and text, counted, so that
-# moving a finding between files adds nothing. Where a key has instances on added lines only those
-# are listed; otherwise all of them.
-verify_added <- function(gi, since_sha, tol, base) {
-  out <- empty_plain_findings()
-  none <- list(findings = out, n = 0L)
-  if (!nrow(tol)) return(none)
-  key_of <- gate_finding_keys
-  bf <- base$findings[!(base$findings$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]
-  nk <- key_of(tol)
-  cn <- count_keys(nk)
-  bc <- count_keys(key_of(bf))
-  base_n <- ifelse(is.na(bc[names(cn)]), 0L, unname(bc[names(cn)]))
-  ex <- names(cn)[cn - base_n > 0L]
-  if (!length(ex)) return(none)
-  n_added <- as.integer(sum((cn - base_n)[cn - base_n > 0L]))
-  inst <- tol[nk %in% ex, , drop = FALSE]
-  ik <- nk[nk %in% ex]
-  on_added <- rep(FALSE, nrow(inst))
-  for (rel in unique(inst$file)) {
-    add <- verify_added_lines(gi, since_sha, rel, rel %in% base$docs)
-    rows <- which(inst$file == rel)
-    on_added[rows] <- vapply(rows, function(r) isTRUE(add) || any(add >= inst$line[r] & add <= inst$end_line[r]), NA)
-  }
-  sel <- logical(nrow(inst))
-  for (k in ex) {
-    r <- which(ik == k)
-    sel[r] <- if (any(on_added[r])) on_added[r] else TRUE
-  }
-  list(findings = inst[sel, , drop = FALSE], n = n_added)
-}
-
-# The working constructs the commit held and the work tree no longer does (8.2.2): listed, not judged.
-verify_removed <- function(root, base, docs) {
-  rows <- lapply(docs, function(rel) {
-    tryCatch({
-      src <- lint_open(root, rel)
-      if (isTRUE(src$invalid)) construct_empty() else working_constructs(src)
-    }, error = function(e) construct_empty())
-  })
-  new <- bind_plain(rows, construct_empty())
-  b <- base$constructs
-  n_p <- nrow(b) - nrow(new)
-  if (n_p <= 0L) return(construct_empty())
-  tb <- count_keys(b$text)
-  tn <- count_keys(new$text)
-  take_rows <- integer()
-  for (t in names(tb)) {
-    have <- if (t %in% names(tn)) tn[[t]] else 0L
-    take <- tb[[t]] - have
-    if (take > 0L) {
-      i <- which(b$text == t)
-      i <- i[order(b$file[i], b$line[i], method = "radix")]
-      take_rows <- c(take_rows, utils::tail(i, take))
-    }
-  }
-  r <- b[take_rows, , drop = FALSE]
-  r <- r[order(r$file, r$line, method = "radix"), , drop = FALSE]
-  rownames(r) <- NULL
   r
 }
 

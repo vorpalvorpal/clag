@@ -366,57 +366,91 @@ gate_judge_project <- function(g, p, new_res, base_res) {
                                   gsub("\n", " ", bad[[1L]]$error), p$display))
   }
   # findings added (G10); skipped when a base did not read, the removal count still runs (G18)
-  key_of <- gate_finding_keys
-  nk <- key_of(nf[!is_err, , drop = FALSE])
-  cn <- if (length(bad)) stats::setNames(integer(), character()) else count_keys(nk)
+  if (!length(bad)) {
+    fe <- findings_excess(nf[!is_err, , drop = FALSE],
+                          lapply(base_res, function(b) b$findings[!(b$findings$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]),
+                          function(rel) if (rel %in% changed) gate_added_lines(g, p, rel) else FALSE)
+    if (!is.null(fe$excess)) {
+      out$excess <- cbind(project = p$display, fe$excess, stringsAsFactors = FALSE)
+      a <- fe$added
+      a$file <- vapply(a$file, top_path, "", USE.NAMES = FALSE)
+      out$added <- a
+    }
+  }
+  # constructs removed (G12, as changed by review 4, design question 1): claims are counted apart from
+  # values and spans, so that a deleted claim() does not hide behind an added value
+  if (any(vapply(base_res, function(b) is.null(b$constructs), NA))) return(out)
+  cr <- constructs_removed(lapply(base_res, `[[`, "constructs"), new_res$constructs)
+  out$n <- cr$n
+  r <- cr$rows
+  if (nrow(r)) {
+    out$removed <- data.frame(project = rep(p$display, nrow(r)), file = vapply(r$file, top_path, "", USE.NAMES = FALSE),
+                              line = as.integer(r$line), kind = r$kind, text = r$text, stringsAsFactors = FALSE)
+  }
+  out
+}
+
+# The findings of the new side that the base sides did not hold (G10), counted by rule and text so that moving a
+# finding between files adds nothing. `new` and each of `bases` are tables of findings without construct errors;
+# a key's base count is the largest over the bases (the merge parents). `added_lines(rel)` gives the lines added in
+# a document (TRUE: all of them, FALSE: none). Where a key has instances on added lines only those are listed,
+# else all of them (H16). Returns `excess` (rule, text, base, new; NULL when none), `n` (the count added) and
+# `added` (the instances). The one comparison, used by gate() and verify().
+findings_excess <- function(new, bases, added_lines) {
+  none <- list(excess = NULL, n = 0L, added = new[0L, , drop = FALSE])
+  if (!nrow(new)) return(none)
+  nk <- gate_finding_keys(new)
+  cn <- count_keys(nk)
   bn <- stats::setNames(integer(), character())
-  for (b in if (length(bad)) list() else base_res) {
-    bf <- b$findings
-    bc <- count_keys(key_of(bf[!(bf$rule %in% GATE_CONSTRUCT_RULES), , drop = FALSE]))
+  for (bf in bases) {
+    bc <- count_keys(gate_finding_keys(bf))
     ks <- union(names(bn), names(bc))
     bn <- stats::setNames(pmax(ifelse(is.na(bn[ks]), 0L, bn[ks]), ifelse(is.na(bc[ks]), 0L, bc[ks])), ks)
   }
   base_n <- ifelse(is.na(bn[names(cn)]), 0L, unname(bn[names(cn)]))
   ex <- names(cn)[cn - base_n > 0L]
-  if (length(ex)) {
-    exb <- base_n[match(ex, names(cn))]
-    out$excess <- data.frame(project = p$display, rule = sub("\001.*$", "", ex),
-                             text = sub("^\002file$", "(the file's own name)", sub("^[^\001]*\001", "", ex)), base = as.integer(exb),
-                             new = as.integer(cn[ex]), stringsAsFactors = FALSE)
-    inst <- nf[!is_err, , drop = FALSE][nk %in% ex, , drop = FALSE]
-    ik <- nk[nk %in% ex]
-    on_added <- rep(FALSE, nrow(inst))
-    for (rel in unique(inst$file[inst$file %in% changed])) {
-      add <- gate_added_lines(g, p, rel)
-      rows <- which(inst$file == rel)
-      on_added[rows] <- vapply(rows, function(r) {
-        isTRUE(add) || any(add >= inst$line[r] & add <= inst$end_line[r])
-      }, NA)
-    }
-    sel <- logical(nrow(inst))
-    for (k in ex) {
-      r <- which(ik == k)
-      sel[r] <- if (any(on_added[r])) on_added[r] else TRUE
-    }
-    a <- inst[sel, , drop = FALSE]
-    a$file <- vapply(a$file, top_path, "", USE.NAMES = FALSE)
-    out$added <- a
+  if (!length(ex)) return(none)
+  exb <- base_n[match(ex, names(cn))]
+  excess <- data.frame(rule = sub("\001.*$", "", ex),
+                       text = sub("^\002file$", "(the file's own name)", sub("^[^\001]*\001", "", ex)),
+                       base = as.integer(exb), new = as.integer(cn[ex]), stringsAsFactors = FALSE)
+  inst <- new[nk %in% ex, , drop = FALSE]
+  ik <- nk[nk %in% ex]
+  on_added <- rep(FALSE, nrow(inst))
+  for (rel in unique(inst$file)) {
+    add <- added_lines(rel)
+    rows <- which(inst$file == rel)
+    on_added[rows] <- vapply(rows, function(r) {
+      isTRUE(add) || any(add >= inst$line[r] & add <= inst$end_line[r])
+    }, NA)
   }
-  # constructs removed (G12, as changed by review 4, design question 1): claims are counted apart from
-  # values and spans, so that a deleted claim() does not hide behind an added value
-  if (any(vapply(base_res, function(b) is.null(b$constructs), NA))) return(out)
+  sel <- logical(nrow(inst))
+  for (k in ex) {
+    r <- which(ik == k)
+    sel[r] <- if (any(on_added[r])) on_added[r] else TRUE
+  }
+  list(excess = excess, n = as.integer(sum((cn - base_n)[cn - base_n > 0L])), added = inst[sel, , drop = FALSE])
+}
+
+# The constructs the base sides held that the new side does not (G12, as changed by review 4, design question
+# 1). `bases` is a list of construct tables, one per parent under a merge; the count is against the one with the
+# fewest. Claims are counted apart from values and spans, so that a deleted claim() does not hide behind an
+# added value. Returns the count `n` and the `rows` of the base with no match in `new`. The one comparison,
+# used by gate() and verify().
+constructs_removed <- function(bases, new) {
   groups <- list(function(k) k == "claim", function(k) k != "claim")
+  n <- 0L
   rem <- list()
   for (is_grp in groups) {
-    bs <- lapply(base_res, function(b) b$constructs[is_grp(b$constructs$kind), , drop = FALSE])
-    new <- new_res$constructs[is_grp(new_res$constructs$kind), , drop = FALSE]
+    bs <- lapply(bases, function(b) b[is_grp(b$kind), , drop = FALSE])
+    nw <- new[is_grp(new$kind), , drop = FALSE]
     totals <- vapply(bs, nrow, 1L)
-    n_p <- min(totals) - nrow(new)
+    n_p <- min(totals) - nrow(nw)
     if (n_p <= 0L) next
-    out$n <- out$n + as.integer(n_p)
+    n <- n + as.integer(n_p)
     b <- bs[[which.min(totals)]]
     tb <- count_keys(b$text)
-    tn <- count_keys(new$text)
+    tn <- count_keys(nw$text)
     rows <- integer()
     for (t in names(tb)) {
       have <- if (t %in% names(tn)) tn[[t]] else 0L
@@ -432,10 +466,9 @@ gate_judge_project <- function(g, p, new_res, base_res) {
   r <- bind_plain(rem, construct_empty())
   if (nrow(r)) {
     r <- r[order(enc2utf8(r$file), r$line, method = "radix"), , drop = FALSE]
-    out$removed <- data.frame(project = rep(p$display, nrow(r)), file = vapply(r$file, top_path, "", USE.NAMES = FALSE),
-                              line = as.integer(r$line), kind = r$kind, text = r$text, stringsAsFactors = FALSE)
+    rownames(r) <- NULL
   }
-  out
+  list(n = n, rows = r)
 }
 
 # The key of a finding for the count (G10): its rule and text. A finding whose text is the file's own name

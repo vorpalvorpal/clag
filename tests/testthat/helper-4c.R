@@ -24,6 +24,12 @@ V4_SECTIONS <- c("Construct errors", "Findings added since", "Strict rules", "Ta
 # The version warning's text (G32), for the version `rec` the project records.
 v4_version <- function() as.character(utils::packageVersion("weft"))
 v4_version_msg <- function(rec) {
+  if (utils::compareVersion(rec, v4_version()) > 0L) {
+    # a record newer than the installed weft: the advice is to update weft (review code C, #15)
+    return(sprintf(paste0("This project records weft %s in _weft.yml, and weft %s is installed, older than the %s ",
+                          "this project records. Update weft, or run weft::use_weft() to take the project back to %s ",
+                          "(rule 9.5.4)."), rec, v4_version(), rec, v4_version()))
+  }
   sprintf(paste0("This project records weft %s in _weft.yml, and weft %s is installed. ",
                  "Run weft::use_weft() to update the files weft installed and the record (rule 9.5.4)."),
           rec, v4_version())
