@@ -143,6 +143,27 @@ first, then `dev/build-log.md`.
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
 
+## Position at 877baa6 (13 Nov, read this before the sections above)
+
+The sections above are history; this one is current.
+
+- Lint speed fix merged (2157629). Reviews with rulings committed:
+  `dev/review-code-a.md`, `-b.md`, `-c.md`, `-tests.md`. Failing by
+  design on `main`: `test-review-code-{a,b,c}.R`.
+- Running: knit-path speed fixer (worktree `agent-a67cce5ecbdb86848`);
+  check-environment test editor (main tree, uncommitted test edits);
+  multi-language study (scratchpad `languages-study.md`); a
+  documentation writer (worktree; README, `vignettes/`, `_pkgdown.yml`).
+- Next, in order: merge knit fix; foundations pass (`R/io.R`); per-area
+  behaviour fixers against the three review test files (also update the
+  fixtures that use `0.0.1` / `99.0.0` as an "older" version); test-suite
+  fixes per `-tests.md` rulings; structural refactors; `check()`;
+  reference examples; pkgdown site to GitHub Pages; present the
+  language study; clean up (scratchpad `prof/real/`, worktrees incl. the
+  locked `agent-a89839914698260de`); closing report.
+- Waiting on Robin: rmarkdown issue and PR draft (scratchpad `rmdfix/`,
+  nothing posted); units PR #447 / issue #448.
+
 ## Queue
 
 1. Waiting items W1 to W4 (decision 63): units cache on by default;
