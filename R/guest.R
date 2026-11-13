@@ -55,7 +55,7 @@ int_value <- function(v, S) {
   d <- sub("^0+(?=.)", "", d, perl = TRUE)
   if (nchar(d) > 16L || (nchar(d) == 16L && d > "9007199254740992")) {
     guest_value_abort(sprintf(paste0(
-      "%s is the Python int %s, beyond ±2^53, where R cannot hold a whole number exactly. ",
+      "%s is the Python int %s, beyond \u00b12^53, where R cannot hold a whole number exactly. ",
       "Scale it in Python, or bind str() of it and print the text (rule 2.12.5)."), S, v))
   }
   if (nchar(d) < 10L || (nchar(d) == 10L && d <= "2147483647")) as.integer(v) else as.numeric(v)

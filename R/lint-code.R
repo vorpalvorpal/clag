@@ -1236,7 +1236,7 @@ gr_prose_calls <- function(p) {
     sp <- piece_span(p, i)
     txt <- node_text(t, i)
     msg <- if (identical(hits[[nm]], "JuliaCall")) {
-      sprintf(paste0("`%s` is converted by JuliaCall, which stops on a whole number beyond ±2^31 and crashes R ",
+      sprintf(paste0("`%s` is converted by JuliaCall, which stops on a whole number beyond \u00b12^31 and crashes R ",
                      "on a Julia missing. Read a Julia value with jl_value() (rule 5.11.3)."), txt)
     } else {
       sprintf("`%s` is converted by reticulate, which weft does not check (rule 5.11.3).", txt)
