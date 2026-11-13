@@ -395,7 +395,10 @@ refuse_global_dict <- function() {
 # NULL (a call made at the console, or in a test, has none). A second
 # tar_dict() in the same evaluation is a second dictionary in one pipeline.
 script_frame <- function() {
-  inner <- targets::tar_callr_inner_try
+  # exported by targets but internal to it: looked up softly, so that a release that renames it
+  # turns this check off (targets then refuses two dictionaries by its own duplicate-name error)
+  inner <- get0("tar_callr_inner_try", envir = asNamespace("targets"), inherits = FALSE)
+  if (!is.function(inner)) return(NULL)
   for (i in rev(seq_len(sys.nframe() - 1L))) {
     f <- tryCatch(sys.function(i), error = function(e) NULL)
     if (is.function(f) && identical(f, inner)) return(sys.frame(i))
