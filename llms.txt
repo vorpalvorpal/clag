@@ -186,6 +186,15 @@ Format computed values, with or without units.
 - [`jl_value()`](https://vorpalvorpal.github.io/weft/reference/jl_value.md)
   : Read a Julia value
 
+## Values by name
+
+Publish values under names, for prose that refers to them by name.
+
+- [`weft_put()`](https://vorpalvorpal.github.io/weft/reference/weft_put.md)
+  : Publish values by name
+- [`weft_values_write()`](https://vorpalvorpal.github.io/weft/reference/weft_values_write.md)
+  : Write a values file
+
 ## Wording that depends on values
 
 - [`plural()`](https://vorpalvorpal.github.io/weft/reference/plural.md)
