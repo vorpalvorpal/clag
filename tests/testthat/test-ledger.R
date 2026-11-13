@@ -699,7 +699,7 @@ test_that("2d D27: strict mode raises weft_ledger_error for a wrong header, a la
   bad <- c(good[1:2], "<<<<<<< HEAD", good[3:4])
   e3 <- tryCatch(weft:::read_ledger(lines = bad), error = function(e) e)
   expect_s3_class(e3, "weft_ledger_error")
-  expect_match(conditionMessage(e3), "3", fixed = TRUE)
+  expect_match(conditionMessage(e3), "line 3 of", fixed = TRUE)
   expect_s3_class(weft:::read_ledger(lines = bad, lenient = TRUE), "weft_ledger")
   expect_identical(nrow(weft:::read_ledger(lines = bad, lenient = TRUE)), 3L)
 })

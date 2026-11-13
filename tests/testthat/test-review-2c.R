@@ -292,12 +292,9 @@ test_that("review 2c #6: a string canonical spelling with a line break never rea
   dir <- r2c_vale_proj(list(dict.yml = c(
     "a: {value: \"Northern\\ncatchment\\n\", type: string, definition: d, avoid: [nc]}")))
   r <- r2c_run(dict_vale())
-  if (!is.null(r$err)) {
-    c2_expect_cond(r$err, "weft_dict_error")
-  } else {
-    rule <- readLines(file.path(dir, "styles", "Weft", "Terms.yml"), warn = FALSE)
-    expect_identical(rule[length(rule)], "  'nc': 'Northern catchment'")
-  }
+  expect_null(r$err)                       # the line breaks are folded, not refused
+  rule <- readLines(file.path(dir, "styles", "Weft", "Terms.yml"), warn = FALSE)
+  expect_identical(rule[length(rule)], "  'nc': 'Northern catchment'")
 })
 
 test_that("review 2c #I: a term that starts with a markdown block marker is a read_dict() problem (4.7.3, ruling 6, I)", {
@@ -589,7 +586,7 @@ test_that("review 2c #14: a glob pointer of `..` does not reach a file outside t
   writeLines("outside", outside)
   withr::defer(unlink(outside))
   r <- weft:::check_decisions(x$dict, resolver = "{id}/x.md", root = x$root)
-  expect_false(isTRUE(r$resolved))
+  expect_identical(r$resolved, FALSE)
 })
 
 test_that("review 2c #14: a glob pointer of `~` does not look in the home folder (4.5.3, ruling 4)", {
@@ -597,7 +594,7 @@ test_that("review 2c #14: a glob pointer of `~` does not look in the home folder
   withr::local_envvar(HOME = home)
   x <- c2_decision_dict(list("~"))
   r <- weft:::check_decisions(x$dict, resolver = "{id}/x.md", root = x$root)
-  expect_false(isTRUE(r$resolved))
+  expect_identical(r$resolved, FALSE)
 })
 
 test_that("review 2c #14: a dangling link is not a record that resolves (4.5.2, ruling 4)", {
@@ -606,7 +603,7 @@ test_that("review 2c #14: a dangling link is not a record that resolves (4.5.2, 
   dir.create(file.path(x$root, "decisions"))
   file.symlink(file.path(x$root, "gone.md"), file.path(x$root, "decisions", "5-x.md"))
   r <- weft:::check_decisions(x$dict, resolver = "decisions/{id}-*.md", root = x$root)
-  expect_false(isTRUE(r$resolved))
+  expect_identical(r$resolved, FALSE)
 })
 
 test_that("review 2c #14: control - a pointer naming a folder inside the project resolves (4.5.3)", {
@@ -697,18 +694,15 @@ test_that("review 2c #16: control - no hint when .vale.ini lists Weft under the 
   expect_false(any(grepl("Vale uses this rule when .vale.ini", r$msgs, fixed = TRUE)))
 })
 
-test_that("review 2c #16: a rule path that climbs out of the project is refused or shown without '..' (4.7.2, finding 16)", {
+test_that("review 2c #16: a rule path that climbs out of the project is refused (4.7.2, finding 16)", {
   base <- c2_proj()
   root <- file.path(base, "a", "b", "proj")
   dir.create(root, recursive = TRUE)
   writeLines(c2_fixture_lines(), file.path(root, "dict.yml"))
   withr::local_dir(root)
   r <- r2c_run(dict_vale(path = "../../escaped/Weft/Terms.yml"))
-  if (is.null(r$err)) {
-    expect_false(any(grepl("/../", r$msgs, fixed = TRUE)), label = paste(r$msgs, collapse = " | "))
-  } else {
-    c2_expect_cond(r$err, "weft_tool_error")
-  }
+  expect_false(is.null(r$err))             # refused, not written
+  c2_expect_cond(r$err, "weft_tool_error")
 })
 
 test_that("review 2c #16: a schema line inside a value is not the schema line (4.7.1, finding 16)", {

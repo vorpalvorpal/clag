@@ -661,6 +661,10 @@ test_that("3a L9: a chunk with no code has code_first NA or empty, not an error"
   expect_no_error(read_src(c("```{r}", "#| label: a", "```")))
   ch <- read_src(c("```{r}", "#| label: a", "```"))$chunks
   expect_equal(nrow(ch), 1L)
+  expect_true(is.na(ch$code_first[[1]]) || !nzchar(ch$code_first[[1]]))
+  # control: a chunk with code has a first line of code
+  ch2 <- read_src(c("```{r}", "#| label: a", "x <- 1", "```"))$chunks
+  expect_identical(ch2$code_first[[1]], "x <- 1")
 })
 
 test_that("3a L9: no chunks gives a zero-row chunks table with the columns", {
@@ -758,6 +762,14 @@ test_that("3a L12: a document with no prose has no sentences", {
 })
 
 test_that("3a L12: sentences follow the document's lang (a Latin-script de document is cut like any other here)", {
-  s <- sents(c("---", "lang: de", "---", "", "Das erste. Das zweite."))$s
-  expect_gte(nrow(s), 1L)
+  r <- sents(c("---", "lang: de", "---", "", "Das erste. Das zweite."))
+  expect_identical(r$src$lang, "de")                         # the fixture sets the language, and it is read
+  expect_equal(nrow(r$s), 2L)
+  # the language reaches the cutting: the English abbreviation list (St., No.) applies to an English
+  # or unset language only, so the same text is two sentences there and three under de
+  doc <- "See St. Paul and No. Five. Done."
+  en <- sents(c("---", "lang: en", "---", "", doc))
+  de <- sents(c("---", "lang: de", "---", "", doc))
+  expect_equal(nrow(en$s), 2L)
+  expect_equal(nrow(de$s), 3L)
 })

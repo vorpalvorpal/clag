@@ -261,7 +261,7 @@ test_that("2d D27: read_condition_log() is strict about its header and lenient o
   bad <- c(ok[1], ok[2], "<<<<<<< HEAD")
   e2 <- tryCatch(weft:::read_condition_log(lines = bad), error = function(e) e)
   expect_s3_class(e2, "weft_ledger_error")
-  expect_match(conditionMessage(e2), "3", fixed = TRUE)
+  expect_match(conditionMessage(e2), "line 3 of", fixed = TRUE)
   expect_identical(nrow(weft:::read_condition_log(lines = bad, lenient = TRUE)), 1L)
   # a missing header is accepted when lenient; the first of two lines of one key wins is D18's rule
   expect_identical(nrow(weft:::read_condition_log(lines = ok[2], lenient = TRUE)), 1L)

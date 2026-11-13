@@ -177,7 +177,13 @@ test_that("2e-2 C7: a different arm with the same text is a change; null and the
   expect_identical(c(r$arm_before, r$arm_after), c("positive", "negative"))
   r2 <- e2x_rows(e2x_entry("k", "", kind = "if"), e2x_entry("k", NA_character_, kind = "if", failed = "value error"))
   expect_identical(nrow(r2), 1L)
-  expect_true(is.na(r2$text_after))
+  expect_identical(r2$text_before, "")                      # the empty string on the before side
+  expect_true(is.na(r2$text_after))                         # null on the after side
+  # and the other way round
+  r3 <- e2x_rows(e2x_entry("k", NA_character_, kind = "if", failed = "value error"), e2x_entry("k", "", kind = "if"))
+  expect_identical(nrow(r3), 1L)
+  expect_true(is.na(r3$text_before))
+  expect_identical(r3$text_after, "")
 })
 
 test_that("2e-2 C7: a sentence that differs alone is not a change", {
@@ -605,7 +611,7 @@ test_that("2e-2 C4: a working-tree ledger with merge-conflict lines is `unreadab
   e2x_write(p, c(good[1:2], "<<<<<<< HEAD", good[3]))
   ch <- changes(path = dir)
   expect_identical(ch$ledgers$status, "unreadable")
-  expect_match(ch$ledgers$note, "3", fixed = TRUE)
+  expect_match(ch$ledgers$note, "line 3 of", fixed = TRUE)
   expect_true(any(startsWith(e2x_print(ch), "  a.qmd (a): unreadable")))
 })
 
