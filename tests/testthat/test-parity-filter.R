@@ -157,7 +157,7 @@ test_that("parity A3: .sci on a list prints element by element", {
 })
 
 test_that("parity A3: the printed-as-zero warning is one per construct, however many elements print as zero", {
-  res <- filter_cases(c(z = "A `lz`{.num digits=\"1\"} z."), list(pf_block()))
+  res <- filter_cases(c(z = "A `lz`{.num} z."), list(pf_block()))   # no digits: an explicit digits confirms the zero
   expect_identical(res$status, 0L)
   expect_cases(res, c(z = "A 0.0, 0.0 z."))
   expect_match(fm_headings(res$stderr), rx_warned(1), all = FALSE)
