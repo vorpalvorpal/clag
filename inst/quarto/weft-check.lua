@@ -85,7 +85,14 @@ local function lost_span_key(s)
   if not FILTER_RAN then return nil end
   local lower = s:lower()
   for k in pairs(KEYS) do
-    if lower:find("%]{[ \t\r\n]*" .. k .. "[ \t\r\n]*=") then return k end
+    -- only a value that starts with a space is lost this way; escaped or quoted construct-like text with
+    -- any other value is the author's own (review C #15)
+    local _, e = lower:find("%]{[ \t\r\n]*" .. k .. "[ \t\r\n]*=")
+    if e then
+      local rest = lower:sub(e + 1)
+      rest = rest:gsub("^[\"']", "", 1):gsub("^\226\128[\152-\159]", "", 1)
+      if rest:find("^[ \t]") then return k end
+    end
   end
   return nil
 end
