@@ -202,7 +202,7 @@ falsy <- function(x) {
 # ---- front matter rows -------------------------------------------------------
 
 scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
-                                   project = "") {
+                                   project = "", filter_doc = FALSE) {
   ff <- front_fields(lines)
   if (!nrow(ff)) return(NULL)
   keep <- rep(FALSE, length(lines))
@@ -218,7 +218,7 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
     }
   }
   rows <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file,
-                    config = config)
+                    config = config, filter_doc = filter_doc)
   if (!nrow(rows)) return(NULL)
   field <- character(nrow(rows))
   form <- character(nrow(rows))
@@ -233,7 +233,8 @@ scan_front_matter_rows <- function(lines, file = NA_character_, config = NULL,
   rows$fblock <- as.numeric(rows$block_start)
   rows$chunk <- NA_character_
   rows$option <- field
-  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link"))
+  # the hooks' rules about where a construct may sit do not apply to what the filter resolves
+  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
   add <- function(i, msg) {
     rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
   }
@@ -464,7 +465,7 @@ labelled_chunks <- function(lines) {
 
 # One chunk's caption rows, with their static errors.
 scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec, file,
-                                config, dq = NULL) {
+                                config, dq = NULL, filter_doc = FALSE) {
   rows <- list()
   rem <- integer(length(lines))   # characters taken off the front of a line
   ls <- line_starts(lines)
@@ -503,7 +504,8 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   # lines the prefix strip left unaligned are scanned as they are: only line
   # numbers matter
   if (length(regions)) {
-    r <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config)
+    r <- scan_rows(paste(mask_lines(txt, keep), collapse = "\n"), file = file, config = config,
+                   filter_doc = filter_doc)
     if (nrow(r)) {
       # file offsets: the text scanned is the lines less what `rem` took off
       tstart <- c(1, cumsum(nchar(lines) - rem + 1))
@@ -533,7 +535,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
     if (!(nm %in% CAPTION_OPTIONS)) next
     v <- hdr$opts[[nm]]$literal
     if (is.null(v)) next
-    r <- scan_rows(v, file = file, first_line = ch$open, config = config)
+    r <- scan_rows(v, file = file, first_line = ch$open, config = config, filter_doc = filter_doc)
     if (!nrow(r)) next
     off <- rep(NA_real_, nchar(v))
     pat <- paste0("(?<![A-Za-z0-9_.])", gsub(".", "\\.", nm, fixed = TRUE),
@@ -560,7 +562,7 @@ scan_chunk_captions <- function(lines, ch, label, hdr, optblk, optinfo, doc_exec
   rows <- bind_scan_rows(rows)
   rows$context <- "caption"
   rows$chunk <- label
-  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link"))
+  top <- is.na(rows$parent) & !(rows$kind %in% c("bare", "link")) & rows$resolver == "hooks"
   add <- function(i, msg) {
     rows$error[i] <<- if (is.na(rows$error[i])) msg else paste(rows$error[i], msg, sep = "\n")
   }
@@ -717,8 +719,8 @@ bind_scan_rows <- function(parts) {
 
 # The rows of the places beside prose in a document's lines: front matter,
 # captions and weft_str() strings.
-scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "") {
-  fm <- scan_front_matter_rows(lines, file, config, project)
+scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project = "", filter_doc = FALSE) {
+  fm <- scan_front_matter_rows(lines, file, config, project, filter_doc)
   caps <- list()
   strs <- list()
   doc_exec <- doc_execute(lines)
@@ -727,7 +729,7 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   dq <- nchar(orig) - nchar(lines)
   for (ch in labelled_chunks(lines)) {
     caps[[length(caps) + 1L]] <- scan_chunk_captions(lines, ch, ch$label, ch$hdr, ch$optblk,
-                                                    ch$oi, doc_exec, file, config, dq)
+                                                    ch$oi, doc_exec, file, config, dq, filter_doc)
     strs[[length(strs) + 1L]] <- scan_chunk_strings(lines, ch, ch$oi$code_first, ch$label,
                                                    file, config, dq)
   }
@@ -746,14 +748,49 @@ caption_ids <- function(extra) {
 # to an id it cannot see is the knit's to judge (1.7.10).
 has_child_chunk <- function(lines) any(grepl("child[ \t]*[=:]", lines))
 
+# Does the Lua filter resolve the spans of this document (N14): any document the knitr hooks do not knit.
+# The hooks knit an `.Rmd`; a `.qmd` with `engine: knitr`, or with an executed {r} chunk and no `engine:` or
+# `jupyter:` key. Read from the lines with no parse: the first metadata block's top-level keys, and the
+# chunk headers.
+filter_resolves <- function(lines, file = NA_character_) {
+  if (!is.na(file) && grepl("\\.rmd$", file, ignore.case = TRUE)) return(FALSE)
+  n <- length(lines)
+  if (n && grepl("^---[ \t\r]*$", lines[1L])) {
+    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
+    if (length(cl)) {
+      fm <- lines[1L + seq_len(cl[1L] - 1L)]
+      eng <- grep("^engine[ \t]*:", fm, value = TRUE)
+      if (length(eng)) {
+        v <- trim_ws(sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L])))
+        v <- tolower(gsub("^[\"']|[\"']$", "", v))
+        return(!identical(v, "knitr"))
+      }
+      if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
+    }
+  }
+  hdr <- grep("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines)
+  for (k in hdr) {
+    if (grepl("[ ,{]eval[ \t]*=[ \t]*(FALSE|F)[ \t]*[,}]", lines[k])) next
+    j <- k + 1L
+    off <- FALSE
+    while (j <= n && grepl("^[ \t>]*#\\|", lines[j])) {
+      if (grepl("^[ \t>]*#\\|[ ]?eval[ \t]*:[ \t]*(false|no|FALSE)[ \t]*(#.*)?$", lines[j])) off <- TRUE
+      j <- j + 1L
+    }
+    if (!off) return(FALSE)
+  }
+  TRUE
+}
+
 # All the rows of a document, in textual order, each with its context. Prose
 # is judged as the knit judges it: an id a caption defines is known, and a
 # file with children is lenient about the ids it cannot see.
 scan_document <- function(lines, file = NA_character_, config = NULL, project = "") {
   text <- paste(lines, collapse = "\n")
-  extra <- scan_extra_rows(lines, file, config, project)
+  fd <- filter_resolves(lines, file)
+  extra <- scan_extra_rows(lines, file, config, project, fd)
   prose <- scan_text(blank_front_matter(text), file = file, config = config,
-                     lenient = has_child_chunk(lines), known = caption_ids(extra))
+                     lenient = has_child_chunk(lines), known = caption_ids(extra), filter_doc = fd)
   prose$context <- rep("prose", nrow(prose))
   prose$fstart <- as.numeric(prose$start)
   prose$fend <- as.numeric(prose$end)

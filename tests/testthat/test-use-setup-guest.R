@@ -11,8 +11,9 @@ G5E_CONSTRUCT <- "The depth is `r x`{.num} metres."
 G5E_CONSTRUCTS <- list(
   num   = "The depth is `r x`{.num} metres.",
   n     = r"{We visited [a site | # sites]{n="3"}.}",
-  if_   = r"{The level [rose | fell]{if="up"} again.}",
-  sign  = r"{The level [x]{sign="d"} again.}"
+  # 6d: `if="up"` and `sign="d"` are in the filter's grammar and need no knitr (N74); these are outside it
+  if_   = r"{The level [rose | fell]{if="a && b"} again.}",
+  sign  = r"{The level [x]{sign="3"} again.}"
 )
 G5E_NO_CONSTRUCT <- list(
   bare    = "The depth is `r x` metres.",

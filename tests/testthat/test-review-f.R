@@ -174,8 +174,9 @@ test_that("review F #8: a .qmd with a list span and no engine: knitr fails the p
   r0 <- qrender(d0)
   expect_false(identical(r0$status, 0L))
   expect_match(r0$log, "has no `?engine: knitr", perl = TRUE)
-  # a list span is stopped the same way, by the pre-render script
-  d <- mk_project(mk("[No sites were | # was | # were]{list=\"flagged\"} flagged."))
+  # a list span is stopped the same way, by the pre-render script (6d: list="flagged" is a name, which the
+  # filter resolves and the script lets through, so the span here has a governor outside the grammar)
+  d <- mk_project(mk("[No sites were | # was | # were]{list=\"3\"} flagged."))
   withr::defer(unlink(d, recursive = TRUE))
   r <- qrender(d)
   expect_false(identical(r$status, 0L))

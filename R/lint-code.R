@@ -255,12 +255,12 @@ code_pieces <- function(src) {
   if (!is.null(src$cache$code_pieces)) return(src$cache$code_pieces)
   out <- list()
   rows <- src$rows
-  mk <- function(kind, context, text, off, chunk = NA_integer_) {
+  mk <- function(kind, context, text, off, chunk = NA_integer_, two_literals = FALSE) {
     nl <- length(strsplit(text, "\n", fixed = TRUE)[[1L]])
     l0 <- findInterval(off, src$line_start)
     lo <- c(off, if (nl > 1L) src$line_start[l0 + seq_len(nl - 1L)])
     list(kind = kind, context = context, text = text, off = off, line_off = lo, chunk = chunk,
-         tree = pd_tree(text))
+         two_literals = two_literals, tree = pd_tree(text))
   }
   live <- live_rows(src)
   for (i in seq_len(nrow(rows))) {
@@ -287,7 +287,9 @@ code_pieces <- function(src) {
       lead <- nchar(val) - nchar(sub("^[ \t\r\n]*", "", val, perl = TRUE))
       val <- trim_ws(val)
       if (!nzchar(val)) next
-      out[[length(out) + 1L]] <- mk(kind, rows$context[i], val, tk$vstart[j] + lead)
+      # a condition of two literals is E4 (N11), which says it; the lint would say it twice (N143)
+      out[[length(out) + 1L]] <- mk(kind, rows$context[i], val, tk$vstart[j] + lead,
+                                    two_literals = grepl("compares two literals", rows$error[i], fixed = TRUE))
     }
   }
   ch <- src$chunks
@@ -350,7 +352,7 @@ lint_inert_check <- function(src, ctx) {
   recs <- list()
   for (p in code_pieces(src)) {
     t <- p$tree
-    if (is.null(t)) next
+    if (is.null(t) || isTRUE(p$two_literals)) next
     # inert: no symbol and no call (a call such as `interactive()` can vary), review 3, question 5
     if (p$kind == "if" && !has_var(t, t$roots[1L]) && !has_call(t, t$roots[1L])) {
       recs[[length(recs) + 1L]] <- list(
@@ -702,7 +704,7 @@ PANDOC_HIGHLIGHT_LANGS <- strsplit(paste(
 lint_name <- function(src, ctx) {
   cfg <- src$cfg
   reg <- cfg$formatters %||% list()
-  weft_classes <- unique(c(shipped_classes(), names(reg)))
+  weft_classes <- unique(c(shipped_classes(), ".val", names(reg)))
   fmt_classes <- formatter_classes(reg)
   weft_keys <- c(GOVERNOR_KEYS, RENDERER_KEYS, "why")
   pandoc_classes <- c(".smallcaps", ".underline", ".mark")

@@ -8,6 +8,11 @@
 SCAN_SPECIAL <- c("`", "[", "]", "$", "\\", "<")
 GOVERNOR_KEYS <- c("n", "if", "sign", "cite", "list")
 WEFT_KEYS <- c(GOVERNOR_KEYS, "digits", "sigfig", "unit", "sep", "last", "trunc", "none")
+# Named values (rules 1.12.1-1.12.5): the words that are not names, in any language.
+NAME_RESERVED <- c("TRUE", "FALSE", "True", "False", "true", "false", "NA", "NULL", "None", "nothing",
+                   "missing", "Inf", "NaN")
+# The keys that make a code span a named value (N5); a governor key does not.
+NAMED_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none")
 # The placeholder `#` of an arm template (1.5.8).
 ARM_PLACEHOLDER <- "\ue001"
 
@@ -15,7 +20,7 @@ trim_ws <- function(x) gsub("^[ \t\r\n]+|[ \t\r\n]+$", "", x, perl = TRUE)
 
 # ---- setup --------------------------------------------------------------
 
-new_scan <- function(text, file, first_line, config) {
+new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
   text <- paste(enc2utf8(as.character(text)), collapse = "\n")
   if (length(text) != 1L || is.na(text)) text <- ""
   chars <- if (nzchar(text)) strsplit(text, "")[[1]] else character()
@@ -27,6 +32,8 @@ new_scan <- function(text, file, first_line, config) {
   S$file <- file
   S$first_line <- as.integer(first_line)
   S$reg <- config$formatters %||% list()
+  # whether the Lua filter resolves the spans of this text (N14); named values are always its
+  S$filter_doc <- isTRUE(filter_doc)
   # index vectors are doubles, so findInterval() does not coerce them on every call
   S$nl <- as.numeric(which(chars == "\n"))
   # the first colon of each fenced-div opening line is special too, so the
@@ -701,6 +708,8 @@ block_errors <- function(S, blk, kind) {
   gov <- lc[lc %in% GOVERNOR_KEYS]
   if (kind %in% c("value", "bare") && length(gov)) {
     e <- c(e, sprintf("The key `%s` on a value is an error (rule 1.3.3).", gov[1]))
+  } else if (kind == "named" && length(gov)) {
+    e <- c(e, sprintf("A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", gov[1]))
   } else if (length(unique(gov)) > 1L) {
     e <- c(e, sprintf("More than one of n, if, sign, cite and list in one block: %s (rule 1.1.5).",
                       paste(gov, collapse = ", ")))
@@ -734,6 +743,18 @@ block_errors <- function(S, blk, kind) {
     }
   }
   grp <- class_group(cls, S$reg)
+  if (kind == "named") {
+    # `.val` is in the number stage's at-most-one group (N8), and takes no wording class
+    grp[cls == ".val"] <- "number"
+    if (".val" %in% cls) {
+      reg_wording <- names(S$reg)[vapply(S$reg, function(r) identical(r[["stage"]], "wording"), NA)]
+      wc <- intersect(cls, c(WORDING_CLASSES, reg_wording))
+      if (length(wc)) {
+        e <- c(e, sprintf("`.val` prints a value as it is and cannot take `.%s` (rule 1.12.2).",
+                          sub("^[.]", "", wc[1L])))
+      }
+    }
+  }
   for (g in unique(grp[!is.na(grp)])) {
     if (sum(grp == g, na.rm = TRUE) > 1L) {
       e <- c(e, if (g == "unit") {
@@ -780,11 +801,11 @@ block_errors <- function(S, blk, kind) {
     e <- c(e, sprintf("`digits` and `sigfig` do not apply to `%s` (rule 1.4.7).",
                       intersect(cls, c(".p", ".date"))[1L]))
   }
-  if (kind == "sign" && length(blk$values[lc == "sign"]) &&
+  if (kind == "sign" && !S$filter_doc && length(blk$values[lc == "sign"]) &&
       identical(trim_ws(blk$values[lc == "sign"][1L]), ".")) {
     e <- c(e, "There is no `sign=\".\"` (rule 1.7.2); only `n=\".\"` inherits.")
   }
-  if (kind == "list" && length(blk$values[lc == "list"]) &&
+  if (kind == "list" && !S$filter_doc && length(blk$values[lc == "list"]) &&
       identical(trim_ws(blk$values[lc == "list"][1L]), ".")) {
     e <- c(e, "There is no `list=\".\"`; only `n=\".\"` inherits (stage 1h).")
   }
@@ -793,7 +814,7 @@ block_errors <- function(S, blk, kind) {
   }
   if ("none" %in% lc) {
     nv <- blk$values[lc == "none"][1L]
-    if (kind != "value") {
+    if (!kind %in% c("value", "named")) {
       e <- c(e, "The key `none` belongs on a value with a collapse class (stage 1h).")
     } else if (!any(cls %in% c(COLLAPSE_CLASSES, names(S$reg)[vapply(
         S$reg, function(r) identical(r[["stage"]], "collapse"), NA)]))) {
@@ -876,6 +897,70 @@ cite_errors <- function(value) {
 is_backref <- function(expr) grepl("^#[^[:space:]]+$", trim_ws(expr))
 
 lower_keys <- function(nms) ifelse(tolower(nms) %in% WEFT_KEYS, tolower(nms), nms)
+
+# ---- named values and the filter's grammar (N5-N13) -----------------------------------------
+
+# A NAME (N6): ASCII, a letter or `_` and then letters, digits, `_` or `.`, at most 64 characters, not
+# ending in a dot, and not one of the reserved words.
+is_weft_name <- function(x) {
+  length(x) == 1L && !is.na(x) && grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}$", x, perl = TRUE) &&
+    !grepl(".", substring(x, nchar(x)), fixed = TRUE) && !(x %in% NAME_RESERVED)
+}
+
+# The parts of a condition (N10): split at every comma that is not inside a 'string literal'; an empty
+# part is kept.
+cond_parts <- function(x) {
+  ch <- strsplit(x, "")[[1L]]
+  parts <- character()
+  cur <- character()
+  inq <- FALSE
+  for (c in ch) {
+    if (c == "'") inq <- !inq
+    if (c == "," && !inq) {
+      parts <- c(parts, paste(cur, collapse = ""))
+      cur <- character()
+    } else {
+      cur <- c(cur, c)
+    }
+  }
+  c(parts, paste(cur, collapse = ""))
+}
+
+COND_OPERAND <- "(?:'[^'\\\\]*'|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
+COND_RE <- paste0("^(", COND_OPERAND, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", COND_OPERAND, ")$")
+
+# The error of one part of a condition (N9, N11; E3, E4), or `character()`.
+cond_part_error <- function(part) {
+  if (is_weft_name(part)) return(character())
+  m <- regmatches(part, regexec(COND_RE, part, perl = TRUE))[[1L]]
+  if (length(m)) {
+    ops <- m[c(2L, 4L)]
+    lit <- grepl("^['0-9-]", ops)
+    if (all(lit)) {
+      return(sprintf("`%s` compares two literals and has no name, so it is always the same (rule 1.12.4).", part))
+    }
+    if (all(lit | vapply(ops, is_weft_name, NA))) return(character())
+  }
+  sprintf(paste0("`%s` is not a name or one comparison of names, numbers and 'strings'; bind the condition ",
+                 "to a name in code (rule 1.12.4)."), part)
+}
+
+# The grammar errors of a span's governor in a document the filter resolves (N9-N12; E3-E5).
+filter_governor_errors <- function(kind, expr) {
+  v <- trim_ws(expr)
+  bad <- function(extra) {
+    sprintf("`%s` is not a name for `%s`; it takes a name%s (rule 1.12.5).", v, kind, extra)
+  }
+  switch(kind,
+    `if` = unlist(lapply(trim_ws(cond_parts(v)), cond_part_error), use.names = FALSE) %||% character(),
+    n = if (is_weft_name(v) || identical(v, ".") || is_backref(v)) character() else bad(", `.` or `#id`"),
+    sign = if (is_weft_name(v) || is_backref(v)) character() else bad(" or `#id`"),
+    list = if (is_weft_name(v)) character() else bad(""),
+    character())
+}
+
+# The classes that make a code span with an attribute block a named value (N5).
+named_classes <- function(reg) c(formatter_classes(reg), TEXT_CLASSES, ".val")
 
 # ---- rows ---------------------------------------------------------------
 
@@ -1068,6 +1153,53 @@ block_container <- function(S, p) {
   NA_character_
 }
 
+# A code span that is not inline R: a named value when its text is followed by an attribute block that holds
+# a weft class or a renderer key (N5). Its text must then be a NAME (N7). `R x` is an R value, not a name.
+handle_named <- function(S, p, cs, content, parent, skip) {
+  after <- cs$close_end + 1L
+  if (skip || grepl("^R[ \t\r\n]", content)) return(after)
+  blk <- parse_block(S, after)
+  if (is.null(blk)) return(after)
+  if (blk$ok) {
+    lc <- lower_keys(blk$names)
+    weft <- any(blk$classes %in% named_classes(S$reg)) || any(lc %in% NAMED_KEYS)
+  } else {
+    weft <- blk$gkey %in% NAMED_KEYS
+  }
+  if (!weft) return(after)
+  name <- trim_ws(content)
+  errs <- character()
+  if (!is_weft_name(name)) {
+    errs <- c(errs, sprintf(paste0("`%s` is not a name, so it cannot carry a weft class: a named value holds ",
+                                   "one name. Bind the value to a name in code (rule 1.12.3)."), name))
+  }
+  errs <- c(errs, block_errors(S, blk, "named"))
+  classes <- character()
+  keys <- named_chr(character(), character())
+  id <- NA_character_
+  if (blk$ok) {
+    keep <- !lc %in% GOVERNOR_KEYS
+    keys <- named_chr(blk$values[keep], lc[keep])
+    classes <- blk$classes
+    id <- blk$id
+    if (any(classes %in% LIST_CLASSES)) {
+      lcls <- intersect(classes, LIST_CLASSES)[1L]
+      box <- block_container(S, p)
+      if (!is.na(box)) {
+        errs <- c(errs, sprintf(paste0(
+          "`%s` makes a block, and a block cannot be put in %s reliably (rule 1.4.6); ",
+          "put it in a paragraph of its own at the top level."), lcls, box))
+      } else if (!alone_in_paragraph(S, p, blk$end)) {
+        errs <- c(errs, sprintf(paste0(
+          "`%s` makes a block, so the value must be alone in its paragraph (rule 1.4.6); ",
+          "put it in a paragraph of its own."), lcls))
+      }
+    }
+  }
+  add_row(S, "named", p, blk$end, after, name, classes, keys, id, NULL, integer(), parent, errs)
+  blk$end + 1L
+}
+
 handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   cs <- code_span(S, p)
   if (!cs$ok) return(cs$open_end + 1L)
@@ -1077,7 +1209,7 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   # What knitr evaluates: `r ` or `r#` straight after the backtick, with no
   # padding stripped (1.1.8); `{r} ` is the Quarto form.
   mm <- regmatches(content, regexec("^(r|\\{r\\})([ #\t\r\n])", content))[[1]]
-  if (!length(mm)) return(cs$close_end + 1L)
+  if (!length(mm)) return(handle_named(S, p, cs, content, parent, in_math || in_target))
   if (!(mm[3] %in% c("\r", "\n") ||
         (mm[2] == "r" && mm[3] %in% c(" ", "#")) ||
         (mm[2] != "r" && mm[3] %in% c(" ", "\t")))) {
@@ -1220,7 +1352,10 @@ handle_bracket <- function(S, p, parent) {
       errs <- c(errs, paste0(
         "An unescaped arm separator in a pipe-table cell (rule 1.5.13); write `\\|`."))
     }
-    if (blk$ok && !is.na(expr)) {
+    if (blk$ok && !is.na(expr) && S$filter_doc) {
+      # a document the filter resolves: the governor is judged by N9-N12, never by R's parser (N141)
+      errs <- c(errs, filter_governor_errors(kind, expr))
+    } else if (blk$ok && !is.na(expr)) {
       if (kind %in% c("n", "sign") && is_backref(expr)) {
         # a back-reference is an id, not R (1.7.6, 5.3.5)
       } else if (kind %in% c("n", "sign") && startsWith(trim_ws(expr), "#")) {
@@ -1280,6 +1415,11 @@ finish_scan <- function(S) {
     error = col(function(r) as.character(r$error), ""),
     block_start = col(function(r) as.integer(r$bstart), 0L)
   )
+  # who resolves the row (N140): a named value is the filter's; an R value is the hooks'; a span is the
+  # filter's in a document it resolves, else the hooks'
+  out$resolver <- if (nr == 0L) character() else {
+    ifelse(out$kind == "named" | (S$filter_doc & !(out$kind %in% c("value", "bare"))), "filter", "hooks")
+  }
   if (nr == 0L) {
     out$classes <- list()
     out$keys <- list()
@@ -1302,7 +1442,8 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
   err <- rep(NA_character_, nr)
   if (!nr) return(err)
   add <- function(k, msg) err[k] <<- if (is.na(err[k])) msg else paste(err[k], msg, sep = "\n")
-  is_def <- !is.na(rows$id) & rows$kind %in% c("value", "n", "if", "sign")
+  is_def <- !is.na(rows$id) & rows$kind %in% c("value", "n", "if", "sign", "named")
+  resolver <- if (is.null(rows$resolver)) rep("hooks", nr) else rows$resolver
   def <- which(is_def)
   chain <- function(k) {
     out <- character()
@@ -1333,6 +1474,12 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
       # a child document or a caption may define it: the knit decides
       if (lenient || id %in% known) next
       add(k, sprintf("The id `#%s` is not defined in this document (rule 1.7.10).", id))
+    } else if (resolver[k] == "hooks" && rows$kind[d] == "named") {
+      add(k, sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id ",
+                            "of the same form (rule 1.12.5)."), id))
+    } else if (resolver[k] == "filter" && resolver[d] == "hooks") {
+      add(k, sprintf(paste0("`#%s` names an id on an R value, which the filter cannot read; refer to an id ",
+                            "of the same form (rule 1.12.5)."), id))
     } else if (rows$kind[d] == "if") {
       add(k, sprintf("The id `#%s` is on an `if` span, which has no printed number to refer to (rule 1.7.5).", id))
     } else if (!(rows$end[d] < rows$start[k])) {
@@ -1351,16 +1498,16 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
 scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL,
-                      lenient = FALSE, known = character()) {
-  rows <- scan_block(text, file, first_line, config)$rows
+                      lenient = FALSE, known = character(), filter_doc = FALSE) {
+  rows <- scan_block(text, file, first_line, config, filter_doc)$rows
   with_id_errors(rows, lenient, known)
 }
 
 # The rows of a place that is not the document's own prose (a caption, a
 # front-matter field, a `weft_str()` string): its ids are checked by the knit,
 # over the document as knitted (1.7.10), not here.
-scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
-  scan_block(text, file, first_line, config)$rows
+scan_rows <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE) {
+  scan_block(text, file, first_line, config, filter_doc)$rows
 }
 
 # The rows of a whole document with the errors about its ids added; the rows
@@ -1378,8 +1525,8 @@ with_id_errors <- function(rows, lenient = FALSE, known = character()) {
 
 # The same, keeping the scan state `S`, which the knitr resolver uses to read
 # an arm over the same text (arm_template_range()).
-scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL) {
-  S <- new_scan(text, file, first_line, config)
+scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE) {
+  S <- new_scan(text, file, first_line, config, filter_doc)
   if (S$n > 0L) scan_seq(S, 1L, S$n, NA_integer_)
   list(S = S, rows = finish_scan(S))
 }
@@ -1419,7 +1566,7 @@ mask_text <- function(text) {
     chars[idx] <<- "x"
   }
   for (k in seq_len(nrow(r))) {
-    if (r$kind[k] %in% c("bare", "value")) {
+    if (r$kind[k] %in% c("bare", "value", "named")) {
       fill(r$start[k], r$end[k])
     } else if (!is.na(r$block_start[k])) {
       fill(r$block_start[k], r$end[k])

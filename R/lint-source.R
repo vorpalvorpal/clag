@@ -637,7 +637,7 @@ mask_prose <- function(S) {
   # weft rows: code and attribute blocks
   rw <- S$rows
   if (nrow(rw)) {
-    isv <- rw$kind %in% c("bare", "value")
+    isv <- rw$kind %in% c("bare", "value", "named")
     blank(ifelse(isv, rw$fstart, rw$fblock), rw$fend)
   }
 
@@ -958,8 +958,9 @@ read_source <- function(path, root, cfg) {
     eng_r <- ifelse(inchunk, tolower(chunks$engine[pmax(ci, 1L)]) == "r", TRUE)
     ev <- ifelse(inchunk, chunks$eval[pmax(ci, 1L)], TRUE)
     # a caption construct on another engine's chunk is kept when it carries its error (2.3.5, rule 5.11)
+    # (a caption the filter resolves is read whatever the chunk's engine, N140)
     drop <- (rows$context == "weft_str" & (!eng_r | !ev)) |
-      (rows$context == "caption" & !eng_r & is.na(rows$error))
+      (rows$context == "caption" & !eng_r & is.na(rows$error) & rows$resolver != "filter")
     if (any(drop)) {
       newidx <- cumsum(!drop)
       rows <- rows[!drop, , drop = FALSE]
@@ -997,7 +998,7 @@ read_source <- function(path, root, cfg) {
   # regions from the rows, chunks, fields and pieces
   add <- function(r) if (nrow(r)) regions <<- rbind(regions, with_attrs(r, rep(NA_character_, nrow(r))))
   if (nrow(rows)) {
-    kmap <- c(value = "value", bare = "bare", n = "n", `if` = "if", sign = "sign", list = "list",
+    kmap <- c(value = "value", named = "value", bare = "bare", n = "n", `if` = "if", sign = "sign", list = "list",
               cite = "cite_span", literal = "literal", text = "text_span")
     ty <- unname(kmap[rows$kind])
     ok <- !is.na(ty)

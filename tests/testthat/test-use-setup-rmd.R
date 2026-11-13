@@ -20,7 +20,7 @@ test_that("4d G35: a scalar `output: pdf_document` becomes a mapping for that fo
   expect_false("output: pdf_document" %in% fm)
   y <- u4_yaml(file.path(d, "a.Rmd"))
   expect_identical(names(y$output), "pdf_document")
-  expect_identical(y$output$pdf_document$pandoc_args, c("--lua-filter", "weft-check.lua"))
+  expect_identical(y$output$pdf_document$pandoc_args, U4_LUA_ARGS)
 })
 
 test_that("4d G35: a mapping format keeps its options and gains the filter under pandoc_args", {
@@ -28,7 +28,7 @@ test_that("4d G35: a mapping format keeps its options and gains the filter under
   u4_use(d)
   y <- u4_yaml(file.path(d, "a.Rmd"))
   expect_true(y$output$html_document$toc)
-  expect_identical(y$output$html_document$pandoc_args, c("--lua-filter", "weft-check.lua"))
+  expect_identical(y$output$html_document$pandoc_args, U4_LUA_ARGS)
 })
 
 test_that("4d G35: two formats each get the filter", {
@@ -36,8 +36,8 @@ test_that("4d G35: two formats each get the filter", {
                                         "  pdf_document:", "    toc: false"))))
   u4_use(d)
   y <- u4_yaml(file.path(d, "a.Rmd"))
-  expect_identical(y$output$html_document$pandoc_args, c("--lua-filter", "weft-check.lua"))
-  expect_identical(y$output$pdf_document$pandoc_args, c("--lua-filter", "weft-check.lua"))
+  expect_identical(y$output$html_document$pandoc_args, U4_LUA_ARGS)
+  expect_identical(y$output$pdf_document$pandoc_args, U4_LUA_ARGS)
 })
 
 test_that("4d G35: block-style pandoc_args get the two items appended, after the author's", {
@@ -46,7 +46,7 @@ test_that("4d G35: block-style pandoc_args get the two items appended, after the
   u4_use(d)
   y <- u4_yaml(file.path(d, "a.Rmd"))
   expect_identical(y$output$html_document$pandoc_args,
-                   c("--toc", "--number-sections", "--lua-filter", "weft-check.lua"))
+                   c("--toc", "--number-sections", U4_LUA_ARGS))
 })
 
 test_that("4d G35: flow-style pandoc_args cannot be edited safely: nothing is written and the lines to add are printed", {
@@ -90,10 +90,12 @@ test_that("4d G35: a folder of two .Rmd documents sets up both, with one filter 
   u4_use(d)
   for (f in c("a.Rmd", "b.Rmd")) {
     y <- u4_yaml(file.path(d, f))
-    expect_identical(y$output$html_document$pandoc_args, c("--lua-filter", "weft-check.lua"), label = f)
+    expect_identical(y$output$html_document$pandoc_args, U4_LUA_ARGS, label = f)
     expect_identical(y$knitr$opts_knit$weft, "!expr weft::weft_setup()", label = f)
   }
-  expect_identical(sort(tree(d)), sort(c("_weft.yml", "a.Rmd", "b.Rmd", "weft-check.lua")))
+  # 6d: weft.lua and the folder weftlib/ go beside the document with weft-check.lua
+  libs <- file.path("weftlib", list.files(system.file("quarto", "weftlib", package = "weft"), recursive = TRUE))
+  expect_identical(sort(tree(d)), sort(c("_weft.yml", "a.Rmd", "b.Rmd", "weft-check.lua", "weft.lua", libs)))
 })
 
 test_that("4d G35: a mixed folder: the .qmd gets its engine line but no filter line, the .Rmd the filter", {
@@ -133,5 +135,5 @@ test_that("4d G35: a single .Rmd given by path gets its filter beside it", {
   u4_use(file.path(d, "sub", "a.Rmd"))
   expect_true(file.exists(filter_in(d, "sub")))
   expect_identical(u4_yaml(file.path(d, "sub", "a.Rmd"))$output$html_document$pandoc_args,
-                   c("--lua-filter", "weft-check.lua"))
+                   U4_LUA_ARGS)
 })

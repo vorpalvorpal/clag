@@ -3,7 +3,10 @@
 # READING: case 4's text is the text of the package today (measured by running lints() before the change; the note
 # says only "unchanged"): the message below and the hint "Add `engine: knitr` to its front matter."
 
-G5E_BODY <- r"{Words [a site]{if="ok"} more.}"
+# 6d: a span of the filter's grammar (if="ok") needs no knitr (N146), so the body is one outside it
+G5E_BODY <- r"{Words [a site]{if="a && ok"} more.}"
+# 6d (E73): each G38 hint gains this sentence
+G5E_E73 <- "Or write each value as a name, `x`{.num}, and publish it in code: then no knitr is needed (rule 1.12.7)."
 g5e_en_py <- c("```{python}", "x = 1", "```")
 g5e_en_jl <- c("```{julia}", "x = 1", "```")
 g5e_en_r <- c("```{r}", "x <- 1", "```")
@@ -35,7 +38,7 @@ expect_engine <- function(x, message, hint, file = "a.qmd") {
   expect_identical(x$file, file)
   expect_identical(x$line, 1L)
   expect_identical(x$message, message)
-  expect_identical(x$hint, hint)
+  expect_identical(x$hint, paste(hint, G5E_E73))
 }
 
 # ---- case 1: another engine named in the front matter -----------------------------------------------------

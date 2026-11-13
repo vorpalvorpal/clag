@@ -74,7 +74,7 @@ construct_rows <- function(src) {
   parts <- list()
   r <- src$rows
   if (!is.null(r) && nrow(r)) {
-    kinds <- c(value = "value", bare = "value", n = "span", `if` = "span", sign = "span",
+    kinds <- c(value = "value", bare = "value", named = "value", n = "span", `if` = "span", sign = "span",
                list = "span", cite = "span", text = "span")
     k <- unname(kinds[r$kind])
     ok <- !is.na(k)

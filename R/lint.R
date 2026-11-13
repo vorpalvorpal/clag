@@ -62,7 +62,9 @@ lint_rule_table_build <- function() {
     r("guest-inline", "5.11.1", 1, "file", "Inline code in another language, which knitr does not run."),
     r("guest-call", "5.11.2", 1, "file", "A weft function called from Python through `r.`."),
     r("guest-read", "5.11.3", 2, "file", "A value read from Python or Julia that weft does not check."),
-    r("ojs-value", "5.11.4", 2, "file", "An Observable value computed in the reader's browser.")))
+    r("ojs-value", "5.11.4", 2, "file", "An Observable value computed in the reader's browser."),
+    r("named-unpublished", "5.12.1", 2, "file", "A name used by a named value or filter span that nothing publishes."),
+    r("publish-hidden", "5.12.2", 1, "file", "A chunk that publishes values where its output is dropped.")))
 }
 
 #' The static lints
@@ -119,7 +121,9 @@ lint_rule_funs <- function() {
     `guest-inline` = lint_guest_inline,
     `guest-call` = lint_guest_call,
     `guest-read` = lint_guest_read,
-    `ojs-value` = lint_ojs_value
+    `ojs-value` = lint_ojs_value,
+    `named-unpublished` = lint_named_unpublished,
+    `publish-hidden` = lint_publish_hidden
   )
 }
 

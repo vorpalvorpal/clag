@@ -30,8 +30,18 @@ rmd_rprofile_only <- function(body = U4_BODY, profile = U4_RPROFILE) {
     `doc.Rmd` = u4_rmd(c("title: \"t\"", "output:", "  md_document:", "    variant: markdown",
                          paste0("    ", U4_FILTER_ARGS)), body)
   ))
-  file.copy(weft_filter_path(), file.path(d, "weft-check.lua"))
+  copy_filters(d)
   d
+}
+
+# 6d: the filters beside a document: weft-check.lua, and the resolver weft.lua with its weftlib/ (as use_setup()
+# copies them; a file the package does not ship yet is not copied)
+copy_filters <- function(d) {
+  src <- dirname(weft_filter_path())
+  for (f in c("weft-check.lua", "weft.lua")) {
+    if (file.exists(file.path(src, f))) file.copy(file.path(src, f), file.path(d, f), overwrite = TRUE)
+  }
+  if (dir.exists(file.path(src, "weftlib"))) file.copy(file.path(src, "weftlib"), d, recursive = TRUE)
 }
 
 # ---- the .Rprofile puts weft on the search path ------------------------------
@@ -127,7 +137,7 @@ test_that("4d G37: the same through use_setup(route = 'rprofile'): its .Rprofile
   d <- u4_dir(list(`doc.Rmd` = u4_rmd()))
   u4_use(d, route = "rprofile")
   # make sure the filter is there under either reading of the .Rmd edits
-  if (!file.exists(file.path(d, "weft-check.lua"))) file.copy(weft_filter_path(), file.path(d, "weft-check.lua"))
+  if (!file.exists(file.path(d, "weft-check.lua"))) copy_filters(d)
   r <- u4_render_rmd(d)
   expect_false(r$failed, info = r$log)
   expect_match(r$md, "Depth is 12.5 here.", fixed = TRUE)

@@ -828,17 +828,51 @@ lint_engine <- function(ctx) {
     src <- tryCatch(ctx$source(f), error = function(e) NULL)
     if (is.null(src) || isTRUE(src$invalid)) next
     rw <- src$rows
-    if (!nrow(rw) || !any(!rw$kind %in% c("bare", "link", "literal"))) next
+    held <- !rw$kind %in% c("bare", "link", "literal")
+    if (!nrow(rw) || !any(held)) next
     eng <- src$front$engine
     if (is.character(eng) && length(eng) == 1L && identical(tolower(eng), "knitr")) next
     if (is.null(inc)) inc <- project_included(ctx)
     if (f %in% inc) next
+    # what the filter resolves needs no R: a named value or a span of the grammar (N146)
+    ours <- held & rw$resolver %in% "filter" &
+      !(rw$kind != "named" & !is.na(rw$error) & grepl("(rule 1\\.12\\.[45])", rw$error))
+    if (all(ours[held])) {
+      if (!resolver_installed(ctx, src)) {
+        out[[length(out) + 1L]] <- new_findings(
+          file = f, line = 1L, col = 1L, end_line = 1L, rule = "engine", context = "project", text = f,
+          message = sprintf(paste0("%s holds named values, and the filter weft.lua is not installed: ",
+                                   "run use_quarto() (rule 5.8.9)."), f),
+          hint = "Run use_quarto() to install the weft-check extension, which carries the filter.")
+      }
+      next
+    }
     m <- engine_message(f, src)
     out[[length(out) + 1L]] <- new_findings(
       file = f, line = 1L, col = 1L, end_line = 1L, rule = "engine", context = "project", text = f,
-      message = m$message, hint = m$hint)
+      message = m$message,
+      hint = paste(m$hint, paste0("Or write each value as a name, `x`{.num}, and publish it in code: then no ",
+                                  "knitr is needed (rule 1.12.7).")))
   }
   bind_findings(out)
+}
+
+# Is the resolver installed: the project's `_quarto.yml`, or the document's own front matter, lists the filter
+# `weft-check` under `filters:` (N146).
+resolver_installed <- function(ctx, src) {
+  has <- function(y) {
+    f <- if (is.list(y)) y$filters else NULL
+    any(grepl("(^|/)weft-check(\\.lua)?$", as.character(unlist(f))))
+  }
+  if (has(src$front)) return(TRUE)
+  cache <- lint_cache(ctx)
+  if (is.null(cache$quarto_filters)) {
+    qp <- file.path(ctx$root, QUARTO_MARKERS)
+    qp <- qp[file.exists(qp)]
+    y <- if (length(qp)) tryCatch(yaml_read_file(qp[1L]), error = function(e) NULL) else NULL
+    cache$quarto_filters <- has(y)
+  }
+  cache$quarto_filters
 }
 
 # The message and hint of the `engine` lint, by case (rule 5.8.9): 1, another engine named in the front

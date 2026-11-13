@@ -4,8 +4,11 @@
 # Plain base R, so it works when weft is not installed or loadable.
 #
 # 1. Reads every .qmd the render will process and fails, naming the file, on
-#    one that holds a weft construct and has no `engine: knitr` in its own
-#    front matter (an `engine:` in _quarto.yml or _metadata.yml does not count).
+#    one that holds an R construct (an inline R value with an attribute block,
+#    or a span whose governor is not a name or one comparison, rules 1.12.4 and
+#    1.12.5) and has no `engine: knitr` in its own front matter (an `engine:`
+#    in _quarto.yml or _metadata.yml does not count). Named values and spans of
+#    that grammar are the filter's and need no knitr (rule 1.12.7).
 # 2. Opens the collection file, .weft/failures.jsonl, empty. Documents and the
 #    weft-check filter append to it while the render runs; the post-render
 #    script reports it and removes it (2.6.6, 2.9.5). Also writes .weft/run,
@@ -113,14 +116,72 @@ local({
     x <- gsub("\\\\[][{}()`*_#<>|\\\\]", "  ", x)
     list(text = x, value = value)
   }
+  # ---- the grammar of a span's governor, as regular expressions (rules 1.12.4, 1.12.5) ----
+  reserved <- c("TRUE", "FALSE", "True", "False", "true", "false", "NA", "NULL", "None", "nothing",
+                "missing", "Inf", "NaN")
+  is_name <- function(x) {
+    grepl("^[A-Za-z_][A-Za-z0-9_.]{0,63}$", x, perl = TRUE) && !grepl("[.]$", x) && !(x %in% reserved)
+  }
+  operand <- "(?:'[^'\\\\]*'|-?[0-9]+(?:\\.[0-9]+)?(?:[eE][+-]?[0-9]+)?|[A-Za-z_][A-Za-z0-9_.]*)"
+  comparison <- paste0("^(", operand, ")[ \t]*(<=|>=|==|!=|<|>)[ \t]*(", operand, ")$")
+  cond_ok <- function(part) {
+    part <- gsub("^[ \t]+|[ \t]+$", "", part)
+    if (is_name(part)) return(TRUE)
+    m <- regmatches(part, regexec(comparison, part, perl = TRUE))[[1]]
+    if (!length(m)) return(FALSE)
+    ops <- m[c(2, 4)]
+    lit <- grepl("^['0-9-]", ops)
+    if (all(lit)) return(FALSE)
+    all(lit | vapply(ops, is_name, NA))
+  }
+  # the comma-separated parts of a condition: a comma inside a 'string' splits nothing
+  cond_parts <- function(x) {
+    ch <- strsplit(x, "")[[1]]
+    parts <- character()
+    cur <- character()
+    inq <- FALSE
+    for (c in ch) {
+      if (c == "'") inq <- !inq
+      if (c == "," && !inq) {
+        parts <- c(parts, paste(cur, collapse = ""))
+        cur <- character()
+      } else cur <- c(cur, c)
+    }
+    c(parts, paste(cur, collapse = ""))
+  }
+  governor_ok <- function(key, v) {
+    v <- gsub("^[ \t]+|[ \t]+$", "", v)
+    switch(key,
+      "if" = all(vapply(cond_parts(v), cond_ok, NA)),
+      n = is_name(v) || v == "." || grepl("^#[^[:space:]]+$", v),
+      sign = is_name(v) || grepl("^#[^[:space:]]+$", v),
+      list = is_name(v),
+      TRUE)
+  }
+  # does a span's attribute block on this line hold a governor outside the grammar: `]{... if="..." ...}`
+  span_bad <- function(text) {
+    m <- gregexpr("\\]\\{[^}]*\\}", text, perl = TRUE)[[1]]
+    if (m[1] < 0) return(FALSE)
+    for (blk in regmatches(text, list(m))[[1]]) {
+      kv <- gregexpr(paste0("(?<![A-Za-z0-9_.-])(n|if|sign|list)[[:space:]]*=[[:space:]]*",
+                            "(?:\"[^\"]*\"|'[^']*'|[^[:space:]}\"']+)"),
+                     blk, perl = TRUE, ignore.case = TRUE)[[1]]
+      if (kv[1] < 0) next
+      for (one in regmatches(blk, list(kv))[[1]]) {
+        key <- tolower(sub("^([A-Za-z]+).*$", "\\1", one))
+        val <- sub("^[A-Za-z]+[[:space:]]*=[[:space:]]*", "", one)
+        val <- sub("^([\"'])(.*)\\1$", "\\2", val)
+        if (!governor_ok(key, val)) return(TRUE)
+      }
+    }
+    FALSE
+  }
+  # the first line holding an R construct: an inline R value with an attribute block, or a span whose
+  # governor is outside the grammar. A named value, and a span of the grammar, are the filter's.
   first_construct <- function(prose) {
-    # a span: ]{ ... } holding a weft key (any letter case) or a text class
-    key  <- "\\]\\{([^}]*[[:space:]])?(n|if|sign|cite|list)[[:space:]]*="
-    cls  <- "\\]\\{([^}]*[[:space:]])?\\.(a|cap|strong|em)([[:space:]}]|$)"
     for (j in seq_along(prose)) {
       p <- plain_of(prose[j])
-      if (p$value || grepl(key, p$text, ignore.case = TRUE, perl = TRUE) ||
-          grepl(cls, p$text, perl = TRUE)) return(j)
+      if (p$value || span_bad(p$text)) return(j)
     }
     NA_integer_
   }
@@ -141,7 +202,8 @@ local({
     cat("weft: the render stops before anything is rendered.\n", file = stderr())
     cat(bad, sep = "\n", file = stderr())
     cat("\nAdd `engine: knitr` to each file's own front matter (an `engine:` in _quarto.yml or\n",
-        "_metadata.yml does not count).\n", sep = "", file = stderr())
+        "_metadata.yml does not count). A document on another engine can use named values instead ",
+        "(rule 1.12.7).\n", sep = "", file = stderr())
     quit(save = "no", status = 1L)
   }
 

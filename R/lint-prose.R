@@ -243,7 +243,7 @@ lint_claim_word <- function(src, ctx) {
   first <- vapply(groups, function(ix) ps[ix[[1L]]], 1L)
   words <- lapply(groups, function(ix) unique(run[ix]))
   si <- as.integer(names(groups))
-  vs <- sort(r$fstart[r$kind %in% c("value", "bare", "n", "sign", "list")])
+  vs <- sort(r$fstart[r$kind %in% c("value", "bare", "named", "n", "sign", "list")])
   hasval <- (findInterval(sent$end[si], vs) - findInterval(sent$start[si] - 1L, vs)) > 0L
   quoted <- vapply(words, function(w) paste0("\"", w, "\"", collapse = ", "), "")
   plural <- lengths(words) > 1L
@@ -268,7 +268,7 @@ lint_long_guard <- function(src, ctx) {
   i <- which(r$kind == "if" & !is.na(r$fblock) & r$fblock - 2L >= r$fstart + 1L)
   if (!length(i)) return(new_findings())
   prose <- lint_prose_view(src, ctx)
-  nv <- which(r$kind %in% c("value", "bare"))
+  nv <- which(r$kind %in% c("value", "bare", "named"))
   vs <- r$fstart[nv]
   count <- function(x) {
     lengths(regmatches(x, gregexpr("[^[:space:]]*[\\p{L}\\p{Nd}][^[:space:]]*", x, perl = TRUE)))

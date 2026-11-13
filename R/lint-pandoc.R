@@ -92,7 +92,7 @@ pandoc_texts <- function(src) {
   fill <- logical(n)
   if (nrow(r)) {
     body <- r$context == "prose"
-    isv <- r$kind %in% c("bare", "value")
+    isv <- r$kind %in% c("bare", "value", "named")
     from <- ifelse(isv, r$fstart, r$fblock)
     fill <- mark_ranges(n, from[body], r$fend[body])
   }
