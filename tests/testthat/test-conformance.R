@@ -10,7 +10,8 @@
 # ---------------------------------------------------------------
 # weft:::conformance_rows(set = c("all", "numbers", "words", "lists"))
 #   Returns a data frame (stringsAsFactors = FALSE, any row names) with
-#   exactly four character columns, in this order, no NA:
+#   exactly four character columns (five since package 6a: see CONF_COLS and
+#   test-lua-num.R, which adds `record`), in this order, no NA:
 #     value    how the value is written: R code that parses and evaluates in
 #              base R alone (the base environment, no weft, no variables) to
 #              the value. One line; no tab, no newline.
@@ -61,7 +62,9 @@
 
 CONF_DIR <- test_path("_conformance")
 CONF_SETS <- c("numbers", "words", "lists")
-CONF_COLS <- c("value", "classes", "keys", "text")
+# Package 6a (dev/design-6.md, N131) added the fifth column, `record`: the JSON record N47 makes of
+# `value`. test-lua-num.R checks its content; here it only changes the columns and the tab count.
+CONF_COLS <- c("value", "classes", "keys", "text", "record")
 
 conf_path <- function(set) file.path(CONF_DIR, paste0(set, ".tsv"))
 
@@ -123,7 +126,7 @@ conf_has_class <- function(d, cls) {
 
 # ---- the function ------------------------------------------------------------
 
-test_that("5h: conformance_rows() returns a four-column character data frame", {
+test_that("5h: conformance_rows() returns a five-column character data frame (6a added record)", {
   d <- weft:::conformance_rows()
   expect_s3_class(d, "data.frame")
   expect_identical(names(d), CONF_COLS)
@@ -175,8 +178,8 @@ test_that("5h: the committed files exist, with the fixed format", {
     expect_true(validUTF8(txt))
     lines <- strsplit(txt, "\n", fixed = TRUE)[[1]]
     expect_identical(lines[1], paste(CONF_COLS, collapse = "\t"))
-    expect_true(all(lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE))) == 3L),
-                info = "three tabs on every line")
+    expect_true(all(lengths(regmatches(lines, gregexpr("\t", lines, fixed = TRUE))) == 4L),
+                info = "four tabs on every line")
   }
 })
 
