@@ -114,5 +114,5 @@ Start with [Getting started](https://vorpalvorpal.github.io/weft/articles/weft.h
 
 weft is a development version (0.0.0.9001). It is not on CRAN, and its
 functions and file formats may still change. The design is in
-`PACKAGE-SCOPING.md` in the repository. Please report problems at
+`dev/PACKAGE-SCOPING.md` in the repository. Please report problems at
 <https://github.com/vorpalvorpal/weft/issues>.

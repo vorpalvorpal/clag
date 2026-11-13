@@ -143,6 +143,8 @@ first, then `dev/build-log.md`.
   `dev/trials/stage0/recall.R` (git-ignored), thresholds in the design
   note; only counts and verdicts go in the build log.
 
+## Note: the specification is now `dev/PACKAGE-SCOPING.md` (moved 13 Nov)
+
 ## Position at 877baa6 (13 Nov, read this before the sections above)
 
 The sections above are history; this one is current.

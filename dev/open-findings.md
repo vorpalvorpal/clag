@@ -307,6 +307,6 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 8. Untested: whether lint settings (`label_words`, `strict`) take
    effect from a document's front matter; `recall_check()` has no
    worked example.
-9. For Robin: pkgdown publishes `PACKAGE-SCOPING.md` as an unlinked
-   page of the site. It is already public in the repository. Move it
-   under `dev/` if it should not be on the site.
+9. Done: Robin had `PACKAGE-SCOPING.md` moved to `dev/` so pkgdown does
+   not publish it. Older notes that name `PACKAGE-SCOPING.md` mean
+   `dev/PACKAGE-SCOPING.md`.
