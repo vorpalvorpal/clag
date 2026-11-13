@@ -1,7 +1,7 @@
 # Package 6h: the julia engine and plain Julia for the tests of Weft.jl (dev/design-6.md, section 5,
 # "Real Jupyter and Julia"). ASCII only.
 #
-# skip_if_no_julia_engine() skips ONLY when `quarto` or `julia` is absent. The first `quarto render` on
+# skip_if_no_julia_engine() skips ONLY when `quarto` or `julia` is absent, or WEFT_SKIP_JULIA is set (CI). The first `quarto render` on
 # the julia engine may install QuartoNotebookRunner under ~/.julia (allowed, it can take minutes). The
 # tests make the package under test visible to Julia by LOAD_PATH: the helper sets JULIA_LOAD_PATH to
 # the package's inst/julia folder with a trailing separator, which keeps Julia's default load path.
@@ -32,6 +32,7 @@
 .jle <- new.env()
 
 skip_if_no_julia_engine <- function() {
+  skip_if_julia_disabled()
   testthat::skip_if(!nzchar(Sys.which("quarto")), "quarto is not available")
   testthat::skip_if(!nzchar(Sys.which("julia")), "julia is not available")
 }

@@ -43,7 +43,9 @@
 # ---- helpers here -----------------------------------------------------------
 #   skip_if_no_julia()    skips ONLY when JuliaCall is not installed or cannot
 #                         start Julia (the first call starts it, once per
-#                         process; later calls cost nothing)
+#                         process; later calls cost nothing), or when the
+#                         environment variable WEFT_SKIP_JULIA is set (the CI
+#                         workflow sets it: dev/open-findings.md, finding 21)
 #   jl_set(...)           runs Julia lines: name = "expr" becomes `name = expr;`
 #                         an unnamed string is run as it is, with a `;` added.
 #                         Every line ends with `;` so JuliaCall converts no
@@ -76,7 +78,15 @@
 
 # ---- skips -------------------------------------------------------------------
 
+# Julia is skipped wherever WEFT_SKIP_JULIA is set (the CI workflow does): finding 21 in
+# dev/open-findings.md. One helper, used by both Julia skips.
+skip_if_julia_disabled <- function() {
+  testthat::skip_if(nzchar(Sys.getenv("WEFT_SKIP_JULIA")),
+                    "WEFT_SKIP_JULIA is set: Julia segfaults R on the CI runner (dev/open-findings.md, finding 21)")
+}
+
 skip_if_no_julia <- function() {
+  skip_if_julia_disabled()
   testthat::skip_if_not_installed("JuliaCall")
   if (is.null(.w5j$started)) {
     .w5j$started <- tryCatch({
