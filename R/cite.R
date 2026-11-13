@@ -48,12 +48,16 @@ bibtex_keys <- function(txt) {
 }
 
 # The keys of one bibliography file, by its extension. A file that cannot be
-# read has no keys.
+# read has no keys, and says why in the attribute `unreadable` (the first line
+# of the error), so that a file that does not parse is not reported as missing
+# keys.
 read_bib_keys <- function(path) {
   ext <- tolower(tools::file_ext(path))
-  txt <- tryCatch(read_source_text(path),
-                  error = function(e) NA_character_)
-  if (is.na(txt)) return(character())
+  bad <- function(e) {
+    structure(character(), unreadable = strsplit(conditionMessage(e), "\n", fixed = TRUE)[[1L]][1L])
+  }
+  txt <- tryCatch(read_source_text(path), error = function(e) e)
+  if (inherits(txt, "error")) return(bad(txt))
   ids_of <- function(refs) {
     if (!is.list(refs)) return(character())
     out <- vapply(refs, function(r) {
@@ -66,15 +70,17 @@ read_bib_keys <- function(path) {
     return(bibtex_keys(txt))
   }
   if (ext == "json") {
-    x <- tryCatch(yaml_read_text(txt), error = function(e) NULL)
-    if (is.null(x) && requireNamespace("jsonlite", quietly = TRUE)) {
-      x <- tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE), error = function(e) NULL)
+    x <- tryCatch(yaml_read_text(txt), error = function(e) e)
+    if (inherits(x, "error") && requireNamespace("jsonlite", quietly = TRUE)) {
+      x <- tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE), error = function(e) x)
     }
+    if (inherits(x, "error")) return(bad(x))
     if (is.list(x) && !is.null(names(x)) && !is.null(x$references)) x <- x$references
     return(ids_of(x))
   }
   if (ext %in% c("yaml", "yml")) {
-    x <- tryCatch(yaml_read_text(txt), error = function(e) NULL)
+    x <- tryCatch(yaml_read_text(txt), error = function(e) e)
+    if (inherits(x, "error")) return(bad(x))
     if (is.list(x) && !is.null(names(x)) && !is.null(x$references)) x <- x$references
     return(ids_of(x))
   }
@@ -142,8 +148,10 @@ bibliography_keys <- function(s) {
     vapply(as.character(unlist(s$config$bibliography)), where, "", bases = c(root, docdir)))
   s$bib_missing <- unique(named[is.na(files)])
   files <- unique(files[!is.na(files)])
-  keys <- c(unlist(lapply(from_meta, `[[`, "keys")),
-            unlist(lapply(files, read_bib_keys)))
+  read <- lapply(files, read_bib_keys)
+  why <- vapply(read, function(k) attr(k, "unreadable") %||% NA_character_, "")
+  s$bib_unreadable <- stats::setNames(why[!is.na(why)], files[!is.na(why)])
+  keys <- c(unlist(lapply(from_meta, `[[`, "keys")), unlist(read))
   s$bib_keys <- unique(as.character(keys))
   s$bib_keys
 }

@@ -1084,6 +1084,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     gone <- if (length(s$bib_missing)) {
       sprintf("; the bibliography file `%s` was not found", paste(s$bib_missing, collapse = "`, `"))
     } else ""
+    if (length(s$bib_unreadable)) {
+      gone <- paste0(gone, paste(sprintf("; the bibliography file `%s` could not be read (%s)",
+                                         basename(names(s$bib_unreadable)), unname(s$bib_unreadable)),
+                                 collapse = ""))
+    }
     unknown <- unique(keys[!(keys %in% known)])
     if (length(unknown)) {
       if (strict) {
