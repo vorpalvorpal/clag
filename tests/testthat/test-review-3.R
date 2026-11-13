@@ -489,7 +489,8 @@ test_that("review-3 Q5: a condition with a call other than operators is not iner
 
 test_that("review-3 Q5: a condition of constants and operators is still inert", {
   for (cond in c("TRUE", "!TRUE", "(TRUE)", "1 > 0", "TRUE && FALSE")) {
-    x <- lint_one(sprintf("A [text]{if=\"%s\"} here.", cond), rules = "inert-check")
+    # .Rmd: a .qmd with no knitr is the filter's, where a literal against a literal is E4 (N143)
+    x <- lint_one(sprintf("A [text]{if=\"%s\"} here.", cond), rules = "inert-check", ext = "Rmd")
     expect_identical(nrow(x), 1L, info = cond)
   }
 })

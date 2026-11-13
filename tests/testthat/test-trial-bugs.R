@@ -163,7 +163,7 @@ test_that("trial 8 + trial 7 + 2.6.6 + 2.6.2 (Quarto): the post-render report pr
 
 test_that("trial 9 + 2.5.4: the pre-render message does not name use_setup(); it says to add engine: knitr to the file's front matter", {
   skip_if_no_quarto()
-  body <- c("```{r setup, include=FALSE}", "weft::weft_setup()", "k <- 3", "```", "", "Found [a site | # sites]{n=\"k\"}.")
+  body <- c("```{r setup, include=FALSE}", "weft::weft_setup()", "k <- 3", "```", "", "Found `r k`{.num} sites.")  # an R value needs knitr; a span in the filter's grammar no longer does (N150)
   bad <- c("---", "title: \"t\"", "---", "", body)
   dir <- mk_project(list(`_quarto.yml` = c("project:", "  type: default", "format: html"), `index.qmd` = bad))
   r <- qrender(dir)
