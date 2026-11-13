@@ -18,7 +18,8 @@ weft's values and checks in the prose around that code. It assumes you know
 `vignette("wording", package = "weft")`. After it you will be able to print
 a Python or Julia value in a sentence, govern wording with it, call weft's
 formatters from Python, and know what weft checks in such a document and
-what it cannot check.
+what it cannot check. For a document that is not knit, see
+`vignette("named-values", package = "weft")`.
 
 The chunks in this article need Python or Julia, so most of them are not run
 when the article is built. The output shown was produced by running them.
@@ -41,9 +42,13 @@ engine: knitr
 ---
 ```
 
-A `.qmd` that Quarto runs with its Jupyter or Julia engine is not
-supported. Quarto then runs the code without R, so no weft construct is
-evaluated and the attribute blocks print as text.
+A `.qmd` that Quarto runs with its Jupyter or Julia engine has no R to
+evaluate prose, so an R expression in it is not evaluated and prints as text.
+Such a document can still use weft: write a value by name,
+`` `depth`{.num} ``, publish it from the Python or Julia code, and weft's
+Pandoc filter fills it in. That route is described in
+`vignette("named-values", package = "weft")`. Everything below is for
+documents that knitr knits.
 
 ## Setting up
 
@@ -340,8 +345,10 @@ and fails the render once at the end.
 weft resolves a caption written in an R chunk's options (see
 `vignette("values", package = "weft")`), but not one written in a Python or
 Julia chunk's options. A construct there is a construct error, found by the
-lints and at knit time. In a Quarto document, write the caption in a figure
-or table div instead, where it is prose:
+lints and at knit time. A named value does work in any caption (see
+`vignette("named-values", package = "weft")`). In a Quarto document that
+knitr knits, write the caption in a figure or table div instead, where it is
+prose:
 
 ````{verbatim, lang = "markdown"}
 ::: {#fig-depth}
@@ -468,8 +475,13 @@ writeLines(c(
 lints(tier = 1:2)
 ```
 
-`use_setup()` adds `engine: knitr` to a `.qmd` like `report.qmd`, which
-holds only Python chunks and a weft construct.
+`use_setup()` leaves `report.qmd` as it is, because it names the Jupyter
+engine. It adds `engine: knitr` to a `.qmd` of Python or Julia chunks alone,
+with no engine named, only when that page holds an R value or a span outside
+the filter's grammar. A page whose constructs are all named values is
+left for the filter. The `engine` finding above says so: `report.qmd`'s span
+names its governor, so it is the filter's, and the filter is not installed in
+this folder. `use_quarto()` installs it.
 
 The commit gate treats `guest-inline` and `guest-call` like any tier-1
 rule: a commit that adds one fails. A markup string built in Python code,

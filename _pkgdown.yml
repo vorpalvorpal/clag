@@ -17,6 +17,7 @@ articles:
       - units
       - targets
       - languages
+      - named-values
   - title: Checking
     navbar: Checking
     contents:
