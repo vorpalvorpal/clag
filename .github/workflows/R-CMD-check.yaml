@@ -50,7 +50,12 @@ jobs:
       # weft and the tests start Julia with install = FALSE, so JuliaCall
       # installs its Julia package RCall here, once, before the tests.
       - name: Install RCall for JuliaCall
-        run: Rscript -e 'JuliaCall::julia_setup(installJulia = FALSE)'
+        # JuliaCall's own installer failed on a fresh runner ("Package
+        # Suppressor not found"), so its Julia packages are added first.
+        run: |
+          export R_HOME="$(R RHOME)"
+          julia -e 'using Pkg; Pkg.add(["Suppressor", "RCall"])'
+          Rscript -e 'JuliaCall::julia_setup(installJulia = FALSE)'
 
       - uses: quarto-dev/quarto-actions/setup@v2
 
