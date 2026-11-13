@@ -99,6 +99,13 @@ dictionary](https://vorpalvorpal.github.io/weft/articles/units.html) and
 [Using weft with
 targets](https://vorpalvorpal.github.io/weft/articles/targets.html).
 
+**Python and Julia chunks.** In an `.Rmd`, or a `.qmd` with
+`engine: knitr`, a Python value reaches prose as
+`` `r py$depth`{.num} `` and a Julia value as
+`` `r jl_value("depth")`{.num} ``. weft reads each value itself and
+refuses one that R cannot hold exactly. See [Python and Julia
+chunks](https://vorpalvorpal.github.io/weft/articles/languages.html).
+
 **Lints.**
 [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
 reads a project’s documents without running them and lists typed
@@ -176,6 +183,8 @@ Format computed values, with or without units.
   : Join items into a phrase
 - [`py_value()`](https://vorpalvorpal.github.io/weft/reference/py_value.md)
   : Read a Python value
+- [`jl_value()`](https://vorpalvorpal.github.io/weft/reference/jl_value.md)
+  : Read a Julia value
 
 ## Wording that depends on values
 
@@ -312,6 +321,8 @@ See which arms a document can choose, and what the last knit did.
   dictionary](https://vorpalvorpal.github.io/weft/articles/units.md):
 - [Using weft with
   targets](https://vorpalvorpal.github.io/weft/articles/targets.md):
+- [Python and Julia
+  chunks](https://vorpalvorpal.github.io/weft/articles/languages.md):
 
 ### Checking
 

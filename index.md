@@ -99,6 +99,13 @@ dictionary](https://vorpalvorpal.github.io/weft/articles/units.html) and
 [Using weft with
 targets](https://vorpalvorpal.github.io/weft/articles/targets.html).
 
+**Python and Julia chunks.** In an `.Rmd`, or a `.qmd` with
+`engine: knitr`, a Python value reaches prose as
+`` `r py$depth`{.num} `` and a Julia value as
+`` `r jl_value("depth")`{.num} ``. weft reads each value itself and
+refuses one that R cannot hold exactly. See [Python and Julia
+chunks](https://vorpalvorpal.github.io/weft/articles/languages.html).
+
 **Lints.**
 [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
 reads a project’s documents without running them and lists typed

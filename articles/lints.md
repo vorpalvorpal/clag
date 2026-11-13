@@ -292,7 +292,7 @@ find the ways a value from another language goes wrong on the way.
 |----|----|----|
 | `guest-inline` | 1 | inline code in another language, such as `` `{python} depth` ``, in a document knitr knits: knitr does not run it, so it prints as code |
 | `guest-call` | 1 | `r.fmt_num(` and the like in a Python chunk, which pass arguments through reticulate and can turn a Python integer into a wrong number; `from weft import fmt_num` is safe |
-| `guest-read` | 2 | `py$n` in R chunk code, and `py_eval()`, `py_call()`, `julia_eval()` and the like in a value, which weft does not check; [`py_value()`](https://vorpalvorpal.github.io/weft/reference/py_value.md) and `jl_value()` are the guarded reads |
+| `guest-read` | 2 | `py$n` in R chunk code, and `py_eval()`, `py_call()`, `julia_eval()` and the like in a value, which weft does not check; [`py_value()`](https://vorpalvorpal.github.io/weft/reference/py_value.md) and [`jl_value()`](https://vorpalvorpal.github.io/weft/reference/jl_value.md) are the guarded reads |
 | `ojs-value` | 2 | an inline `` `{ojs} total` `` or a `${total}` in an Observable `md` or `html` template, which the reader’s browser computes after weft’s checks have run |
 
 The first two block a commit like any tier-1 finding. The `engine` rule

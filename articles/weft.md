@@ -237,6 +237,8 @@ claim(61, . < 50)
   quantities with units, and the project dictionary.
 - [`vignette("targets", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/targets.md):
   the dictionary in a targets pipeline.
+- [`vignette("languages", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/languages.md):
+  Python and Julia values in prose.
 - [`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md):
   the static checks.
 - [`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md):

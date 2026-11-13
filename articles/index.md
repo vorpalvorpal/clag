@@ -10,6 +10,8 @@
   dictionary](https://vorpalvorpal.github.io/weft/articles/units.md):
 - [Using weft with
   targets](https://vorpalvorpal.github.io/weft/articles/targets.md):
+- [Python and Julia
+  chunks](https://vorpalvorpal.github.io/weft/articles/languages.md):
 
 ### Checking
 

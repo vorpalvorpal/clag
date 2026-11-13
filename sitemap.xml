@@ -5,6 +5,7 @@
 <url><loc>https://vorpalvorpal.github.io/weft/articles/agents.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/gate.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/index.html</loc></url>
+<url><loc>https://vorpalvorpal.github.io/weft/articles/languages.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/lints.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/setup.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/articles/targets.html</loc></url>
@@ -27,6 +28,7 @@
 <url><loc>https://vorpalvorpal.github.io/weft/reference/gate.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/glue_vec.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/index.html</loc></url>
+<url><loc>https://vorpalvorpal.github.io/weft/reference/jl_value.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/label_seed.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/last_knit.html</loc></url>
 <url><loc>https://vorpalvorpal.github.io/weft/reference/lint_rules.html</loc></url>

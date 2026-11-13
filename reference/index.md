@@ -42,6 +42,8 @@ Format computed values, with or without units.
   : Join items into a phrase
 - [`py_value()`](https://vorpalvorpal.github.io/weft/reference/py_value.md)
   : Read a Python value
+- [`jl_value()`](https://vorpalvorpal.github.io/weft/reference/jl_value.md)
+  : Read a Julia value
 
 ## Wording that depends on values
 
