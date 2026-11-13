@@ -237,3 +237,35 @@ def read(steps):
         except Exception:
             return _json.dumps({"t": "absent", "at": i})
     return classify_json(obj)
+
+
+# ---- the warning recorder (G25) ----------------------------------------------
+
+import warnings as _warnings
+
+_warnings_seen = []
+_orig_showwarning = None
+
+
+def _show(message, category, filename, lineno, file=None, line=None):
+    try:
+        _warnings_seen.append(category.__name__ + ": " + str(message))
+    except Exception:
+        pass
+    return _orig_showwarning(message, category, filename, lineno, file, line)
+
+
+def install_recorder():
+    """Wrap warnings.showwarning once: each warning is noted, then shown as before."""
+    global _orig_showwarning
+    if _warnings.showwarning is _show:
+        return
+    _orig_showwarning = _warnings.showwarning
+    _warnings.showwarning = _show
+
+
+def drain_warnings():
+    """The warnings noted since the last call, as JSON text; the note is cleared."""
+    out = _json.dumps(_warnings_seen)
+    del _warnings_seen[:]
+    return out

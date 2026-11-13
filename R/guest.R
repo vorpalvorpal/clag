@@ -147,30 +147,130 @@ guest_python <- function(read) {
 }
 
 # The module of weft's Python helpers, `weft_guest`, put in sys.modules and in
-# no namespace of the author's: it is not a name in __main__ (G16).
+# no namespace of the author's: it is not a name in __main__ (G16). The first
+# read also registers the helpers a Python chunk uses (G18).
 guest_module <- function(read) {
   guest_python(read)
   m <- weft_env$guest_mod
   if (!is.null(m) && !reticulate::py_is_null_xptr(m)) return(m)
-  m <- tryCatch({
-    sys <- reticulate::import("sys", convert = FALSE)
-    have <- tryCatch(reticulate::py_get_item(sys$modules, "weft_guest"), error = function(e) NULL)
-    if (is.null(have) || !reticulate::py_has_attr(have, "classify_json")) {
-      path <- system.file("python", "weft_guest.py", package = "weft")
-      iu <- reticulate::import("importlib.util", convert = FALSE)
-      spec <- iu$spec_from_file_location("weft_guest", path)
-      have <- iu$module_from_spec(spec)
-      reticulate::py_set_item(sys$modules, "weft_guest", have)
-      spec$loader$exec_module(have)
-    }
-    have
-  }, error = function(e) e)
+  m <- tryCatch(guest_load(), error = function(e) e)
   if (inherits(m, "error")) {
     guest_abort(sprintf("`%s` reads a Python value, and reticulate could not start Python: %s (rule 2.12.6).",
                         read, trimws(strsplit(conditionMessage(m), "\n", fixed = TRUE)[[1L]][1L])))
   }
-  weft_env$guest_mod <- m
   m
+}
+
+# Load `weft_guest` into the running Python and register weft's helpers once
+# (G18): the module `weft` (G19) and the warning recorder (G25). Python must be
+# running; this neither starts it nor loads anything else.
+guest_load <- function() {
+  sys <- reticulate::import("sys", convert = FALSE)
+  have <- tryCatch(reticulate::py_get_item(sys$modules, "weft_guest"), error = function(e) NULL)
+  if (is.null(have) || !reticulate::py_has_attr(have, "classify_json")) {
+    path <- system.file("python", "weft_guest.py", package = "weft")
+    iu <- reticulate::import("importlib.util", convert = FALSE)
+    spec <- iu$spec_from_file_location("weft_guest", path)
+    have <- iu$module_from_spec(spec)
+    reticulate::py_set_item(sys$modules, "weft_guest", have)
+    spec$loader$exec_module(have)
+  }
+  weft_env$guest_mod <- have
+  if (!isTRUE(weft_env$py_registered)) {
+    weft_env$py_registered <- TRUE
+    guest_register_forms(sys)
+    have$install_recorder()
+  }
+  have
+}
+
+# The first Python chunk of a knit: make sure the helpers are registered. A
+# failure here is the chunk's own to report, not this hook's.
+guest_chunk_start <- function() {
+  if (isTRUE(weft_env$py_registered) && !is.null(weft_env$guest_mod) &&
+      !reticulate::py_is_null_xptr(weft_env$guest_mod)) return(invisible())
+  tryCatch(guest_module("a Python chunk"), error = function(e) NULL)
+  invisible()
+}
+
+# ---- activation (G18) and the module `weft` (G19 to G23) -------------------------------------------------
+
+# Called by weft_setup(): register at once when Python is running, else hook
+# Python's start. Loads no reticulate and starts no Python.
+guest_activate <- function() {
+  up <- "reticulate" %in% loadedNamespaces() &&
+    isTRUE(tryCatch(reticulate::py_available(initialize = FALSE), error = function(e) FALSE))
+  if (up) {
+    tryCatch(guest_load(), error = function(e) NULL)
+    return(invisible())
+  }
+  hooks <- getHook("reticulate.onPyInit")
+  if (!any(vapply(hooks, is_weft_hook, NA))) {
+    f <- function() {
+      tryCatch(guest_load(), error = function(e) NULL)
+      invisible()
+    }
+    attr(f, "weft") <- TRUE
+    setHook("reticulate.onPyInit", f)
+  }
+  invisible()
+}
+
+# The names of module `weft` (G19): each is the R function of that name.
+guest_form_names <- c(
+  "fmt_num", "fmt_pct", "fmt_sci", "fmt_p", "fmt_date", "fmt_no", "fmt_word",
+  "fmt_count", "fmt_ord", "fmt_and", "fmt_or", "fmt_pairs", "fmt_range",
+  "fmt_ul", "fmt_ol", "fmt_dl", "fmt_a", "fmt_cap", "fmt_strong", "fmt_em",
+  "plural", "ci", "pm", "about", "of_n", "weft_str")
+
+# An R function that Python calls with its arguments unconverted: each is read
+# by G5 and G6 (G21), the R function is called, and its text goes back as a
+# `str`, or a `list` of them.
+guest_form <- function(name) {
+  force(name)
+  function(...) {
+    args <- list(...)
+    nms <- names(args) %||% rep("", length(args))
+    vals <- lapply(seq_along(args), function(i) {
+      S <- if (nzchar(nms[i])) sprintf("Argument `%s` of %s()", nms[i], name)
+           else sprintf("Argument %d of %s()", i, name)
+      record_value(guest_record(args[[i]]), S)
+    })
+    names(vals) <- nms
+    out <- if (identical(name, "weft_str")) {
+      # the markup's expressions are R, evaluated where the knit's chunks are
+      env <- new.env(parent = if (knit_in_progress()) knitr::knit_global() else globalenv())
+      env$x <- vals[[1L]]
+      eval(quote(weft:::weft_str(x)), env)
+    } else {
+      do.call(get(name, envir = asNamespace("weft")), vals)
+    }
+    out <- as.character(unclass(out))
+    attributes(out) <- NULL
+    out
+  }
+}
+
+# Put the module `weft` into sys.modules, unless another module of that name
+# is there (G23): weft then leaves it alone and warns once per R session.
+guest_register_forms <- function(sys) {
+  have <- tryCatch(reticulate::py_get_item(sys$modules, "weft"), error = function(e) NULL)
+  if (!is.null(have)) {
+    if (!reticulate::py_has_attr(have, "__weft_r__") && !isTRUE(weft_env$m17_warned)) {
+      weft_env$m17_warned <- TRUE
+      rlang::warn(paste0("A Python module named `weft` is already loaded, so weft's function forms ",
+                         "are not registered (rule 2.12.8)."),
+                  class = c("weft_guest_warning", "weft_warning"))
+    }
+    return(invisible())
+  }
+  m <- reticulate::import("types", convert = FALSE)$ModuleType("weft")
+  for (nm in guest_form_names) {
+    reticulate::py_set_attr(m, nm, reticulate::r_to_py(guest_form(nm), convert = FALSE))
+  }
+  reticulate::py_set_attr(m, "__weft_r__", reticulate::r_to_py(TRUE))
+  reticulate::py_set_item(sys$modules, "weft", m)
+  invisible()
 }
 
 # A record out of the classifier's JSON, in the shape the helper fixes.
@@ -271,14 +371,13 @@ guest_read <- function(steps, read, prefixes, track = FALSE) {
 #' }
 #' @export
 py_value <- function(...) {
-  call <- sys.call()
   args <- list(...)
   ok <- length(args) > 0L && all(vapply(args, function(a) {
     is.character(a) && length(a) == 1L && !is.na(a) && nzchar(a)
   }, NA))
   if (!ok) weft_abort("py_value() takes names as strings: py_value(\"n\").", "weft_guest_arg_error")
   steps <- vapply(args, function(a) a, "")
-  fn <- if (is.call(call) && (is.symbol(call[[1L]]) || is.call(call[[1L]]))) call[[1L]] else as.name("py_value")
+  fn <- as.name("py_value")
   # the subject is the call with its arguments as evaluated: py_value(nm) with
   # nm = "n" reads as py_value("n")
   read <- deparse_read(as.call(c(list(fn), as.list(steps))))

@@ -43,6 +43,7 @@ weft_setup <- function() {
   }
   attach_functions()
   install_boundary_hooks()
+  guest_activate()
   if (knit_in_progress()) {
     install_hooks()
     s <- ensure_knit()
@@ -298,6 +299,8 @@ install_option_hook <- function() {
     s <- ensure_knit()
     # late: after Quarto has set its own `chunk` hook (2.1.4)
     install_chunk_wrapper()
+    # the first Python chunk registers weft's Python helpers (G18)
+    if (identical(options$engine, "python") && !isFALSE(options$python.reticulate)) guest_chunk_start()
     # a rehearsal uses no chunk cache (3.7.2)
     if (rehearsing()) options$cache <- FALSE
     note_chunk_label(s, options$label)
