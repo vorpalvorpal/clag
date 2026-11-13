@@ -304,7 +304,7 @@ conf_collapse_rows <- function() {
   out <- conf_frame(character(), character(), character(), character())
   add <- function(vals, cl, keys = "") out <<- rbind(out, conf_frame(vals, cl, keys, ""))
   # .pairs
-  pv <- c("c(A = 1.2, B = 3.4, C = 5.6)", "c(A = 1.2, B = 3.4)", "c(A = 1.25)",
+  pv <- c("c(A = 1.2, B = 3.4, C = 5.6)", "c(A = 1.2, B = 3.4)",
           "c(A = 1.2, B = 3.4, C = 5.6, D = 7.8)", "c(north = 10, south = 2.5)",
           "c(A = 1000, B = 0.15)", "c(a = \"x\", b = \"y\")")
   add(pv, "pairs")

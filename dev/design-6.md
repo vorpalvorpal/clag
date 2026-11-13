@@ -1575,3 +1575,24 @@ literal-against-literal `if` in a bare `.qmd` is E4 (N143), not
 `inert-check`; a pipe inside a named value is E1 (N7); `n=3` in a bare
 `.qmd` is E5; the gate scenario for added named values lists the
 filter, since E74 otherwise is a new finding.
+
+## Rulings after 6f (orchestrator, 13 Nov, under delegation)
+
+Accepted choices of the 6f implementer, spec text for 6j:
+
+- `.p` outside 0 to 1, `.a` on text that is not a number word: value
+  errors with R's text. `.pairs` and `.dl` on a list with no keys:
+  value error "needs a named vector".
+- `.em` with `.strong` is a construct error (one at-most-one group).
+- `sign` or `n` given a non-number is a value error. A missing `list`
+  element is "no value". `list` over bools prints TRUE/FALSE.
+- An id stays on the pass-through span. A duplicate id is a construct
+  error. An id defined inside an arm is dropped at the end of the arm.
+- `.ord` as an `n` governor chooses by the number as printed.
+- A `date_format` other than `%-d %B %Y` is E20.
+- `.num`, `.sci` and `.p` on a list with no collapse class are E17.
+  R prints a vector per element there: a parity gap, kept for now.
+- `word_limit` defaults to 100 in the filter, as in R (6c had 10).
+- The row `c(A = 1.25)` with `.pairs` is out of `collapse.tsv`: a
+  named vector of length 1 is a scalar record (N47), so its name
+  cannot reach the filter (open finding 9).

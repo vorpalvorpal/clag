@@ -362,3 +362,7 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 8. `conformance_record()` (item 3) is replaced: the tables' `record`
    column now comes from `values_record()`. The old maker typed Dates
    as float.
+9. A named vector of length 1 is published as a scalar and its name
+   is dropped (design-6, N47), so `.pairs` on it cannot print the name
+   through the filter, where R prints "A (1.3)". The row is left out
+   of `collapse.tsv`. A parity gap to weigh in the Lua parity pass.
