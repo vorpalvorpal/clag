@@ -1204,6 +1204,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     k <- it$k
     R$evaluated[k] <<- TRUE
+    # a named value is the filter's to resolve (N14, N130h): its source stays
+    if (R$kind[k] == "named") return(substr(text, R$start[k], R$end[k]))
     if (!is.na(R$error[k])) return(construct_fail(k, R$error[k]))
     # an id met a second time at another place, over the document as knitted:
     # a parent and its children, prose and captions (1.7.5)

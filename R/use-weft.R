@@ -119,7 +119,12 @@ use_weft <- function(path = ".") {
     vapply(setup$writes, `[[`, "", "path"), file.path(root, "_weft.yml"),
     if (!is.null(find_quarto_root(root))) {
       qr <- find_quarto_root(root)
-      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, QUARTO_MARKERS))
+      xdir <- file.path(system.file("quarto", package = "weft"), "weftlib")
+      libs <- sort(list.files(xdir, pattern = "[.]lua$"))
+      # use_quarto() also writes the resolver filter and its modules (N80)
+      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, QUARTO_MARKERS),
+        file.path(qr, "_extensions/weft-check/weft.lua"),
+        file.path(qr, "_extensions/weft-check/weftlib", libs))
     },
     file.path(root, "dict.yml"), file.path(root, "_weft", "dict.schema.json"),
     if (g$ok) vapply(hp$items, `[[`, "", "path"),
