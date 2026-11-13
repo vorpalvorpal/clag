@@ -411,3 +411,10 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     reads `QUARTO_DOCUMENT_PATH`, which can be stale.
 19. `test-julia-render.R` line 256 failed once in a combined run and
     passed alone: possible order dependence on the kept server.
+20. Doc and code disagree (found updating the docs, 14 Nov). `unit=` on an
+    `if` span passes the filter silently (`unit` is in `OWNED_KEYS`, and
+    `check_implemented` is not called for `if`); on a named value and on
+    `n`, `sign` and `list` spans it is a value error (E20). The docs say
+    so. Decide whether an `if` span should fail too. Also: the comment at
+    `inst/quarto/weft.lua:266` cites rule 1.12.8 for the float's text,
+    which is 1.12.2 in the spec.

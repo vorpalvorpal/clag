@@ -941,7 +941,7 @@ every engine. The resolver that reads them is the filter of 2.13.
 
 **1.12.1** A **named value** is a code span holding one name, directly
 followed by an attribute block that carries a weft class or a renderer key
-(`digits`, `sigfig`, `sep`, `last`, `trunc`, `none`): `` `depth`{.num} ``.
+(`digits`, `sigfig`, `sep`, `last`, `trunc`, `none`, `unit`): `` `depth`{.num} ``.
 Code publishes the name (2.13, 3.8). A name is ASCII letters, digits, `_` and
 `.`, starting with a letter or `_`, not ending in `.`, at most 64
 characters, and not one of `TRUE FALSE True False true false NA NULL None
@@ -954,7 +954,11 @@ key, such as `` `depth`{.python} `` or `` `depth`{#d} ``, is code.
 a float as the shortest text that reads back as the same double, a decimal
 as written, a string as it is, a date as ISO text, a bool as `true` or
 `false`, a list as its elements so printed, joined by ", ". The minus is the
-record's `-`. `.val` is in the number stage's at-most-one group (1.4.2), so a
+record's `-`. A float prints in one form whatever the writer wrote: the
+shortest digits, no trailing `.0`, and the exponent as R writes it (`1e+23`,
+`5e-324`). Published text is data (1.4.10): with a text or collapse class,
+`.val` builds its output from text pieces and never reads a string as
+markdown. `.val` is in the number stage's at-most-one group (1.4.2), so a
 wording class with it is a construct error. A text or collapse class may go
 with it. `.val` is a construct: a missing value is "no value", a check
 counts, and the ledger records it. `digits` on `.val` is ignored.
@@ -963,9 +967,12 @@ counts, and the ledger records it. `digits` on `.val` is ignored.
 inline R is a construct error.
 
 **1.12.4** In a construct the filter resolves (2.13.2), a condition is a
-name whose value is a bool, or one comparison `a OP b` with `OP` one of `<
-<= > >= == !=` and each side a name, a number literal or a single-quoted
-string, at least one a name. Spaces around `OP` are optional. A number
+name whose value is a bool, `!` directly before such a name, or one comparison
+`a OP b` with `OP` one of `< <= > >= == !=` and each side a name, a number
+literal or a single-quoted string, at least one a name. `!` applies to a name
+only: `!a == b`, `!!a`, `!(a)` and `!3` are construct errors, because R reads
+`!a > b` as `!(a > b)` and Julia as `(!a) > b`. `!a` on a value that is not a
+bool is a value error (1.11.8). Spaces around `OP` are optional. A number
 literal matches `-?[0-9]+(\.[0-9]+)?([eE][+-]?[0-9]+)?`: no `+`, no leading
 `.`, no `_`, no hex, no `L`. A string literal holds no `'` and no `\`.
 Conditions are joined by commas (1.5.4); a comma inside a string literal
@@ -975,19 +982,28 @@ code: `&&`, `||`, `and`, `not`, brackets, arithmetic, calls, indexing, a
 chained comparison, `=`, `<>`, a reserved word as an operand, and two
 literals compared with each other, which is always the same.
 
-**1.12.5** Numbers compare exactly, except that a float is compared as a
-double. Strings compare with `==` and `!=` only. Dates compare in calendar
-order. A bool compares with a bool by `==` and `!=`. Ordering bools, or
-comparing a date with a string literal, comparing kinds that do not
-compare, and a condition whose value is not a bool (1.11.8) are value
-errors that name the kinds ("integer", "number" for a literal, "list").
+**1.12.5** Numbers compare exactly, as decimals: no double decides a
+comparison. A float is compared by its shortest text that reads back as the
+same double (1.12.2), taken as an exact decimal, so a float `0.1` equals the
+decimal `0.1` and the literal `0.1`. Strings compare with `==` and `!=` only.
+Dates compare in calendar order. A date also compares, in calendar order and
+on either side of the operator, with a string literal that is a valid
+`YYYY-MM-DD` date (Gregorian leap years). Any other string literal compared
+with a date, an impossible date, and a date compared with a string *name* are
+value errors: a string record is data, and no carrier reads a value's printed
+form (1.11.11). A bool compares with a bool by `==` and `!=`. Ordering bools,
+comparing kinds that do not compare, and a condition whose value is not a bool
+(1.11.8) are value errors that name the kinds ("integer", "number" for a
+literal, "list").
 
 **1.12.6** In such a construct `n` takes a name, `.` or `#id`; `sign` a name
 or `#id`; `list` a name. Any other text there is a construct error. An `n`
 or `sign` governor that is not a number is a value error (1.5.11, 1.11.9).
 A missing element of a `list` governor is "no value". A `list` over bools
-prints `TRUE` and `FALSE`. `.ord` as an `n` governor chooses by the number
-as printed.
+prints `true` and `false`, as `.val` does. `.ord` as an `n` governor chooses by
+the number as printed. A governor value that starts with a space is a construct
+error: Pandoc does not read such an attribute value, so the span would print as
+text. `weft-check.lua` also flags a span lost this way that reaches its output.
 
 **1.12.7** A construct sees the names published above it. A name used above
 any publication of it is a "no value" failure. A later publication replaces
@@ -1007,7 +1023,11 @@ write names: no R evaluates an expression there.
 `.pct` when the default governor class (1.5.18) is `pct`. `none` with no
 collapse class, and `sigfig` below 1, are construct errors, as are `digits`
 and `sigfig` that are not whole numbers from 0 to 100. A governor key on a
-named value is a construct error (1.3.3). The printed-as-zero warning
+named value is a construct error (1.3.3). So is a `claim` or `level` key, on a
+named value or on a span the filter resolves: the filter does not read it, and
+the check would never run (2.13.4). `unit` is a renderer key (1.12.1), and the
+filter has no units, so a named value with it, or an `n`, `sign` or `list` span
+with it, is a value error (2.13.3). The printed-as-zero warning
 (2.6.11) applies to float and decimal records, not integers. `#` and `##`
 are read only inside an `n` arm.
 
@@ -1027,11 +1047,17 @@ and the governors of this section. Rules of other sections hold for them as
 stated there, with these differences. `.p` outside 0 to 1, and `.a` on text
 that is not a number word, are value errors with R's text. `.pairs` and `.dl`
 on a list with no keys are value errors ("needs a named vector"). `.em` with
-`.strong` is a construct error. `.num`, `.sci` and `.p` on a list with no
-collapse class are value errors, where R prints a vector element by element.
-A `date_format` other than `%-d %B %Y` is not available. `word_limit` is 100,
-as in R. A named vector of length 1 is a scalar, so its name cannot reach the
-filter (3.8.9).
+`.strong` is a construct error. `.num`, `.pct`, `.sci` and `.p` on a list with
+no collapse class print each element, joined by ", ", as R does. The
+printed-as-zero warning (2.6.11) is one per construct, however many elements
+print as zero, and a list whose elements are not numbers is a value error. A
+scalar class on a list of exactly one element prints that element, so `.num`
+works on it and `.pairs` keeps its key (3.8.4). `date_format` reads the tokens
+`%d %-d %e %m %-m %B %b %A %a %Y %y %j %%` and literal text, in English, with
+the weekday computed from the date and no platform `strftime`; any other token
+is a value error. `.ord`, `.word`, `.count`, `.range` and the `n` and `sign`
+governors build their digits and suffix from the exact text of an integer,
+never from a double. `word_limit` is 100, as in R.
 
 ---
 
@@ -1668,7 +1694,8 @@ record may carry `type` and `checks`. A block breaks the schema when its text
 is not JSON or not an object, `weft` is missing or is not 1, `values` is
 missing or not an object, or a key of `values` is not a name: it is one
 construct error, it adds no names, and a later use of its names is "no
-value". A record that breaks the table is read as an error record. A block
+value". A record that breaks the table is read as an error record, and so is a
+record whose `checks` is not an array of well-formed check objects (2.13.4). A block
 of more than 5,000,000 bytes is refused. A list of more than 10,000 elements
 is refused by the publishers. The filter removes every `weft-values` block
 from the output, then every cell div left with no content. Other classes and
@@ -1693,8 +1720,9 @@ size, by an algorithm on its digits: whole when every fraction digit is 0,
 `.pct` multiplies by 100 by moving the decimal point. The refusal beyond
 2^53 of 2.12.5 does not apply to a named value. A class the filter does not
 implement is a value error that says so, never a pass-through and never the
-record's text. That covers units (`.uname`, `.usym`, `.nounit` and `unit=`),
-project formatters (named in `formatters:` of the configuration), and a
+record's text. That covers units (`.uname`, `.usym`, `.nounit`, and `unit=` on a named value
+or on an `n`, `sign` or `list` span, with or without a class: a named value
+whose only weft key is `unit=` is never left as code), project formatters (named in `formatters:` of the configuration), and a
 `lang` whose words weft does not ship. The text of a filter's output is the
 same for every format; in LaTeX the filter adds the declaration for the minus
 sign once.
@@ -1703,8 +1731,14 @@ sign once.
 used, each time it is used. A check made in code where it ran, carried in the
 block's own `checks`, counts once, whether or not a name is used. A check
 object holds `text`, `ok`, `level` (`fail`, or `warn`; absent means `fail`)
-and `why`. A guard whose condition is false reports "X was false" and the
-hint that optional text is written with `|`.
+and `why`. A guard whose condition is false reports "X was false (a = ...,
+b = ...)", naming each name that part of the condition read, once, with its
+value as `.val` prints it, and the hint that optional text is written with
+`|`. A comma list reports each failing part with the names that part read. The
+filter does not read a `claim` or `level` key: on a named value or on a span it
+resolves, either is a construct error that names the key and says to state the
+check with a guard span around the value or with `claim()` in code. On an R
+value (knit), `level` passes through as before.
 
 **2.13.5** Failures are collected, marked as 2.6.8, and reported once at the
 end of the filter; the render then fails (tier 1), except in draft mode or
@@ -1715,14 +1749,20 @@ when a collection file is open (2.6.6). A failure has a kind: `failed claim`,
 failed claims first, then the other failures each tagged `[KIND]`, then warned
 checks. A warned check alone never fails. Draft mode changes only the exit.
 Construct errors are collected with the rest; a configuration problem
-(2.13.7) is one, reported once.
+(2.13.7) is one, reported once. Under Quarto, when the collection file is open
+(2.6.6), the post-render script prints the one report of the render from the
+lines the filter appended, and the filter does not print it as well. Plain
+Pandoc, and a Quarto render with no post-render script, print it from the
+filter.
 
 **2.13.6** A failure's line is found by searching the source, its includes
 (at most 8 deep) and its chunk-option lines for the construct's text, in
 order: for a construct, the next occurrence after the previous occurrence of
 the same text. Fenced code is blanked except its `#|` lines, and HTML
-comments are blanked. Text a chunk printed has no line, and if that text also
-appears later in the source it takes the later line: this is a limit. A
+comments are blanked. A span whose attribute value holds an escaped bar (`\|`, as a
+pipe-table cell needs) is searched for in the form the tree holds. Text a chunk
+printed has no line, and if that text also appears later in the source it takes
+the later line: this is a limit. A
 block's own check with no line and no enclosing cell shows the file only.
 Paths are relative to the working folder when under it.
 
@@ -1733,24 +1773,33 @@ never through Pandoc's metadata. It reads `digits`, `decimal_mark`,
 `serial_comma`, `count_threshold`, `word_limit`, `date_format`, `draft` and
 `ledger`. The document's value wins (9.1.1). A value of the wrong kind for its
 key is a construct error, reported once, and the default is used.
-`pct_proportion: false` is a value error. `lang` comes from Pandoc's metadata.
+`pct_proportion: false` is a value error. `lang` comes from Pandoc's metadata. A `weft:` or `formatters:` mapping in flow
+style is read as the block form is; a form the flat reader cannot read is a
+construct error, never ignored. A boolean key is read in any letter case, and a
+whole-valued decimal such as `2.0` is read for a whole-number key, as R's reader
+reads them.
 
-**2.13.8** The run id a publisher records is read from `.weft/run` (found by
-walking up from the document's folder, at most 8 levels), else `WEFT_RUN`, at
-each publish. A block whose run is not the current run was not computed in
-this render. The filter says so once, on standard error, and records it in
-the stamp; the notice fails nothing in an ordinary render, and `verify()`
-fails on it (8.3.5).
+**2.13.8** The run id a publisher records is read from `.weft/run` (found in the
+document's folder or at most 8 parents up), else `WEFT_RUN`, at each publish;
+R, Python, Julia and the filter all search the same way. A block whose run is
+not the current run was not computed in this render. The filter says so once,
+on standard error, and records it in the stamp; the notice fails nothing in an
+ordinary render, and `verify()` fails on it (8.3.5). A values file (2.13.10) is
+left out: its run is not compared, and it neither makes the document "not
+fresh" nor causes the notice.
 
-**2.13.9** In a set-up project the filter writes the stamp, collection lines
+**2.13.9** An input that ends `.knit.md` is mapped to the `.Rmd` or
+`.Rmarkdown` beside it for the source, the lines, the stamp and the ledger. In
+a set-up project the filter writes the stamp, collection lines
 and ledger entries for what it resolved, merging with what the hooks wrote in
 the same render. The stamp keeps R's members and adds `writers` (`knit` and
 `filter`; `knit` when an old stamp has none), `named` (the constructs
 resolved without failure) and `fresh` (`true` when every block's run is the
 current run, `false` when one differs, `null` with no current run or no
 block). `checks` adds one per outermost construct, block checks not counted.
-A knit document with no hooks stamp of this run and nothing of the filter's
-own gets no stamp. Collection lines have R's layout with source `resolve`.
+In a knit document whose old stamp is from another run, the filter keeps the
+stamp's knit failures, checks and `executed`. A knit document with no hooks
+stamp of this run and nothing of the filter's own gets no stamp. Collection lines have R's layout with source `resolve`.
 Entries are written to the ledger when there are no failures, in draft mode,
 or when a collection file is open, unless `ledger: false`. A named value's
 key is kind `value` and its name; a filter span's key is its key and its
@@ -1764,10 +1813,13 @@ filter computes it in pure Lua.
 `weft-values` block with a `file` attribute and an empty body stands. A
 relative path is taken from the document's folder, and a path starting `/`
 from the project root: the folder of `_weft.yml`, else `_quarto.yml`, else the
-document's own. A path that escapes the root, a drive or `//` form, a
+document's own. The file must resolve inside the root; a `../` that stays inside is allowed.
+A path that escapes the root, a drive or `//` form, a
 directory, a missing file, a body on a `file=` block, a file over 5,000,000
-bytes, or a file that is malformed or not schema 1 is one construct error with
-a short reason. Symbolic links are not resolved. Each values file read is a
+bytes (checked before the file is read), or a file that is malformed or not
+schema 1 is one construct error with a short reason. Symbolic links are not
+resolved. The lint of 5.12 refuses a file outside the root as the filter does.
+A values file is left out of freshness (2.13.8). Each values file read is a
 file the chapter read (7.2.2) and is listed once in the ledger header's
 `files` by its path from the root, hashed as any other file. Chapters of a
 book share values only by each reading the same file.
@@ -1779,12 +1831,18 @@ at the start of each block of prose and at the end of the document, and
 `` `NAME`{ `` and every name in the value of an `n`, `if`, `sign` or `list`
 key, read from the file and the files it includes (at most 8 deep).
 Automatic publishing applies only when the source holds at least one named
-value. A value that cannot be published is published as an error record, so
+value: a governor name alone does not switch it on. This gate is the same for
+R and for Python's `auto()` (3.8.7). A value that cannot be published is published as an error record, so
 the failure shows where the name is used.
 
 **2.13.12** A cell on the jupyter or julia engine with `include: false` or
 `output: false` publishes nothing. A cell on the knitr engine with
-`include: false` still publishes.
+`include: false` still publishes. On the jupyter engine a kernel cannot know
+that a hidden cell's output was dropped, so `auto()` can keep an earlier value
+of a name that a hidden cell later changes; the `publish-hidden` lint finds
+such a cell (5.12). A carrier fence at the end of a stdout block is read
+whatever was printed before it; a fence in the middle of printed text is left
+alone.
 
 **2.13.13** The hooks resolve a document when its source is `.Rmd` or
 `.knit.md`, or is a `.qmd` with `engine: knitr`, or with an executed `{r}`
@@ -2122,13 +2180,17 @@ the next block of prose or at the end of the document. A name published by
 | a `character` or `factor` of length 1 | string (the level, for a factor) |
 | a `Date` of length 1 | date |
 | `NA` of any type, `NaN`, `Inf`, `-Inf`, `NULL` | missing, with that `why` |
-| an atomic vector of length 0 or 2 or more of the kinds above | list; names give `keys` |
+| an atomic vector of length 0 or 2 or more of the kinds above, or a named vector of length 1 | list; names give `keys` |
 | `integer64` | int, its digits |
 | a `units` object | refused: named values carry no units |
-| anything else (a data frame, a list, a `POSIXct`, a function) | error |
+| anything else (a data frame, a list, a `POSIXct`, a function, a `complex`, a `raw`) | error |
 
-A named vector of length 1 is a scalar and its name is dropped. A list of
-more than 10,000 elements is refused.
+A named vector of length 1 is a list of one with its name as the key, as in
+Python and Julia: the writers share one rule. An unnamed vector of length 1 is
+a scalar. The key is the vector's own name, not the argument's. The filter
+prints a list of exactly one element as that element under a scalar class
+(1.12.11). A `complex` or a `raw` is an error record, as is anything else not
+listed. A list of more than 10,000 elements is refused.
 
 **3.8.5** `weft_values_write(path, ...)` writes a values file (2.13.10): the
 arguments are those of `weft_put()`, `lang` is `r`, `run` is read as 2.13.8
@@ -2150,24 +2212,30 @@ an integer of any size is published exactly.
 names (2.13.11) that the cell changed. The path of the source is
 `QUARTO_DOCUMENT_PATH` joined to `QUARTO_DOCUMENT_FILE`, else the argument; with
 neither, it says which variables are not set. The cell that calls `auto()` is
-published. Under a Jupyter kernel it works; under a knit R registers neither
-`put()` nor `auto()` (3.8.9).
+published. Under a Jupyter kernel it works. It has the gate of 2.13.11: it publishes
+nothing when the source holds no named value, whatever governor names it holds,
+and it publishes only names the source uses. A list of more than 10,000
+elements raises from `auto()` as from `put()`, and no error record is
+published. Under a knit, `put()` and `auto()` in a Python chunk hand their
+records to R's waiting names (3.8.3), so the block is written before the next
+block of prose and nothing is printed in the chunk; `auto()` there publishes
+the names the source uses that are bound in Python's `__main__`.
 
 **3.8.8** From Julia: `using Weft`, then `@put a b` (each argument a variable,
 published under its own name) or `Weft.put(depth = 3.14159)` or
 `Weft.put(:depth => 3.14159)`. On the julia engine the block is displayed; with
-no back end it is printed. Julia has no `auto()`. On the julia engine
+no back end it is printed. Under a knit, `put` and `@put` in a Julia chunk hand
+their records to R's waiting names, as Python's do (3.8.7). Julia has no
+`auto()`. On the julia engine
 `using Weft` finds the package through the Julia worker's own environment:
 `JULIA_LOAD_PATH` in the shell does not reach the notebook worker, and
 `julia: {env: ["JULIA_LOAD_PATH=<folder of the Weft package>:"]}` in
 `_quarto.yml` does. Under knitr, R puts the package on the load path.
 
-**3.8.9** Known gaps. A named vector of length 1 loses its name. In a Python
-chunk of a knitr document, `put()` prints its block and `auto()` does nothing
-that R knows of: publish with `weft_put()` there. Python `auto()` has no gate on
-named values, and publishes a too-long list as an error record where `put()`
-raises. There is no `checked()` that makes a claim from Python or Julia count
-where the name is used (3.9).
+**3.8.9** Known gaps. Julia has no `auto()`. On the jupyter engine, `auto()`
+cannot tell that a hidden cell's output was dropped (2.13.12). There is no
+`checked()` that makes a claim from Python or Julia count where the name is
+used (3.9).
 
 ### 3.9 `claim()` from Python and Julia
 
@@ -3457,6 +3525,10 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
 - two unit classes; `.usym` with `.no`, `.word` or `.count` (1.4.2)
 - a unit class on an `if` or `cite` span (1.4.19)
 - a formatter on an `if` span (1.5.7); a `level` key on any span (1.5.5)
+- in a document the filter resolves: a `claim` or `level` key on a named value
+  or on a span (1.12.9); a governor value that starts with a space, which
+  Pandoc does not read as an attribute (1.12.6); a condition outside the
+  grammar of 1.12.4; a governor value that is not a name (1.12.6)
 - a `list` span with `#` in its zero arm, or with the value `.` (1.5.19); a
   `list` span with an `#id` (1.7.5); a `list` span with `.ul`, `.ol` or `.dl`
   (1.5.19)
@@ -3807,7 +3879,8 @@ Both rules have scope `file`.
   resolves (1.12.4, 1.12.6), that occurs nowhere as a whole-word token in the
   code of any executed chunk of the document or its includes, in any language,
   nor as a key in a hand-written `weft-values` block of the document, nor in a
-  values file the document reads. The finding is one per name, at its first
+  values file the document reads. A values file outside the project root does
+  not count, as the filter refuses it (2.13.10). The finding is one per name, at its first
   use. Message: "`{name}` is used by name but no chunk of this document
   mentions it; publish it with put(), weft_put() or @put (rule 5.12.1)." Its
   hint also says that a governor name in a document with no named value is not
@@ -3823,7 +3896,12 @@ Both rules have scope `file`.
   `auto(` is a tier-2 finding, `publish-hidden-auto`: "chunk `{label}` calls
   auto() and has {opt}, so the names it sets are not published (rule 5.12.2)."
   A hidden `auto()` in a set-up cell is common and loses only what that cell
-  assigns, hence tier 2.
+  assigns, hence tier 2. `publish-hidden` (tier 1) also fires on a hidden
+  Python chunk that assigns, at the start of a line, a name the prose uses, in a
+  document that calls `auto()` in an executed Python chunk: `auto()` records the
+  name as published, the cell's output is dropped, and the text keeps an earlier
+  value (2.13.12). It does not fire without `auto()`, for a name the prose does
+  not use, or for a hidden cell that only reads.
 - The lints that apply unchanged to named values and filter spans are the
   numeral, construct, read, block-start, lone-bar, name, long-guard, if-zero,
   claim-word, citation, cross-reference, anchor, figure and table-caption

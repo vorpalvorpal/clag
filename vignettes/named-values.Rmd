@@ -59,7 +59,10 @@ be `TRUE`, `FALSE`, `True`, `False`, `true`, `false`, `NA`, `NULL`, `None`,
 
 `.val` prints a named value as it is: the digits of an integer, the shortest
 text of a float, a decimal as written, a string, an ISO date, `true` or
-`false`. It takes no wording class.
+`false`. It takes no wording class. A float prints in one form whatever
+language wrote it: `100000`, not `100000.0`, and `1e+23`, as R writes it.
+Published text is data, not markdown, so `.val` with a text or collapse class
+(`.cap`, `.and`) prints a `*` or a `<` in a string as it is.
 
 ### When to write a name
 
@@ -129,8 +132,25 @@ publishes under knitr.
 bool, a whole or decimal number, a string, a factor, a `Date`, an `integer64`
 or an atomic vector of these, up to 10,000 elements. `NA`, `NaN`, `Inf` and
 `NULL` publish as missing. A value with units is refused. Any other object,
-such as a data frame or a list, publishes as an error that is reported where
-the name is used.
+such as a data frame, a list, a complex number or a raw vector, publishes as
+an error that is reported where the name is used.
+
+A named vector of length 1 publishes as a list of one, with its name as the
+key, as a longer named vector does. Under a scalar class the filter prints a
+list of exactly one element as that element, so `.num` works on it and
+`.pairs` keeps the name:
+
+```r
+weft_put(worst = c(Upper = 12.6))
+```
+
+````{verbatim, lang = "markdown"}
+The worst reading was `worst`{.pairs}.
+````
+
+```text
+The worst reading was Upper (12.6).
+```
 
 ## Publishing from Python
 
@@ -192,6 +212,19 @@ changed. It reads the document's source from Quarto's environment, or from a
 path you give it: `auto("report.qmd")`. Call it in a cell that has output.
 A cell with `include: false` or `output: false` publishes nothing on this
 engine.
+
+`auto()` has the same gate as R's automatic publishing. It publishes only when
+the source holds at least one named value, and a governor name alone, such as
+`if="rising"`, does not switch it on. A list of more than 10,000 elements
+raises an error from `auto()`, as it does from `put()`; no error record is
+published.
+
+In a knitr document (an `.Rmd`, or a `.qmd` with `engine: knitr`), `put()` and
+`auto()` in a Python chunk, and `put` and `@put` in a Julia chunk, hand their
+names to R. R writes them as one block before the next block of prose, as
+`weft_put()` does, and nothing is printed in the chunk. A chunk with
+`include: false` still publishes. Under knitr, `auto()` publishes the names
+the source uses that are bound in Python's `__main__`. Julia has no `auto()`.
 
 ## Publishing from Julia
 
@@ -287,7 +320,7 @@ whatever its size.
 On the R path the value of `if` is any R expression. In the filter it is
 smaller, and everything else is an error. A condition is:
 
-- a name whose value is a bool, or
+- a name whose value is a bool, or `!` directly before such a name, or
 - one comparison `a OP b`, where `OP` is `<`, `<=`, `>`, `>=`, `==` or `!=`,
   and each side is a name, a number such as `10` or `1.5`, or a
   single-quoted string such as `'north'`, with at least one side a name.
@@ -298,29 +331,54 @@ Conditions are joined by commas, as on the R path.
 [above | within]{if="worst > limit"}
 [a gap | no gap]{if="n_gap > 10, n_sites >= 3"}
 [north | south]{if="region == 'north'"}
+[the backlog cleared | the backlog grew]{if="n_open < 5, !paused"}
+[before | after]{if="sampled < '2026-07-01'"}
 ```
 
-Numbers compare exactly. A float is compared as a double. Strings compare
-with `==` and `!=` only. Dates compare in calendar order. A bool is not
-truthy: `0`, `""` and a list of one bool are errors, not false.
+`!` applies to one bool name only. `!paused` is true when `paused` is false.
+`!!a`, `!a == b` and `!(a)` are construct errors, because R and Julia read
+`!a > b` differently. A one-arm guard can use it too:
+`[Sampling ran on schedule]{if="!delayed"}` fails when `delayed` is true.
+
+Numbers compare exactly, as decimals. A float is compared by its shortest
+text, so `0.1` is equal to the decimal `0.1` and to the literal `0.1`. Strings
+compare with `==` and `!=` only. Dates compare in calendar order. A date
+compares with a string literal that is a valid `YYYY-MM-DD` date, on either
+side of the operator, in calendar order. Any other string literal, an
+impossible date such as `'2026-02-30'`, or a string name is a value error.
+A bool is not truthy: `0`, `""` and a list of one bool are errors, not false.
 
 There are no arbitrary expressions. `worst + 1 > 3`, `len(x) > 2`, `a && b`,
 `0 < x < 1` and `3 > 2` are construct errors. The fix is always the same:
 compute it in code and publish the result under a name.
 
 Governor values are also names. `n` takes a name, `.` or `#id`. `sign` takes
-a name or `#id`. `list` takes a name.
+a name or `#id`. `list` takes a name. A governor value that starts with a
+space, such as `n=" k"`, is a construct error. Pandoc does not read such a
+value as an attribute, so the span would print as text.
 
-Four more differences:
+More differences:
 
-- Classes that need R are not available: units (`.uname`, `.usym`,
-  `.nounit`, `unit=`) and project formatters. They fail loudly, never print
-  the raw value.
-- A `date_format` other than `%-d %B %Y` is not available.
+- Units (`.uname`, `.usym`, `.nounit`, and the key `unit=` on a named value or
+  on an `n`, `sign` or `list` span) and project formatters are not available.
+  They fail loudly and never print the raw value.
+- `.num`, `.pct`, `.sci` and `.p` on a list with no collapse class print each
+  element, joined by a comma and a space, as R does: `` `depths`{.num} ``
+  prints `1.3, 3.5`. A list of strings under one of these classes is a value
+  error.
+- `date_format` reads the tokens `%d`, `%-d`, `%e`, `%m`, `%-m`, `%B`, `%b`,
+  `%A`, `%a`, `%Y`, `%y`, `%j` and `%%`, and literal text, in English. With
+  `date_format: "%A %-d %B %Y"` a `.date` prints `Thursday 29 February 2024`.
+  Any other token, such as `%U` or `%H`, is a value error that says it is not available.
+- `.ord`, `.word`, `.count`, `.range` and the `n` and `sign` governors work from
+  the exact digits of an integer. `.ord` of 9007199254740993 prints
+  `9,007,199,254,740,993rd`, with no rounding past 2^53.
 - Order matters. A construct sees the names published above it. A name used
   above every publication of it has "no value". Captions and the front-matter
   fields `title`, `subtitle`, `abstract` and `description` see each name's last
-  published value, so a named value works in any caption on any chunk.
+  published value, so a named value works in any caption on any chunk. A named
+  value in another front-matter field is a failure that says the filter does not
+  resolve that field.
 - A named value in an arm that is not chosen is never read.
 
 ## Checks
@@ -354,8 +412,24 @@ counts each time the name is used in a sentence:
 weft_put(worst = claim(worst, . < 50))
 ```
 
-A check in the sentence works as in R. A guard `[x]{if="worst < 50"}` that
-is false fails the render, as any claim does.
+A check in the sentence is a guard around the value. `[x]{if="worst < 50"}`
+that is false fails the render, as any claim does:
+
+```markdown
+The worst reading was [`worst`{.num}]{if="worst < 50"} NTU.
+```
+
+The detail line of the report names each value the guard read, as `claim()`
+names its value: `worst < 50 was false (worst = 52.5)`. With two names it
+reads `n_gap < n_sites was false (n_gap = 12, n_sites = 3)`.
+
+Each failing part of a comma list is its own failure, with the names that part
+read. A bool prints as `true` or `false` and a date as ISO text.
+
+The filter does not read a `claim=` or `level=` key. On a named value or on a
+span it resolves, either key is a construct error that says so, because the
+check would never run. Use a guard span, or `claim()` in code. On an R value
+in a knitr document, `level` passes through as it did.
 
 ## What failure looks like
 
@@ -376,19 +450,26 @@ The render then fails. In draft mode it does not fail: the markers, the
 report and the stamp are the same, but the exit is clean. Draft mode is on
 when the environment variable `WEFT_DRAFT` is `1` or `true`, or `draft: true`
 is in `_weft.yml` or the document's `weft:` key. The filter reads those two
-as text, not through Pandoc's metadata.
+as text, not through Pandoc's metadata. A `weft:` mapping in flow style is
+read as the block form is.
+
+Under `quarto render` in a project set up with `use_quarto()`, the report
+prints once, from the post-render script, which collects every document's
+failures. With plain Pandoc, or a Quarto render with no post-render script, the
+filter prints it.
 
 A failure's line is found by searching the source, its includes and its chunk
 options for the construct's text. Text that a chunk printed has no line, and
 the report names the file only. If a construct's text also appears later in
-the source, a printed construct takes that later line.
+the source, a printed construct takes that later line. A span in a pipe-table
+cell whose attribute holds `\|` is found too.
 
 ### The traps
 
 A name used before it is published:
 
 ```text
-no value is published under the name `depth` above this point (rule 1.12.6).
+no value is published under the name `depth` above this point (rule 1.12.7).
 Publish it in code above: weft_put(depth = ...) in R, put(depth=...) in
 Python, @put depth in Julia. A cell with include: false or output: false
 publishes nothing on the jupyter and julia engines.
@@ -434,10 +515,17 @@ Mean depth was `worst`{.num} NTU at `n`{.word} sites.
 file is JSON, in the same form as the block. A relative path in the document
 is taken from the document's folder, and a path that starts with `/` from the
 project root, which is the folder with `_weft.yml`, else `_quarto.yml`, else the
-document's own. A path that leaves the root, a missing file, a directory, a
-file over 5,000,000 bytes, or a file that is not schema 1 is a failure that
-names the file and the reason. The filter does not follow symbolic links. A
-body on a `file=` block is also a failure.
+document's own. The file must resolve inside the root. A `../` that stays
+inside is fine. A path that leaves the root, a drive or `//` form, a missing
+file, a directory, a file over 5,000,000 bytes, or a file that is not schema 1
+is a failure that names the file and the reason. The size is checked before the
+file is read. The filter does not follow symbolic links. A body on a `file=`
+block is also a failure. The `named-unpublished` lint refuses a file outside the
+root too, so it does not count the names in it.
+
+A values file is left out of freshness. Its own run id is not compared with the
+current run, so a file a pipeline wrote earlier does not make the document
+"not fresh" or print the notice below.
 
 Chapters of a book share values only by each reading the same file. The
 ledger header lists each file read, by its path from the root, with its hash.
@@ -478,6 +566,10 @@ Three lints read named values, without rendering:
 | `publish-hidden` | 1 | a `put`, `weft.put`, `@put` or `Weft.put` in a cell with `include: false` or `output: false`, on the Jupyter or Julia engine | publish in a cell that shows its output |
 | `publish-hidden-auto` | 2 | the same, for `auto()` | the same, or call `auto()` in a shown cell |
 
+`publish-hidden` also fires on a hidden cell that assigns a name the prose uses,
+in a document that calls `auto()`. Without the lint the render would print an
+earlier value of that name with no error: see Limits.
+
 A name can come from a helper script or a `from helpers import *`, which a
 search cannot see. That is why `named-unpublished` is tier 2: the render still
 fails loudly if the name is missing.
@@ -495,28 +587,20 @@ file are not counted.
 
 ## Limits
 
-- A named vector of length 1 publishes as a scalar and loses its name, so
-  `.pairs` over it prints no name where R prints one.
-- `.num`, `.sci` and `.p` on a list with no collapse class are an error in
-  the filter, where R prints a vector element by element.
-- A list governor over bools prints `TRUE` and `FALSE`, while `.val` prints
-  `true` and `false`.
-- Python `put()` in a Python chunk of a knitr document prints its block, and
-  `auto()` does nothing there. Under knitr, publish with `weft_put()`, or let
-  R publish the names; write `` `r ri("py$depth")` `` for a Python value.
-- Python `auto()` has no gate on named values, and a list that is too long
-  publishes as an error record, where `put()` raises.
+- On the Jupyter engine, `auto()` cannot know that a hidden cell's output was
+  dropped. If a cell with `include: false` or `output: false` changes a name
+  that an earlier cell published, the prose keeps the earlier value, with no
+  error. The `publish-hidden` lint finds the cell; publish in a cell that shows
+  its output.
+- A construct's line is the next occurrence of its text. Text printed by a
+  chunk that also appears later in the source takes the later line.
 - Julia has no `auto()`, and neither language has a `checked()` that makes a
   check count where the name is used. `claim()` from Python and Julia is
   checked where it runs.
 - Units, the dictionary and project formatters stay in R.
 - The filter does not follow symbolic links when it reads a values file.
-- A construct's line is the next occurrence of its text. Text printed by a
-  chunk that also appears later in the source takes the later line.
 - A guest `claim` counts in the commit gate only in an executed chunk, so
   turning `eval` off on a Python chunk with a claim reads as a removal.
-- Under `quarto render` in a project, a failure report can print twice: once
-  from the filter and once from the post-render script.
 - `.sci` prints some whole mantissas inconsistently (`1 x 10^10` but
   `1.0 x 10^6`), and `.pct` of a value near 1e15 rounds one digit early.
 - The Jupyter and Julia engines run on the author's machine only. The CI job

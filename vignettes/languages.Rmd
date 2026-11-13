@@ -314,8 +314,11 @@ The module holds `fmt_num`, `fmt_pct`, `fmt_sci`, `fmt_p`, `fmt_date`,
 `fmt_no`, `fmt_word`, `fmt_count`, `fmt_ord`, `fmt_and`, `fmt_or`,
 `fmt_pairs`, `fmt_range`, `fmt_ul`, `fmt_ol`, `fmt_dl`, `fmt_a`, `fmt_cap`,
 `fmt_strong`, `fmt_em`, `plural`, `ci`, `pm`, `about`, `of_n` and
-`weft_str`. `claim`, `u`, `fmt_unit`, `lookup`, `brk` and the dictionary
-functions are not there: a check is written in R, in prose, as
+`weft_str`. The module also holds `claim`, `put` and `auto`:
+`claim(n, "> 10")` checks in Python where it runs, and `put()` and `auto()`
+publish names for the filter (see `vignette("named-values", package =
+"weft")`). `u`, `fmt_unit`, `lookup`, `brk` and the dictionary functions are
+not there. A check on a value in prose is still written in R, as
 `` `r ri("claim(py$n, . > 10)")` ``. If a module called `weft` is already
 loaded in Python, weft leaves it in place and warns once.
 
@@ -643,7 +646,8 @@ file that a package loads through `using` is not.
 
 ### Calling weft from Julia
 
-weft offers no Julia module of function forms. Julia code can call weft's R
+weft offers no Julia module of function forms. (The Julia package `Weft` has
+`put`, `@put` and `@claim`, none of them a function form.) Julia code can call weft's R
 functions through RCall, as it calls any R function
 (`R"weft::fmt_num($x)"`), and gets RCall's conversion. RCall stops with an
 error on a whole number of 2^31 or more and on `missing`, hands R a
