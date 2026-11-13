@@ -14,7 +14,7 @@ JSON_INVISIBLE <- c(0x0085L, 0x00a0L, 0x00adL, 0x061cL, 0x2000L:0x200fL, 0x2028L
                     0x205fL, 0x2060L, 0x2066L:0x2069L, 0xfeffL)
 
 ledger_warn <- function(msg) {
-  rlang::warn(msg, class = c("weft_ledger_warning", "weft_warning"))
+  weft_warn(msg, class = c("weft_ledger_warning", "weft_warning"))
 }
 
 # ---- the writer (D3) --------------------------------------------------------

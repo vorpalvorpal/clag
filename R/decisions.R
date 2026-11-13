@@ -124,7 +124,7 @@ decisions_github <- function(ptr, route, root, fetch) {
   num[num] <- as.numeric(ptr[num]) <= .Machine$integer.max
   if (!any(num)) return(list(resolved = resolved, detail = detail))
   fail <- function(msg) {
-    resolved[num & is.na(resolved) | num & !resolved] <<- NA
+    resolved[num] <<- NA
     detail[num] <<- paste0("could not check: ", msg)
   }
   gone <- function() list(resolved = resolved, detail = detail)

@@ -122,14 +122,6 @@ u_make <- function(value, txt, fn = "u") {
 
 # ---- printing (2b) --------------------------------------------------------
 
-# The text of a `units` value's unit (4.4.8), as Pandoc markdown, for a plural
-# number under the configuration in force (see unit_symbol_text()). `NULL` when
-# no unit is left (a ratio) or `x` is not a quantity.
-unit_text <- function(x) {
-  if (!inherits(x, "units")) return(NULL)
-  unit_symbol_text(attr(x, "units"), TRUE, current_config(), current_lang())
-}
-
 # The number of a quantity, without its unit; other values pass unchanged.
 bare_number <- function(x) {
   if (!inherits(x, "units")) return(x)

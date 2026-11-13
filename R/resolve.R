@@ -374,7 +374,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   zero_note <- function(k, label) {
     function(msg) {
       if (strict) {
-        rlang::warn(paste0("weft: ", msg), class = "weft_zero_warning")
+        weft_warn(paste0("weft: ", msg), class = "weft_zero_warning")
       } else {
         add_warning(s, "printed as zero", file = R$file[k], line = R$line[k], expr = label,
                     detail = msg, chunk = chunk_label,
@@ -387,7 +387,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # a unit warning (2i I3, I4): a `weft_unit_warning` outside a knit, a warned check in one
   unit_note <- function(msg, file, line, expr) {
     if (strict) {
-      rlang::warn(msg, class = c("weft_unit_warning", "weft_warning"))
+      weft_warn(msg, class = c("weft_unit_warning", "weft_warning"))
     } else {
       add_warning(s, "unit warning", file = file, line = line, expr = expr, detail = msg,
                   chunk = chunk_label, option = if (is_str) ctx$option else NA_character_)

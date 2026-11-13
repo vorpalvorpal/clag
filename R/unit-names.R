@@ -90,7 +90,7 @@ split_cells <- function(x) {
 
 # The units database's symbols, names and prefixes as units::valid_udunits() and
 # valid_udunits_prefixes() give them: list(v, pf). Reading the XML costs about half a
-# second, so one read serves the whole session (ud_db() and ud_shipped() both use it) and,
+# second, so one read serves the whole session (ud_db() and tok_resolve_db() both use it) and,
 # keyed on the units package's version and on the path, size and modification time of
 # every XML file of the database, a copy kept in the user's cache directory serves the
 # next session unless the option `weft.units_cache` is FALSE. A changed database, or a cache that cannot be read or written, is a read
@@ -141,11 +141,35 @@ ud_tables <- function() {
   disk
 }
 
+# ---- the `units` internals ----------------------------------------------------------------------
+# weft reaches three unexported things in the `units` package, and only through this section. The
+# workaround stays until a `units` release carries r-quantities/units PR 447 (issue 448), which
+# would give a public route; then delete this section. A missing internal aborts with a
+# `weft_error` that names it, so a change in `units` is never read as "nothing there".
+units_internal <- function(name) {
+  f <- get0(name, envir = asNamespace("units"), inherits = FALSE)
+  if (!is.function(f)) {
+    weft_abort(sprintf("the `units` package no longer has the internal `%s` that weft relies on (see r-quantities/units PR 447, issue 448)", name),
+               "weft_units_internal_error")
+  }
+  f
+}
+
+# The symbol udunits already maps a definition to, or "" when the definition does not parse.
+ud_internal_symbol <- function(def) {
+  get_symbol <- units_internal("R_ut_get_symbol")
+  parse <- units_internal("R_ut_parse")
+  tryCatch(get_symbol(parse(def)), error = function(e) "")
+}
+
+# The path of the udunits database file the `units` package loads.
+ud_units_xml_path <- function() units_internal("default_units_xml")()
+
 # What the database read depends on, or NULL when that cannot be told (then nothing is kept
 # on disk).
 ud_tables_key <- function() {
   tryCatch({
-    p <- get("default_units_xml", envir = asNamespace("units"))()
+    p <- ud_units_xml_path()
     fs <- list.files(dirname(p), pattern = "\\.xml$", full.names = TRUE)
     fi <- file.info(fs)
     list(units = as.character(utils::packageVersion("units")), weft = 1L,
@@ -280,11 +304,6 @@ unit_whole_id <- function(un) {
   paste0(paste(ids(un$numerator), collapse = "*"), "/", paste(ids(un$denominator), collapse = "*"))
 }
 
-unit_key_parse <- function(key) unit_symbolic(key)
-
-# The entry of the `units:` table for the unit with this id, or an empty list.
-unit_proj <- function(cfg, id) unit_entry(cfg, id)
-
 # The unit as a key would write it, for a message.
 unit_key_text <- function(un) {
   f <- unit_factors(un)
@@ -331,7 +350,7 @@ typed_name <- function(core, row, db) {
 # is a name of the unit, the database's name when it is one plain word.
 tok_name <- function(tok, cfg, us) {
   r <- tok_resolve(tok)
-  E <- unit_proj(cfg, paste0(r$id, "/"))
+  E <- unit_entry(cfg, paste0(r$id, "/"))
   nm <- E$name
   pl <- E$plural
   given <- !is.null(pl)
@@ -392,7 +411,7 @@ is_length_unit <- function(tok) {
 # factors'. A value error when it has none.
 unit_name_text <- function(un, plural, cfg, lang) {
   us <- lang_is_us(lang)
-  W <- unit_proj(cfg, unit_whole_id(un))
+  W <- unit_entry(cfg, unit_whole_id(un))
   if (!is.null(W$name)) return(if (plural) (W$plural %||% plural_of_name(W$name)) else W$name)
   f <- unit_factors(un)
   whole <- unit_key_text(un)
@@ -445,7 +464,7 @@ symbol_needs_name <- function(un, lang) {
 # `keep` is TRUE for a token inside a compound: it prints as typed (`mm/hr`, 4.4.20; 2i I7).
 tok_symbol <- function(tok, cfg, keep = FALSE) {
   r <- tok_resolve(tok)
-  E <- unit_proj(cfg, paste0(r$id, "/"))
+  E <- unit_entry(cfg, paste0(r$id, "/"))
   if (is.character(E$symbol)) return(list(text = E$symbol, raw = TRUE))
   if (identical(E$symbol, FALSE)) return(list(name = TRUE))
   if (!r$known) return(list(text = tok))
@@ -468,7 +487,7 @@ tok_symbol <- function(tok, cfg, keep = FALSE) {
 # when it ends the numerator and `plural` is TRUE. NULL when no unit is left.
 unit_symbol_text <- function(un, plural, cfg, lang) {
   if (!unit_present(un)) return(NULL)
-  W <- unit_proj(cfg, unit_whole_id(un))
+  W <- unit_entry(cfg, unit_whole_id(un))
   if (is.character(W$symbol)) return(W$symbol)
   if (identical(W$symbol, FALSE)) {
     symbol_needs_name(un, lang)
@@ -522,7 +541,7 @@ unit_symbol_text <- function(un, plural, cfg, lang) {
 
 # Whether a unit prints its name in the symbol form because it has no symbol (9.1.7).
 unit_prints_name <- function(un, cfg) {
-  W <- unit_proj(cfg, unit_whole_id(un))
+  W <- unit_entry(cfg, unit_whole_id(un))
   if (identical(W$symbol, FALSE)) return(TRUE)
   if (is.character(W$symbol)) return(FALSE)
   toks <- unique(c(un$numerator, un$denominator))
@@ -536,14 +555,14 @@ unit_prints_name <- function(un, cfg) {
 unit_before <- function(un, cfg) {
   f <- unit_factors(un)
   length(f$num) == 1L && !length(f$den) && f$num[[1L]]$pow == 1L &&
-    isTRUE(unit_proj(cfg, unit_whole_id(un))$before)
+    isTRUE(unit_entry(cfg, unit_whole_id(un))$before)
 }
 
 # Whether a no-break space goes before the unit's symbol (4.4.8, U13). `space:`
 # governs a symbol only: a name always has its space (ruling 11).
 unit_space <- function(un, cfg) {
   if (unit_prints_name(un, cfg)) return(TRUE)
-  W <- unit_proj(cfg, unit_whole_id(un))
+  W <- unit_entry(cfg, unit_whole_id(un))
   if (!is.null(W$space)) return(W$space)
   f <- unit_factors(un)
   if (length(f$num) == 1L && !length(f$den) && f$num[[1L]]$pow == 1L) {

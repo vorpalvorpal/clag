@@ -269,7 +269,7 @@ claim_warn <- function(record, detail, s, inl, errs, lens, hints = rep(NA_charac
               record$checks, lens, record$value),
       sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
   lines <- ifelse(is.na(hints), lines, paste0(lines, "\n    ", hints))
-  for (l in lines) rlang::warn(paste0("weft: ", l), class = "weft_claim_warning")
+  for (l in lines) weft_warn(paste0("weft: ", l), class = "weft_claim_warning")
   invisible(NULL)
 }
 
@@ -293,6 +293,6 @@ warn_here <- function(s, inl, kind, detail, hint = NA_character_) {
 note_zero <- function(msg) {
   s <- active_state()
   if (!is.null(s)) return(invisible(warn_here(s, weft_env$inline, "printed as zero", msg)))
-  rlang::warn(paste0("weft: ", msg), class = "weft_zero_warning")
+  weft_warn(paste0("weft: ", msg), class = "weft_zero_warning")
   invisible(NULL)
 }

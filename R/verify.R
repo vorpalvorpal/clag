@@ -242,7 +242,7 @@ verify_version_warning <- function(root) {
                    "Run weft::use_weft() to update the files weft installed and the record (rule 9.5.4)."),
             rec, now)
   }
-  rlang::warn(msg, class = c("weft_version_warning", "weft_warning"))
+  weft_warn(msg, class = c("weft_version_warning", "weft_warning"))
   invisible()
 }
 
@@ -358,7 +358,6 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
     removed <- removed_of(base)
   }
   if (nrow(tier2)) {
-    keep <- vapply(seq_len(nrow(tier2)), function(i) NA, NA)
     add_for <- list()
     for (f in unique(tier2$file)) {
       add_for[[f]] <- if (is.null(base)) TRUE else

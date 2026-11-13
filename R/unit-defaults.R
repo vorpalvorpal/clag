@@ -407,7 +407,7 @@ ud_install_one <- function(tok, def, redef, default, misread, toks, dflt) {
   # out again frees the symbol of the unit that was already there, and the database reads it as
   # garbage from then on (`degree` prints as bytes). So the refusal is made here, nothing mapped.
   own <- if (identical(def, "base")) "" else
-    tryCatch(units:::R_ut_get_symbol(units:::R_ut_parse(def)), error = function(e) "")
+    ud_internal_symbol(def)
   early <- length(own) == 1L && !is.na(own) && nzchar(own) && any(utf8ToInt(enc2utf8(own)) > 127L)
   err <- if (early) sprintf("Unit already maps to \"%s\"", own) else tryCatch({
     if (identical(def, "base")) units::install_unit(tok) else units::install_unit(tok, def)
@@ -815,7 +815,7 @@ read_units_tables <- function(tabs, mode, root = NULL) {
   # a default token that someone else installed as another unit: its row is off, with a warning
   dis <- unlist(synced$disabled)
   for (tok in setdiff(names(dis), names(ud_state$disabled))) {
-    rlang::warn(paste0("weft: ", dis[[tok]], " (rule 4.4.21)."), class = "weft_unit_warning")
+    weft_warn(paste0("weft: ", dis[[tok]], " (rule 4.4.21)."), class = "weft_unit_warning")
   }
   ud_state$disabled <- if (length(dis)) dis else character()
   ud_state$ctx$disabled <- as.list(ud_state$disabled)

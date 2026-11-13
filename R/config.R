@@ -9,6 +9,12 @@ weft_abort <- function(message, class, ...) {
   rlang::abort(message, class = c(class, "weft_error"), call = NULL, ...)
 }
 
+# The one way to warn: the specific class, then `weft_warning`, so a caller can catch every weft
+# warning by one class (as `weft_error` does for errors).
+weft_warn <- function(msg, class, ...) {
+  rlang::warn(msg, class = unique(c(class, "weft_warning")), ...)
+}
+
 # ---- state --------------------------------------------------------------
 
 # Per-session state. `config` is set by the knit initialiser of a later
@@ -226,8 +232,8 @@ project_only_settings <- function() c("draft", "decisions", "verify_skip")
 warn_unknown <- function(over, where) {
   unk <- setdiff(names(over), names(default_config()))
   for (k in unk) {
-    rlang::warn(sprintf("Unknown weft setting `%s` in %s; it is ignored.", k, where),
-                class = "weft_config_warning")
+    weft_warn(sprintf("Unknown weft setting `%s` in %s; it is ignored.", k, where),
+              class = "weft_config_warning")
   }
   invisible()
 }

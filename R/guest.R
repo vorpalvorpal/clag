@@ -353,7 +353,7 @@ guest_register_forms <- function(sys) {
   if (!is.null(m) && !reticulate::py_has_attr(m, "__weft_package__")) {
     if (!reticulate::py_has_attr(m, "__weft_r__") && !isTRUE(weft_env$m17_warned)) {
       weft_env$m17_warned <- TRUE
-      rlang::warn(paste0("A Python module named `weft` is already loaded, so weft's function forms ",
+      weft_warn(paste0("A Python module named `weft` is already loaded, so weft's function forms ",
                          "are not registered (rule 2.12.8)."),
                   class = c("weft_guest_warning", "weft_warning"))
     }

@@ -11,8 +11,7 @@ ARM_ROLES <- list(
 )
 
 arm_roles <- function(key, narms) {
-  r <- ARM_ROLES[[key]][[as.character(narms)]]
-  if (is.null(r)) NULL else r
+  ARM_ROLES[[key]][[as.character(narms)]]
 }
 
 #' List the arms of every governed span of a document

@@ -4,7 +4,7 @@
 # NFC, emphasis marks and backticks out, curly quotes straight, white space
 # collapsed, lower case; `map` gives, for each kept character, the offset in
 # `x` of the character it came from.
-recall_normalise <- function(x, with_map = TRUE) {
+recall_normalise <- function(x) {
   if (!nzchar(x)) return(list(text = "", map = integer()))
   cl <- stringi::stri_split_boundaries(x, type = "character")[[1L]]
   origin <- cumsum(c(1L, nchar(cl)))[seq_along(cl)]
@@ -109,7 +109,6 @@ recall_check <- function(findings, source, rules = NULL, commit = NULL, window =
       trimws(strsplit(ffile[i], "[;,[:space:]]+")[[1L]])
     named <- named[nzchar(named)]
     named <- intersect(named, names(srcs))
-    order_docs <- c(named, setdiff(names(srcs), named))
     if (!is.na(fq[i]) && nzchar(trimws(fq[i]))) {
       q <- recall_normalise(fq[i])$text
       w <- recall_windows(q)

@@ -959,9 +959,8 @@ chapter_reads <- function(s) {
   reads_chr <- lapply(tg_h, function(v) unlist(v))
 
   s$reads <- list(dict = dict_h, files = files_h, targets = reads_chr)
-  as_obj <- function(v) as.list(v)
   s$ledger_header <- list(
-    dict = as_obj(dict_h), files = as_obj(files_h),
+    dict = as.list(dict_h), files = as.list(files_h),
     targets = lapply(tg_h, function(v) as.list(unlist(v))))
   if (length(tg_h) == 0L) s$ledger_header$targets <- stats::setNames(list(), character())
 

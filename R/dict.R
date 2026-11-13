@@ -655,28 +655,10 @@ dict_breaks <- function(v) {
 # A message without its closing "(rule N)", for one that adds its own.
 strip_rule <- function(x) sub(" \\(rule [0-9.]+\\)$", "", x)
 
-# The names the units database ships with: symbols, names and their
-# aliases, and the prefixes.
-ud_cache <- new.env(parent = emptyenv())
-
-ud_shipped <- function(tok) {
-  if (is.null(ud_cache$names)) {
-    tb <- ud_tables()
-    v <- tb$v
-    pf <- tb$pf
-    cells <- unlist(v[c("symbol", "symbol_aliases", "name_singular", "name_singular_aliases",
-                        "name_plural", "name_plural_aliases")], use.names = FALSE)
-    ud_cache$names <- unique(trimws(unlist(strsplit(cells[nzchar(cells)], "[, ]+"))))
-    ud_cache$prefixes <- unique(c(pf$symbol, pf$name))
-  }
-  if (tok %in% ud_cache$names) return(TRUE)
-  for (pre in ud_cache$prefixes) {
-    if (nzchar(pre) && startsWith(tok, pre) && substring(tok, nchar(pre) + 1L) %in% ud_cache$names) {
-      return(TRUE)
-    }
-  }
-  FALSE
-}
+# Whether the units database ships this token: a name, symbol or alias, with or without a prefix. It
+# is one index, `tok_resolve_db()`'s, so the two cannot disagree (a plural the database forms by
+# itself, `meters`, counts as shipped).
+ud_shipped <- function(tok) isTRUE(tok_resolve_db(tok)$known)
 
 # Install each token of `unit` that the units database does not know
 # (4.4.7); then `unit` must parse. list(installed, needed) or list(error,

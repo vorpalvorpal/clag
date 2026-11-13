@@ -617,8 +617,8 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
     src <- if (is.null(b)) a$source else b$source
     out <- if (is.null(b)) a$output else b$output
     from <- if (renamed) a$source else NA_character_
-    tx <- if (is.null(a)) empty_ledger_x() else a$x
-    nx <- if (is.null(b)) empty_ledger_x() else b$x
+    tx <- if (is.null(a)) ledger_df(list()) else a$x
+    nx <- if (is.null(b)) ledger_df(list()) else b$x
     if (!is.null(a) && !is.null(b) && !identical(a$source, b$source)) {
       tx$file[tx$file == a$source] <- b$source
     }
@@ -696,11 +696,6 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
     "_weft/ledger/ is ignored by git, so no ledger can be found at a commit and all are new", t2$notes)
   class(res) <- "weft_changes"
   res
-}
-
-empty_ledger_x <- function() {
-  x <- ledger_df(list())
-  x
 }
 
 # Rank the changed rows (C9) and put them first, then added, then removed.
