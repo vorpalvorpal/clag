@@ -50,13 +50,18 @@ decimal_digits <- function(txt) {
 
 # The R form of an int record: an integer within +-(2^31 - 1), a double up to
 # +-2^53, and beyond that a refusal (M1).
-int_value <- function(v, S) {
+#
+# `type` is the Julia type of the value, given for a Julia record (JM1).
+int_value <- function(v, S, type = NULL) {
   d <- sub("^-", "", v)
   d <- sub("^0+(?=.)", "", d, perl = TRUE)
   if (nchar(d) > 16L || (nchar(d) == 16L && d > "9007199254740992")) {
-    guest_value_abort(sprintf(paste0(
-      "%s is the Python int %s, beyond \u00b12^53, where R cannot hold a whole number exactly. ",
-      "Scale it in Python, or bind str() of it and print the text (rule 2.12.5)."), S, v))
+    guest_value_abort(if (is.null(type)) sprintf(paste0(
+      "%s is the Python int %s, beyond ±2^53, where R cannot hold a whole number exactly. ",
+      "Scale it in Python, or bind str() of it and print the text (rule 2.12.5)."), S, v)
+    else sprintf(paste0(
+      "%s is the Julia %s %s, beyond ±2^53, where R cannot hold a whole number exactly. ",
+      "Scale it in Julia, or bind string() of it and print the text (rule 2.12.5)."), S, type, v))
   }
   if (nchar(d) < 10L || (nchar(d) == 10L && d <= "2147483647")) as.integer(v) else as.numeric(v)
 }
@@ -71,10 +76,10 @@ decimal_value <- function(v, S) {
   as.numeric(v)
 }
 
-scalar_value <- function(rec, S) {
+scalar_value <- function(rec, S, lang = "python") {
   switch(rec[["t"]],
     bool = isTRUE(rec[["v"]]),
-    int = int_value(rec[["v"]], S),
+    int = int_value(rec[["v"]], S, if (identical(lang, "julia")) rec[["type"]]),
     float = as.numeric(rec[["v"]]),
     decimal = decimal_value(rec[["v"]], S),
     string = enc2utf8(rec[["v"]]),
@@ -85,13 +90,15 @@ scalar_value <- function(rec, S) {
 }
 
 # The R value of a record (G5, G6, 2.12.5), or the refusal, as
-# weft_guest_value_error. `S` is the subject, backticks included.
-record_value <- function(rec, S) {
+# weft_guest_value_error. `S` is the subject, backticks included. `lang` is
+# "julia" for a record Julia made: a message that names a type then names
+# Julia's.
+record_value <- function(rec, S, lang = "python") {
   t <- rec[["t"]]
-  if (!identical(t, "list")) return(scalar_value(rec, S))
+  if (!identical(t, "list")) return(scalar_value(rec, S, lang))
   els <- rec[["v"]]
   of <- rec[["of"]]
-  vals <- lapply(els, function(el) scalar_value(el, S))
+  vals <- lapply(els, function(el) scalar_value(el, S, lang))
   n <- length(vals)
   out <- if (n == 0L || identical(of, "missing")) {
     rep(NA, n)
@@ -525,7 +532,7 @@ guest_call <- function(ch, track) {
 # classifier (G9). `code` with no guest read is evaluated exactly as parsed.
 guest_prepare <- function(code, envir) {
   ex <- parse(text = code, keep.source = FALSE)
-  if (!grepl("py", code, fixed = TRUE)) return(ex)
+  if (!grepl("py", code, fixed = TRUE) && !grepl("jl_value", code, fixed = TRUE)) return(ex)
   py_guest <- NULL
   is_guest <- function() {
     if (is.null(py_guest)) py_guest <<- py_is_guest(envir)
@@ -536,18 +543,21 @@ guest_prepare <- function(code, envir) {
     if (!is.null(ch)) return(if (identical(ch$root, "ns") || is_guest()) ch)
     guest_py_value_call(node)
   }
+  # a Julia read is an ordinary function; it is rewritten only where it is the
+  # one read a governor is judged by (J11)
+  is_read <- function(node) !is.null(read_of(node)) || !is.null(jl_value_fn(node))
   # the node a governor is judged by: the whole expression, or the first
   # argument of a claim()
   tracked <- NULL
   if (length(ex) == 1L) {
     top <- ex[[1L]]
-    if (!is.null(read_of(top))) {
+    if (is_read(top)) {
       tracked <- top
     } else if (is.call(top) && length(top) >= 2L &&
                (identical(top[[1L]], as.name("claim")) ||
                   (is.call(top[[1L]]) && length(top[[1L]]) == 3L && identical(top[[1L]][[1L]], as.name("::")) &&
                      identical(top[[1L]][[3L]], as.name("claim")))) &&
-               !is.null(read_of(top[[2L]]))) {
+               is_read(top[[2L]])) {
       tracked <- top[[2L]]
     }
   }
@@ -559,6 +569,7 @@ guest_prepare <- function(code, envir) {
   }
   walk <- function(node) {
     if (!is.call(node)) return(node)
+    if (identical(node, tracked) && !is.null(jl_value_fn(node))) return(jl_tracked_call(node))
     ch <- read_of(node)
     if (!is.null(ch)) return(guest_call(ch, identical(node, tracked)))
     fn <- node[[1L]]
@@ -593,15 +604,17 @@ guest_eval <- function(code, envir) eval(guest_prepare(code, envir), envir)
 guest_governor_problem <- function(g, key) {
   if (is.null(g) || identical(g$kind, "missing") || identical(g$kind, "error")) return(NULL)
   type <- g$type %||% "value"
+  lang <- if (identical(g$lang, "julia")) "Julia" else "Python"
   switch(key,
     `if` = if (!identical(g$kind, "bool")) {
-      sprintf("`%s` is a Python %s; an `if` condition must be a bool (rule 1.11.8).", g$read, type)
+      sprintf("`%s` is a %s %s; an `if` condition must be a %s (rule 1.11.8).", g$read, lang, type,
+              if (lang == "Julia") "Bool" else "bool")
     },
     n = , sign = if (!(g$kind %in% c("int", "float", "decimal"))) {
-      sprintf("`%s` is a Python %s; %s governor must be a number (rule 1.11.9).", g$read, type,
+      sprintf("`%s` is a %s %s; %s governor must be a number (rule 1.11.9).", g$read, lang, type,
               if (key == "n") "an `n`" else "a `sign`")
     },
     list = if (!identical(g$kind, "list")) {
-      sprintf("`%s` is a Python %s; a `list` span needs a list (rule 1.11.10).", g$read, type)
+      sprintf("`%s` is a %s %s; a `list` span needs a list (rule 1.11.10).", g$read, lang, type)
     })
 }

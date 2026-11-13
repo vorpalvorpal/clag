@@ -22,6 +22,7 @@ Imports:
 Suggests:
     bit64,
     curl,
+    JuliaCall (>= 0.17.6),
     pkgload,
     quarto,
     reticulate (>= 1.43.0),
