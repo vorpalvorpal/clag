@@ -236,6 +236,15 @@ https://github.com/rstudio/rmarkdown/issues/2648 (13 Nov). The patch is
 not redone and no PR is open; Robin: "if they accept, it can be." Do
 not reply to maintainers there without Robin's say.
 
+reticulate (13 Nov): Robin asked for a look at rstudio/reticulate#1647
+(Python ints silently truncated to 32 bits). A local fix was reviewed;
+Robin: "Comment first. Save the fix on a forked repo on github so it is
+ready for PR if maintainers want it." Done: fork `vorpalvorpal/reticulate`,
+branch `fix-large-int-conversion` (one commit, no Claude attribution),
+and a comment on #1647 pointing at it. No PR. Do not open one or reply
+there without Robin's say. Also posted with Robin's say: a follow-up
+comment on rmarkdown#2648 proposing `rmarkdown.input_file`.
+
 Stage 6 position: 6a, 6b, 6k, 6c, 6d, 6f merged on local `main`; 6g
 tests merged, implementer next; then 6e, 6h, 6i, 6j. Pushed through
 dd63c56. The CI fix (R's lib on `LD_LIBRARY_PATH`) is unpushed.
