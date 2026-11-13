@@ -29,31 +29,39 @@ chapter_lines <- function(n_lines = 300L, n_constructs = 40L) {
   all[seq_len(min(length(all), n_lines))]
 }
 
-time_lints <- function(root) {
-  invisible(lints(root, tier = 1:2))               # the first call in a session warms caches
-  system.time(lints(root, tier = 1:2))[["elapsed"]]
+# Processor time of the second lints() call on a project (the first warms caches), the least of
+# three, so that a busy machine does not skew it. The tests compare a chapter with the same chapter
+# a quarter of the size (a quarter of the constructs): linear work gives about four, and the fixed
+# cost of a call lowers that. Quadratic work gives sixteen. The design's absolute bounds (L16: 0.5 s
+# and 3 s on the development Mac, allowed at twice) are wall-clock and fail on a loaded machine.
+lints_cpu <- function(root) {
+  invisible(lints(root, tier = 1:2))
+  cpu_time_min(function() lints(root, tier = 1:2), 3L)
 }
 
-test_that("3a L16: a 300-line chapter with 40 constructs lints in under 1 s on the second call", {
+lints_ratio <- function(ext, small_lines, small_constructs, large_lines, large_constructs) {
+  name <- paste0("ch.", ext)
+  small <- lint_proj(stats::setNames(list(chapter_lines(small_lines, small_constructs)), name))
+  large <- lint_proj(stats::setNames(list(chapter_lines(large_lines, large_constructs)), name))
+  # measured 3.0 (300 lines), 3.9 (1,800 lines), 3.6 (.Rmd)
+  lints_cpu(large) / max(lints_cpu(small), 0.01)
+}
+
+test_that("3a L16: a 300-line chapter with 40 constructs lints in under eight times the time of a 75-line one with 10", {
   skip_on_cran()
-  doc <- chapter_lines(300L, 40L)
-  expect_gte(length(doc), 250L)
-  root <- lint_proj(list("ch.qmd" = doc))
-  expect_lt(time_lints(root), 1)
+  expect_gte(length(chapter_lines(300L, 40L)), 250L)
+  expect_lt(lints_ratio("qmd", 75L, 10L, 300L, 40L), 8)
 })
 
-test_that("3a L16: a 1,800-line chapter lints in under 6 s", {
+test_that("3a L16: a 1,800-line chapter lints in under eight times the time of a 450-line one", {
   skip_on_cran()
-  doc <- chapter_lines(1800L, 240L)
-  expect_gte(length(doc), 1700L)
-  root <- lint_proj(list("ch.qmd" = doc))
-  expect_lt(time_lints(root), 6)
+  expect_gte(length(chapter_lines(1800L, 240L)), 1700L)
+  expect_lt(lints_ratio("qmd", 450L, 60L, 1800L, 240L), 8)
 })
 
 test_that("3a L16: the same work as .Rmd stays within the bound", {
   skip_on_cran()
-  root <- lint_proj(list("ch.Rmd" = chapter_lines(300L, 40L)))
-  expect_lt(time_lints(root), 1)
+  expect_lt(lints_ratio("Rmd", 75L, 10L, 300L, 40L), 8)
 })
 
 test_that("3a L16: the long chapter is read without findings of the wrong kind (it holds valid constructs only)", {

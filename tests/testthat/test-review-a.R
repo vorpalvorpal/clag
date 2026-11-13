@@ -194,22 +194,22 @@ test_that("review A #18 / ruling K: bad configuration values are errors from rea
               "word_limit: 1.5",
               "governor_class: .and", "governor_class: .bogus", "governor_class: num",
               "governor_class: .strong")) {
-    expect_error(rc(cfg_dir(y)), info = y)
+    expect_error(rc(cfg_dir(y)), class = "weft_config_error", info = y)
   }
 })
 
 test_that("review A ruling K: decimal_mark equal to big_mark is an error", {
-  expect_error(rc(cfg_dir(c('decimal_mark: ","', 'big_mark: ","'))))
+  expect_error(rc(cfg_dir(c('decimal_mark: ","', 'big_mark: ","'))), class = "weft_config_error")
   expect_equal(rc(cfg_dir(c('decimal_mark: ","', 'big_mark: "."')))$decimal_mark, ",")  # control
 })
 
 test_that("review A #19 / ruling K: a badly shaped formatters: or front matter is an error (1.4.8, 9.1.1)", {
   ok <- c("formatters:", "  .compact:", "    function: base::toupper", "    stage: text")
   expect_named(rc(cfg_dir(ok))$formatters, ".compact")     # control
-  expect_error(rc(cfg_dir("formatters: 3")))
-  expect_error(rc(cfg_dir("formatters: [.a1]")))
-  expect_error(rc(cfg_dir(), front = list(1, 2)))
-  expect_error(rc(cfg_dir(c("formatters:", "  .compact: 3"))))
+  expect_error(rc(cfg_dir("formatters: 3")), class = "weft_config_error")
+  expect_error(rc(cfg_dir("formatters: [.a1]")), class = "weft_config_error")
+  expect_error(rc(cfg_dir(), front = list(1, 2)), class = "weft_config_error")
+  expect_error(rc(cfg_dir(c("formatters:", "  .compact: 3"))), class = "weft_config_error")
 })
 
 test_that("review A ruling G: an unknown configuration key is a warning naming the key", {
@@ -269,7 +269,7 @@ test_that("review A #23: a file that is not UTF-8 gives a classed error naming t
   expect_equal(nrow(weft:::scan_file(ok)), 1L)             # control
   bad <- file.path(d, "latin1.qmd")
   writeBin(c(charToRaw("caf"), as.raw(0xe9), charToRaw(" `r y`{.num}")), bad)
-  e <- expect_error(weft:::scan_file(bad))
+  e <- expect_error(weft:::scan_file(bad), class = "weft_encoding_error")
   expect_match(conditionMessage(e), "latin1.qmd", fixed = TRUE)
   expect_true(any(grepl("^weft_", class(e))))
 })
@@ -298,15 +298,12 @@ test_that("review A #26: a very large ordinal prints no base warnings", {
 
 test_that("review A #28: scan time grows about linearly with the text", {
   skip_on_cran()
-  # a wall-clock test: under R CMD check (which sets _R_CHECK_PACKAGE_NAME_) the machine is often loaded
-  skip_if(nzchar(Sys.getenv("_R_CHECK_PACKAGE_NAME_")), "timing test: not run under R CMD check")
   unit <- "Para `r x`{.num} and `r y`{.num} text `r z` and [a | b]{if=\"q\"}.\n\n"
-  small <- strrep(unit, 1000L)
-  big <- strrep(unit, 4000L)
-  t_small <- system.time(st(small))[["elapsed"]]
-  t_big <- system.time(st(big))[["elapsed"]]
-  expect_lt(t_big, max(6 * t_small, 0.5))
-  expect_lt(t_big, 4)
+  # processor time of this process at two sizes in one session, so a busy machine does not skew it.
+  # Four times the text is four times the work if linear and sixteen if quadratic; measured 3.7 to
+  # 5.2 now, so a bound of 8 passes with a margin and a square fails it.
+  ratio <- cpu_ratio(function(n) st(strrep(unit, n)), small = 500L, large = 2000L)
+  expect_lt(ratio, 8)
 })
 
 # ---- rulings that change behaviour ---------------------------------------

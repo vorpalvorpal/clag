@@ -285,14 +285,23 @@ test_that("review-3 #9: with tier given and a named rule outside it, a note says
 
 # ---- #10: speed ----------------------------------------------------------------------------------------------------------
 
-test_that("review-3 #10: 1,000 inline values under value-constant lint in a generous bound", {
+test_that("review-3 #10: 2,000 inline values under value-constant lint cost under eight times as much as 500", {
   skip_on_cran()
-  doc <- sprintf("Line %d has `r x[%d] * 100` here.", 1:1000, 1:1000)
-  root <- lint_proj(list("ch.qmd" = doc))
-  x <- lints(root, rules = "value-constant", tier = 2)        # the first call warms caches
-  expect_gte(nrow(x), 1000L)
-  secs <- system.time(lints(root, rules = "value-constant", tier = 2))[["elapsed"]]
-  expect_lt(secs, 5)
+  proj <- function(n, env = parent.frame()) {
+    lint_proj(list("ch.qmd" = sprintf("Line %d has `r x[%d] * 100` here.", seq_len(n), seq_len(n))), env = env)
+  }
+  small <- proj(500L)
+  large <- proj(2000L)
+  x <- lints(large, rules = "value-constant", tier = 2)       # the first call warms caches
+  expect_gte(nrow(x), 2000L)
+  cpu <- function(root) {
+    invisible(lints(root, rules = "value-constant", tier = 2))
+    cpu_time_min(function() lints(root, rules = "value-constant", tier = 2), 3L)
+  }
+  # processor time, not wall clock: four times the values is four times the work if linear and
+  # sixteen if quadratic. Measured 3.9.
+  ratio <- cpu(large) / max(cpu(small), 0.01)
+  expect_lt(ratio, 8)
 })
 
 # ---- #11: a multi-line paragraph over --- -----------------------------------------------------------------------------------

@@ -21,7 +21,8 @@ scale_doc <- function(n_lines) {
 time_scale <- function(n_lines) {
   root <- lint_proj(list("ch.qmd" = scale_doc(n_lines)))
   invisible(lints(root, tier = 1:2))               # the first call in a session warms caches
-  system.time(lints(root, tier = 1:2))[["elapsed"]]
+  # processor time, so that another process busy on the machine does not skew the ratio
+  cpu_time_min(function() lints(root, tier = 1:2), 2L)
 }
 
 test_that("linting 3,000 lines takes under eight times as long as 750", {
