@@ -255,7 +255,6 @@ code_pieces <- function(src) {
   if (!is.null(src$cache$code_pieces)) return(src$cache$code_pieces)
   out <- list()
   rows <- src$rows
-  txt <- src$text
   mk <- function(kind, context, text, off, chunk = NA_integer_) {
     nl <- length(strsplit(text, "\n", fixed = TRUE)[[1L]])
     l0 <- findInterval(off, src$line_start)
@@ -270,17 +269,17 @@ code_pieces <- function(src) {
     e <- rows$fend[i]
     if (is.na(s) || is.na(e) || !live[i]) next
     if (kind %in% c("value", "bare")) {
-      ctext <- substr(txt, s, e)
+      ctext <- src_substr(src, s, e)
       pre <- regexpr("^`+(\\{r\\}|r)[ \t\r\n]*", ctext, perl = TRUE)
       ex <- rows$expr[i]
       if (pre < 0L || is.na(ex) || !nzchar(ex)) next
       off <- s + attr(pre, "match.length")
-      if (!identical(substr(txt, off, off + nchar(ex) - 1), ex)) next
+      if (!identical(src_substr(src, off, off + nchar(ex) - 1), ex)) next
       out[[length(out) + 1L]] <- mk(kind, rows$context[i], ex, off)
     } else if (kind %in% c("n", "sign", "list", "if")) {
       fb <- rows$fblock[i]
       if (is.na(fb)) next
-      tk <- attr_tokens(substr(txt, fb, e), fb)
+      tk <- attr_tokens(src_substr(src, fb, e), fb)
       j <- which(tk$type == "key" & tolower(tk$name) == kind)
       if (!length(j)) next
       j <- j[1L]
