@@ -7,3 +7,7 @@
 ^tests/testthat/_problems$
 ^tests/testthat/testthat-problems\.rds$
 ^\.claude$
+^_pkgdown\.yml$
+^docs$
+^pkgdown$
+^\.github$

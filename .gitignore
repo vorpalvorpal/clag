@@ -11,3 +11,7 @@ dev/trials/
 tests/testthat/_problems/
 tests/testthat/testthat-problems.rds
 .claude/worktrees/
+docs/
+/doc/
+/Meta/
+inst/doc/
