@@ -1596,3 +1596,21 @@ Accepted choices of the 6f implementer, spec text for 6j:
 - The row `c(A = 1.25)` with `.pairs` is out of `collapse.tsv`: a
   named vector of length 1 is a scalar record (N47), so its name
   cannot reach the filter (open finding 9).
+
+## Rulings after 6e (orchestrator, 13 Nov, under delegation)
+
+Accepted choices of the 6e implementer, spec text for 6j:
+
+- `status()` gains a row `python`, only when a jupyter-engine document
+  exists. A jupyter-engine document has `engine: jupyter`, a `jupyter:`
+  key, or a `{python}` chunk with no `engine:` key and no `{r}` chunk.
+- A check given as `"> 10"` is recorded as `_ > 10`. A passing claim
+  displays nothing. All failed checks of one call go in one block,
+  each `ok: false` with its `level`; `why` is the exception text, or
+  "gave a X, not True or False", else null. E55 names the first.
+- `put()`: a positional argument that is not a mapping raises
+  `PublishError`; a later key wins; nothing is published if any name
+  is bad. JSON is compact ASCII.
+- `auto()` with no path and no Quarto variables: E60 says which
+  variables are not set. The cell that calls `auto()` is published.
+- Open: findings 12 and 13 in `dev/open-findings.md`.

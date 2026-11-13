@@ -375,3 +375,13 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 11. Under Quarto the report prints twice: once from the filter on
     stderr and once from the post-render script. Decide which one
     speaks in a project render (N86 says "reported once").
+12. Python `put()` and `auto()` under knitr (N70/N71 knitr half): the
+    package has the hooks (`_backend.set_knitr_put`, `auto_main`) but
+    R registers neither, so `put()` in a Python chunk of a knitr
+    document prints its block and `auto()` does nothing R knows of.
+    Wire R's side (in `R/guest.R`) with tests, or rule that printing
+    the block is the knitr behaviour.
+13. Python `auto()` has no named-value gate (R's N43 publishes
+    automatically only when the source holds a named span) and
+    publishes a too-long list as an error record where `put()` raises.
+    Check both against the design in the stage 6 review.
