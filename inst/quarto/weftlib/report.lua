@@ -94,6 +94,8 @@ function M.json_line(f, level)
   parts[#parts + 1] = '"expr":' .. json_str(f.expr)
   parts[#parts + 1] = '"detail":' .. json_str(f.detail)
   parts[#parts + 1] = '"hint":' .. json_str(f.hint)
+  parts[#parts + 1] = '"option":null'
+  parts[#parts + 1] = '"chunk_line":null'
   return "{" .. table.concat(parts, ",") .. "}"
 end
 

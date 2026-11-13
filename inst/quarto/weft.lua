@@ -48,6 +48,8 @@ local config = lib("config")
 local lines_lib = lib("lines")
 local report = lib("report")
 local words = lib("words")
+local stamp = lib("stamp")
+local ledger = lib("ledger")
 
 -- ---- what weft owns -----------------------------------------------------------------------------
 
@@ -83,6 +85,9 @@ local IMPLEMENTED_KEYS = { digits = true, sigfig = true, sep = true, last = true
 local S = {
   values = {}, valid = {}, fails = {}, warned = {}, cfg = nil, src = nil, main = nil,
   stash = {}, mute = 0, minus_used = false, stale = nil, lang = nil, ids = {}, id_log = {},
+  -- 6g: the ledger entries, the construct being resolved, where we are, the blocks read, N92
+  entries = {}, frame = nil, cdepth = 0, section = "", context = "prose",
+  nblocks = 0, any_stale = false, oldest_at = nil, knitr = false,
 }
 
 local function with(ctx, k, v)
@@ -133,7 +138,7 @@ local function record(list, kind, info, detail, hint)
   if S.mute > 0 then return end
   list[#list + 1] = {
     kind = kind, file = file_of(info.idx), line = info.line, chunk = info.chunk,
-    expr = info.shown, detail = detail, hint = hint,
+    expr = info.shown, detail = detail, hint = hint, _info = info,
   }
 end
 
@@ -364,9 +369,12 @@ local function read_block(el, ctx)
     S.values[k] = d.values[k]
     S.valid[k] = nil
   end
-  -- freshness (N91)
+  -- freshness (N91, N110)
   local now = S.current_run
   if now == nil then S.current_run = current_run() or false; now = S.current_run end
+  S.nblocks = S.nblocks + 1
+  if type(d.at) == "number" and (S.oldest_at == nil or d.at < S.oldest_at) then S.oldest_at = d.at end
+  if now and d.run ~= now then S.any_stale = true end
   if now and S.stale == nil then
     local run = d.run
     if run ~= now then S.stale = { run = (type(run) == "string") and run or "null", current = now } end
@@ -447,7 +455,9 @@ local LIST_CLASS = { ul = true, ol = true, dl = true }
 
 -- ---- failures raised inside the formatters ---------------------------------------------------------
 
-local function raise(kind, detail, hint) error({ kind = kind, detail = detail, hint = hint }, 0) end
+-- Quarto redefines the global `error` to log and return, so a failure is raised with assert(), which it
+-- leaves alone.
+local function raise(kind, detail, hint) assert(false, { kind = kind, detail = detail, hint = hint }) end
 local function vfail(detail) raise("value error", detail) end
 local function cfail(detail) raise("construct error", detail) end
 local function nofail(detail) raise("no value", detail) end
@@ -994,14 +1004,99 @@ end
 
 -- ---- named values -------------------------------------------------------------------------------------
 
+-- ---- the ledger entries (N112) -------------------------------------------------------------------------
+
+local ARM_ROLES = {
+  n = { [1] = { "always" }, [2] = { "one", "other" }, [3] = { "zero", "one", "other" },
+        [4] = { "zero", "one", "two", "other" } },
+  ["if"] = { [1] = { "always" }, [2] = { "true", "false" } },
+  sign = { [2] = { "positive", "negative" }, [3] = { "positive", "negative", "zero" } },
+  list = { [2] = { "one", "other" }, [3] = { "zero", "one", "other" }, [4] = { "zero", "one", "two", "other" } },
+}
+
+-- the role of arm i of n_arms for a kind, or the arm's number as text (R/ledger.R: ledger_arm)
+local function arm_role(kind, n_arms, i)
+  local roles = ARM_ROLES[kind] and ARM_ROLES[kind][n_arms]
+  if roles and roles[i] then return roles[i] end
+  return tostring(i)
+end
+
+-- White space made one space. The class is spelled out: %s would take byte 0xA0 of a UTF-8 character
+-- for a space in the locale Pandoc sets. A no-break space counts as a space here (Pandoc writes one after
+-- "Dr.").
+local function squash(text) return (text:gsub("\u{a0}", " "):gsub("[ \t\r\n\f\v]+", " ")) end
+
+-- the number of a single numeric record, for the ledger's `raw`
+local function raw_of(rec)
+  if type(rec) == "table" and (rec.t == "int" or rec.t == "float" or rec.t == "decimal") then
+    local v = tonumber(rec.v)
+    if v ~= nil and v == v and v ~= math.huge and v ~= -math.huge then return v end
+  end
+  return nil
+end
+
+local function stringified(r, as_blocks)
+  local ok, text = pcall(function()
+    if as_blocks then return pandoc.utils.stringify(pandoc.Blocks(r)) end
+    return pandoc.utils.stringify(pandoc.Inlines(r))
+  end)
+  return ok and text or ""
+end
+
+-- Runs one construct's resolver in a frame of its own, and records its ledger entry afterwards. The
+-- resolver fills S.frame (info, arm, rel, raw) as it learns them. A construct inside an arm is nested:
+-- it has an entry too, and takes its outermost construct's sentence.
+local function entered(kind, expr, id, inner)
+  local frame = { kind = kind, expr = expr, id = id }
+  local saved, first, nfail = S.frame, #S.entries + 1, #S.fails
+  S.frame = frame
+  S.cdepth = S.cdepth + 1
+  local r, extra = inner()
+  S.cdepth = S.cdepth - 1
+  S.frame = saved
+  if S.mute > 0 then return r, extra end
+  local e = { kind = kind, expr = expr, id = id, context = S.context, section = S.section,
+              rel = frame.rel, raw = frame.raw, arm = frame.arm, info = frame.info, top_level = S.cdepth == 0 }
+  for i = nfail + 1, #S.fails do
+    if frame.info ~= nil and S.fails[i]._info == frame.info then e.failed = S.fails[i].kind; break end
+  end
+  e.printed = stringified(r, extra == true)
+  if e.failed then e.arm, e.rel, e.raw = nil, nil, nil end
+  for i = first, #S.entries do
+    if S.entries[i].top == nil then S.entries[i].top = e end
+  end
+  S.entries[#S.entries + 1] = e
+  return r, extra
+end
+
+-- A block of inlines is finished: the sentence of each outermost construct in it (N112), found in the
+-- block's text as it now reads, by a search from the end of the previous construct's printed text.
+local function finish_block(first, inlines)
+  if not S.ledger_on then return end
+  local text
+  local cursor = 1
+  for i = first, #S.entries do
+    local e = S.entries[i]
+    if e.top == nil and e.sentence == nil then
+      text = text or squash(stringified(inlines, false))
+      local printed = squash(e.printed or "")
+      local s, f
+      if printed ~= "" then s, f = text:find(printed, cursor, true) end
+      if s then cursor = f + 1 else s, f = cursor, cursor - 1 end
+      e.sentence = ledger.sentence(text, s, f)
+    end
+  end
+end
+
 -- the printed record of a governor value under the construct's classes (1.7.8)
 local function governor_print(name, rec, c)
   return format_vector(name, rec, c, { governor = true, quiet = true })
 end
 
-local function resolve_code(el, ctx, as_block)
+local function resolve_code_inner(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
+  S.frame.info = info
   local c = analyse(el)
   if not cond.is_name(el.text) then
     return { fail("construct error", info, string.format(
@@ -1031,6 +1126,10 @@ local function resolve_code(el, ctx, as_block)
     local has = c.has
     local rec = need(el.text)
     local P = format_vector(el.text, rec, c, { join = ", " })
+    if raw_of(rec) ~= nil then
+      S.frame.raw = raw_of(rec)
+      S.frame.rel = P.relation
+    end
     -- an id: the printed record of a single number, for a back-reference (1.7.6)
     if c.id ~= "" and rec.t ~= "list" and is_numeric(rec) and not has.val then
       local ok, G = pcall(governor_print, el.text, rec, c)
@@ -1052,6 +1151,11 @@ local function resolve_code(el, ctx, as_block)
     for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
     return out
   end)
+end
+
+local function resolve_code(el, ctx, as_block)
+  local id = (el.identifier or "") ~= "" and el.identifier or nil
+  return entered("value", el.text, id, function() return resolve_code_inner(el, ctx, as_block) end)
 end
 
 -- ---- spans ---------------------------------------------------------------------------------------------
@@ -1174,7 +1278,9 @@ local function resolve_if(el, value, ctx, shown, info, c)
         end
       end
     end
-    local arm = (#arms == 1 or all) and arms[1] or arms[2]
+    local arm_i = (#arms == 1 or all) and 1 or 2
+    local arm = arms[arm_i]
+    S.frame.arm = arm_role("if", #arms, arm_i)
     id_set(c, {})
     local out = resolve_arm(arm, ctx)
     out = finish_span(out, c)
@@ -1256,16 +1362,22 @@ local function resolve_n(el, value, ctx, shown, info, c)
       end
       P = ctx.dot
     elseif value:sub(1, 1) == "#" then
-      P = backref(value, c)
+      local raw
+      P, raw = backref(value, c)
+      S.frame.raw = raw_of(raw)
     else
       local rec = need(value)
       if not c.has.range then single_number("n", value, rec, "1.5.11") end
       P = format_vector(value, rec, c, { governor = true, quiet = true })
+      S.frame.raw = raw_of(rec)
       markers = run_checks(rec, info)
       id_set(c, { printed = P, raw = (rec.t ~= "list") and rec or nil })
     end
     if value == "." or value:sub(1, 1) == "#" then id_set(c, { printed = P }) end
-    local arm = arms[pick_arm(#arms, P)]
+    local arm_i = pick_arm(#arms, P)
+    local arm = arms[arm_i]
+    S.frame.arm = arm_role("n", #arms, arm_i)
+    S.frame.rel = P.relation
     local out = resolve_arm(arm, with(with(ctx, "hash", P.text), "dot", P))
     out = finish_span(out, c)
     for _, m in ipairs(markers) do out:insert(m) end
@@ -1325,6 +1437,9 @@ local function resolve_sign(el, value, ctx, shown, info, c)
     end
     if judge.number == nil then vfail("A `sign` governor needs a number, and this has none.") end
     local i = (judge.number > 0) and 1 or ((judge.number < 0) and 2 or 3)
+    S.frame.raw = raw_of(rec)
+    S.frame.rel = judge.relation
+    S.frame.arm = arm_role("sign", #arms, i)
     if i == 3 and #arms == 2 then
       raise("failed claim", string.format(
         "the value printed as \"%s\", which is zero, and a two-arm `sign` has no arm for zero (rule 1.5.3)", judge.text),
@@ -1397,7 +1512,9 @@ local function resolve_list(el, value, ctx, shown, info, c)
       zero = P.zero
     end
     local count = { text = tostring(len), number = len, decimals = false, relation = "=" }
-    local out = resolve_arm(arms[pick_arm(#arms, count)], with(with(with(ctx, "hash", hash), "dot", count), "hash_data", true))
+    local arm_i = pick_arm(#arms, count)
+    S.frame.arm = arm_role("list", #arms, arm_i)
+    local out = resolve_arm(arms[arm_i], with(with(with(ctx, "hash", hash), "dot", count), "hash_data", true))
     out = finish_span(out, c)
     if zero then warn("printed as zero", info, zero_message(zero)) end
     for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
@@ -1469,12 +1586,13 @@ local function resolve_text_span(el, ctx)
   end)
 end
 
-local function resolve_span(el, ctx)
+local function resolve_span_inner(el, ctx)
   local key, value, many = governor_of(el)
   if not key then return nil end
   local rawkey = get_key(el, key)
   local shown = shown_span(el, rawkey, value)
   local info = info_of(el, ctx, shown)
+  S.frame.info = info
   local c = analyse(el)
   if many then
     return { fail("construct error", info, "A span takes one governor key (rule 1.5.1).") }
@@ -1484,6 +1602,37 @@ local function resolve_span(el, ctx)
   if key == "sign" then return resolve_sign(el, value, ctx, shown, info, c) end
   if key == "list" then return resolve_list(el, value, ctx, shown, info, c) end
   return resolve_cite(el, value, ctx, shown, info, c)
+end
+
+-- Does a governor fit N9 and N12: the grammar the filter resolves in a document the knitr hooks resolve?
+local function governor_fits(key, value, many)
+  if many or value == nil then return false end
+  if key == "if" then return cond.parse(value) ~= nil end
+  if key == "n" then return value == "." or cond.is_name(value) or id_value_ok(value) end
+  if key == "sign" then return cond.is_name(value) or id_value_ok(value) end
+  if key == "list" then return cond.is_name(value) end
+  return true
+end
+
+local function resolve_span(el, ctx)
+  local key, value, many = governor_of(el)
+  if not key then return nil end
+  -- N92: in a knitr document a span whose governor does not fit is left for weft-check.lua; what it
+  -- holds is still resolved
+  if S.knitr and not governor_fits(key, value, many) then
+    el.attributes["weft-at"] = nil
+    el.content = resolve_inlines(el.content, ctx)
+    return { el }
+  end
+  local expr = key
+  if value then
+    expr = squash(value):gsub("^ ", ""):gsub(" $", "")
+    if key == "cite" then
+      expr = expr .. " | " .. squash(pandoc.utils.stringify(el.content)):gsub("^ ", ""):gsub(" $", "")
+    end
+  end
+  local id = (key ~= "cite" and (el.identifier or "") ~= "") and el.identifier or nil
+  return entered(key, expr, id, function() return resolve_span_inner(el, ctx) end)
 end
 
 -- ---- inlines and blocks -------------------------------------------------------------------------------
@@ -1581,7 +1730,7 @@ resolve_inlines = function(inlines, ctx)
       out:insert(el)
       i = i + 1
     elseif t == "Image" then
-      S.stash[#S.stash + 1] = { content = el.caption, ctx = ctx }
+      S.stash[#S.stash + 1] = { content = el.caption, ctx = ctx, section = S.section }
       el.attributes["weft-cap"] = tostring(#S.stash)
       el.caption = pandoc.Inlines({})
       out:insert(el)
@@ -1660,21 +1809,28 @@ resolve_blocks = function(blocks, ctx)
       end
     end,
     Table = function(el)
-      S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx }
+      S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx, section = S.section }
       el.attr.attributes["weft-cap"] = tostring(#S.stash)
       el.caption = pandoc.Caption({}, nil)
       return mark_nested(el, ctx)
     end,
     Figure = function(el)
-      S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx }
+      S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx, section = S.section }
       local attr = el.attr
       attr.attributes["weft-cap"] = tostring(#S.stash)
       -- the content of a Figure cannot be set in place: a new Figure
       return pandoc.Figure(resolve_blocks(el.content, with(ctx, "fig", true)),
                            pandoc.Caption({}, nil), attr), false
     end,
+    Header = function(el)
+      S.section = el.identifier or ""
+      return nil
+    end,
     Inlines = function(inlines)
-      return resolve_inlines(inlines, ctx), false
+      local first = #S.entries + 1
+      local out = resolve_inlines(inlines, ctx)
+      finish_block(first, out)
+      return out, false
     end,
   })
 end
@@ -1687,6 +1843,7 @@ local function restore_captions(blocks)
     return S.stash[tonumber(k)]
   end
   local function caption(st)
+    S.section = st.section or ""
     local long = resolve_blocks(st.caption.long, st.ctx)
     local short = nil
     if st.caption.short then
@@ -1709,7 +1866,10 @@ local function restore_captions(blocks)
       local st = take(el.attributes)
       if st then
         if st.ctx.fig then S.mute = S.mute + 1 end
+        S.section = st.section or ""
+        local first = #S.entries + 1
         el.caption = resolve_inlines(st.content, st.ctx)
+        finish_block(first, el.caption)
         if st.ctx.fig then S.mute = S.mute - 1 end
         return el
       end
@@ -1802,6 +1962,186 @@ local function remove_empty_cells(blocks)
   })
 end
 
+-- ---- paths, the stamp and the ledger (N110 to N113) ----------------------------------------------------
+
+local function normpath(p)
+  p = p:gsub("\\", "/")
+  local lead = p:sub(1, 1) == "/" and "/" or ""
+  local out = {}
+  for seg in p:gmatch("[^/]+") do
+    if seg == "." then
+      -- nothing
+    elseif seg == ".." and #out > 0 and out[#out] ~= ".." then
+      out[#out] = nil
+    else
+      out[#out + 1] = seg
+    end
+  end
+  return lead .. table.concat(out, "/")
+end
+
+local function abs_path(p)
+  if p:sub(1, 1) == "/" or p:match("^%a:[/\\]") then return normpath(p) end
+  if S.cwd then return normpath(S.cwd .. "/" .. p) end
+  return nil
+end
+
+local function dir_of(p) return (p:gsub("/[^/]*$", "")) end
+local function base_of(p) return (p:match("([^/\\]*)$")) end
+
+-- a path relative to the project's root, as R's state_source() gives it
+local function root_rel(abs)
+  if S.root and abs then
+    local pre = S.root:gsub("/+$", "") .. "/"
+    if abs:sub(1, #pre) == pre then return abs:sub(#pre + 1) end
+  end
+  return abs and base_of(abs) or nil
+end
+
+-- Is the source a document the knitr hooks resolve (N14, N92)? The rule of R/scan-contexts.R:
+-- filter_resolves(): an .Rmd is knitr's; a .qmd with `engine: knitr`, or with an executed {r} chunk and no
+-- `engine:` or `jupyter:` key; and the intermediate `.knit.md` of rmarkdown.
+local function source_is_knitr(path, text)
+  if not path then return false end
+  local low = path:lower()
+  if low:match("%.rmd$") or low:match("%.rmarkdown$") or low:match("%.knit%.md$") then return true end
+  if not low:match("%.qmd$") or not text then return false end
+  local lines = {}
+  for l in (text .. "\n"):gmatch("(.-)\r?\n") do lines[#lines + 1] = l end
+  if lines[1] and lines[1]:match("^%-%-%-%s*$") then
+    local fm, closed = {}, false
+    for i = 2, #lines do
+      if lines[i]:match("^%-%-%-%s*$") or lines[i]:match("^%.%.%.%s*$") then closed = true; break end
+      fm[#fm + 1] = lines[i]
+    end
+    if closed then
+      for _, l in ipairs(fm) do
+        local v = l:match("^engine%s*:(.*)$")
+        if v then
+          v = v:gsub("%s+#.*$", ""):gsub("^%s+", ""):gsub("%s+$", "")
+          v = v:gsub("^[\"']", ""):gsub("[\"']$", "")
+          return v:lower() == "knitr"
+        end
+      end
+      for _, l in ipairs(fm) do
+        if l:match("^jupyter%s*:") then return false end
+      end
+    end
+  end
+  for i, l in ipairs(lines) do
+    if l:match("^[ \t>]*```+[ \t]*{[ \t]*[rR][ \t,}]") then
+      local off = l:match("[ ,{]eval[ \t]*=[ \t]*FALSE[ \t]*[,}]") or l:match("[ ,{]eval[ \t]*=[ \t]*F[ \t]*[,}]")
+      local j = i + 1
+      while not off and lines[j] and lines[j]:match("^[ \t>]*#|") do
+        local v = lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*$")
+                  or lines[j]:match("^[ \t>]*#|[ ]?eval[ \t]*:[ \t]*(%a+)[ \t]*#.*$")
+        if v == "false" or v == "no" or v == "FALSE" then off = true end
+        j = j + 1
+      end
+      if not off then return true end
+    end
+  end
+  return false
+end
+
+-- the output's name: WEFT_OUTPUT, else Pandoc's output file, else the source's name, with no folder or extension
+local function output_name()
+  local function strip(x) return (base_of(x):gsub("%.[^.]*$", "")) end
+  local e = os.getenv("WEFT_OUTPUT")
+  if e and e ~= "" then return strip(e) end
+  local of = PANDOC_STATE and PANDOC_STATE.output_file
+  if of and of ~= "" and of ~= "-" then return strip(of) end
+  return strip(S.src_rel or "document")
+end
+
+local function oldest_text(at)
+  return os.date("%Y-%m-%d %H:%M:%S", at)
+end
+
+local function warn_write(what, why)
+  io.stderr:write(string.format("weft: %s could not be written: %s\n", what, tostring(why)))
+end
+
+-- the stamp (N110): merged with the hooks' of this run, or new
+local function write_stamp(run)
+  local dir = S.root .. "/.weft/stamps"
+  local ok_dir = ledger.make_dirs(dir)
+  if not ok_dir then return warn_write("the stamp for " .. S.src_rel, "no folder") end
+  local gi = S.root .. "/.weft/.gitignore"
+  local f = io.open(gi, "r")
+  if f then f:close() else ledger.write_file(gi, "*\n") end
+  local path = dir .. "/" .. stamp.file_name(S.src_rel)
+  local old = stamp.read(path)
+  local checks, named = 0, 0
+  for _, e in ipairs(S.entries) do
+    if e.top_level then checks = checks + 1 end
+    if not e.failed then named = named + 1 end
+  end
+  local merge = false
+  if old and old.run == run then
+    merge = true
+    if type(old.writers) == "table" then
+      for _, w in ipairs(old.writers) do if w == "filter" then merge = false end end
+    end
+  end
+  local failures, writers = {}, { "knit" }
+  local s = { source = S.src_rel, run = run, named = named }
+  if merge then
+    s.executed = type(old.executed) == "string" and old.executed or oldest_text(os.time())
+    s.checks = (tonumber(old.checks) or 0) + checks
+    if type(old.failures) == "table" then
+      for _, x in ipairs(old.failures) do
+        if type(x) == "table" then failures[#failures + 1] = stamp.failure_line(x) end
+      end
+    end
+    if type(old.writers) == "table" and #old.writers > 0 then writers = old.writers end
+    local w = {}
+    for _, x in ipairs(writers) do w[#w + 1] = x end
+    writers = w
+    writers[#writers + 1] = "filter"
+  else
+    s.executed = oldest_text(S.oldest_at or os.time())
+    s.checks = checks
+    writers = { "filter" }
+  end
+  for _, x in ipairs(S.fails) do failures[#failures + 1] = report.json_line(x) end
+  s.failures = failures
+  s.writers = writers
+  if run ~= "" and S.nblocks > 0 then s.fresh = not S.any_stale end
+  local ok, err = stamp.write(path, s)
+  if not ok then warn_write("the stamp for " .. S.src_rel, err) end
+end
+
+-- the ledger (N112): the filter's entries merged into the file the hooks may have written
+local function write_ledger()
+  local files, seen = {}, {}
+  local function add(abs)
+    local rel = root_rel(abs)
+    if rel and not seen[rel] then seen[rel] = true; files[#files + 1] = { rel = rel, abs = abs } end
+  end
+  add(S.src_abs)
+  if S.src then for _, f in ipairs(S.src.files) do add(abs_path(f)) end end
+  local list = {}
+  for _, e in ipairs(S.entries) do
+    local abs = S.src_abs
+    if e.info and e.info.idx and S.src and S.src.files[e.info.idx] then abs = abs_path(S.src.files[e.info.idx]) or abs end
+    local t = e
+    while t.top do t = t.top end
+    list[#list + 1] = {
+      file = root_rel(abs) or S.src_rel, section = e.section, kind = e.kind, expr = e.expr, id = e.id,
+      context = e.context, text = (not e.failed) and e.printed or nil, arm = e.arm, rel = e.rel, raw = e.raw,
+      failed = e.failed, sentence = t.sentence or "",
+    }
+  end
+  local dir = S.root .. "/_weft/ledger/" .. S.src_rel
+  local ok_dir = ledger.make_dirs(dir)
+  if not ok_dir then return warn_write("the ledger for " .. S.src_rel, "no folder") end
+  local out = output_name()
+  local ok, err = ledger.write({ path = dir .. "/" .. out .. ".jsonl", source = S.src_rel, output = out,
+                                 files = files, entries = list })
+  if not ok then warn_write("the ledger for " .. S.src_rel, err) end
+end
+
 local MINUS_DECL = "\\usepackage{iftex}\\ifPDFTeX\\DeclareUnicodeCharacter{2212}{\\ensuremath{-}}\\fi"
 
 local function add_minus_declaration(meta)
@@ -1834,6 +2174,30 @@ function Pandoc(doc)
   local text = path and read_file(path) or nil
   local cfg, problems = config.load(path, text, cwd)
   S.cfg = cfg
+  if S.main_dir then S.main_dir = normpath(S.main_dir) end
+  -- the project (a set-up one has _weft.yml), the source in it, and the current run (N91, N110)
+  S.current_run = current_run() or false
+  if S.main_dir and path then
+    S.src_abs = S.main_dir .. "/" .. base_of(path)
+    local yml = config.find_upward(S.main_dir, "_weft.yml")
+    if yml then
+      S.root = normpath(dir_of(normpath(yml)))
+      S.src_rel = root_rel(S.src_abs)
+    end
+  end
+  S.ledger_on = S.root ~= nil and cfg.ledger ~= false
+  -- N92: a document the knitr hooks resolve, by its source, or by the hooks' stamp of this run
+  S.knitr = source_is_knitr(path, text)
+  if not S.knitr and S.root and S.src_rel and S.current_run then
+    local old = stamp.read(S.root .. "/.weft/stamps/" .. stamp.file_name(S.src_rel))
+    if old and old.run == S.current_run then
+      local filtered = false
+      if type(old.writers) == "table" then
+        for _, w in ipairs(old.writers) do if w == "filter" then filtered = true end end
+      end
+      S.knitr = not filtered
+    end
+  end
   local lang = doc.meta.lang
   S.lang = lang ~= nil and pandoc.utils.stringify(lang) or nil
   S.src = path and lines_lib.new(path) or nil
@@ -1848,12 +2212,17 @@ function Pandoc(doc)
   local blocks = resolve_blocks(doc.blocks, ctx)
   blocks = restore_captions(blocks)
   local meta = doc.meta
+  S.section, S.context = "", "front-matter"
   for _, key in ipairs(META_FIELDS) do
     local v = meta[key]
     local ty = v ~= nil and pandoc.utils.type(v) or nil
-    if ty == "Inlines" then meta[key] = resolve_inlines(v, ctx)
+    if ty == "Inlines" then
+      local first = #S.entries + 1
+      meta[key] = resolve_inlines(v, ctx)
+      finish_block(first, meta[key])
     elseif ty == "Blocks" then meta[key] = resolve_blocks(v, ctx) end
   end
+  S.context = "prose"
   blocks = remove_empty_cells(blocks)
   if S.minus_used and (FORMAT == "latex" or FORMAT == "beamer") then add_minus_declaration(meta) end
 
@@ -1864,9 +2233,21 @@ function Pandoc(doc)
       "weft: the values in %s were published by run %s, not this run (%s): served from freeze or a cache, or by a kernel kept from an earlier render. Their checks did not run now (rule 2.13.8).\n",
       S.main or "this document", S.stale.run, S.stale.current))
   end
+  local coll
   if #S.fails > 0 or #S.warned > 0 then
     io.stderr:write(report.build(S.fails, S.warned))
-    local coll = report.collect_path(dir_up_find, quarto ~= nil)
+    coll = report.collect_path(dir_up_find, quarto ~= nil)
+  end
+  -- the stamp always, the ledger when the render does not stop on its failures (N110, N112; D8, D20)
+  if S.root and S.src_rel then
+    local ok, err = pcall(write_stamp, S.current_run or "")
+    if not ok then warn_write("the stamp for " .. S.src_rel, err) end
+    if S.ledger_on and (#S.fails == 0 or draft or coll) then
+      ok, err = pcall(write_ledger)
+      if not ok then warn_write("the ledger for " .. S.src_rel, err) end
+    end
+  end
+  if #S.fails > 0 or #S.warned > 0 then
     if coll then
       local f = io.open(coll, "a")
       if f then

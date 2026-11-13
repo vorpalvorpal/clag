@@ -22,7 +22,8 @@ local DEFAULTS = {
 local MAX_PLACES = 100      -- as R's MAX_PLACES
 local MAX_EXP = 100000      -- an exact decimal with a larger exponent is refused, not expanded
 
-local function fail(fmt, ...) error(string.format(fmt, ...), 0) end
+-- Quarto redefines the global `error` to log and return; assert() is left alone
+local function fail(fmt, ...) assert(false, string.format(fmt, ...)) end
 
 -- ---- configuration -------------------------------------------------------------------------
 
