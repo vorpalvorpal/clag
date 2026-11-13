@@ -450,3 +450,26 @@ All seventeen proposals are accepted. Order and readings:
   unexported function of `tarchetypes`. `tarchetypes` stays in
   Suggests, with a clear error from `tar_dict_deps()` when it is
   missing.
+
+## State after the first fixer (13 Nov)
+
+Done: 3, 4, 7, 8, 9, 10; 1, 2, 5, 6, 11, 12 by the foundations pass.
+All tests of `test-review-code-b.R` pass. Left for the structure
+pass: 13 to 17.
+
+`tar_dict_deps()` now attaches dependencies with the exported
+`tarchetypes::tar_hook_before_raw()` (the dictionary targets, with
+`set_deps = TRUE`) and `tarchetypes::tar_hook_outer_raw()`
+(`weft::dict_unmark(.x)`, with `set_deps = FALSE`, so a target that
+reads no key keeps its dependencies). The copies' command and
+dependencies are put back on the caller's target, which is still
+changed in place. Measured in a temp pipeline: a hook on a
+`tar_render()` target keeps its source-file dependencies, so the
+report-target exception was not needed. One direct union remains, for
+a target whose command is more than one expression, which the hooks
+refuse. `unmark_command()` is gone.
+
+Kept, against the letter of 3: when a dictionary's project has no
+readable `_weft.yml`, the session's units state is left alone. Three
+existing tests need it; a project with no `_weft.yml` has no units
+table to prefer.
