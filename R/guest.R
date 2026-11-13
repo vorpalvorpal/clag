@@ -215,14 +215,39 @@ guest_running <- function() {
 # and the note of them cleared.
 guest_drain_warnings <- function() {
   if (!guest_running()) return(character())
-  txt <- tryCatch(guest_json(reticulate::py_to_r(weft_env$guest_mod$drain_warnings())),
-                  error = function(e) list())
+  txt <- guest_drain_json(reticulate::py_to_r(weft_env$guest_mod$drain_warnings()), "the Python warnings drain")
   as.character(unlist(txt))
+}
+
+# What a guest drain holds, as JSON, parsed. `call` is the call that asks the guest. A guest that is not
+# running (the call fails or answers nothing) is an empty result; a reply that is not JSON is a
+# weft_guest_error naming the drain `what`, a fault in weft's own emitter that is not to vanish.
+guest_drain_json <- function(call, what = "the guest drain") {
+  txt <- tryCatch(call, error = function(e) NULL)
+  if (!is.character(txt) || length(txt) != 1L) return(list())
+  tryCatch(guest_json(txt), error = function(e) {
+    guest_abort(sprintf("The reply of %s is not JSON: %s", what, conditionMessage(e)))
+  })
+}
+
+# Run a drain; in a knit a weft_guest_error from it is a knit failure (kind "condition") at the chunk
+# running, and the drain's result is `default`. Outside a knit the error goes on.
+guest_drain_guard <- function(expr, default = list()) {
+  tryCatch(expr, weft_guest_error = function(e) {
+    s <- active_state()
+    if (is.null(s)) stop(e)
+    label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+    add_failure(s, "condition", file = current_file_name(s),
+                chunk = if (is.null(label)) NA_character_ else as.character(label),
+                detail = conditionMessage(e))
+    default
+  })
 }
 
 # What Python and Julia noted since the last call, each as list(class, text).
 guest_drain_conditions <- function() {
-  c(lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t)), julia_drain())
+  py <- guest_drain_guard(guest_drain_warnings(), character())
+  c(lapply(py, function(t) list(class = "warning", text = t)), guest_drain_guard(julia_drain()))
 }
 
 # The error a Python chunk with `error: true` left, as "Type: message", or
@@ -239,8 +264,8 @@ guest_take_error <- function() {
 # path relative to `root`. Starts no Python.
 guest_project_modules <- function(root) {
   if (!guest_running()) return(character())
-  txt <- tryCatch(guest_json(reticulate::py_to_r(weft_env$guest_mod$project_modules(root))),
-                  error = function(e) list())
+  txt <- guest_drain_json(reticulate::py_to_r(weft_env$guest_mod$project_modules(root)),
+                          "the Python project-modules drain")
   as.character(unlist(txt))
 }
 
@@ -248,12 +273,12 @@ guest_project_modules <- function(root) {
 # Python error left by an earlier chunk is not this chunk's.
 guest_chunk_begin <- function(s, options) {
   if (guest_running()) {
-    guest_drain_warnings()
+    guest_drain_guard(guest_drain_warnings())
     if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) guest_take_error()
   } else if (!julia_running()) {
     return(invisible())
   }
-  julia_drain()
+  guest_drain_guard(julia_drain())
   s$guest_mark <- list(failures = length(s$failures), ledger = length(s$ledger))
   invisible()
 }
@@ -266,11 +291,12 @@ guest_chunk_end <- function(options) {
   label <- options$label %||% NA_character_
   if (identical(tolower(as.character(options$engine %||% "")[1L]), "julia")) {
     # a Julia error stops the knit (J18), so only the log's records are here
-    mine <- julia_drain()
-    julia_take_claims(s, label)
-    julia_take_puts(s)
+    mine <- guest_drain_guard(julia_drain())
+    guest_drain_guard(julia_take_claims(s, label))
+    guest_drain_guard(julia_take_puts(s))
   } else {
-    mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
+    mine <- lapply(guest_drain_guard(guest_drain_warnings(), character()),
+                   function(t) list(class = "warning", text = t))
     err <- guest_take_error()
     if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
   }

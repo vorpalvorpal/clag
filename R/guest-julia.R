@@ -89,7 +89,7 @@ julia_wrap_engine <- function() {
   new <- function(options) {
     withCallingHandlers(cur(options), error = function(e) {
       s <- active_state()
-      if (!is.null(s)) julia_take_claims(s, options$label)
+      if (!is.null(s)) guest_drain_guard(julia_take_claims(s, options$label))
     })
   }
   attr(new, "weft") <- TRUE
@@ -101,9 +101,7 @@ julia_wrap_engine <- function() {
 # the knit's failures and warned checks at chunk `label`. Starts no Julia.
 julia_take_claims <- function(s, label) {
   if (!julia_running()) return(invisible())
-  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain_claims"), error = function(e) NULL)
-  if (!is.character(txt) || length(txt) != 1L) return(invisible())
-  for (r in tryCatch(guest_json(txt), error = function(e) list())) {
+  for (r in guest_drain_json(JuliaCall::julia_call("WeftGuest.drain_claims"), "the Julia claims drain")) {
     guest_claim_record(s, as.character(r[[1L]]), as.character(r[[2L]]), as.character(r[[3L]]), label)
   }
   invisible()
@@ -113,9 +111,7 @@ julia_take_claims <- function(s, label) {
 # names as weft_put()'s are. Starts no Julia.
 julia_take_puts <- function(s) {
   if (!julia_running()) return(invisible())
-  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain_puts"), error = function(e) NULL)
-  if (!is.character(txt) || length(txt) != 1L) return(invisible())
-  pairs <- tryCatch(guest_json(txt), error = function(e) list())
+  pairs <- guest_drain_json(JuliaCall::julia_call("WeftGuest.drain_puts"), "the Julia puts drain")
   if (!length(pairs)) return(invisible())
   jsons <- lapply(pairs, function(p) as.character(p[[2L]]))
   names(jsons) <- vapply(pairs, function(p) as.character(p[[1L]]), "")
@@ -234,9 +230,7 @@ jl_record <- function(name) {
 # as list(class, text), and the note of them cleared. Starts no Julia.
 julia_drain <- function() {
   if (!julia_running()) return(list())
-  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain"), error = function(e) NULL)
-  if (!is.character(txt) || length(txt) != 1L) return(list())
-  recs <- tryCatch(guest_json(txt), error = function(e) list())
+  recs <- guest_drain_json(JuliaCall::julia_call("WeftGuest.drain"), "the Julia log drain")
   lapply(recs, function(r) list(class = as.character(r[[1L]]), text = as.character(r[[2L]])))
 }
 
@@ -246,9 +240,8 @@ julia_drain <- function() {
 # starting with a dot, is not one. Starts no Julia.
 julia_project_files <- function(root) {
   if (!julia_running()) return(character())
-  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.included"), error = function(e) NULL)
-  if (!is.character(txt) || length(txt) != 1L) return(character())
-  paths <- tryCatch(as.character(unlist(guest_json(txt))), error = function(e) character())
+  paths <- as.character(unlist(guest_drain_json(JuliaCall::julia_call("WeftGuest.included"),
+                                                "the Julia included-files drain")))
   root <- norm_path(root)
   out <- character()
   for (p in paths) {
