@@ -109,6 +109,20 @@ julia_take_claims <- function(s, label) {
   invisible()
 }
 
+# The records Julia's put() and @put handed over since the last call (N70), joined to the knit's waiting
+# names as weft_put()'s are. Starts no Julia.
+julia_take_puts <- function(s) {
+  if (!julia_running()) return(invisible())
+  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain_puts"), error = function(e) NULL)
+  if (!is.character(txt) || length(txt) != 1L) return(invisible())
+  pairs <- tryCatch(guest_json(txt), error = function(e) list())
+  if (!length(pairs)) return(invisible())
+  jsons <- lapply(pairs, function(p) as.character(p[[2L]]))
+  names(jsons) <- vapply(pairs, function(p) as.character(p[[1L]]), "")
+  values_wait_json(s, jsons)
+  invisible()
+}
+
 # ---- the record -----------------------------------------------------------------------
 
 # The record of the value at a path from Julia's Main, or the refusal that it

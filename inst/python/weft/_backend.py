@@ -146,7 +146,7 @@ def publish(values):
     k = kind()
     if k == "knitr" and _knitr_put is not None:
         try:
-            if _knitr_put(values):
+            if _knitr_put({n: dumps(r) for n, r in values.items()}):
                 return
         except Exception:
             pass

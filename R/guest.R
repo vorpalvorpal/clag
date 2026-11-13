@@ -268,6 +268,7 @@ guest_chunk_end <- function(options) {
     # a Julia error stops the knit (J18), so only the log's records are here
     mine <- julia_drain()
     julia_take_claims(s, label)
+    julia_take_puts(s)
   } else {
     mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
     err <- guest_take_error()
@@ -380,7 +381,38 @@ guest_register_forms <- function(sys) {
   reticulate::py_set_attr(m, "__weft_r__", reticulate::r_to_py(TRUE))
   be <- reticulate::py_get_attr(m, "_backend")
   be$set_knitr(reticulate::r_to_py(guest_claim_report, convert = FALSE))
+  be$set_knitr_put(reticulate::r_to_py(guest_knitr_put, convert = FALSE))
   invisible()
+}
+
+# The knitr back end of Python's put() (N42, N70): the records go to the knit's
+# waiting names, as weft_put()'s do, so the next block of prose is preceded by
+# one block and nothing is printed into the output (except with `results = "asis"`). `values` is a Python dict
+# of name to the record's JSON text. FALSE when no knit is running: put() then
+# prints the block.
+guest_knitr_put <- function(values) {
+  s <- active_state()
+  if (is.null(s)) return(FALSE)
+  # in a chunk with results = "asis" the block is written at once, and Python's print reaches the chunk's
+  # output in order (R's cat from a callback would not): Python prints it
+  if (identical(tryCatch(knitr::opts_current$get("results"), error = function(e) NULL), "asis")) return(FALSE)
+  jsons <- lapply(reticulate::py_to_r(values), as.character)
+  values_wait_json(s, jsons)
+  TRUE
+}
+
+# The names of `names` that Python's auto() found changed in __main__ since it
+# was last asked (N71), as a named list of record JSON texts; empty when auto()
+# was not called in this knit. Starts no Python. A list too long to publish
+# stops the knit with E42, as put() does.
+guest_auto_changes <- function(names) {
+  if (!guest_running() || !length(names)) return(list())
+  sys <- reticulate::import("sys", convert = FALSE)
+  m <- tryCatch(reticulate::py_get_item(sys$modules, "weft"), error = function(e) NULL)
+  if (is.null(m) || !reticulate::py_has_attr(m, "_knitr_changes")) return(list())
+  res <- tryCatch(m$`_knitr_changes`(reticulate::r_to_py(as.list(names))), error = function(e) e)
+  if (inherits(res, "error")) guest_abort(trimws(strsplit(conditionMessage(res), "\n", fixed = TRUE)[[1L]][1L]))
+  lapply(reticulate::py_to_r(res), as.character)
 }
 
 # The knitr back end of Python's claim() (N52): one failed or warned check,

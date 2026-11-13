@@ -82,15 +82,17 @@ function drain_claims()::String
     String(take!(io))
 end
 
-"The records published since the last call, as JSON text {name: record}; cleared (knitr)."
+"The records published since the last call, as JSON text [[name, record text], ...] (each record is itself a JSON text, kept as it is); cleared (knitr)."
 function drain_puts()::String
     io = IOBuffer()
-    print(io, '{')
+    print(io, '[')
     for (i, (name, text)) in enumerate(PUTS)
         i > 1 && print(io, ',')
-        jstr(io, name); print(io, ':'); print(io, text)
+        print(io, '[')
+        jstr(io, name); print(io, ','); jstr(io, text)
+        print(io, ']')
     end
-    print(io, '}')
+    print(io, ']')
     empty!(PUTS)
     String(take!(io))
 end
@@ -337,18 +339,19 @@ function _claim(level::Symbol, expr::String, value, checks, line = nothing)
             push!(CLAIMS, (String(level), expr, f.detail))
         end
     elseif k === :engine
-        # N57: the block is displayed (a cell that raises loses it, measured; so a failed claim
-        # also prints it as text, which the filter reads)
+        # N57: a warned claim displays its block. A failed one only PRINTS it, with a tilde fence, and
+        # throws: a cell that raises loses what it displayed (measured), and a block that was both
+        # displayed and printed could be read twice. Quarto wraps a cell's printed output in a backtick
+        # fence, which a backtick fence in the text would close (measured). The filter reads this form
+        # (inst/quarto/weft.lua, printed_carrier).
         rv = classify(value)
         cks = [(text = f.text, level = String(level), why = f.why, expr = expr, value = rv, line = line)
                for f in failed]
         txt = block_text(Tuple{String, Rec}[], cks)
-        display(Values(txt))
         if level === :fail
-            # the same block as text, with a tilde fence: Quarto wraps a cell's printed output in a
-            # backtick fence, which a backtick fence in the text would close (measured). The filter
-            # reads this form (inst/quarto/weft.lua, printed_carrier).
             println("~~~~", chop(txt, head = 4, tail = 4), "~~~~")
+        else
+            display(Values(txt))
         end
     end
     level === :fail && throw(ClaimFailed(msg))

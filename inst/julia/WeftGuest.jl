@@ -174,6 +174,12 @@ function drain_claims()::String
     m === nothing ? "[]" : m.drain_claims()
 end
 
+"The records Weft.put published since the last call, as JSON text [[name, record text], ...]; cleared."
+function drain_puts()::String
+    m = weft_module()
+    m === nothing ? "[]" : m.drain_puts()
+end
+
 const INSTALLED = Ref(false)
 
 "Wrap the global logger and note include() calls. Once per session."

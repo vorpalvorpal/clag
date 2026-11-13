@@ -192,6 +192,7 @@ def _source_names(path):
     """The names a source names (N45): its code spans and governors, and its includes (8 deep)."""
     seen = set()
     found = []
+    found_code = []
 
     def walk(p, depth):
         p = _os.path.abspath(p)
@@ -203,6 +204,7 @@ def _source_names(path):
                 txt = fh.read()
         except OSError:
             return
+        found_code.extend(_CODE_RE.findall(txt))
         found.extend(_CODE_RE.findall(txt))
         for g in _GOV_RE.findall(txt):
             found.extend(_TOKEN_RE.findall(_re.sub(r"'[^']*'", " ", g)))
@@ -212,6 +214,9 @@ def _source_names(path):
                 walk(_os.path.join(_os.path.dirname(p), inc), depth + 1)
 
     walk(path, 0)
+    # a document with no named value (a code span with a name) publishes nothing by itself (N43)
+    if not any(_backend.is_name(n) for n in found_code):
+        return []
     out = []
     for n in found:
         if _backend.is_name(n) and n not in out:
@@ -224,29 +229,56 @@ def _is_code(v):
                           _types.MethodType, type))
 
 
+def _changes(names):
+    """{name: wire record} for each of `names` bound in __main__ whose record changed since the last call.
+
+    A name that is a module, function or class, or starts with an underscore, is left. A list of more than
+    10000 elements raises PublishError (E42), as put() does, and nothing is recorded as published."""
+    main = _sys.modules["__main__"].__dict__
+    changed = {}
+    texts = {}
+    for n in names:
+        if n.startswith("_") or n not in main:
+            continue
+        v = main[n]
+        if _is_code(v):
+            continue
+        rec, k = _backend.record_of(v)
+        if rec is None:
+            raise PublishError(_E42 % (n, k))
+        text = _backend.dumps(rec)
+        if _auto["last"].get(n) != text:
+            texts[n] = text
+            changed[n] = rec
+    _auto["last"].update(texts)
+    return changed
+
+
 def _publish_changes(*_args):
-    """The post_run_cell callback of auto(): publish the changed names in one block."""
+    """The post_run_cell callback of auto(): publish the changed names in one block.
+
+    A PublishError (E42) is raised out of the callback, which IPython reports as the cell's error output."""
     try:
-        main = _sys.modules["__main__"].__dict__
-        changed = {}
-        for n in _auto["names"]:
-            if n.startswith("_") or n not in main:
-                continue
-            v = main[n]
-            if _is_code(v):
-                continue
-            rec, k = _backend.record_of(v)
-            if rec is None:
-                rec = {"t": "error", "why": "{S} is a list of %d elements; weft publishes at most "
-                       "10000 (rule 2.13.1)." % k}
-            text = _backend.dumps(rec)
-            if _auto["last"].get(n) != text:
-                _auto["last"][n] = text
-                changed[n] = rec
-        if changed:
-            _backend.publish(changed)
+        changed = _changes(_auto["names"])
+    except PublishError:
+        raise
     except Exception as e:  # never break a cell from a callback
         _sys.stderr.write("weft: auto() could not publish: %s: %s\n" % (type(e).__name__, e))
+        return
+    if changed:
+        try:
+            _backend.publish(changed)
+        except Exception as e:
+            _sys.stderr.write("weft: auto() could not publish: %s: %s\n" % (type(e).__name__, e))
+
+
+def _knitr_changes(names):
+    """Under knitr, R asks (at each block of prose) which of `names` changed in __main__ since last asked:
+    a dict {name: the record's JSON text}. Empty unless auto() was called in the knit (N71)."""
+    if not _backend.auto_main:
+        return {}
+    names = [n for n in names if _backend.is_name(n)]
+    return {n: _backend.dumps(r) for n, r in _changes(names).items()}
 
 
 def auto(path=None):
