@@ -36,8 +36,9 @@ new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
   S$nl <- as.numeric(which(chars == "\n"))
   # the first colon of each fenced-div opening line is special too, so the
   # walk stops there (a `.weft-literal` div is a row, 1.8.9)
-  dv <- if (n) gregexpr("(?m)^[ \\t]{0,3}(?:>[ \\t]*)*\\K:{3,}[ \\t]*(?:\\{|[^\\s{}:]+)", text, perl = TRUE)[[1]] else -1L
-  S$divs <- as.numeric(dv[dv > 0L])
+  # whole-text matches go through gmatch(): gregexpr() on a non-ASCII text is quadratic in its matches
+  dv <- if (n) gmatch("(?m)^[ \\t]{0,3}(?:>[ \\t]*)*\\K:{3,}[ \\t]*(?:\\{|[^\\s{}:]+)", text)$s else integer()
+  S$divs <- as.numeric(dv)
   S$special <- as.numeric(sort(unique(c(which(chars %in% SCAN_SPECIAL), S$divs))))
   S$dollar <- as.numeric(which(chars == "$"))
 
@@ -46,14 +47,12 @@ new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
   S$bt_start <- as.numeric((ends - r$lengths + 1L)[r$values])
   S$bt_len <- r$lengths[r$values]
 
-  cend <- if (n) gregexpr("-->", text, fixed = TRUE)[[1]] else -1L
-  S$cend <- as.numeric(cend[cend > 0L])
+  S$cend <- as.numeric(if (n) gmatch("-->", text)$s else integer())
 
   find_fences(S)
   find_tables(S)
 
-  bl <- if (n) gregexpr("\n[ \t\r]*(?=\n)", text, perl = TRUE)[[1]] else -1L
-  bl <- bl[bl > 0L]
+  bl <- if (n) gmatch("\n[ \t\r]*(?=\n)", text)$s else integer()
   S$plim <- as.numeric(sort(unique(c(bl - 1L, S$f_start - 1L, n))))
 
   S$rows <- new.env(parent = emptyenv())   # one entry per row: no copying
