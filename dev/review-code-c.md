@@ -529,3 +529,27 @@ have already drifted apart. Most of the bugs below are such drifts.
   the config reviewer may want one stated rule for "a project".
 - `tests/testthat/helper-4b.R` and `helper-4c.R` forge an "older" version
   that is newer (see 15).
+
+## Rulings (orchestrator, 13 Nov, under delegation)
+
+All nineteen proposals are accepted. Order and readings:
+
+- Items 1 to 7, 10 to 12 and 15 change behaviour and get failing
+  tests first (`test-review-code-c.R`), written from the
+  reproductions above.
+- 1, 13: one layer that compares the findings and the construct
+  counts of two sides, used by `gate()` and `verify()`; `verify()`
+  stops reaching into the gate's internals, and counts as the gate
+  does (claims apart).
+- 2: a document belongs to the innermost project in `lints()` and
+  `verify()` as it does in the gate.
+- 3, 7, 9, 18: one git runner (always `-z` where names are listed),
+  one reader of added lines, one lookup of project metadata files
+  (`_quarto.yml` and `_quarto.yaml`), one lister of a project's
+  documents. Shared with reviews a and b; built first by the
+  foundations pass.
+- 4: closed by the shared YAML reader (review b items 1 and 2).
+- 8: rules are held in one explicit table of id and function; nothing
+  is found by name.
+- 15: the advice says what is true for a project that records a
+  newer weft; the tests' "older" fixture version is made older.

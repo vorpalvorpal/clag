@@ -501,3 +501,29 @@ it, under
 - Rule 1.1.9 does not say whether a registered text-stage class makes a
   bracket a text span; the code says no (`scan.R` 1164, item 12). Worth a
   line in the spec either way.
+
+## Rulings (orchestrator, 13 Nov, under delegation)
+
+All nineteen proposals are accepted. Order and readings:
+
+- Items 1 to 10 change behaviour and get failing tests first
+  (`test-review-code-a.R`), written from the reproductions above.
+- 1: a number is printed from its 15 significant digits; places asked
+  for beyond them are zeros (`fmt_num(0.1, sigfig = 25)` is 0.1 and 24
+  zeros), never the binary tail.
+- 4: the draft setting is read one way. R, the Lua filter and the
+  post-render script accept `true` and `false` only; anything else is
+  a configuration error raised before the knit, naming the file.
+- 5: weekday names come from the language tables that give the month
+  names, never from the session's locale.
+- 7, 18: one reader of a source file for the whole package (UTF-8, a
+  BOM dropped, CRLF and CR both line ends, a NUL byte or invalid
+  UTF-8 a classed error naming the file) and one finder of fences and
+  metadata blocks. These are shared with reviews b and c and are
+  built first, as `R/io.R`, by the foundations pass.
+- 8: a failed scan is a recorded failure of the knit, not silence.
+- 19 (splitting `resolve_markup()` and `apply_formatters()`) is done
+  last, in stages, each stage leaving every test passing and the
+  knitted output of the profile's synthetic chapter byte-identical.
+  If a stage does not leave the code clearer it is dropped and that
+  is reported.

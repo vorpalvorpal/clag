@@ -401,3 +401,26 @@ configuration yet, and a handful of helpers written two to five times.
   another writer next to item 12's.
 - `R/hooks.R` `front_matter_lines()` feeds `read_dict_local()`; it should use item 6's
   reader so a non-UTF-8 front matter fails the same way.
+
+## Rulings (orchestrator, 13 Nov, under delegation)
+
+All seventeen proposals are accepted. Order and readings:
+
+- Items 1 to 10 change behaviour and get failing tests first
+  (`test-review-code-b.R`), written from the reproductions above.
+- 1, 2: one YAML reader for every file weft reads as its own
+  (`_weft.yml`, `dict.yml`, a document's `weft:` block, the shipped
+  tables). Only `true` and `false` (any letter case) are booleans;
+  `y`, `n`, `yes`, `no`, `on`, `off` are text. `!expr` is never
+  evaluated, whatever the session's options and whatever the version
+  of yaml (review c item 4); DESCRIPTION asks for the yaml version
+  that makes this certain. A file that does not parse, is not UTF-8
+  or holds a NUL byte is a classed error naming the file.
+- 3: a dictionary read outside a knit reads its own project's
+  configuration first, and its units belong to that project's root.
+- 5, 11, 12: one finder of the project root (it knows `_quarto.yaml`),
+  one git runner, one atomic file writer, shared with reviews a and c
+  and built first by the foundations pass.
+- 9: the frame walk fails softly and gets a test.
+- 15: the two `units:::` calls move into one guarded function; the
+  workaround itself stays until `units` releases the fix.
