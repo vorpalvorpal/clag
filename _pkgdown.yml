@@ -16,6 +16,7 @@ articles:
       - wording
       - units
       - targets
+      - languages
   - title: Checking
     navbar: Checking
     contents:

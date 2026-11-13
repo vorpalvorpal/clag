@@ -210,6 +210,8 @@ claim(61, . < 50)
   project dictionary.
 - `vignette("targets", package = "weft")`: the dictionary in a targets
   pipeline.
+- `vignette("languages", package = "weft")`: Python and Julia values in
+  prose.
 - `vignette("lints", package = "weft")`: the static checks.
 - `vignette("gate", package = "weft")`: the commit gate, the ledger,
   `changes()` and `verify()`.
