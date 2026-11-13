@@ -142,11 +142,16 @@ use_quarto <- function(path = ".") {
           else "Nothing to change: the project is already set up.")
   # N74: a project with a jupyter-engine document needs the Python package in the Python Quarto uses
   if (project_has_jupyter_doc(path)) message(MSG_E61)
+  # N74: a project with a julia-engine document needs the Julia package in the environment Quarto's julia uses
+  if (project_has_julia_doc(path)) message(MSG_E62)
   invisible(written)
 }
 
 MSG_E61 <- paste0("Install the Python package in the Python Quarto uses: ",
                   "pip install \"git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python\"")
+
+MSG_E62 <- paste0("Install the Julia package: using Pkg; ",
+                  "Pkg.add(url = \"https://github.com/vorpalvorpal/weft\", subdir = \"inst/julia/Weft\")")
 
 # Does Quarto run this .qmd on the jupyter engine (N74): `engine: jupyter` or a `jupyter:` key; with neither
 # an `engine:` key nor an executed {r} chunk, a {python} chunk. `engine: knitr` (or any other) is not.
@@ -174,6 +179,36 @@ project_has_jupyter_doc <- function(root) {
   for (d in docs) {
     lines <- tryCatch(read_source_lines(file.path(root, d)), error = function(e) character())
     if (doc_is_jupyter(lines)) return(TRUE)
+  }
+  FALSE
+}
+
+# Does Quarto run this .qmd on the julia engine (N74): `engine: julia`; with no `engine:` or `jupyter:` key, a
+# {julia} chunk and no {r} or {python} chunk. `engine: knitr` (JuliaCall) or any other is not.
+doc_is_julia <- function(lines) {
+  fm <- character()
+  if (length(lines) && grepl("^---[ \t\r]*$", lines[1L])) {
+    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
+    if (length(cl)) fm <- lines[seq_len(cl[1L] - 1L) + 1L]
+  }
+  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
+  if (length(eng)) {
+    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L]))
+    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
+    return(identical(v, "julia"))
+  }
+  if (any(grepl("^jupyter[ \t]*:", fm))) return(FALSE)
+  chunk <- function(l) any(grepl(sprintf("^[ \t>]*`{3,}[ \t]*\\{[ \t]*%s[ \t,}]", l), lines, ignore.case = TRUE))
+  chunk("julia") && !chunk("r") && !chunk("python")
+}
+
+# Does any .qmd of the project below `root` run on the julia engine?
+project_has_julia_doc <- function(root) {
+  docs <- project_doc_paths(root, "setup")
+  docs <- docs[grepl("\\.qmd$", docs, ignore.case = TRUE)]
+  for (d in docs) {
+    lines <- tryCatch(read_source_lines(file.path(root, d)), error = function(e) character())
+    if (doc_is_julia(lines)) return(TRUE)
   }
   FALSE
 }
