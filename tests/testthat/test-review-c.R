@@ -546,8 +546,7 @@ test_that("review C #13: the book report keeps every leftover finding of a docum
   # the control: the failed claim of act.qmd is reported, at its line
   expect_match(post, sprintf("act\\.qmd:%d\\b", r$actline))
   # raw.qmd has three different leftovers: three entries, not one per kind
-  # (until N92 is built the filter reports the two out-of-grammar spans as construct errors, not leftovers)
-  expect_identical(n_matches("\\[(leftover|construct error)", post), 3L, info = post)
+  expect_identical(n_matches("\\[leftover", post), 3L, info = post)
   expect_match(post, "if=", fixed = TRUE)
   expect_match(post, "n=", fixed = TRUE)
   expect_match(post, "12.5{.num}", fixed = TRUE)
