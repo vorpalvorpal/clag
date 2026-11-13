@@ -553,3 +553,16 @@ All nineteen proposals are accepted. Order and readings:
   is found by name.
 - 15: the advice says what is true for a project that records a
   newer weft; the tests' "older" fixture version is made older.
+
+## State after the first fixer (13 Nov)
+
+Done: 1 (shared counts; `read_side()` not built), 2 (by
+`settings_root()`: a nested project's documents are still linted from
+the parent, judged by the nested settings), 4, 5, 8, 9, 10, 11, 12,
+15, 16; the bug of 6; the `pandoc_path` guard of 17. All 44 tests of
+`test-review-code-c.R` pass.
+
+Left for the structure pass: one added-lines reader (3); one masking
+routine for `block-start`, `mask_prose()` and `fence_closed()` (6);
+`project_meta_files()` (7); 13, 14, 19; the rest of 17; the stamp
+file-name collision of 18 (rendering core).
