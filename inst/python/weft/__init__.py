@@ -9,7 +9,11 @@ forms of rule G19 (fmt_num() and the rest) and the knitr back end. Installed
 with pip it is the same code (rule N60).
 """
 
+import collections.abc as _abc
+import os as _os
+import re as _re
 import sys as _sys
+import types as _types
 import warnings as _warnings
 
 from . import _backend
@@ -124,15 +128,17 @@ def claim(x, *checks, level="fail"):
                 detail = "%s was false (value %s); %s" % (shown, val, why)
         else:
             detail = "%s was false (value %s)" % (shown, val)
-        failed.append(detail)
+        if why is None and not ok:
+            why_field = "gave a %s, not True or False" % _type_name(r)
+        else:
+            why_field = why
+        failed.append({"text": shown, "why": why_field, "detail": detail})
     if not failed:
         return x
 
-    expr = "claim(…, " + ", ".join(repr(c) for c in checks) + ")"
-    recorded = True
-    for detail in failed:
-        recorded = _backend.report(level, expr, detail) and recorded
-    message = "weft: a claim failed: " + failed[0] + "."
+    expr = "claim(" + chr(0x2026) + ", " +", ".join(repr(c) for c in checks) + ")"
+    recorded = _backend.report(level, expr, failed, _record.classify(x))
+    message = "weft: a claim failed: " + failed[0]["detail"] + "."
     if level == "fail":
         raise ClaimFailed(message)
     if not recorded:
@@ -140,11 +146,146 @@ def claim(x, *checks, level="fail"):
     return x
 
 
-def put(*args, **kwargs):
-    """Publish values by name (package 6e)."""
-    raise WeftError("put() is not available in this version of weft.")
+_E41 = ("`%s` is not a name weft can publish: ASCII letters, digits, _ and ., starting with a "
+        "letter or _ (rule 1.12.1).")
+_E42 = "`%s` is a list of %d elements; weft publishes at most 10000 (rule 2.13.1)."
+_E59 = "auto() works in a Jupyter kernel or a weft knit."
+_E60 = 'auto() cannot read the document %s; give it: auto("doc.qmd").'
 
 
-def auto(*args, **kwargs):
-    """Publish the names a document uses (package 6e)."""
-    raise WeftError("auto() is not available in this version of weft.")
+def put(*maps, **named):
+    """Publish values by name: put(depth=3.2) or put({"depth": 3.2}).
+
+    Each keyword, and each key of a mapping given positionally, is published
+    under that name. Nothing is published when one of them is not a NAME or is a
+    list of more than 10000 elements (PublishError). Returns None.
+    """
+    pairs = []
+    for m in maps:
+        if not isinstance(m, _abc.Mapping):
+            raise PublishError("put() takes keywords or mappings: put(n=3) or put({'n': 3}).")
+        pairs.extend(m.items())
+    pairs.extend(named.items())
+    values = {}
+    for k, v in pairs:
+        if not _backend.is_name(k):
+            raise PublishError(_E41 % (k,))
+        rec, n = _backend.record_of(v)
+        if rec is None:
+            raise PublishError(_E42 % (k, n))
+        values[k] = rec
+    _backend.publish(values)
+    return None
+
+
+# ---- auto() (N45, N71) ------------------------------------------------------------------------
+
+_auto = {"callback": None, "names": [], "last": {}}
+
+_GOV_RE = _re.compile(r'(?<![A-Za-z0-9_.-])(?i:n|if|sign|list)="([^"]*)"')
+_TOKEN_RE = _re.compile(r"(?<![A-Za-z0-9_.])[A-Za-z_][A-Za-z0-9_.]*")
+_CODE_RE = _re.compile(r"`([A-Za-z_][A-Za-z0-9_.]{0,63})`\{")
+_INCLUDE_RE = _re.compile(r"\{\{<\s*include\s+([^>\s]+)\s*>\}\}")
+
+
+def _source_names(path):
+    """The names a source names (N45): its code spans and governors, and its includes (8 deep)."""
+    seen = set()
+    found = []
+
+    def walk(p, depth):
+        p = _os.path.abspath(p)
+        if p in seen or not _os.path.isfile(p):
+            return
+        seen.add(p)
+        try:
+            with open(p, encoding="utf-8", errors="replace") as fh:
+                txt = fh.read()
+        except OSError:
+            return
+        found.extend(_CODE_RE.findall(txt))
+        for g in _GOV_RE.findall(txt):
+            found.extend(_TOKEN_RE.findall(_re.sub(r"'[^']*'", " ", g)))
+        if depth < 8 and "{{<" in txt:
+            for inc in _INCLUDE_RE.findall(txt):
+                inc = inc.strip("\"'")
+                walk(_os.path.join(_os.path.dirname(p), inc), depth + 1)
+
+    walk(path, 0)
+    out = []
+    for n in found:
+        if _backend.is_name(n) and n not in out:
+            out.append(n)
+    return out
+
+
+def _is_code(v):
+    return isinstance(v, (_types.ModuleType, _types.FunctionType, _types.BuiltinFunctionType,
+                          _types.MethodType, type))
+
+
+def _publish_changes(*_args):
+    """The post_run_cell callback of auto(): publish the changed names in one block."""
+    try:
+        main = _sys.modules["__main__"].__dict__
+        changed = {}
+        for n in _auto["names"]:
+            if n.startswith("_") or n not in main:
+                continue
+            v = main[n]
+            if _is_code(v):
+                continue
+            rec, k = _backend.record_of(v)
+            if rec is None:
+                rec = {"t": "error", "why": "{S} is a list of %d elements; weft publishes at most "
+                       "10000 (rule 2.13.1)." % k}
+            text = _backend.dumps(rec)
+            if _auto["last"].get(n) != text:
+                _auto["last"][n] = text
+                changed[n] = rec
+        if changed:
+            _backend.publish(changed)
+    except Exception as e:  # never break a cell from a callback
+        _sys.stderr.write("weft: auto() could not publish: %s: %s\n" % (type(e).__name__, e))
+
+
+def auto(path=None):
+    """Publish, after each cell, the names the document uses.
+
+    In a Jupyter kernel: registers one post_run_cell callback (a second call
+    replaces it) that publishes, in one block, each top-level name of __main__
+    that the source names, that is not a module, function or class, and whose
+    value changed. `path` is the source; by default QUARTO_DOCUMENT_PATH joined
+    to QUARTO_DOCUMENT_FILE. Returns the path used.
+    """
+    k = _backend.kind()
+    if k == "none":
+        raise WeftError(_E59)
+    if path is None:
+        d = _os.environ.get("QUARTO_DOCUMENT_PATH", "")
+        f = _os.environ.get("QUARTO_DOCUMENT_FILE", "")
+        path = _os.path.join(d, f) if (d and f) else None
+    else:
+        path = _os.fspath(path)
+    if k == "knitr":
+        _backend.auto_main = True
+        return path
+    if path is None:
+        raise WeftError(_E60 % "(QUARTO_DOCUMENT_PATH and QUARTO_DOCUMENT_FILE are not set)")
+    try:
+        with open(path, "rb") as fh:
+            fh.read(1)
+    except OSError:
+        raise WeftError(_E60 % path)
+    ip = _backend._ipython()
+    old = _auto["callback"]
+    if old is not None:
+        try:
+            ip.events.unregister("post_run_cell", old)
+        except Exception:
+            pass
+    _auto["names"] = _source_names(path)
+    _auto["last"] = {}
+    _auto["callback"] = _publish_changes
+    ip.events.register("post_run_cell", _publish_changes)
+    return path
