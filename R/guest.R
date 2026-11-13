@@ -57,10 +57,10 @@ int_value <- function(v, S, type = NULL) {
   d <- sub("^0+(?=.)", "", d, perl = TRUE)
   if (nchar(d) > 16L || (nchar(d) == 16L && d > "9007199254740992")) {
     guest_value_abort(if (is.null(type)) sprintf(paste0(
-      "%s is the Python int %s, beyond ±2^53, where R cannot hold a whole number exactly. ",
+      "%s is the Python int %s, beyond \u00b12^53, where R cannot hold a whole number exactly. ",
       "Scale it in Python, or bind str() of it and print the text (rule 2.12.5)."), S, v)
     else sprintf(paste0(
-      "%s is the Julia %s %s, beyond ±2^53, where R cannot hold a whole number exactly. ",
+      "%s is the Julia %s %s, beyond \u00b12^53, where R cannot hold a whole number exactly. ",
       "Scale it in Julia, or bind string() of it and print the text (rule 2.12.5)."), S, type, v))
   }
   if (nchar(d) < 10L || (nchar(d) == 10L && d <= "2147483647")) as.integer(v) else as.numeric(v)

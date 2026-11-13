@@ -277,7 +277,8 @@ test_that("J15: a caption construct on an R chunk reads Julia values by J8", {
   expect_false(any(grepl("Big 9007199254740993 m.", res$text, fixed = TRUE)))
   f <- res$failures
   expect_true(any(f$kind == "value error"))
-  expect_true(any(vapply(f$detail, function(d) identical(msg5(d), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
+  expect_true(any(vapply(f$detail, function(d) # a failure in a chunk option names the option first ("fig.cap: ..."), as every such failure does
+    identical(sub("^fig\\.cap: ", "", msg5(d)), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
 })
 
 test_that("J15: weft_str() in an R chunk reads Julia values by J8 and collects its failures", {
@@ -294,7 +295,8 @@ test_that("J15: weft_str() in an R chunk reads Julia values by J8 and collects i
   expect_true("WSD: 3.1 m" %in% res$text)
   expect_false(any(grepl("^WSB: 9007199254740993", res$text)))
   expect_true(any(vapply(res$failures$detail,
-                         function(d) identical(msg5(d), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
+                         function(d) # a failure in a chunk option names the option first ("fig.cap: ..."), as every such failure does
+    identical(sub("^fig\\.cap: ", "", msg5(d)), jm1("`jl_value(\"t_j5p_b53\")`", "Int64", "9007199254740993")), NA)))
 })
 
 test_that("J15: outside a knit weft_str() stops at once with the value error", {
@@ -343,10 +345,11 @@ test_that("J15: under Quarto with engine: knitr a Julia read is guarded the same
   res <- render_qmd(lines, env = c(WEFT_DRAFT = "1"))
   expect_false(res$failed, label = substr(res$message, 1, 400))
   expect_true(any(grepl("Depth 3.1 m.", res$text, fixed = TRUE)))
-  expect_true(any(grepl("Cap depth 3.1 m.", res$text, fixed = TRUE)))
+  # Quarto's markdown output drops figure captions ("does not currently support FloatRefTarget nodes"),
+  # so the caption reads are checked at knit time in the test above, and only prose is read here
   expect_false(any(grepl("Big 9007199254740993 m.", res$text, fixed = TRUE)))
   # Quarto's markdown escapes the angle brackets of a marker, so look for the words
-  expect_gte(sum(grepl("weft: value error", res$text, fixed = TRUE)), 2L)
+  expect_gte(sum(grepl("weft: value error", res$text, fixed = TRUE)), 1L)
 })
 
 # ---- J12: Julia is not there -------------------------------------------------------------
