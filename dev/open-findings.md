@@ -366,7 +366,8 @@ To be fixed with the per-area behaviour fixes, each with a test first.
    is dropped (design-6, N47), so `.pairs` on it cannot print the name
    through the filter, where R prints "A (1.3)". The row is left out
    of `collapse.tsv`. A parity gap to weigh in the Lua parity pass.
-10. Under `quarto render`, a name with no value crashes the filter:
+10. FIXED in 6g (Quarto redefines Lua `error()`; raises now use
+    `assert(false, obj)`). Was: under `quarto render`, a name with no value crashes the filter:
     `inst/quarto/weft.lua` near line 765, "attempt to index a nil
     value (local 'rec')", and the construct shows as a value error,
     not E10 with its hint. A plain `.qmd` with no code shows it; plain
