@@ -6142,8 +6142,9 @@ and `dict_local$`. Then the lints, each against a fixture pair.
   (6.2.3). Two projects, one inside the other, count each finding and each
   removal once (6.1.2). The first commit, a merge and an amend are judged as
   6.2.8 says. A reinstall of weft at one version does not serve the cache's old
-  verdicts (6.1.6). The spike's 72 scripted edits (§18) are to be kept as a
-  fixture, re-answered for the two totals of 6.3.2; they are not yet ported.
+  verdicts (6.1.6). The spike's 72 scripted edits (§18) are kept as a
+  fixture (`tests/testthat/_gate/`), re-answered by hand for the two totals
+  of 6.3.2, and each is run through `count_constructs()` and the gate.
   Edits taken from a real manuscript's history are to be added to them (Q18).
 - **Ledger and `changes()`.** A bare value is recorded with the text knitr
   printed. Renders of one document to two outputs with different `params`
