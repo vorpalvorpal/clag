@@ -522,7 +522,7 @@ dict_guard <- function(x, key = NULL) {
 #'   nested to any depth.
 #' @param path The dictionary file, as given to [tar_dict()].
 #' @return `targets`, in the same structure. The target objects are changed in
-#'   place.
+#'   place, with the hooks of `tarchetypes`, which this function needs.
 #' @examples
 #' \dontrun{
 #' weft::tar_dict_deps(list(targets::tar_target(t, dict$limit + 1)))
@@ -554,7 +554,9 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
       if (length(clash) == 1L) "it" else "them"))
   }
   bad <- list()
-  for (t in flat) {
+  plan <- vector("list", length(flat))
+  for (i in seq_along(flat)) {
+    t <- flat[[i]]
     nm <- t$settings$name
     if (isTRUE(attr(t, "weft_dict"))) next
     rep <- report_files(t)
@@ -575,9 +577,7 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
       found <- r$keys
       for (u in r$unknown) bad[[length(bad) + 1L]] <- list(target = nm, file = NA_character_, key = u)
     }
-    found <- sort(unique(found), method = "radix")
-    if (length(found)) t$deps <- union(t$deps, paste0("dict_", found))
-    if (is.null(rep)) unmark_command(t)
+    plan[[i]] <- list(found = sort(unique(found), method = "radix"), report = !is.null(rep))
   }
   if (length(bad)) {
     lines <- vapply(bad, function(b) {
@@ -588,20 +588,64 @@ tar_dict_deps <- function(targets, path = "dict.yml") {
     pipeline_abort(paste(c(sprintf("weft: %s: %d unknown key(s) read by the pipeline", path, length(bad)),
                            lines), collapse = "\n"))
   }
+  for (i in seq_along(flat)) {
+    if (!is.null(plan[[i]])) attach_dict_deps(flat[[i]], plan[[i]]$found, plan[[i]]$report)
+  }
   targets
+}
+
+# One target with the entries it reads as dependencies, and its value cleaned of the dictionary marker. The
+# work is tarchetypes' own, through its exported hooks, which keep up with `targets`: `tar_hook_before()`
+# names the `dict_<key>` targets ahead of the command (and sets the dependencies from the new command), and
+# `tar_hook_outer()` wraps the command in `weft::dict_unmark()` and keeps the dependencies as they are. The
+# hooks return a copy; its `command` and `deps` are put back on `t`, so the target object is changed in
+# place, as `tar_dict_deps()` documents. A report target (`tar_quarto()`, `tar_render()`, ...) gets the
+# first hook only: its value is a file, and tarchetypes 0.14.0 puts the dependencies from its source files
+# into the command (`deps = list(...)`), so the hook, which re-reads them from the new command, keeps them
+# (tried with tar_render(); the tests in test-tar-dict-quarto.R cover tar_quarto()). A target whose command
+# is more than one expression, which the hooks refuse, keeps its dependencies by a direct union
+# (`union_dict_deps()`), the one place weft edits `t$deps` itself.
+attach_dict_deps <- function(t, found, report) {
+  if (length(t$command$expr) != 1L) {
+    if (length(found)) union_dict_deps(t, found)
+    return(invisible(t))
+  }
+  need_tarchetypes()
+  out <- list(t)
+  if (length(found)) {
+    syms <- lapply(paste0("dict_", found), as.name)
+    out <- tarchetypes::tar_hook_before_raw(out, hook = as.call(c(list(as.name("{")), syms)),
+                                            set_deps = TRUE)
+  }
+  if (!report) {
+    e <- out[[1L]]$command$expr[[1L]]
+    already <- is.call(e) && identical(e[[1L]], quote(weft::dict_unmark))
+    if (!already) {
+      out <- tarchetypes::tar_hook_outer_raw(out, hook = quote(weft::dict_unmark(.x)), set_deps = FALSE)
+    }
+  }
+  t$command <- out[[1L]]$command
+  t$deps <- out[[1L]]$deps
+  invisible(t)
+}
+
+# The one direct edit of a target's dependencies (see attach_dict_deps()).
+union_dict_deps <- function(t, found) {
+  t$deps <- union(t$deps, paste0("dict_", found))
+  invisible(t)
+}
+
+need_tarchetypes <- function() {
+  if (!requireNamespace("tarchetypes", quietly = TRUE)) {
+    pipeline_abort(paste0("weft: tar_dict_deps() needs the tarchetypes package, which adds the dictionary ",
+                          "entries to a target through its hooks; install it with install.packages(\"tarchetypes\")."))
+  }
+  invisible()
 }
 
 # A target's value never carries the marker of the attached dictionary: a copy that one target
 # stores reads freely in another, which depends on that target (rule 4.6.2). The command is
-# wrapped, so the value is cleaned before it is stored.
-unmark_command <- function(t) {
-  ex <- t$command$expr
-  if (length(ex) != 1L) return(invisible())
-  e <- ex[[1L]]
-  if (is.call(e) && identical(e[[1L]], quote(weft::dict_unmark))) return(invisible())
-  t$command$expr <- as.expression(as.call(list(quote(weft::dict_unmark), e)))
-  invisible()
-}
+# wrapped in `dict_unmark()`, so the value is cleaned before it is stored (attach_dict_deps()).
 
 #' Remove the dictionary marker from a target's value
 #'

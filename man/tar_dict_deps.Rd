@@ -14,7 +14,7 @@ nested to any depth.}
 }
 \value{
 \code{targets}, in the same structure. The target objects are changed in
-place.
+place, with the hooks of \code{tarchetypes}, which this function needs.
 }
 \description{
 \code{tar_dict_deps()} finds, in the command of each target and in the functions
