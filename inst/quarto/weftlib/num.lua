@@ -337,6 +337,75 @@ local function plain_number(v)   -- digits, optional fraction, optional exponent
       or v:match("^%-?[0-9]+%.[0-9]+[eE][-+]?[0-9]+$") or v:match("^%-?[0-9]+[eE][-+]?[0-9]+$")
 end
 
+-- ---- .sci and .p (dev/design-6.md N100) ---------------------------------------------------------------
+-- Separate entry points: M.format answers only num and pct. Both read the record as R reads it, as a
+-- double (as.numeric), and port sci_one() and print_p() of R/format.R as they are.
+
+local function scalar_double(record, what)
+  if type(record) ~= "table" then fail("record is not a table (got %s)", record == nil and "nil" or type(record)) end
+  local kind = record.t
+  if kind ~= "float" and kind ~= "int" and kind ~= "decimal" then
+    fail("record kind %s is not implemented by %s (only float, int and decimal)", tostring(kind), what)
+  end
+  local v = tonumber(record.v)
+  if v == nil or type(record.v) ~= "string" then fail("malformed %s record: v = %q", kind, tostring(record.v)) end
+  v = v * 1.0
+  if v ~= v or v == math.huge or v == -math.huge then fail("%s record with a value that is not finite", kind) end
+  return v
+end
+
+local function key_count(keys, name)
+  keys = keys or {}
+  local d, s = key_number(keys, "digits"), key_number(keys, "sigfig")
+  if d and s then fail("keys digits and sigfig cannot be used together") end
+  if s and s < 1 then fail("key sigfig must be at least 1") end
+  return d, s
+end
+
+-- scientific notation: "1.2 x 10^4^" (a multiplication sign, the exponent in carets). Returns text and
+-- {number, decimals, relation}.
+function M.format_sci(record, keys, config)
+  local v = scalar_double(record, "the .sci printer")
+  local digits, sigfig = key_count(keys)
+  local cfg = read_config(config)
+  local e = (v == 0) and 0.0 or math.floor(math.log(math.abs(v), 10))
+  -- 10^e is split in two so that a denormal number does not underflow
+  local h = e // 2
+  local m = (v == 0) and 0.0 or (v / 10.0 ^ h) / 10.0 ^ (e - h)
+  local p = print_one(m, digits, sigfig, cfg)
+  if math.abs(p.number) >= 10 then
+    e = e + 1
+    p = print_one(m / 10, digits, sigfig, cfg)
+  end
+  local ei = math.tointeger(e) or math.floor(e)
+  local exp_txt = (ei < 0) and (cfg.minus .. string.format("%d", -ei)) or string.format("%d", ei)
+  local h2 = e // 2
+  return p.text .. " \u{d7} 10^" .. exp_txt .. "^", {
+    number = (p.number * 10.0 ^ h2) * 10.0 ^ (e - h2), decimals = p.decimals, relation = "=",
+  }
+end
+
+-- a p-value: "p < 0.001", "p > 0.99", three decimals below 0.1, two from there. A value outside 0 to 1
+-- calls error() with R's text.
+function M.format_p(record, config)
+  local v = scalar_double(record, "the .p printer")
+  local cfg = read_config(config)
+  if v < 0 or v > 1 then fail("`.p` needs a value from 0 to 1; got %s.", string.format("%.15g", v)) end
+  local function mk(str, rel, number)
+    local s = str:gsub("%.", function() return cfg.decimal_mark end, 1)
+    return "p " .. rel .. " " .. s, { number = number, decimals = true, relation = rel }
+  end
+  if v < 0.001 then return mk("0.001", "<", 0.001) end
+  if v > 0.99 then return mk("0.99", ">", 0.99) end
+  local s3 = round_half_away(v, 3)
+  if s3 < 0.1 then
+    local s = string.format("%.3f", s3)
+    return mk(s, "=", tonumber(s))
+  end
+  local s = string.format("%.2f", round_half_away(v, 2))
+  return mk(s, "=", tonumber(s))
+end
+
 function M.format(record, class, keys, config)
   if class ~= "num" and class ~= "pct" then
     fail("class %s is not implemented by the number printer (only num and pct)", tostring(class))
