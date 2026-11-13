@@ -100,13 +100,13 @@ lists typed numbers, construct errors and other problems. See
 typed number or a construct error, or that removes computed values without
 saying so. `verify()` renders the whole project and checks every claim before
 a release. See
-[The commit gate, CI and verify()](https://vorpalvorpal.github.io/weft/articles/gate.html).
+[The commit gate, the ledger and verify()](https://vorpalvorpal.github.io/weft/articles/gate.html).
 
 **Setting up a project.** `use_weft()` writes everything a project needs, and
 says what it will write first. See
 [Setting up a project](https://vorpalvorpal.github.io/weft/articles/setup.html).
 If an AI coding agent edits your documents, read
-[Working with AI coding agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
+[Working with coding agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
 
 Start with [Getting started](https://vorpalvorpal.github.io/weft/articles/weft.html).
 

@@ -1,0 +1,96 @@
+url: https://vorpalvorpal.github.io/weft/
+
+template:
+  bootstrap: 5
+
+navbar:
+  structure:
+    left: [intro, reference, articles]
+    right: [search, github]
+
+articles:
+  - title: Writing
+    navbar: Writing
+    contents:
+      - values
+      - wording
+      - units
+      - targets
+  - title: Checking
+    navbar: Checking
+    contents:
+      - lints
+      - gate
+  - title: Projects
+    navbar: Projects
+    contents:
+      - setup
+      - agents
+
+reference:
+  - title: Activating weft
+    contents:
+      - weft_setup
+
+  - title: Values in prose
+    desc: Format computed values, with or without units.
+    contents:
+      - fmt
+      - fmt_unit
+      - u
+      - unit_defaults
+      - weft_str
+      - glue_vec
+
+  - title: Wording that depends on values
+    contents:
+      - plural
+      - lookup
+      - phrases
+      - claim
+
+  - title: Checking wording
+    desc: See which arms a document can choose, and what the last knit did.
+    contents:
+      - arms
+      - rehearse
+      - last_knit
+
+  - title: The dictionary
+    contents:
+      - dict_file
+      - read_dict
+      - weft_dict
+      - weft_year
+      - dict_glossary
+      - dict_seed
+      - dict_vale
+
+  - title: targets pipelines
+    contents:
+      - tar_dict
+      - tar_dict_deps
+
+  - title: Static lints
+    contents:
+      - lints
+      - lint_rules
+      - label_seed
+      - recall_check
+
+  - title: Commit gate and release checks
+    contents:
+      - gate
+      - changes
+      - verify
+      - status
+
+  - title: Setting up a project
+    contents:
+      - use_weft
+      - use_setup
+      - use_quarto
+      - use_dictionary
+      - use_hooks
+      - use_ci
+      - use_agent_docs
