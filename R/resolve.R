@@ -551,7 +551,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   starts_sentence <- function(st) {
     if (first_ink < 0L || first_ink >= st) return(TRUE)
     k <- sum(nlpos < st)
-    pre <- substr(text, if (k >= 2L) nlpos[k - 1L] + 1L else 1L, st - 1L)
+    pre <- substr(text, if (k >= 2L) nlpos[k - 1L] else 1L, st - 1L)
     # after the end of a sentence
     if (grepl("[.?!][]\"')*_~]*[ \t\n]+$", pre)) return(TRUE)
     # a new paragraph
