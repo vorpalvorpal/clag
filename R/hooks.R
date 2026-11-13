@@ -332,8 +332,7 @@ front_matter_lines <- function(path) {
 read_front_matter <- function(path) {
   fl <- front_matter_lines(path)
   if (is.null(fl)) return(list())
-  y <- tryCatch(yaml::yaml.load(paste(fl, collapse = "\n"), eval.expr = FALSE),
-                error = function(e) list())
+  y <- tryCatch(yaml_read_text(fl), error = function(e) list())
   if (is.list(y)) y else list()
 }
 
@@ -369,7 +368,7 @@ document_lang <- function(front, path) {
   info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
   if (nzchar(info) && file.exists(info)) {
     # JSON is read as YAML flow style: yaml is an import, jsonlite is not
-    x <- tryCatch(yaml::yaml.load_file(info, eval.expr = FALSE), error = function(e) NULL)
+    x <- tryCatch(yaml_read_file(info), error = function(e) NULL)
     l <- one(x$format$metadata$lang)
     if (!is.null(l)) return(l)
     if (!is.null(x)) return("")

@@ -51,7 +51,7 @@ bibtex_keys <- function(txt) {
 # read has no keys.
 read_bib_keys <- function(path) {
   ext <- tolower(tools::file_ext(path))
-  txt <- tryCatch(paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n"),
+  txt <- tryCatch(read_source_text(path),
                   error = function(e) NA_character_)
   if (is.na(txt)) return(character())
   ids_of <- function(refs) {
@@ -66,7 +66,7 @@ read_bib_keys <- function(path) {
     return(bibtex_keys(txt))
   }
   if (ext == "json") {
-    x <- tryCatch(yaml::yaml.load(txt, eval.expr = FALSE), error = function(e) NULL)
+    x <- tryCatch(yaml_read_text(txt), error = function(e) NULL)
     if (is.null(x) && requireNamespace("jsonlite", quietly = TRUE)) {
       x <- tryCatch(jsonlite::fromJSON(txt, simplifyVector = FALSE), error = function(e) NULL)
     }
@@ -74,7 +74,7 @@ read_bib_keys <- function(path) {
     return(ids_of(x))
   }
   if (ext %in% c("yaml", "yml")) {
-    x <- tryCatch(yaml::yaml.load(txt, eval.expr = FALSE), error = function(e) NULL)
+    x <- tryCatch(yaml_read_text(txt), error = function(e) NULL)
     if (is.list(x) && !is.null(names(x)) && !is.null(x$references)) x <- x$references
     return(ids_of(x))
   }
@@ -102,7 +102,7 @@ metadata_bibliography <- function(meta) {
 quarto_metadata <- function(path) {
   info <- Sys.getenv("QUARTO_EXECUTE_INFO", "")
   if (nzchar(info) && file.exists(info)) {
-    x <- tryCatch(yaml::yaml.load_file(info, eval.expr = FALSE), error = function(e) NULL)
+    x <- tryCatch(yaml_read_file(info), error = function(e) NULL)
     if (!is.null(x)) return(x$format$metadata)
   }
   if (!is.null(path) && !is.na(path) && requireNamespace("quarto", quietly = TRUE)) {

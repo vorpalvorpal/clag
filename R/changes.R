@@ -118,19 +118,6 @@ sentence_claim <- function(sentence, text) {
 
 # ---- git, read only (C1, C3) -------------------------------------------------------
 
-git_path <- function() unname(Sys.which("git"))
-
-changes_git <- function(root, args) {
-  git <- git_path()
-  if (!nzchar(git)) return(NULL)
-  out <- suppressWarnings(tryCatch(
-    system2(git, c("-C", shQuote(root), args), stdout = TRUE, stderr = FALSE),
-    error = function(e) NULL))
-  st <- attr(out, "status")
-  if (is.null(out) || (!is.null(st) && st != 0L)) return(NULL)
-  as.character(out)
-}
-
 changes_abort <- function(msg) weft_abort(msg, "weft_changes_error")
 
 # ---- reading the two sides (C3, C4) ---------------------------------------------------
@@ -145,31 +132,8 @@ ledger_paths_now <- function(root) {
   sort(paste0("_weft/ledger/", f), method = "radix")
 }
 
-# git's NUL-separated output, which system2() cannot return, read through a temporary
-# file outside the project.
-changes_git_z <- function(root, args) {
-  git <- git_path()
-  if (!nzchar(git)) return(NULL)
-  tmp <- tempfile()
-  on.exit(unlink(tmp), add = TRUE)
-  st <- suppressWarnings(tryCatch(
-    system2(git, c("-C", shQuote(root), args), stdout = tmp, stderr = FALSE),
-    error = function(e) 1L))
-  if (!identical(as.integer(st), 0L) || !file.exists(tmp)) return(NULL)
-  b <- readBin(tmp, "raw", file.size(tmp))
-  if (!length(b)) return(character())
-  z <- which(b == as.raw(0L))
-  start <- c(1L, z + 1L)
-  end <- c(z - 1L, length(b))
-  ok <- which(end >= start)
-  out <- vapply(ok, function(i) rawToChar(b[start[i]:end[i]]), "")
-  Encoding(out) <- "UTF-8"
-  out
-}
-
 ledger_paths_then <- function(root, commit) {
-  out <- changes_git_z(root, c("-c", "core.quotepath=false", "ls-tree", "-r", "-z", "--name-only", commit,
-                               "--", "_weft/ledger"))
+  out <- git_records(root, c("ls-tree", "-r", "-z", "--name-only", commit, "--", "_weft/ledger"))
   if (is.null(out)) return(character())
   f <- enc2utf8(out[grepl("\\.jsonl$", out) & !grepl("\\.conditions\\.jsonl$", out)])
   sort(f, method = "radix")
@@ -182,7 +146,7 @@ read_side <- function(root, path, commit = NULL) {
   get <- function(p) {
     if (is.null(commit)) {
       fp <- file.path(root, p)
-      if (file.exists(fp)) read_lines_utf8(fp) else NULL
+      if (file.exists(fp)) read_source_lines(fp) else NULL
     } else git_show(root, p, commit)
   }
   lines <- get(path)
@@ -589,15 +553,15 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   if (!nzchar(git_path())) {
     changes_abort("changes() needs git: git is not on the path (rule 7.3.1).")
   }
-  if (!identical(changes_git(root, c("rev-parse", "--is-inside-work-tree")), "true")) {
+  if (!identical(git_lines(root, c("rev-parse", "--is-inside-work-tree")), "true")) {
     changes_abort(sprintf("changes() needs git: %s is not inside a git work tree (rule 7.3.1).", root))
   }
-  rv <- changes_git(root, c("rev-parse", "--verify", "-q", shQuote(paste0(since, "^{commit}"))))
+  rv <- git_lines(root, c("rev-parse", "--verify", "-q", paste0(since, "^{commit}")))
   commit <- NA_character_
   if (!is.null(rv) && length(rv)) {
     commit <- rv[[1L]]
   } else {
-    head_ok <- !is.null(changes_git(root, c("rev-parse", "--verify", "-q", "HEAD")))
+    head_ok <- !is.null(git_lines(root, c("rev-parse", "--verify", "-q", "HEAD")))
     if (!(identical(since, "HEAD") && !head_ok)) {
       changes_abort(sprintf("`since`: %s is not a commit (rule 7.3.1).", since))
     }
@@ -727,7 +691,7 @@ changes <- function(since = "HEAD", path = ".", files = NULL) {
   attr(res, "whole") <- whole
   # `git check-ignore -q` (read only): ledgers that git ignores are never at a commit
   probe <- if (length(now_p)) now_p[[1L]] else "_weft/ledger/"
-  ignored <- !is.null(changes_git(root, c("check-ignore", "-q", shQuote(probe))))
+  ignored <- !is.null(git_lines(root, c("check-ignore", "-q", probe)))
   attr(res, "notes") <- c(if (ignored)
     "_weft/ledger/ is ignored by git, so no ledger can be found at a commit and all are new", t2$notes)
   class(res) <- "weft_changes"

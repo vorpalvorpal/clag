@@ -31,7 +31,7 @@ sort_names <- function(x) {
 # each entry's YAML mapping (names sorted at every level) without the fields that
 # print nothing in prose.
 dict_entry_hashes <- function(path) {
-  y <- yaml::read_yaml(path)
+  y <- yaml_read_file(path)
   if (!length(y)) return(stats::setNames(character(), character()))
   vapply(y, function(e) {
     if (is.list(e)) e <- sort_names(e[setdiff(names(e), DICT_DOC_FIELDS)])

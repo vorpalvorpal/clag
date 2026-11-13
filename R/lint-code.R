@@ -815,7 +815,7 @@ target_reads <- function(p) {
 
 tar_default_store <- function(ctx) {
   f <- file.path(ctx$root, "_targets.yaml")
-  y <- if (file.exists(f)) tryCatch(yaml::read_yaml(f, eval.expr = FALSE), error = function(e) NULL) else NULL
+  y <- if (file.exists(f)) tryCatch(yaml_read_file(f), error = function(e) NULL) else NULL
   s <- if (is.list(y) && is.list(y$main)) y$main$store else NULL
   if (is.character(s) && length(s) == 1L && !is.na(s) && nzchar(s)) s else "_targets"
 }
@@ -892,11 +892,12 @@ file_cache <- function(src, ctx) {
     if (d %in% c(".", "")) break
     d <- dirname(d)
   }
-  files <- c(file.path(ctx$root, ifelse(dirs == ".", "", dirs), "_metadata.yml"), file.path(ctx$root, "_quarto.yml"))
+  files <- c(as.vector(t(outer(file.path(ctx$root, ifelse(dirs == ".", "", dirs)), METADATA_MARKERS, file.path))),
+             file.path(ctx$root, QUARTO_MARKERS))
   files <- gsub("//+", "/", files)
   for (f in files) {
     if (!file.exists(f)) next
-    y <- tryCatch(yaml::read_yaml(f, eval.expr = FALSE), error = function(e) NULL)
+    y <- tryCatch(yaml_read_file(f), error = function(e) NULL)
     v <- yaml_cache(y)
     if (!is.na(v)) return(v)
   }
@@ -1048,8 +1049,8 @@ dict_file_keys <- function(ctx) {
   f <- file.path(ctx$root, "dict.yml")
   res <- list(exists = file.exists(f), ok = TRUE, keys = character())
   if (res$exists) {
-    y <- tryCatch(yaml::read_yaml(f, eval.expr = FALSE), error = function(e) NULL)
-    if (is.null(y) && length(readLines(f, warn = FALSE, n = 1L))) {
+    y <- tryCatch(yaml_read_file(f), error = function(e) NULL)
+    if (is.null(y) && length(read_source_lines(f))) {
       res$ok <- FALSE
       ctx$note("dict-key: dict.yml could not be read, so dictionary keys were not checked (rule 5.8.6).")
     } else if (is.list(y)) {
@@ -1110,7 +1111,7 @@ lint_above_setup <- function(src, ctx) {
   if (is.list(fm) && is.list(fm$opts_knit) && !is.null(fm$opts_knit$weft)) return(new_findings())
   rp <- file.path(ctx$root, ".Rprofile")
   if (file.exists(rp)) {
-    txt <- tryCatch(paste(readLines(rp, warn = FALSE), collapse = "\n"), error = function(e) "")
+    txt <- tryCatch(read_source_text(rp), error = function(e) "")
     if (grepl("weft_setup[ \t]*\\(", txt)) return(new_findings())
   }
   open <- ch$open[which(calls)[1L]]

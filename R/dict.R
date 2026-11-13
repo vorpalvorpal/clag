@@ -22,8 +22,7 @@ dict_abort <- function(message, class = "weft_dict_error") weft_abort(message, c
 dict_parse <- function(lines) {
   withCallingHandlers(
     tryCatch(
-      yaml::yaml.load(paste(lines, collapse = "\n"), handlers = dict_yaml_handlers(),
-                      eval.expr = FALSE),
+      yaml_read_text(lines, handlers = dict_yaml_handlers()),
       error = function(e) structure(list(), yaml_error = conditionMessage(e))),
     warning = function(w) {
       if (grepl("Empty character vector used as a list name", conditionMessage(w), fixed = TRUE)) {
@@ -167,8 +166,7 @@ read_dict <- function(path = "dict.yml") {
                        if (is.character(path) && length(path) == 1L && !is.na(path))
                          paste0("`", path, "`") else "something else"))
   }
-  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
-  if (length(lines)) lines[1L] <- sub("^\ufeff", "", lines[1L])
+  lines <- read_source_lines(path, "weft_dict_error")
   prep <- dict_prepare(lines)
   build_dict(dict_parse(prep$lines), path, "project", lines = lines, prep = prep)
 }
@@ -232,8 +230,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     if (is.null(raw2)) {
       h <- list(seq = function(x) structure(as.list(x), class = "weft_seq"),
                 "bool#yes" = mark_bool, "bool#no" = mark_bool)
-      raw2 <<- tryCatch(yaml::yaml.load(paste(prep$lines, collapse = "\n"), handlers = h,
-                                        eval.expr = FALSE), error = function(e) list())
+      raw2 <<- tryCatch(yaml_read_text(prep$lines, handlers = h), error = function(e) list())
       if (length(raw2) != length(raw)) raw2 <<- list()
     }
     e2 <- raw2[[i]]
@@ -247,9 +244,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     if (is.null(wr)) {
       h <- c(dict_yaml_handlers(),
              list("float#fix" = function(x) structure(as.numeric(x), decimals = text_decimals(x))))
-      y <- tryCatch(suppressWarnings(yaml::yaml.load(paste(prep$lines, collapse = "\n"), handlers = h,
-                                                     eval.expr = FALSE)),
-                    error = function(e) list())
+      y <- tryCatch(suppressWarnings(yaml_read_text(prep$lines, handlers = h)), error = function(e) list())
       if (scope != "project") y <- if (is.list(y) && is.list(y$weft)) y$weft$dict_local else list()
       wr <<- if (is.list(y) && length(y) == length(raw)) y else list()
     }

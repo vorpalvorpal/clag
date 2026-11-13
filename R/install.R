@@ -14,14 +14,6 @@ inst_file <- function(...) {
 }
 
 
-# lines written with a newline after each, on every platform (a shell script
-# must not get CRLF)
-write_lines_lf <- function(x, path, eol = "\n") {
-  con <- file(path, "wb")
-  on.exit(close(con), add = TRUE)
-  writeLines(x, con, sep = eol, useBytes = TRUE)
-}
-
 # The line ending an existing text file uses: "\r\n" when most of its lines end so, else "\n" (also for a
 # file that is not there). An installer that rewrites a file the author wrote keeps it (review 4, #16).
 file_eol <- function(path) {
@@ -91,7 +83,7 @@ FOREIGN_TEXT <- "not written by weft (no weft-file line); left as it is"
 # new, keep, replace, edited, foreign
 whole_state <- function(path, new, fn, exec = FALSE) {
   if (!file.exists(path)) return("new")
-  old <- read_lines_utf8(path)
+  old <- read_source_lines(path)
   m <- marker_parse(old, fn)
   if (is.null(m)) return("foreign")
   if (!m$valid) return("edited")
@@ -108,7 +100,7 @@ is_executable <- function(path) {
 # missing, foreign, edited, outdated, ok
 file_status <- function(path, fn) {
   if (!file.exists(path)) return("missing")
-  m <- marker_parse(read_lines_utf8(path), fn)
+  m <- marker_parse(read_source_lines(path), fn)
   if (is.null(m)) return("foreign")
   if (!m$valid) return("edited")
   if (!identical(m$version, weft_version_string())) "outdated" else "ok"
@@ -165,7 +157,7 @@ write_items <- function(items) {
   for (w in items) {
     if (is.null(w$new)) next
     dir.create(dirname(w$path), showWarnings = FALSE, recursive = TRUE)
-    ok <- tryCatch({ write_lines_lf(w$new, w$path, w$eol %||% "\n"); TRUE },
+    ok <- tryCatch({ write_lines_atomic(w$new, w$path, w$eol %||% "\n"); TRUE },
                    error = function(e) FALSE, warning = function(e) FALSE)
     if (!ok || !file.exists(w$path)) {
       tool_abort(sprintf("weft could not write %s. %s", w$path,
@@ -194,34 +186,34 @@ finish_install <- function(done, what) {
 
 # list(ok, reason, top): is `root` inside a git work tree
 git_state <- function(root) {
-  if (!nzchar(Sys.which("git"))) {
+  if (!nzchar(git_path())) {
     return(list(ok = FALSE, reason = "git was not found on the PATH"))
   }
-  r <- gate_g(root, c("rev-parse", "--is-inside-work-tree"))
+  r <- git_raw(root, c("rev-parse", "--is-inside-work-tree"))
   if (!identical(r$status, 0L) || !identical(trimws(paste(raw_lines(r$out), collapse = "")), "true")) {
     return(list(ok = FALSE, reason = "not a git repository"))
   }
-  t <- gate_g(root, c("rev-parse", "--show-toplevel"))
+  t <- git_raw(root, c("rev-parse", "--show-toplevel"))
   top <- trimws(paste(raw_lines(t$out), collapse = ""))
   list(ok = TRUE, reason = NA_character_, top = normalizePath(top, winslash = "/", mustWork = FALSE))
 }
 
 # a folder git reports relative to `root`, made absolute
 git_dir_of <- function(root, args) {
-  r <- gate_g_ok(root, args)
+  r <- git_ok(root, args)
   p <- trimws(paste(raw_lines(r$out), collapse = ""))
   if (!grepl("^(/|[A-Za-z]:)", p)) p <- file.path(root, p)
   normalizePath(p, winslash = "/", mustWork = FALSE)
 }
 
 git_hooks_path_set <- function(root) {
-  r <- gate_g(root, c("config", "--get", "core.hooksPath"))
+  r <- git_raw(root, c("config", "--get", "core.hooksPath"))
   identical(r$status, 0L) && nzchar(trimws(paste(raw_lines(r$out), collapse = "")))
 }
 
 # the URL of `origin`, or NA
 git_origin <- function(root) {
-  r <- gate_g(root, c("remote", "get-url", "origin"))
+  r <- git_raw(root, c("remote", "get-url", "origin"))
   if (!identical(r$status, 0L)) return(NA_character_)
   trimws(paste(raw_lines(r$out), collapse = ""))
 }

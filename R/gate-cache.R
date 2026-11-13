@@ -56,13 +56,11 @@ cache_put <- function(cache, layer, key, value) {
     }
     cache$ready <- TRUE
   }
-  tmp <- tempfile(".tmp-", tmpdir = cache$dir)
   done <- tryCatch({
-    saveRDS(list(layer = layer, value = value), tmp, compress = FALSE)
-    file.rename(tmp, cache_path(cache, layer, key))
+    write_rds_atomic(list(layer = layer, value = value), cache_path(cache, layer, key), compress = FALSE)
+    TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE)
   if (!isTRUE(done)) {
-    unlink(tmp)
     cache_disable(cache, sprintf("%s cannot be written", cache$dir))
   }
   invisible()

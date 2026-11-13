@@ -11,7 +11,7 @@
 recorded_version <- function(root) {
   f <- file.path(root, "_weft.yml")
   if (!file.exists(f) || dir.exists(f)) return(NA_character_)
-  x <- readLines(f, warn = FALSE, encoding = "UTF-8")
+  x <- read_source_lines(f)
   i <- grep("^weft_version\\s*:", x)
   if (!length(i)) return(NA_character_)
   v <- trimws(sub("^weft_version\\s*:", "", x[i[1]]))
@@ -101,9 +101,9 @@ use_setup <- function(path = ".", route = c("auto", "rprofile", "front-matter"))
     dir.create(dirname(w$path), showWarnings = FALSE, recursive = TRUE)
     ok <- tryCatch({
       if (!is.null(w$copy_from)) {
-        isTRUE(file.copy(w$copy_from, w$path, overwrite = TRUE))
+        copy_atomic(w$copy_from, w$path)
       } else {
-        write_lines_lf(w$new, w$path, w$eol)
+        write_lines_atomic(w$new, w$path, w$eol)
         TRUE
       }
     }, error = function(e) FALSE, warning = function(w) FALSE)
@@ -124,16 +124,6 @@ use_setup <- function(path = ".", route = c("auto", "rprofile", "front-matter"))
 is_link <- function(p) {
   l <- suppressWarnings(Sys.readlink(p))
   !is.na(l) && nzchar(l)
-}
-
-find_quarto_root <- function(start) {
-  p <- start
-  repeat {
-    if (any(file.exists(file.path(p, c("_quarto.yml", "_quarto.yaml"))))) return(p)
-    up <- dirname(p)
-    if (identical(up, p)) return(NULL)
-    p <- up
-  }
 }
 
 doc_kind <- function(f) {
@@ -158,12 +148,7 @@ setup_plan <- function(path, route) {
   if (route == "auto") route <- if (in_quarto) "rprofile" else "front-matter"
 
   docs <- if (single) path else {
-    f <- list.files(path, pattern = "\\.(qmd|Rmd|rmd)$", recursive = TRUE,
-                    full.names = FALSE, all.files = TRUE)
-    skip <- vapply(strsplit(f, "/", fixed = TRUE), function(p) {
-      any(grepl("^[_.]", p)) || any(p[-length(p)] %in% c("renv", "packrat", "node_modules"))
-    }, NA)
-    file.path(path, f[!skip])
+    file.path(path, project_doc_paths(path, "setup"))
   }
   rel <- function(p) {
     pre <- paste0(root, "/")
@@ -187,7 +172,7 @@ setup_plan <- function(path, route) {
                                 "Nothing was written."), p))
     }
   }
-  read <- function(p) readLines(p, warn = FALSE, encoding = "UTF-8")
+  read <- read_source_lines
 
   # .Rprofile
   if (route == "rprofile") {
@@ -282,8 +267,7 @@ fm_unsafe <- function(reason, hand) {
 }
 
 fm_parse <- function(fm) {
-  y <- yaml::yaml.load(paste(c(fm, ""), collapse = "\n"), eval.expr = FALSE,
-                       handlers = list(expr = function(x) paste0("!expr ", x)))
+  y <- yaml_read_text(c(fm, ""), handlers = list(expr = function(x) paste0("!expr ", x)))
   if (is.null(y)) list() else y
 }
 

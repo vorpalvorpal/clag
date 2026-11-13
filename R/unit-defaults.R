@@ -203,7 +203,7 @@ unit_defaults_file <- function() system.file("weft-units.yml", package = "weft")
 # redefines).
 unit_default_rows <- function() {
   if (!is.null(ud_state$rows)) return(ud_state$rows)
-  y <- yaml::read_yaml(unit_defaults_file())$units
+  y <- yaml_read_file(unit_defaults_file())$units
   rows <- lapply(names(y), function(k) {
     e <- y[[k]]
     is <- if (!is.null(e[["is"]])) as.character(e[["is"]]) else NULL

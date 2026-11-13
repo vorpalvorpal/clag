@@ -9,55 +9,6 @@ gate_abort <- function(message) weft_abort(message, "weft_gate_error")
 GATE_CONTENT_RE <- "\\.(qmd|Rmd|rmd|md|yml|yaml|json|bib|bibtex)$"
 GATE_MAX_BYTES <- 5 * 1024 * 1024
 
-# Run git in `dir`. Returns `list(status, out (raw), err (character))`.
-gate_g <- function(dir, args, input = NULL) {
-  git <- Sys.which("git")
-  if (!nzchar(git)) {
-    gate_abort("git was not found on the PATH, so the commit gate cannot read the commit (rule 6.1.1).")
-  }
-  out <- tempfile("weft-git-out-")
-  err <- tempfile("weft-git-err-")
-  on.exit(unlink(c(out, err)), add = TRUE)
-  full <- c("-C", dir, "-c", "core.quotepath=false", args)
-  st <- suppressWarnings(system2(git, shQuote(full), stdout = out, stderr = err, input = input,
-                                 env = "GIT_OPTIONAL_LOCKS=0"))
-  st <- if (is.null(st)) 0L else as.integer(st)
-  list(status = st,
-       out = readBin(out, "raw", max(file.size(out), 0, na.rm = TRUE)),
-       err = suppressWarnings(readLines(err, warn = FALSE)))
-}
-
-# git must succeed, else a weft_gate_error naming the command
-gate_g_ok <- function(dir, args, input = NULL) {
-  r <- gate_g(dir, args, input)
-  if (!identical(r$status, 0L)) {
-    gate_abort(paste0("git ", paste(args[seq_len(min(2L, length(args)))], collapse = " "), " failed",
-                      if (length(r$err)) paste0(": ", paste(r$err, collapse = " ")) else "", "."))
-  }
-  r
-}
-
-raw_lines <- function(x) {
-  s <- rawToChar(x)
-  Encoding(s) <- "UTF-8"
-  if (!nzchar(s)) return(character())
-  strsplit(sub("\n$", "", s), "\n", fixed = TRUE)[[1L]]
-}
-
-# NUL-terminated records of a raw vector, as UTF-8 strings
-raw_records <- function(x) {
-  if (!length(x)) return(character())
-  z <- which(x == as.raw(0L))
-  st <- c(1L, z + 1L)
-  en <- c(z - 1L, length(x))
-  keep <- st <= length(x) & en >= st
-  vapply(which(keep), function(i) {
-    s <- rawToChar(x[st[i]:en[i]])
-    Encoding(s) <- "UTF-8"
-    s
-  }, "")
-}
-
 # ---- the repository ---------------------------------------------------------------------------------
 
 # top, git directory and common git directory of the work tree `path` is in
@@ -65,7 +16,7 @@ git_where <- function(path) {
   if (!is.character(path) || length(path) != 1L || is.na(path) || !nzchar(path)) {
     gate_abort("`path` must be one folder inside a git work tree (rule 6.1.1).")
   }
-  r <- gate_g(path, c("rev-parse", "--path-format=absolute", "--show-toplevel", "--absolute-git-dir",
+  r <- git_raw(path, c("rev-parse", "--path-format=absolute", "--show-toplevel", "--absolute-git-dir",
                        "--git-common-dir"))
   if (!identical(r$status, 0L)) {
     gate_abort(paste0(path, " is not inside a git work tree, so there is no commit to gate (rule 6.1.1)."))
@@ -77,7 +28,7 @@ git_where <- function(path) {
 
 # the commit HEAD names, or NA when it is unborn
 git_head <- function(top) {
-  r <- gate_g(top, c("rev-parse", "-q", "--verify", "HEAD^{commit}"))
+  r <- git_raw(top, c("rev-parse", "-q", "--verify", "HEAD^{commit}"))
   if (!identical(r$status, 0L)) return(NA_character_)
   trimws(raw_lines(r$out)[1L])
 }
@@ -86,7 +37,7 @@ git_head <- function(top) {
 git_merge_heads <- function(gitdir) {
   f <- file.path(gitdir, "MERGE_HEAD")
   if (!file.exists(f)) return(character())
-  h <- trimws(readLines(f, warn = FALSE))
+  h <- trimws(read_source_lines(f))
   h[nzchar(h)]
 }
 
@@ -103,7 +54,7 @@ split_meta <- function(rec) {
 
 # the tracked paths of a commit, with modes and blob ids (all of the repository)
 git_entries_commit <- function(top, commit) {
-  r <- gate_g_ok(top, c("ls-tree", "-r", "-z", "--full-tree", commit))
+  r <- git_ok(top, c("ls-tree", "-r", "-z", "--full-tree", commit))
   rec <- raw_records(r$out)
   if (!length(rec)) return(gate_empty_entries())
   s <- split_meta(rec)
@@ -114,7 +65,7 @@ git_entries_commit <- function(top, commit) {
 
 # the tracked paths of the index (stage 0), the inherited GIT_INDEX_FILE deciding which
 git_entries_index <- function(top) {
-  r <- gate_g_ok(top, c("ls-files", "-s", "-z"))
+  r <- git_ok(top, c("ls-files", "-s", "-z"))
   rec <- raw_records(r$out)
   if (!length(rec)) return(gate_empty_entries())
   s <- split_meta(rec)
@@ -129,7 +80,7 @@ git_entries_index <- function(top) {
 git_sizes <- function(top, blobs) {
   blobs <- unique(blobs)
   if (!length(blobs)) return(stats::setNames(integer(), character()))
-  r <- gate_g_ok(top, c("cat-file", "--batch-check"), input = blobs)
+  r <- git_ok(top, c("cat-file", "--batch-check"), input = blobs)
   ln <- raw_lines(r$out)
   p <- strsplit(ln, " ", fixed = TRUE)
   ids <- vapply(p, `[`, "", 1L)
@@ -141,7 +92,7 @@ git_sizes <- function(top, blobs) {
 git_blobs <- function(top, blobs) {
   blobs <- unique(blobs)
   if (!length(blobs)) return(list())
-  r <- gate_g_ok(top, c("cat-file", "--batch"), input = blobs)
+  r <- git_ok(top, c("cat-file", "--batch"), input = blobs)
   x <- r$out
   n <- length(x)
   out <- list()
@@ -166,15 +117,7 @@ git_blobs <- function(top, blobs) {
 # ---- classifying a project's side (G6-G8) -------------------------------------------------------------
 
 # a document of L3's file set, by its path relative to the project root
-is_doc_path <- function(rel) {
-  ext <- grepl("\\.(qmd|Rmd|rmd)$", rel)
-  d <- dirname(rel)
-  skip <- vapply(strsplit(d, "/", fixed = TRUE), function(p) {
-    p <- p[p != "."]
-    any(startsWith(p, "_") | startsWith(p, ".") | p == "renv")
-  }, NA)
-  ext & !skip
-}
+is_doc_path <- function(rel) grepl(DOC_EXT_RE, rel) & doc_path_ok(rel, "lint")
 
 is_content_path <- function(rel) grepl(GATE_CONTENT_RE, rel) | basename(rel) == ".Rprofile"
 
@@ -184,7 +127,7 @@ store_dirs <- function(top, ent) {
   i <- match("_targets.yaml", ent$rel)
   if (!is.na(i) && ent$mode[i] %in% c("100644", "100755")) {
     b <- git_blobs(top, ent$blob[i])[[ent$blob[i]]]
-    y <- if (length(b)) tryCatch(yaml::read_yaml(text = rawToChar(b)), error = function(e) NULL) else NULL
+    y <- if (length(b)) tryCatch(yaml_read_text(rawToChar(b)), error = function(e) NULL) else NULL
     v <- tryCatch(y$main$store, error = function(e) NULL)
     if (is.character(v) && length(v) == 1L && nzchar(v)) s <- c(s, sub("/+$", "", sub("^\\./", "", v)))
   }
@@ -194,7 +137,7 @@ store_dirs <- function(top, ent) {
 # Added lines of a document (G16): the lines `base` -> `new` added, or TRUE for every line.
 git_added_lines <- function(top, base_blob, new_blob) {
   if (is.na(base_blob) || !nzchar(base_blob)) return(TRUE)
-  r <- gate_g(top, c("diff", "-U0", "--no-color", "--no-ext-diff", base_blob, new_blob))
+  r <- git_raw(top, c("diff", "-U0", "--no-color", "--no-ext-diff", base_blob, new_blob))
   if (!identical(r$status, 0L) && !identical(r$status, 1L)) return(TRUE)
   ln <- raw_lines(r$out)
   h <- regmatches(ln, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", ln, perl = TRUE))
@@ -216,7 +159,7 @@ git_trailer <- function(top, message) {
   if (!is.character(message) || length(message) != 1L || is.na(message) || !file.exists(message)) {
     gate_abort("`message` must be NULL or the path of a commit message file (rule 6.1.2).")
   }
-  r <- gate_g_ok(top, c("interpret-trailers", "--parse", normalizePath(message, winslash = "/")))
+  r <- git_ok(top, c("interpret-trailers", "--parse", normalizePath(message, winslash = "/")))
   ln <- raw_lines(r$out)
   m <- regmatches(ln, regexec("^[Ww][Ee][Ff][Tt]-[Rr][Ee][Mm][Oo][Vv][Ee][Dd][ \t]*:[ \t]*(.*)$", ln))
   m <- Filter(length, m)

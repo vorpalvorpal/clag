@@ -101,20 +101,10 @@ with_attrs <- function(r, a) {
 
 # ---- the file -------------------------------------------------------------------
 
-read_raw_text <- function(path) {
-  bytes <- readBin(path, "raw", file.info(path)$size)
-  if (length(bytes) >= 3L && identical(bytes[1:3], as.raw(c(0xEF, 0xBB, 0xBF)))) bytes <- bytes[-(1:3)]
-  if (any(bytes == as.raw(0L))) return(NULL)
-  text <- rawToChar(bytes)
-  Encoding(text) <- "UTF-8"
-  if (!validUTF8(text)) return(NULL)
-  gsub("\r\n", "\n", text, fixed = TRUE)
-}
-
 lint_rel_path <- function(path, root) {
   p <- normalizePath(path, winslash = "/", mustWork = FALSE)
   r <- normalizePath(root, winslash = "/", mustWork = FALSE)
-  if (startsWith(p, paste0(r, "/"))) substring(p, nchar(r) + 2L) else p
+  enc2utf8(if (startsWith(p, paste0(r, "/"))) substring(p, nchar(r) + 2L) else p)
 }
 
 # All the fenced blocks: open and close lines, and the text after the fence.
@@ -149,7 +139,7 @@ fence_blocks <- function(lines, inmeta) {
 
 # YAML read for the lints: `!expr` kept as text, nothing evaluated.
 yaml_text <- function(x) {
-  tryCatch(yaml::yaml.load(x, eval.expr = FALSE), error = function(e) NULL)
+  tryCatch(yaml_read_text(x), error = function(e) NULL)
 }
 
 # ---- chunks ---------------------------------------------------------------------
@@ -925,7 +915,7 @@ build_blocks <- function(S) {
 read_source <- function(path, root, cfg) {
   rel <- lint_rel_path(path, root)
   ext <- sub("^.*\\.", "", basename(path))
-  text <- read_raw_text(path)
+  text <- read_source_text_or_null(path)
   if (is.null(text)) {
     return(structure(list(file = rel, path = path, ext = ext, invalid = TRUE, cfg = cfg, text = "",
                           lines = character(), line_start = numeric()), class = "weft_source"))
@@ -953,10 +943,10 @@ read_source <- function(path, root, cfg) {
   lang <- NA_character_
   if (is.character(front$lang) && length(front$lang) == 1L) lang <- front$lang
   if (is.na(lang)) {
-    qp <- file.path(root, c("_quarto.yml", "_quarto.yaml"))
+    qp <- file.path(root, QUARTO_MARKERS)
     qp <- qp[file.exists(qp)]
     if (length(qp)) {
-      y <- yaml_text(paste(readLines(qp[1L], warn = FALSE, encoding = "UTF-8"), collapse = "\n"))
+      y <- yaml_text(read_source_text_or_null(qp[1L]) %||% "")
       if (is.list(y) && is.character(y$lang) && length(y$lang) == 1L) lang <- y$lang
     }
   }

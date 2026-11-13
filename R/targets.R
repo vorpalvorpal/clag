@@ -672,7 +672,7 @@ document_children <- function(lines) {
     hit <- regmatches(body, regexec("^\\s*#\\|\\s*child:\\s*(.+?)\\s*$", body))
     for (h in hit) {
       if (length(h) == 2L) {
-        y <- tryCatch(yaml::yaml.load(h[2L], eval.expr = FALSE), error = function(e) NULL)
+        y <- tryCatch(yaml_read_text(h[2L]), error = function(e) NULL)
         if (is.character(y)) out <- c(out, y) else unresolved <- TRUE
       }
     }
@@ -685,16 +685,10 @@ document_children <- function(lines) {
 }
 
 # The Quarto project root of a document: the nearest folder above it (or its own)
-# that holds `_quarto.yml`, else the document's folder.
+# that holds `_quarto.yml` or `_quarto.yaml`, else the document's folder.
 quarto_root <- function(path) {
   d <- norm_path(dirname(path))
-  start <- d
-  repeat {
-    if (file.exists(file.path(d, "_quarto.yml")) || file.exists(file.path(d, "_quarto.yaml"))) return(d)
-    up <- dirname(d)
-    if (identical(up, d)) return(start)
-    d <- up
-  }
+  find_quarto_root(d) %||% d
 }
 
 BINARY_EXT <- c("png", "jpg", "jpeg", "gif", "bmp", "tif", "tiff", "webp", "ico", "pdf", "zip", "gz",
@@ -1000,7 +994,7 @@ upstream_targets <- function(root, set, store, dir) {
     all$stores[[skey]] <- list(sig = sig, script = script_rel, edges = edges)
     tryCatch({
       weft_state_dir(root, "targets")
-      saveRDS(all, cache)
+      write_rds_atomic(all, cache)
     }, error = function(e) NULL, warning = function(w) NULL)
   }
   up <- character()

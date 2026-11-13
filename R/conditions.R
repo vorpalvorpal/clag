@@ -148,14 +148,14 @@ record_chunk_conditions <- function(s, label, mine, opts, fails = list(), lrows 
     f <- paste0(hash, ".weft.rds")
     tryCatch({
       dir.create(dirname(f), showWarnings = FALSE, recursive = TRUE)
-      saveRDS(mine, f)
+      write_rds_atomic(mine, f)
       # the failures the chunk's code collected (a weft_str() that failed) are
       # kept with the cache, so that serving the chunk from it reports them
       # again, as the first knit did (2.9.1)
-      saveRDS(fails, paste0(hash, ".weft-failures.rds"))
+      write_rds_atomic(fails, paste0(hash, ".weft-failures.rds"))
       # the ledger rows the chunk's code recorded (a weft_str() string), replayed
       # with the conditions when the chunk is served from the cache (D22)
-      saveRDS(lrows, paste0(hash, ".weft-ledger.rds"))
+      write_rds_atomic(lrows, paste0(hash, ".weft-ledger.rds"))
     }, error = function(e) NULL, warning = function(w) NULL)
   }
   invisible()

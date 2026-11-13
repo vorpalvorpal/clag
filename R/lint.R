@@ -220,13 +220,9 @@ lint_config <- function(root, front = list()) {
   proj <- list()
   raw <- NULL
   if (file.exists(file)) {
-    proj <- tryCatch(yaml::read_yaml(file), error = function(e) {
-      weft_abort(paste0("Cannot read ", file, ": ", conditionMessage(e)), "weft_config_error")
-    }) %||% list()
-    if (!is.list(proj) || (length(proj) && is.null(names(proj)))) {
-      weft_abort(paste0(file, " must be a mapping of settings."), "weft_config_error")
-    }
-    raw <- tryCatch(yaml::read_yaml(file, handlers = list(seq = function(x) x)), error = function(e) NULL)
+    ws <- read_weft_yml(file)
+    proj <- ws$proj
+    raw <- ws$raw
     check_raw_scalars(raw)
   }
   w <- if (is.list(front)) front$weft else NULL
@@ -255,7 +251,7 @@ claim_lexicon <- function(cfg = default_config(), lang = NA_character_) {
   if (english) {
     if (is.null(lexicon_cache$words)) {
       p <- system.file("weft-claim-words.yml", package = "weft")
-      y <- yaml::read_yaml(p)
+      y <- yaml_read_file(p)
       lexicon_cache$words <- tolower(unlist(y, use.names = FALSE))
     }
     shipped <- lexicon_cache$words
@@ -268,25 +264,15 @@ claim_lexicon <- function(cfg = default_config(), lang = NA_character_) {
 
 # ---- the project's documents --------------------------------------------------------------------
 
-lint_files_under <- function(root, ext = "\\.(qmd|Rmd|rmd)$", underscore = FALSE) {
-  f <- list.files(root, pattern = ext, recursive = TRUE, include.dirs = FALSE)
-  if (!length(f)) return(character())
-  d <- dirname(f)
-  # `underscore = TRUE` gives only the documents in `_` folders (includes, partials) that are read for
-  # anchors but not linted; the folders Quarto writes to or reads from are never read
-  built <- c("_site", "_book", "_freeze", "_extensions")
-  skip <- vapply(strsplit(d, "/", fixed = TRUE), function(p) {
-    p <- p[p != "."]
-    hid <- any(startsWith(p, ".") | p == "renv" | p %in% built)
-    us <- any(startsWith(p, "_"))
-    if (underscore) hid || !us else hid || us
-  }, NA)
-  sort(enc2utf8(f[!skip]), method = "radix")
+# The documents the lints read: `underscore = TRUE` gives only the documents in
+# `_` folders (includes, partials), which are read for anchors but not linted.
+lint_files_under <- function(root, ext = DOC_EXT_RE, underscore = FALSE) {
+  project_doc_paths(root, if (underscore) "anchors" else "lint", ext)
 }
 
 # The front matter of a file, read cheaply (for its `weft:` settings).
 doc_front <- function(path) {
-  text <- tryCatch(read_raw_text(path), error = function(e) NULL)
+  text <- tryCatch(read_source_text_or_null(path), error = function(e) NULL)
   if (is.null(text) || !nzchar(text)) return(list())
   lines <- strsplit(text, "\n", fixed = TRUE)[[1L]]
   mb <- metadata_blocks(lines)

@@ -95,7 +95,7 @@ check_decisions <- function(dict, resolver = NULL, root = NULL, fetch = github_f
     f <- file.path(root, "_weft.yml")
     resolver <- "github"
     if (file.exists(f)) {
-      proj <- tryCatch(yaml::read_yaml(f), error = function(e) {
+      proj <- tryCatch(yaml_read_file(f), error = function(e) {
         weft_abort(paste0("Cannot read ", f, ": ", conditionMessage(e)), "weft_config_error")
       })
       if (is.list(proj) && "decisions" %in% names(proj) && !is.null(proj$decisions)) {
@@ -133,22 +133,20 @@ decisions_github <- function(ptr, route, root, fetch) {
     "no GitHub repository (%s); set decisions: github:<owner>/<repo> in _weft.yml", why)
   if (!is.null(route$owner)) {
     repo <- c(owner = route$owner, repo = route$repo)
-  } else if (!nzchar(Sys.which("git"))) {
+  } else if (!nzchar(git_path())) {
     fail(none("git is not installed")); return(gone())
   } else {
     # the remote of a repository that is the project's own, not of one that holds it
-    top <- suppressWarnings(system2("git", c("-C", shQuote(root), "rev-parse", "--show-toplevel"),
-                                    stdout = TRUE, stderr = FALSE))
-    if (is.null(attr(top, "status")) && length(top)) {
+    top <- git_lines(root, c("rev-parse", "--show-toplevel"))
+    if (length(top)) {
       top <- normalizePath(top[1L], mustWork = FALSE)
       here <- normalizePath(root, mustWork = FALSE)
       if (!identical(top, here) && !startsWith(top, paste0(sub("/+$", "", here), "/"))) {
         fail(none("the git repository above the project belongs to another project")); return(gone())
       }
     }
-    url <- suppressWarnings(system2("git", c("-C", shQuote(root), "remote", "get-url", "origin"),
-                                    stdout = TRUE, stderr = FALSE))
-    if (!is.null(attr(url, "status")) || !length(url)) {
+    url <- git_lines(root, c("remote", "get-url", "origin"))
+    if (!length(url)) {
       fail(none("no git remote `origin`")); return(gone())
     }
     repo <- parse_github_remote(url[1L])

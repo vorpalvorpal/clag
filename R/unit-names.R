@@ -122,9 +122,7 @@ ud_tables <- function() {
       try(suppressWarnings({
         f <- ud_tables_file(key)
         dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
-        tmp <- tempfile(tmpdir = dirname(f))
-        saveRDS(disk, tmp)
-        if (!file.rename(tmp, f)) unlink(tmp)
+        write_rds_atomic(disk, f)
       }), silent = TRUE)
     }
   }

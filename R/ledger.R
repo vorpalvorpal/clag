@@ -105,10 +105,6 @@ condition_line <- function(r) {
 
 # ---- the readers (D27) ------------------------------------------------------
 
-read_lines_utf8 <- function(file) {
-  readLines(file, warn = FALSE, encoding = "UTF-8")
-}
-
 chr1 <- function(x) {
   if (is.null(x) || !length(x) || is.na(x[[1L]])) NA_character_ else as.character(x[[1L]])
 }
@@ -192,14 +188,14 @@ parse_jsonl <- function(lines, kind, lenient = FALSE, what = "the file") {
 
 read_ledger <- function(file = NULL, lines = NULL, lenient = FALSE) {
   what <- if (!is.null(file)) file else "the ledger"
-  if (is.null(lines)) lines <- read_lines_utf8(file)
+  if (is.null(lines)) lines <- read_source_lines(file)
   p <- parse_jsonl(lines, "ledger", lenient, what)
   ledger_df(p$objs, p$header)
 }
 
 read_condition_log <- function(file = NULL, lines = NULL, lenient = FALSE) {
   what <- if (!is.null(file)) file else "the condition log"
-  if (is.null(lines)) lines <- read_lines_utf8(file)
+  if (is.null(lines)) lines <- read_source_lines(file)
   p <- parse_jsonl(lines, "conditions", lenient, what)
   condition_df(p$objs, p$header)
 }
@@ -212,28 +208,14 @@ ledger_paths <- function(root, source, output) {
 
 # ---- git (D19) --------------------------------------------------------------
 
-git_run <- function(root, args) {
-  git <- Sys.which("git")
-  if (!nzchar(git)) return(NULL)
-  out <- suppressWarnings(tryCatch(
-    system2(git, c("-C", shQuote(root), args), stdout = TRUE, stderr = FALSE),
-    error = function(e) NULL))
-  st <- attr(out, "status")
-  if (is.null(out) || (!is.null(st) && st != 0L)) return(NULL)
-  out
-}
-
 git_in_work_tree <- function(root) {
-  identical(git_run(root, c("rev-parse", "--is-inside-work-tree")), "true")
+  identical(git_lines(root, c("rev-parse", "--is-inside-work-tree")), "true")
 }
 
 # The lines of `path` (relative to `root`) at `rev`, or NULL: no git, no work
 # tree, or not in the revision.
 git_show <- function(root, path, rev = "HEAD") {
-  out <- git_run(root, c("show", shQuote(paste0(rev, ":./", path))))
-  if (is.null(out)) return(NULL)
-  Encoding(out) <- "UTF-8"
-  out
+  git_lines(root, c("show", paste0(rev, ":./", path)))
 }
 
 # ---- headings and sections (D10) ---------------------------------------------
@@ -910,19 +892,7 @@ write_whole_file <- function(path, lines) {
   # a warning from the file system is the reason, not a second condition (D26)
   reason <- NULL
   tryCatch(withCallingHandlers({
-    d <- dirname(path)
-    if (!dir.exists(d)) {
-      dir.create(d, recursive = TRUE)
-      if (!dir.exists(d)) stop("cannot create the folder ", d, call. = FALSE)
-    }
-    if (file.exists(path) && !dir.exists(path) &&
-        identical(readBin(path, "raw", file.size(path)), bytes)) return(NULL)
-    tmp <- file.path(d, sprintf(".%s.tmp%d", basename(path), Sys.getpid()))
-    on.exit(unlink(tmp), add = TRUE)
-    writeBin(bytes, tmp)
-    if (!suppressWarnings(file.rename(tmp, path))) {
-      if (!file.copy(tmp, path, overwrite = TRUE)) stop("cannot write ", path, call. = FALSE)
-    }
+    write_atomic(path, bytes, skip_same = TRUE)
     NULL
   }, warning = function(w) {
     reason <<- sub("^cannot create dir '[^']*', reason '(.*)'$", "\\1",
@@ -1047,7 +1017,7 @@ ledger_finish <- function(s, write = TRUE) {
   # new conditions, against HEAD when git can say, else the last render (D19)
   cmp <- NULL
   label <- NULL
-  if (nzchar(Sys.which("git")) && git_in_work_tree(root)) {
+  if (nzchar(git_path()) && git_in_work_tree(root)) {
     gl <- git_show(root, paths[["conditions"]])
     if (!is.null(gl)) {
       cmp <- tryCatch(read_condition_log(lines = gl, lenient = TRUE), error = function(e) condition_df(list()))

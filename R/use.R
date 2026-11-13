@@ -36,19 +36,13 @@ use_quarto <- function(path = ".") {
     stop("`path` is not a directory: ", path, call. = FALSE)
   }
   start <- normalizePath(path, winslash = "/", mustWork = TRUE)
-  yml_name <- c("_quarto.yml", "_quarto.yaml")
-  path <- start
-  repeat {
-    hit <- yml_name[file.exists(file.path(path, yml_name))][1]
-    if (!is.na(hit)) break
-    up <- dirname(path)
-    if (identical(up, path)) {
-      stop("`", start, "` has no _quarto.yml, so it is not in a Quarto project. ",
-           "Create the project first (`quarto create project`), then run use_quarto().",
-           call. = FALSE)
-    }
-    path <- up
+  path <- find_quarto_root(start)
+  if (is.null(path)) {
+    stop("`", start, "` has no _quarto.yml, so it is not in a Quarto project. ",
+         "Create the project first (`quarto create project`), then run use_quarto().",
+         call. = FALSE)
   }
+  hit <- QUARTO_MARKERS[file.exists(file.path(path, QUARTO_MARKERS))][1]
   yml_name <- hit
   if (!identical(path, start)) {
     message("weft: the Quarto project is at ", path, " (it holds _quarto.yml); using that directory.")
@@ -57,7 +51,7 @@ use_quarto <- function(path = ".") {
   # the edit of _quarto.yml is worked out first: when it cannot be made safely,
   # nothing is written
   qy <- file.path(path, yml_name)
-  old <- readLines(qy, warn = FALSE, encoding = "UTF-8")
+  old <- read_source_lines(qy)
   new <- quarto_yml_with_weft(old)
   if (is.null(new)) {
     stop("weft cannot edit ", yml_name, " as text without risking what is in it, so it has ",
@@ -99,19 +93,19 @@ use_quarto <- function(path = ".") {
     dir.create(dirname(dest), showWarnings = FALSE, recursive = TRUE)
     if (!file.exists(dest) ||
         !identical(unname(tools::md5sum(dest)), unname(tools::md5sum(sources[[rel]])))) {
-      file.copy(sources[[rel]], dest, overwrite = TRUE)
+      if (!copy_atomic(sources[[rel]], dest)) stop("cannot write ", dest, call. = FALSE)
       written <- c(written, rel)
     }
   }
   if (make_weft_yml) {
-    writeLines(c("# weft settings for this project. Every key has a default;",
-                 "# add only what you change (digits, decimal_mark, draft, ...)."),
-               weft_yml)
+    write_lines_atomic(c("# weft settings for this project. Every key has a default;",
+                         "# add only what you change (digits, decimal_mark, draft, ...)."),
+                       weft_yml)
     written <- c(written, "_weft.yml")
   }
 
   if (!identical(new, old)) {
-    write_lines_lf(new, qy, file_eol(qy))
+    write_lines_atomic(new, qy, file_eol(qy))
     written <- c(written, yml_name)
   }
 
@@ -130,7 +124,7 @@ weft_post_entry <- "_weft/post-render.R"
 # rewritten from its parsed form: that would turn `true` into `yes` (which
 # Quarto's YAML 1.2 refuses), drop the comments and expand the anchors.
 quarto_yml_with_weft <- function(lines) {
-  load <- function(x) yaml::yaml.load(paste(c(x, ""), collapse = "\n"), eval.expr = FALSE)
+  load <- function(x) yaml_read_text(c(x, ""))
   y <- tryCatch(load(lines), error = function(e) NULL)
   if (is.null(y)) {
     if (any(nzchar(trimws(lines[!grepl("^\\s*#", lines)])))) return(NULL)

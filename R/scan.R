@@ -1390,18 +1390,7 @@ scan_block <- function(text, file = NA_character_, first_line = 1L, config = NUL
 # fenced blocks that are not captions' chunks are skipped. `context` says
 # which place a row is in.
 scan_file <- function(path, config = NULL) {
-  bytes <- readBin(path, "raw", file.info(path)$size)
-  if (length(bytes) >= 3L && identical(bytes[1:3], as.raw(c(0xEF, 0xBB, 0xBF)))) {
-    bytes <- bytes[-(1:3)]
-  }
-  text <- rawToChar(bytes)
-  Encoding(text) <- "UTF-8"
-  if (!validUTF8(text)) {
-    weft_abort(sprintf("%s is not valid UTF-8; save the file as UTF-8.", path),
-               "weft_encoding_error")
-  }
-  text <- gsub("\r\n", "\n", text, fixed = TRUE)
-  lines <- if (nzchar(text)) strsplit(text, "\n", fixed = TRUE)[[1]] else character()
+  lines <- read_source_lines(path)
   scan_document(lines, file = path, config = config, project = project_type(path))
 }
 

@@ -324,7 +324,7 @@ dl_yaml_file <- function(ctx, path) {
   cache <- lint_cache(ctx)
   key <- paste0("yaml:", path)
   if (is.null(cache[[key]])) {
-    y <- tryCatch(yaml_text(paste(readLines(path, warn = FALSE, encoding = "UTF-8"), collapse = "\n")),
+    y <- tryCatch(yaml_text(read_source_text(path)),
                   error = function(e) NULL)
     cache[[key]] <- if (is.list(y)) y else list()
   }
@@ -369,7 +369,7 @@ doc_bib <- function(src, ctx) {
     add_files(mb$files, dir_rel, TRUE)
     keys <- c(keys, mb$keys)
   }
-  for (nm in c("_quarto.yml", "_quarto.yaml")) {
+  for (nm in QUARTO_MARKERS) {
     p <- file.path(root, nm)
     if (!file.exists(p)) next
     mb <- metadata_bibliography(dl_yaml_file(ctx, p))
@@ -385,7 +385,7 @@ doc_bib <- function(src, ctx) {
     d <- dirname(d)
   }
   for (d in ds) {
-    for (nm in c("_metadata.yml", "_metadata.yaml")) {
+    for (nm in METADATA_MARKERS) {
       p <- if (d == ".") file.path(root, nm) else file.path(root, d, nm)
       if (!file.exists(p)) next
       mb <- metadata_bibliography(dl_yaml_file(ctx, p))
@@ -752,17 +752,9 @@ lint_file_link <- function(src, ctx) {
 lint_config_place <- function(ctx) {
   root <- ctx$root
   out <- list()
-  yfiles <- list.files(root, pattern = "^(_quarto|_metadata)\\.ya?ml$", recursive = TRUE, all.files = TRUE)
-  if (length(yfiles)) {
-    d <- dirname(yfiles)
-    skip <- vapply(strsplit(d, "/", fixed = TRUE), function(p) {
-      p <- p[p != "."]
-      any(startsWith(p, "_") | startsWith(p, ".") | p == "renv")
-    }, NA)
-    yfiles <- sort(yfiles[!skip], method = "radix")
-  }
+  yfiles <- project_doc_paths(root, "lint", "^(_quarto|_metadata)\\.ya?ml$")
   for (f in yfiles) {
-    lines <- tryCatch(readLines(file.path(root, f), warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+    lines <- tryCatch(read_source_lines(file.path(root, f)), error = function(e) character())
     h <- which(grepl("^weft[ \t]*:", lines))
     if (!length(h)) next
     out[[length(out) + 1L]] <- new_findings(
@@ -807,7 +799,7 @@ project_included <- function(ctx) {
   if (!is.null(cache$included)) return(cache$included)
   inc <- character()
   for (f in ctx$files) {
-    txt <- tryCatch(read_raw_text(ctx$path(f)), error = function(e) NULL)
+    txt <- tryCatch(read_source_text_or_null(ctx$path(f)), error = function(e) NULL)
     if (is.null(txt) || !nzchar(txt)) next
     dir <- dl_dir(f)
     paths <- character()
@@ -1043,22 +1035,21 @@ changes_added_lines <- function(root, commit, docs) {
   changed <- docs
   untracked_all <- character()
   if (have) {
-    d <- changes_git(root, c("-c", "core.quotepath=false", "diff", "--name-only", "--relative", shQuote(commit), "--"))
-    u <- changes_git(root, c("-c", "core.quotepath=false", "ls-files", "--others", "--exclude-standard"))
+    d <- raw_records(git_ok(root, c("diff", "--name-only", "-z", "--relative", commit, "--"))$out)
+    u <- raw_records(git_ok(root, c("ls-files", "--others", "--exclude-standard", "-z"))$out)
     changed <- intersect(docs, unique(c(d, u)))
     untracked_all <- u
   }
   res <- list()
   for (f in changed) {
-    n <- length(strsplit(read_raw_text(file.path(root, f)) %||% "", "\n", fixed = TRUE)[[1L]])
+    n <- length(strsplit(read_source_text_or_null(file.path(root, f)) %||% "", "\n", fixed = TRUE)[[1L]])
     whole <- !have || f %in% untracked_all ||
-      is.null(changes_git(root, c("cat-file", "-e", shQuote(paste0(commit, ":./", f)))))
+      !identical(git_raw(root, c("cat-file", "-e", paste0(commit, ":./", f)))$status, 0L)
     if (whole) {
       res[[f]] <- seq_len(n)
       next
     }
-    dd <- changes_git(root, c("-c", "core.quotepath=false", "diff", "-U0", "--no-color", "--no-ext-diff",
-                              shQuote(commit), "--", shQuote(f)))
+    dd <- raw_lines(git_ok(root, c("diff", "-U0", "--no-color", "--no-ext-diff", commit, "--", f))$out)
     h <- regmatches(dd, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", dd, perl = TRUE))
     h <- Filter(length, h)
     add <- integer()
@@ -1082,7 +1073,7 @@ changes_tier2 <- function(root, commit, files = NULL) {
   }
   if (!is.null(files)) docs <- intersect(docs, files)
   if (!length(docs)) return(list(table = empty, notes = character()))
-  added <- tryCatch(changes_added_lines(root, commit, docs), error = function(e) NULL)
+  added <- tryCatch(changes_added_lines(root, commit, docs), weft_gate_error = function(e) NULL)
   if (is.null(added)) return(list(table = empty, notes = "tier-2 findings were not listed: git could not give the added lines"))
   added <- added[vapply(added, length, 1L) > 0L]
   if (!length(added)) return(list(table = empty, notes = character()))

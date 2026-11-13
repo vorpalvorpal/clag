@@ -11,21 +11,8 @@ knit_input_path <- function() {
   normalizePath(p, winslash = "/")
 }
 
-# The lines of a file as knitr reads them: UTF-8, no byte-order mark, no
-# carriage returns.
-read_view_lines <- function(path) {
-  bytes <- readBin(path, "raw", file.info(path)$size)
-  if (length(bytes) >= 3L && identical(bytes[1:3], as.raw(c(0xEF, 0xBB, 0xBF)))) {
-    bytes <- bytes[-(1:3)]
-  }
-  text <- rawToChar(bytes)
-  Encoding(text) <- "UTF-8"
-  text <- gsub("\r\n", "\n", text, fixed = TRUE)
-  text <- gsub("\r", "\n", text, fixed = TRUE)
-  if (!nzchar(text)) return(character())
-  lines <- strsplit(text, "\n", fixed = TRUE)[[1]]
-  lines
-}
+# The lines of a file as knitr reads them: the one reader of source text, split.
+read_view_lines <- function(path) read_source_lines(path)
 
 # Under Quarto knitr reads `<name>.rmarkdown`, a copy of `<name>.qmd` with
 # every `{{< include >}}` expanded. Re-expand the source to map a line of the

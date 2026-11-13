@@ -127,7 +127,7 @@ rehearse <- function(file, cases) {
 # The names of the document's params. Nothing is evaluated here: a default
 # written `!r` runs in the child, in the document's folder.
 rehearse_defaults <- function(path) {
-  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  lines <- read_source_lines(path)
   ps <- tryCatch(knitr::knit_params(lines, evaluate = FALSE), error = function(e) {
     weft_abort(sprintf("The `params` of %s cannot be read: %s", basename(path),
                        conditionMessage(e)), "weft_rehearse_error")
@@ -273,7 +273,7 @@ rehearse_child <- function(args_path) {
       if (file.exists(file.path(a$root, f))) file.copy(file.path(a$root, f), stage)
     }
     file.copy(a$input, file.path(stage, a$input))
-    text <- paste(readLines(a$input, warn = FALSE, encoding = "UTF-8"), collapse = "\n")
+    text <- read_source_text(a$input)
     text <- gsub("(?<!`)`\\{r\\}[ \t]+([^`\n]+)`(?!`)", "`r .QuartoInlineRender(\\1)`", text, perl = TRUE)
     # and Quarto's `fig-cap` reaches knitr as `fig.cap`
     text <- gsub("(^|\n)([ \t]*#\\|[ \t]*)fig-(cap|alt|scap|subcap)([ \t]*:)", "\\1\\2fig.\\3\\4",
@@ -283,7 +283,7 @@ rehearse_child <- function(args_path) {
   }
   err <- tryCatch({
     # the defaults of `params` are evaluated here, in the document's folder
-    ps <- knitr::knit_params(readLines(a$input, warn = FALSE, encoding = "UTF-8"))
+    ps <- knitr::knit_params(read_source_lines(a$input))
     params <- lapply(ps, function(p) p$value)
     names(params) <- vapply(ps, function(p) p$name, "")
     for (p in names(a$set)) params[p] <- list(a$set[[p]])

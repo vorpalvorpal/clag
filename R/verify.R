@@ -100,7 +100,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   if (!is.null(since)) {
     if (is.null(gi)) verify_abort("`since` was given, but the project is not in a git work tree (rule 8.2.2).")
     if (grepl("^-", since)) verify_abort(sprintf("`since` must name a commit; `%s` does not (rule 8.2.2).", since))
-    r <- gate_g(gi$top, c("rev-parse", "-q", "--verify", paste0(since, "^{commit}")))
+    r <- git_raw(gi$top, c("rev-parse", "-q", "--verify", paste0(since, "^{commit}")))
     if (!identical(r$status, 0L)) verify_abort(sprintf("`since` must name a commit; `%s` is not one (rule 8.2.2).", since))
     since_sha <- trimws(raw_lines(r$out)[1L])
   } else if (!is.null(gi)) {
@@ -244,7 +244,7 @@ verify_version_warning <- function(root) {
 verify_git <- function(root) {
   tryCatch({
     w <- git_where(root)
-    r <- gate_g(root, c("rev-parse", "--show-prefix"))
+    r <- git_raw(root, c("rev-parse", "--show-prefix"))
     pre <- if (identical(r$status, 0L)) raw_lines(r$out) else character()
     w$prefix <- if (length(pre)) sub("/$", "", pre[1L]) else ""
     w
@@ -255,7 +255,7 @@ verify_git <- function(root) {
 verify_added_lines <- function(gi, since, rel, in_base) {
   if (!in_base) return(TRUE)
   p <- if (nzchar(gi$prefix)) paste0(gi$prefix, "/", rel) else rel
-  r <- gate_g(gi$top, c("diff", "-U0", "--no-color", "--no-ext-diff", since, "--", p))
+  r <- git_raw(gi$top, c("diff", "-U0", "--no-color", "--no-ext-diff", since, "--", p))
   if (!identical(r$status, 0L) && !identical(r$status, 1L)) return(TRUE)
   ln <- raw_lines(r$out)
   h <- regmatches(ln, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", ln, perl = TRUE))
@@ -361,7 +361,7 @@ verify_lints <- function(root, files_rel, cfg, gi, since_sha, have_base, docs) {
 # Does the commit hold the project's `_weft.yml`?
 verify_weft_at <- function(gi, since_sha) {
   p <- if (nzchar(gi$prefix)) paste0(gi$prefix, "/_weft.yml") else "_weft.yml"
-  identical(gate_g(gi$top, c("cat-file", "-e", paste0(since_sha, ":", p)))$status, 0L)
+  identical(git_raw(gi$top, c("cat-file", "-e", paste0(since_sha, ":", p)))$status, 0L)
 }
 
 # What the commit held: its tier-1 findings and constructs, through the gate's reader and cache.

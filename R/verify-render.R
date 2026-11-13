@@ -133,9 +133,9 @@ freeze_backup <- function(root, stems, all_stems, run) {
   weft_state_dir(root, "freeze-backup")
   plan <- lapply(stems, function(s) freeze_items(file.path(root, "_freeze"), s, all_stems))
   names(plan) <- stems
-  writeLines(c(paste0("run: ", run), stems), file.path(bk, "manifest"))
-  writeLines(unlist(lapply(stems, function(s) if (length(plan[[s]])) paste0(s, "\t", plan[[s]]))),
-             file.path(bk, "items"))
+  write_lines_atomic(c(paste0("run: ", run), stems), file.path(bk, "manifest"))
+  write_lines_atomic(unlist(lapply(stems, function(s) if (length(plan[[s]])) paste0(s, "\t", plan[[s]]))),
+                     file.path(bk, "items"))
   done <- list()
   for (s in stems) {
     for (x in plan[[s]]) {
@@ -190,7 +190,7 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
   run <- verify_run_id()
   log <- tempfile("weft-verify-", fileext = ".log")
   on.exit(unlink(log), add = TRUE)
-  has_proj <- file.exists(file.path(root, "_quarto.yml")) || file.exists(file.path(root, "_quarto.yaml"))
+  has_proj <- any(file.exists(file.path(root, QUARTO_MARKERS)))
   quarto_mode <- has_proj || any(grepl("\\.qmd$", docs))
   status <- 0L
   notes <- character()

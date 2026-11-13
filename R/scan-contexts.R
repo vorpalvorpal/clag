@@ -69,7 +69,7 @@ is_yaml_mapping <- function(x) {
   x <- x[nzchar(trim_ws(x)) & !grepl("^[ \t]*#", x)]
   if (!length(x)) return(FALSE)
   looks <- grepl("^[A-Za-z_\"'][^:]*:([ \t]|$)", x[1L])
-  y <- tryCatch(list(v = yaml::yaml.load(paste(x, collapse = "\n"), eval.expr = FALSE)),
+  y <- tryCatch(list(v = yaml_read_text(x)),
                 error = function(e) NULL)
   if (is.null(y)) return(looks)
   is.list(y$v) && !is.null(names(y$v))
@@ -141,10 +141,10 @@ project_type <- function(path) {
   d <- normalizePath(path, mustWork = FALSE)
   if (!dir.exists(d)) d <- dirname(d)
   repeat {
-    for (f in c("_quarto.yml", "_quarto.yaml")) {
+    for (f in QUARTO_MARKERS) {
       p <- file.path(d, f)
       if (file.exists(p)) {
-        y <- tryCatch(yaml::yaml.load_file(p, eval.expr = FALSE), error = function(e) NULL)
+        y <- tryCatch(yaml_read_file(p), error = function(e) NULL)
         ty <- if (is.list(y)) y$project$type else NULL
         return(if (is.character(ty) && length(ty) == 1L) ty else "")
       }
@@ -161,8 +161,7 @@ project_type <- function(path) {
 doc_execute <- function(lines) {
   mb <- metadata_blocks(lines)
   if (!nrow(mb) || mb$open[1L] != 1L || mb$close[1L] - 2L < 1L) return(list())
-  y <- tryCatch(yaml::yaml.load(paste(lines[2L:(mb$close[1L] - 1L)], collapse = "\n"),
-                                eval.expr = FALSE), error = function(e) NULL)
+  y <- tryCatch(yaml_read_text(lines[2L:(mb$close[1L] - 1L)]), error = function(e) NULL)
   if (!is.list(y)) return(list())
   oc <- if (is.list(y$knitr)) y$knitr$opts_chunk else NULL
   ex <- y$execute

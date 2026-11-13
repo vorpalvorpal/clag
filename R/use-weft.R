@@ -53,7 +53,7 @@ use_weft <- function(path = ".") {
         }
         v <- version_line_update(root, NULL)
         if (!is.null(v)) {
-          write_lines_lf(v, file.path(root, "_weft.yml"), file_eol(file.path(root, "_weft.yml")))
+          write_lines_atomic(v, file.path(root, "_weft.yml"), file_eol(file.path(root, "_weft.yml")))
           written <- c(written, file.path(root, "_weft.yml"))
         }
         unique(written)
@@ -117,7 +117,7 @@ use_weft <- function(path = ".") {
     vapply(setup$writes, `[[`, "", "path"), file.path(root, "_weft.yml"),
     if (!is.null(find_quarto_root(root))) {
       qr <- find_quarto_root(root)
-      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, c("_quarto.yml", "_quarto.yaml")))
+      c(file.path(qr, names(QUARTO_COPIES)), file.path(qr, QUARTO_MARKERS))
     },
     file.path(root, "dict.yml"), file.path(root, "_weft", "dict.schema.json"),
     if (g$ok) vapply(hp$items, `[[`, "", "path"),
@@ -184,7 +184,7 @@ install_rollback <- function(snap, root) {
     if (was) {
       same <- file.exists(p) && identical(unname(tools::md5sum(p)), unname(tools::md5sum(snap$copies[[p]])))
       if (!same) {
-        file.copy(snap$copies[[p]], p, overwrite = TRUE, copy.mode = TRUE)
+        copy_atomic(snap$copies[[p]], p)
         undone <- c(undone, rel_label(p, root))
       }
     } else if (file.exists(p) && !dir.exists(p)) {
@@ -210,7 +210,7 @@ items_what <- function(items) {
 version_line_update <- function(root, setup) {
   f <- file.path(root, "_weft.yml")
   if (!file.exists(f) || dir.exists(f)) return(NULL)
-  x <- read_lines_utf8(f)
+  x <- read_source_lines(f)
   i <- grep("^weft_version\\s*:", x)
   if (!length(i)) return(NULL)
   now <- weft_version_string()
@@ -222,9 +222,9 @@ version_line_update <- function(root, setup) {
 # use_quarto(): what it would write, as "file (state)"; errors when _quarto.yml
 # cannot be edited
 quarto_plan <- function(qroot) {
-  yml <- c("_quarto.yml", "_quarto.yaml")
+  yml <- QUARTO_MARKERS
   qy <- file.path(qroot, yml[file.exists(file.path(qroot, yml))][1L])
-  old <- read_lines_utf8(qy)
+  old <- read_source_lines(qy)
   if (is.null(quarto_yml_with_weft(old))) {
     tool_abort(paste0("weft cannot edit ", basename(qy), " as text without risking what is in it, so it ",
                       "has changed nothing. Add these lines by hand, then run use_weft() again:\n\n",
@@ -302,7 +302,7 @@ status <- function(path = ".") {
   }
   inst <- weft_version_string()
   wy <- file.path(root, "_weft.yml")
-  cfg <- tryCatch(if (file.exists(wy) && !dir.exists(wy)) yaml::read_yaml(wy) else NULL,
+  cfg <- tryCatch(if (file.exists(wy) && !dir.exists(wy)) yaml_read_file(wy) else NULL,
                   error = function(e) NULL)
   if (!is.list(cfg)) cfg <- list()
 
@@ -407,14 +407,7 @@ print.weft_status <- function(x, ...) {
 
 # ---- the parts of status() -----------------------------------------------------------
 
-doc_files <- function(root) {
-  f <- list.files(root, pattern = "\\.(qmd|Rmd|rmd)$", recursive = TRUE, full.names = FALSE,
-                  all.files = TRUE)
-  skip <- vapply(strsplit(f, "/", fixed = TRUE), function(p) {
-    any(grepl("^[_.]", p)) || any(p[-length(p)] %in% c("renv", "packrat", "node_modules"))
-  }, NA)
-  f[!skip]
-}
+doc_files <- function(root) project_doc_paths(root, "setup")
 
 # the front-matter lines of a document (character() when it has none)
 use_doc_front <- function(lines) {
@@ -439,9 +432,9 @@ qmd_lacks_engine <- function(lines) {
 status_activation <- function(root) {
   rp <- file.path(root, ".Rprofile")
   rprofile <- file.exists(rp) && !dir.exists(rp) &&
-    any(grepl("weft::weft_setup\\s*\\(", sub("#.*$", "", read_lines_utf8(rp))))
+    any(grepl("weft::weft_setup\\s*\\(", sub("#.*$", "", read_source_lines(rp))))
   docs <- doc_files(root)
-  texts <- lapply(file.path(root, docs), function(p) tryCatch(read_lines_utf8(p), error = function(e) character()))
+  texts <- lapply(file.path(root, docs), function(p) tryCatch(read_source_lines(p), error = function(e) character()))
   front <- length(docs) > 0L &&
     all(vapply(texts, function(x) any(grepl("weft::weft_setup", use_doc_front(x), fixed = TRUE)), NA))
   if (!rprofile && !front) {
@@ -478,9 +471,9 @@ status_quarto <- function(root) {
       differs <- c(differs, rel)
     }
   }
-  yml <- c("_quarto.yml", "_quarto.yaml")
+  yml <- QUARTO_MARKERS
   qy <- file.path(qroot, yml[file.exists(file.path(qroot, yml))][1L])
-  old <- read_lines_utf8(qy)
+  old <- read_source_lines(qy)
   new <- quarto_yml_with_weft(old)
   entries <- !is.null(new) && identical(new, old)
   if (length(missing) || !entries) {
@@ -506,7 +499,7 @@ status_hook <- function(root) {
     s <- file_status(p, HOOK_STATE_FN)
     if (s %in% c("missing", "foreign")) return(list(state = s, detail = ""))
     if (s == "edited") return(list(state = "edited", detail = sprintf("%s was edited since weft wrote it", where)))
-    lines <- read_lines_utf8(p)
+    lines <- read_source_lines(p)
     rs <- sub("^weft_rscript='(.*)'$", "\\1", grep("^weft_rscript='", lines, value = TRUE)[1L])
     rs <- gsub("'\\''", "'", rs, fixed = TRUE)
     if (s == "outdated") {

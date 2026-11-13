@@ -82,6 +82,24 @@ read_config <- function(dir, front = list(), doc = NULL) {
   cfg
 }
 
+# `_weft.yml` read once: its settings as the one YAML reader gives them, and
+# `raw`, the same text with a one-item list kept a list (so `ledger: [true]` can
+# be told from `ledger: true`). A file that cannot be read or is not a mapping is
+# a `weft_config_error` naming it; one that is not UTF-8 is a `weft_encoding_error`.
+read_weft_yml <- function(file) {
+  fail <- function(e) {
+    if (inherits(e, "weft_encoding_error")) stop(e)
+    weft_abort(paste0("Cannot read ", file, ": ", conditionMessage(e)), "weft_config_error")
+  }
+  text <- tryCatch(read_source_text(file, "weft_config_error"), error = fail)
+  proj <- tryCatch(yaml_read_text(text), error = fail) %||% list()
+  if (!is.list(proj) || (length(proj) && is.null(names(proj)))) {
+    weft_abort(paste0(file, " must be a mapping of settings."), "weft_config_error")
+  }
+  raw <- tryCatch(yaml_read_text(text, handlers = list(seq = function(x) x)), error = function(e) NULL)
+  list(proj = proj, raw = raw)
+}
+
 read_config_ <- function(dir, front, doc) {
   # a read that fails leaves no `units:` table from an earlier one in use
   weft_env$units <- NULL
@@ -98,18 +116,11 @@ read_config_ <- function(dir, front, doc) {
   file <- file.path(dir, "_weft.yml")
   has_file <- file.exists(file)
   proj <- list()
+  raw <- NULL
   if (has_file) {
-    proj <- tryCatch(
-      yaml::read_yaml(file),
-      error = function(e) {
-        weft_abort(paste0("Cannot read ", file, ": ", conditionMessage(e)),
-                   "weft_config_error")
-      }
-    ) %||% list()
-    if (!is.list(proj) || (length(proj) && is.null(names(proj)))) {
-      weft_abort(paste0(file, " must be a mapping of settings."),
-                 "weft_config_error")
-    }
+    ws <- read_weft_yml(file)
+    proj <- ws$proj
+    raw <- ws$raw
   }
   if (has_file && "dict_local" %in% names(proj)) {
     weft_abort(paste0(
@@ -119,7 +130,6 @@ read_config_ <- function(dir, front, doc) {
   if (has_file) warn_unknown(proj, "_weft.yml")
   # `ledger: [true]` reads as TRUE; a list is not a logical (I10)
   if (has_file && "ledger" %in% names(proj)) {
-    raw <- tryCatch(yaml::read_yaml(file, handlers = list(seq = function(x) x)), error = function(e) NULL)
     if (is.list(raw) && is.list(raw$ledger)) {
       weft_abort("The setting `ledger` must be TRUE or FALSE.", "weft_config_error")
     }
@@ -133,10 +143,7 @@ read_config_ <- function(dir, front, doc) {
       }
     }
   }
-  if (has_file) {
-    raw <- tryCatch(yaml::read_yaml(file, handlers = list(seq = function(x) x)), error = function(e) NULL)
-    check_raw_scalars(raw)
-  }
+  if (has_file) check_raw_scalars(raw)
   # the `units:` tables are checked and merged apart (9.1.7)
   proj_units <- proj$units
   front_units <- front$units
@@ -324,28 +331,6 @@ resolve_formatter <- function(spec) {
 }
 
 # ---- the project root ---------------------------------------------------
-
-# The nearest directory, from the input file upward, that holds `_weft.yml`;
-# failing that one that holds `_quarto.yml`; failing that the file's own
-# directory.
-find_project_root <- function(path) {
-  path <- normalizePath(path, mustWork = FALSE)
-  start <- if (dir.exists(path)) path else dirname(path)
-  walk <- function(marker) {
-    d <- start
-    repeat {
-      if (file.exists(file.path(d, marker))) return(d)
-      up <- dirname(d)
-      if (identical(up, d)) return(NA_character_)
-      d <- up
-    }
-  }
-  for (marker in c("_weft.yml", "_quarto.yml")) {
-    r <- walk(marker)
-    if (!is.na(r)) return(r)
-  }
-  start
-}
 
 # A project "has been set up" (9.3.2) when its root holds `_weft.yml`.
 is_set_up <- function(root) file.exists(file.path(root, "_weft.yml"))

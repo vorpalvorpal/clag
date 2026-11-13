@@ -70,7 +70,7 @@ hooks_plan <- function(root, overwrite = FALSE, rscript = NULL, lib = NULL) {
     tool_abort(sprintf(paste0("use_hooks() cannot find weft in the libraries the hook would use: %s. ",
                               "Install weft there, or pass `lib`."), paste(lib, collapse = ", ")))
   }
-  script <- fill_whole(read_lines_utf8(inst_file("hooks", "commit-msg")),
+  script <- fill_whole(read_source_lines(inst_file("hooks", "commit-msg")),
                        c("@RSCRIPT@" = sh_quote(rscript),
                          "@LIBS@" = sh_quote(paste(lib, collapse = .Platform$path.sep))))
 
@@ -133,7 +133,7 @@ hooks_remove <- function(root) {
   removed <- character()
   foreign <- manager
   if (!manager && file.exists(hook)) {
-    old <- read_lines_utf8(hook)
+    old <- read_source_lines(hook)
     if (!is.null(marker_parse(old, HOOK_STATE_FN))) {
       message(sprintf("  %s  (remove: the weft commit-msg hook)", rel_label(hook, root)))
       unlink(hook)

@@ -38,7 +38,7 @@ BLOCK_START_RE <- "^<!-- weft:start use_agent_docs "
 
 # the block's lines (start, inner, end) for the shipped text
 agent_block_lines <- function() {
-  inner <- read_lines_utf8(inst_file("agent", "AGENTS.md"))
+  inner <- read_source_lines(inst_file("agent", "AGENTS.md"))
   h <- cli::hash_md5(paste(c(inner, BLOCK_END), collapse = "\n"))
   c(sprintf("<!-- weft:start use_agent_docs %s %s -->", weft_version_string(), h), inner, BLOCK_END)
 }
@@ -66,7 +66,7 @@ agents_item <- function(path, root, overwrite) {
   if (!file.exists(path)) {
     return(plan_item(path, root, "new", purpose, new = block))
   }
-  old <- read_lines_utf8(path)
+  old <- read_source_lines(path)
   eol <- file_eol(path)
   b <- block_find(old)
   if (is.null(b)) {
@@ -87,14 +87,14 @@ agent_docs_plan <- function(root, overwrite = FALSE) {
   skill <- file.path(root, ".claude", "skills", "weft", "SKILL.md")
   place_check(agents, root)
   place_check(skill, root)
-  new_skill <- fill_whole(read_lines_utf8(inst_file("agent", "SKILL.md")))
+  new_skill <- fill_whole(read_source_lines(inst_file("agent", "SKILL.md")))
   items <- list(
     agents_item(agents, root, overwrite),
     whole_item(skill, root, new_skill, AGENT_FN, "the weft skill for coding agents", overwrite))
   claude <- file.path(root, "CLAUDE.md")
   note <- ""
   if (file.exists(claude) && !dir.exists(claude) &&
-      !any(grepl("@AGENTS.md", read_lines_utf8(claude), fixed = TRUE))) {
+      !any(grepl("@AGENTS.md", read_source_lines(claude), fixed = TRUE))) {
     note <- "Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there."
   }
   list(items = items, note = note)
@@ -104,7 +104,7 @@ agent_docs_plan <- function(root, overwrite = FALSE) {
 # missing, edited, outdated, ok
 block_status <- function(path) {
   if (!file.exists(path) || dir.exists(path)) return("missing")
-  b <- block_find(read_lines_utf8(path))
+  b <- block_find(read_source_lines(path))
   if (is.null(b)) return("missing")
   if (isTRUE(b$broken) || !b$valid) return("edited")
   if (!identical(b$version, weft_version_string())) "outdated" else "ok"

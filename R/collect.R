@@ -113,9 +113,9 @@ collected_failures <- function(root) {
   p <- collection_path(root)
   empty <- failures_frame_empty()
   if (is.na(p) || !file.exists(p)) return(empty)
-  x <- tryCatch(readLines(p, warn = FALSE, encoding = "UTF-8"), error = function(e) character())
+  x <- tryCatch(read_source_lines(p), error = function(e) character())
   rows <- lapply(x[grepl("\"source\":\"knit\"", x, fixed = TRUE)], function(l) {
-    y <- tryCatch(yaml::yaml.load(l, eval.expr = FALSE), error = function(e) NULL)
+    y <- tryCatch(yaml_read_text(l), error = function(e) NULL)
     if (!is.list(y)) return(NULL)
     # a warned check is not a failure
     if (identical(y$level, "warn")) return(NULL)
@@ -147,7 +147,7 @@ weft_state_dir <- function(root, ...) {
   d <- file.path(root, ".weft")
   dir.create(file.path(d, ...), showWarnings = FALSE, recursive = TRUE)
   g <- file.path(d, ".gitignore")
-  if (!file.exists(g)) writeLines("*", g)
+  if (!file.exists(g)) write_lines_atomic("*", g)
   invisible(file.path(d, ...))
 }
 
@@ -198,8 +198,7 @@ record_knit <- function(s, fr) {
     "}")
   ok <- tryCatch({
     dir <- weft_state_dir(root, "stamps")
-    writeLines(stamp, file.path(dir, paste0(gsub("/", "__", src, fixed = TRUE), ".json")),
-               useBytes = TRUE)
+    write_lines_atomic(stamp, file.path(dir, paste0(gsub("/", "__", src, fixed = TRUE), ".json")))
     TRUE
   }, error = function(e) FALSE, warning = function(w) FALSE)
   write_draft_failures(s, src, c(lines, wlines))
@@ -223,8 +222,7 @@ write_draft_failures <- function(s, src, lines) {
   }
   if (!isTRUE(s$config$draft)) return(invisible())
   tryCatch(
-    writeLines(c("[", paste0("  ", lines, c(rep(",", length(lines) - 1L), "")), "]"),
-               path, useBytes = TRUE),
+    write_lines_atomic(c("[", paste0("  ", lines, c(rep(",", length(lines) - 1L), "")), "]"), path),
     error = function(e) NULL, warning = function(w) NULL)
   invisible()
 }

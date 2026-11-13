@@ -121,14 +121,14 @@ use_dictionary <- function(path = ".") {
       tool_abort(sprintf("use_dictionary(): could not write %s (%s).", rel, to))
     }
     if (write_dict) {
-      ok <- suppressWarnings(file.copy(src("dict.yml"), dict_to, overwrite = FALSE))
+      ok <- copy_atomic(src("dict.yml"), dict_to, overwrite = FALSE)
       if (!isTRUE(ok) || !file.exists(dict_to)) failed("dict.yml", dict_to)
       wrote <- c(wrote, "dict.yml")
     }
     if (write_schema) {
       suppressWarnings(dir.create(weft_dir, showWarnings = FALSE, recursive = TRUE))
       ok <- dir.exists(weft_dir) &&
-        suppressWarnings(file.copy(src("dict.schema.json"), schema_to, overwrite = TRUE))
+        copy_atomic(src("dict.schema.json"), schema_to)
       if (!isTRUE(ok) || !file.exists(schema_to)) failed("_weft/dict.schema.json", schema_to)
       wrote <- c(wrote, "_weft/dict.schema.json")
     }
@@ -137,8 +137,7 @@ use_dictionary <- function(path = ".") {
     message("Nothing to change: dict.yml and its schema are in place.")
   }
   if (dict_exists) {
-    txt <- tryCatch(readLines(dict_to, warn = FALSE, encoding = "UTF-8"), error = function(e) NULL,
-                    warning = function(w) NULL)
+    txt <- tryCatch(read_source_lines(dict_to), error = function(e) NULL, warning = function(w) NULL)
     if (!is.null(txt)) {
       # the schema line is a comment line, not text inside a value
       rx <- "^\\s*#\\s*yaml-language-server:\\s*\\$schema=(\\S*)"
@@ -434,7 +433,7 @@ dict_vale <- function(dict = NULL, path = "styles/Weft/Terms.yml", level = "warn
                     abs, nrow(swap), dfile))
     suppressWarnings(dir.create(dirname(abs), showWarnings = FALSE, recursive = TRUE))
     ok <- dir.exists(dirname(abs)) &&
-      tryCatch({ suppressWarnings(writeBin(bytes, abs)); TRUE }, error = function(e) FALSE)
+      tryCatch({ suppressWarnings(write_atomic(abs, bytes)); TRUE }, error = function(e) FALSE)
     if (!ok || !file.exists(abs)) tool_abort(sprintf("dict_vale(): could not write %s.", abs))
     message("Wrote: ", abs)
     out <- abs
@@ -445,8 +444,7 @@ dict_vale <- function(dict = NULL, path = "styles/Weft/Terms.yml", level = "warn
   ini <- file.path(root, ".vale.ini")
   listed <- FALSE
   if (file.exists(ini) && !dir.exists(ini)) {
-    il <- tryCatch(readLines(ini, warn = FALSE, encoding = "UTF-8"), error = function(e) character(),
-                   warning = function(w) character())
+    il <- tryCatch(read_source_lines(ini), error = function(e) character(), warning = function(w) character())
     sp <- sub("^\\s*StylesPath\\s*=\\s*(.*?)\\s*$", "\\1", grep("^\\s*StylesPath\\s*=", il, value = TRUE))
     based <- unlist(strsplit(sub("^\\s*BasedOnStyles\\s*=\\s*", "", grep("^\\s*BasedOnStyles\\s*=", il, value = TRUE)),
                              "[,[:space:]]+"))
@@ -564,12 +562,7 @@ dict_seed <- function(paths = NULL, min_files = 2) {
   base <- ""
   if (is.null(paths)) {
     root <- find_project_root(getwd())
-    found <- list.files(root, pattern = "\\.(qmd|Rmd|rmd)$", recursive = TRUE)
-    skip <- vapply(strsplit(dirname(found), "/", fixed = TRUE), function(p) {
-      p <- p[p != "."]
-      any(startsWith(p, "_") | startsWith(p, ".") | p == "renv")
-    }, NA)
-    found <- sort(found[!skip], method = "radix")
+    found <- project_doc_paths(root, "lint")
     if (!length(found)) {
       message(sprintf("dict_seed(): no .qmd or .Rmd files under %s.", root))
       return(empty())

@@ -71,17 +71,16 @@ recall_check <- function(findings, source, rules = NULL, commit = NULL, window =
     tool_abort("recall_check(): `source` must be a folder.")
   }
   if (!is.null(commit)) {
-    git <- Sys.which("git")
-    if (!nzchar(git)) tool_abort("recall_check(): `commit` needs git, which was not found.")
+    if (!nzchar(git_path())) tool_abort("recall_check(): `commit` needs git, which was not found.")
     tmp <- tempfile("recall-")
     tarf <- tempfile("recall-", fileext = ".tar")
     on.exit(unlink(c(tmp, tarf), recursive = TRUE), add = TRUE)
     dir.create(tmp)
-    st <- suppressWarnings(system2(git, c("-C", shQuote(normalizePath(source)), "archive", "--format=tar",
-                                          shQuote(commit)), stdout = tarf, stderr = FALSE))
-    if (!identical(as.integer(st), 0L) || !file.exists(tarf)) {
+    ar <- git_raw(normalizePath(source), c("archive", "--format=tar", commit))
+    if (!identical(ar$status, 0L)) {
       tool_abort(sprintf("recall_check(): git could not archive `%s` of %s.", commit, source))
     }
+    writeBin(ar$out, tarf)
     utils::untar(tarf, exdir = tmp)
     source <- tmp
   }
