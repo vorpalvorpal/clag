@@ -11,6 +11,7 @@ Lets a manuscript's prose carry computed values, and wording that depends on the
 \seealso{
 Useful links:
 \itemize{
+  \item \url{https://vorpalvorpal.github.io/weft/}
   \item \url{https://github.com/vorpalvorpal/weft}
   \item Report bugs at \url{https://github.com/vorpalvorpal/weft/issues}
 }

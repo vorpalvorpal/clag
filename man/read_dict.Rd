@@ -23,8 +23,8 @@ itself and puts the result in the document as \code{dict} (rule 4.1.1), so
 }
 \details{
 Units a quantity names that the \code{units} package does not know are
-installed with \code{units::install_unit()} as the file is read, for the whole
-session (rule 4.4.7); a unit already known is not installed again. A read
+installed with \code{units::install_unit()} as the file is read, for as long as
+that project's configuration stays in force (rule 4.4.7); a unit already known is not installed again. A read
 that reports a problem installs no unit. The attribute \code{registered} holds
 the units the dictionary needs that \code{udunits} does not ship, whenever and
 by whomever they were installed, so two reads of one file give the same

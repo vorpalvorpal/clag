@@ -100,6 +100,35 @@ read_weft_yml <- function(file) {
   list(proj = proj, raw = raw)
 }
 
+# Bring the `units:` table and `unit_defaults` of the project at `root` into force, as a read of its
+# configuration does, but reading only those two settings, so an unrelated bad setting does not stop a
+# dictionary read. A no-op when it has no _weft.yml, or when that project's table is already in force (in a knit it is).
+project_units <- function(root) {
+  root <- ud_norm_root(root)
+  if (isTRUE(ud_state$ready) && identical(ud_state$root, root)) return(invisible())
+  file <- file.path(root, "_weft.yml")
+  # no configuration file: nothing to bring into force, and the session's table stays
+  if (!file.exists(file)) return(invisible())
+  has_file <- TRUE
+  # a file that cannot be read is the business of read_config(), which names it; here it is left alone
+  proj <- tryCatch(read_weft_yml(file)$proj, weft_config_error = function(e) NULL,
+                   weft_encoding_error = function(e) NULL)
+  if (is.null(proj)) return(invisible())
+  mode <- proj$unit_defaults %||% default_config()$unit_defaults
+  if (!(is.character(mode) && length(mode) == 1L && mode %in% c("weft", "si"))) {
+    weft_abort(sprintf("`unit_defaults` must be `weft` or `si`; got `%s` (rule 9.1.6).",
+                       paste(format(unlist(mode)), collapse = ", ")), "weft_config_error")
+  }
+  ok <- FALSE
+  on.exit(if (!ok) units_reset(), add = TRUE)
+  ur <- read_units_tables(list(list(tbl = proj$units, where = if (has_file) file else "_weft.yml"),
+                               list(tbl = NULL, where = "")), mode, root = root)
+  weft_env$units <- ur$units
+  weft_env$units_default <- ur$default
+  ok <- TRUE
+  invisible()
+}
+
 read_config_ <- function(dir, front, doc) {
   # a read that fails leaves no `units:` table from an earlier one in use
   weft_env$units <- NULL
@@ -170,7 +199,7 @@ read_config_ <- function(dir, front, doc) {
   ur <- read_units_tables(list(
     list(tbl = proj_units, where = if (has_file) file else "_weft.yml"),
     list(tbl = front_units, where = doc %||% "the document's `weft:` front matter")),
-    cfg$unit_defaults)
+    cfg$unit_defaults, root = dir)
   cfg$units <- ur$units
   cfg$units_default <- ur$default
   weft_env$units <- cfg$units

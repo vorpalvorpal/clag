@@ -496,16 +496,16 @@ ud_forget_registered <- function(keep_root = NULL) {
   invisible()
 }
 
-# The project root (found from the working directory), path-normalised.
-ud_cur_root <- function() {
-  normalizePath(find_project_root(getwd()), winslash = "/", mustWork = FALSE)
-}
+# A project root, path-normalised. `ud_state$root` is the root whose `units:` table is in force; NULL when
+# none has been read since the last reset.
+ud_norm_root <- function(root) normalizePath(root, winslash = "/", mustWork = FALSE)
 
-# Record the tokens a dictionary read installed against the project root in force.
+# Record the tokens a dictionary read installed against the project root whose table is in force.
 ud_dict_registered <- function(toks) {
   if (!length(toks)) return(invisible())
+  root <- ud_state$reg_root %||% ud_state$root %||% ud_norm_root(find_project_root(getwd()))
   ud_state$dict_reg <- c(ud_state$dict_reg[setdiff(names(ud_state$dict_reg), toks)],
-                         stats::setNames(rep(ud_cur_root(), length(toks)), toks))
+                         stats::setNames(rep(root, length(toks)), toks))
   invisible()
 }
 
@@ -526,6 +526,7 @@ units_reset <- function() {
   on.exit(ud_state$resetting <- FALSE)
   ud_forget_registered(NULL)
   ud_state$ready <- FALSE
+  ud_state$root <- NULL
   ud_state$ctx <- list(mode = "weft", own = character(), dflt = character())
   weft_env$units <- NULL
   weft_env$units_default <- NULL
@@ -690,12 +691,15 @@ units_entries <- function(rows, where, installed, project = FALSE) {
 # The checked, merged `units:` table of the default rows, the project and the document (the
 # default row under the project's or the document's, field by field; the document's row for a unit
 # replaces the project's whole), with the database brought to it. `tabs` are the project's and the
-# document's list(tbl, where); `mode` is `weft` or `si`. One weft_config_error holds every problem;
+# document's list(tbl, where); `mode` is `weft` or `si`; `root` is the project they belong to. One weft_config_error holds every problem;
 # a read with a problem leaves the session at the default rows (9.1.7, 4.4.21).
-read_units_tables <- function(tabs, mode) {
+read_units_tables <- function(tabs, mode, root = NULL) {
   ud_state$busy <- TRUE
   on.exit(ud_state$busy <- FALSE)
-  ud_forget_registered(ud_cur_root())
+  root <- if (is.null(root)) NULL else ud_norm_root(root)
+  ud_forget_registered(root)
+  # the root whose table is in force; a failed read leaves none (units_reset() runs)
+  ud_state$root <- root
   # a failed read ends with the database as before it: the tokens it installed go again
   before <- names(ud_state$installed)
   back <- function() {

@@ -119,8 +119,8 @@ dict_prepare <- function(lines, first = 1L, last = length(lines), docs = TRUE) {
 #' `read_dict()` is for use outside a knit.
 #'
 #' Units a quantity names that the `units` package does not know are
-#' installed with `units::install_unit()` as the file is read, for the whole
-#' session (rule 4.4.7); a unit already known is not installed again. A read
+#' installed with `units::install_unit()` as the file is read, for as long as
+#' that project's configuration stays in force (rule 4.4.7); a unit already known is not installed again. A read
 #' that reports a problem installs no unit. The attribute `registered` holds
 #' the units the dictionary needs that `udunits` does not ship, whenever and
 #' by whomever they were installed, so two reads of one file give the same
@@ -168,6 +168,15 @@ read_dict <- function(path = "dict.yml") {
   }
   lines <- read_source_lines(path, "weft_dict_error")
   prep <- dict_prepare(lines)
+  # outside a knit nothing has read this project's configuration: its `units:` table is brought into
+  # force first, and the units the dictionary installs belong to its root
+  root <- find_project_root(path)
+  # a project with a configuration file owns the units; with none, they go with the working directory's
+  # project, as the session's table does
+  ud_state$reg_root <- if (file.exists(file.path(root, "_weft.yml"))) ud_norm_root(root)
+                       else ud_norm_root(find_project_root(getwd()))
+  on.exit(ud_state$reg_root <- NULL, add = TRUE)
+  project_units(root)
   build_dict(dict_parse(prep$lines), path, "project", lines = lines, prep = prep)
 }
 
