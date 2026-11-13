@@ -17,7 +17,7 @@
 local M = {}
 
 M.RESERVED = {}
-for w in ([[TRUE FALSE True False true false NA NULL None nothing missing Inf NaN]]):gmatch("%S+") do
+for w in ([[TRUE FALSE True False true false NA NULL None nothing missing Inf NaN]]):gmatch("[^ \t\r\n]+") do
   M.RESERVED[w] = true
 end
 
@@ -28,7 +28,7 @@ function M.is_name(s)
   return not M.RESERVED[s]
 end
 
-local function trim(s) return (s:gsub("^%s+", ""):gsub("%s+$", "")) end
+local function trim(s) return (s:gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")) end
 
 -- split at every comma that is not inside a single-quoted string
 function M.split(value)

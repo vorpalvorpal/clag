@@ -20,7 +20,7 @@ end
 
 local function entry(f, tag)
   local head = string.format("  %s  %s%s", where(f), tag and ("[" .. f.kind .. "] ") or "", f.expr or "")
-  local out = { (head:gsub("%s+$", "")) }
+  local out = { (head:gsub("[ \t\r\n]+$", "")) }
   for _, field in ipairs({ f.detail, f.hint }) do
     if field and field ~= "" then
       for l in (field .. "\n"):gmatch("(.-)\n") do out[#out + 1] = "      " .. l end
@@ -110,7 +110,7 @@ function M.collect_path(find_upward, in_quarto)
   if not f then return nil end
   local first = f:read("l") or ""
   f:close()
-  local mine = first:match('"run"%s*:%s*"([^"]*)"')
+  local mine = first:match('"run"[ \t\r\n]*:[ \t\r\n]*"([^"]*)"')
   local rf = find_upward(".weft/run")
   local id = nil
   if rf then id = rf:read("l"); rf:close() end

@@ -208,7 +208,7 @@ end
 
 local function json_num(x)
   if x == 0 then return "0" end
-  return (string.format("%.6g", x):gsub("^%s+", ""))
+  return (string.format("%.6g", x):gsub("^[ \t\r\n]+", ""))
 end
 
 function M.entry_line(e)
@@ -352,7 +352,7 @@ function M.write(o)
   local header, kept = nil, {}
   if old then
     for i, l in ipairs(lines_of(old)) do
-      if l:find("^%s*$") then
+      if l:find("^[ \t\r\n]*$") then
         -- skipped
       elseif i == 1 and l:find('^{"weft":"ledger"') then
         local d = decode(l)

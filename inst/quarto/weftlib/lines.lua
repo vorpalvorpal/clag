@@ -42,11 +42,11 @@ local function masked_lines(text)
   for line in (text .. "\n"):gmatch("(.-)\r?\n") do
     n = n + 1
     local keep = line
-    local marks = line:match("^[%s>]*(`+)") or line:match("^[%s>]*(~+)")
+    local marks = line:match("^[ \t\r\n>]*(`+)") or line:match("^[ \t\r\n>]*(~+)")
     if fence_char then
-      local close = line:match("^[%s>]*(" .. fence_char .. "+)%s*$")
+      local close = line:match("^[ \t\r\n>]*(" .. fence_char .. "+)[ \t\r\n]*$")
       if close and #close >= fence_len then fence_char = nil
-      elseif not line:match("^%s*#|") then keep = "" end
+      elseif not line:match("^[ \t\r\n]*#|") then keep = "" end
       if fence_char == nil then keep = "" end
     elseif marks and #marks >= 3 then
       fence_char = marks:sub(1, 1)
@@ -69,7 +69,7 @@ local function expand(path, depth, parts, files, seen_files)
   local masked = masked_lines(text)
   for i = 1, #masked do
     local line = masked[i]
-    local inc = line:match("^%s*{{<%s*include%s+(%S+)%s*>}}%s*$")
+    local inc = line:match("^[ \t\r\n]*{{<[ \t\r\n]*include[ \t\r\n]+([^ \t\r\n]+)[ \t\r\n]*>}}[ \t\r\n]*$")
     local done = false
     if inc and depth < 8 then
       local target = join(dir_of(path), inc)
