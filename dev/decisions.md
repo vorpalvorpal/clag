@@ -662,3 +662,50 @@ first code review are folded in too: the settings `date_format`,
 list of 9.1.5, and 9.4.4 states the draft rule (`draft:` takes `true`
 or `false`; `WEFT_DRAFT` takes `true` or `1`, and `false`). To
 reverse: the spec text only; no code changed.
+
+## 70. Values by name, resolved by a Lua filter, are designed (13 Nov)
+
+Robin asked to start on architecture (c) of
+`dev/languages-c-scoping.md` ("Start on implementing option c"), and
+then for `claim()` written in Python and Julia. The choices inside both
+were delegated. `dev/design-6.md` is the contract (N1 to N150, messages
+E1 to E75) and gives each choice (D1 to D28) with its alternatives; open
+questions O1 to O9 carry a recommended answer.
+
+What was measured first (Quarto 1.11.9, Pandoc 3.10 and 3.8.3, Julia
+1.13.3 with QuartoNotebookRunner, the scratchpad's Python kernel): on
+the julia engine a value whose type shows as `text/markdown` reaches
+Pandoc as markdown with no `output: asis`, a `String` displayed as
+markdown does not, and an `include: false` cell emits nothing; a julia
+cell error stops the render unless `error: true`; the julia server keeps
+the environment it started with through daemon restarts and closes, so
+`WEFT_RUN` and `QUARTO_DOCUMENT_FILE` go stale and only `quarto call
+engine julia kill` refreshes them, while a file read in a cell is
+current; cell labels reach the tree as `#label` (julia) and
+`#cell-label` (jupyter); `pandoc.json` keeps the first of two equal
+keys and returns nil for malformed text; Pandoc's metadata reader
+changes `" "` and `--`, so the filter reads `_weft.yml` as text.
+
+What was decided. A named value is a code span holding one name with a
+weft class or key, `` `depth`{.num} ``; `.val` prints a value as it is.
+Code publishes typed records (stage 5's record) in a fenced
+`weft-values` block of JSON, schema 1; the filter `weft.lua` resolves
+names in document order, captions and front matter last. In a knitr
+document the hooks keep everything they resolve today and publish every
+name the source names automatically; `weft_put()` publishes explicitly.
+Conditions in filter constructs are one comparison of names and
+literals, comma-joined. Floats print by a literal Lua port of R's code,
+checked against the conformance tables; integers and decimals print
+exactly at any size. A class the filter lacks is a loud failure, never
+a pass-through. `claim()` from Python (`claim(n, "> 10")`) and Julia
+(`@claim n > 10`) is checked where it runs, as R chunk claims are, on
+both back ends; its knitr half is built first. The Python code is one
+package under `inst/python/weft/`, the Julia code one package under
+`inst/julia/Weft/`, each used by R under knitr and installed from git
+for the engines. The extension keeps its name `weft-check` and gains
+`weft.lua` before `weft-check.lua`.
+
+Packages: 6a, 6k and 6b in parallel; 6c after 6a; 6d after 6k, beside
+6c; 6f then 6g after 6c (6g also after 6b); 6e after 6c and 6d; 6h
+after 6e; 6i after 6g; 6j last. To reverse: nothing is built yet; drop
+the note.
