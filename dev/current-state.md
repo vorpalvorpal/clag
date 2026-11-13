@@ -181,8 +181,15 @@ The sections above are history; this one is current.
   (Homebrew, with its dependencies), the R package JuliaCall,
   `~/.julia` (RCall); earlier, Homebrew `udunits`. Scratch virtualenvs
   with Jupyter, numpy and pandas live only in the scratchpad.
-- **Waiting on Robin:** whether to build the resolver filter (stage 2
-  of `dev/languages-c-scoping.md`); the rmarkdown issue and PR draft
+- **Option (c) is to be built (Robin, 13 Nov: "Start on implementing
+  option c when you are ready").** All code of (a) is on `main`
+  (5a to 5f, 5h, 5J); its article, spec text and a check workflow are
+  being written in a worktree. The design note for (c) is being
+  written as `dev/design-6.md` (values by name: a carrier block, a
+  resolver filter in Lua, `weft_put()`, a Python package for Jupyter,
+  `Weft.jl`, the static side in R). Then the usual cycle per package:
+  rule on the note's questions, test-writer, implementer, review.
+- **Waiting on Robin:** the rmarkdown issue and PR draft
   (scratchpad `rmdfix/`, nothing posted); units PR #447 / issue #448.
 - **Suite:** always through the scratchpad `suite/fresh-suite.sh`,
   which exports `HEAD` first (an earlier run tested a stale copy).
