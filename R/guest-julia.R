@@ -53,6 +53,8 @@ jl_register <- function() {
   if (!have) {
     JuliaCall::julia_source(system.file("julia", "WeftGuest.jl", package = "weft"))
   }
+  # the logger and the include record, once per Julia (J3, J4)
+  JuliaCall::julia_call("WeftGuest.install")
   weft_env$jl_registered <- TRUE
   invisible()
 }
@@ -171,6 +173,40 @@ jl_value_tracked <- function(fn, ...) jl_read(list(...), fn, track = TRUE)
 jl_record <- function(name) {
   read <- deparse_read(call("jl_value", name))
   jl_fetch(name, read, read)
+}
+
+# ---- what Julia logged (J3) and what it included (J4) -----------------------------------
+
+# The @warn and @error records Julia's logging received since the last call, each
+# as list(class, text), and the note of them cleared. Starts no Julia.
+julia_drain <- function() {
+  if (!julia_running()) return(list())
+  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.drain"), error = function(e) NULL)
+  if (!is.character(txt) || length(txt) != 1L) return(list())
+  recs <- tryCatch(guest_json(txt), error = function(e) list())
+  lapply(recs, function(r) list(class = as.character(r[[1L]]), text = as.character(r[[2L]])))
+}
+
+# The files Julia's include() loaded in this R session since weft registered,
+# that lie in the project (J4), by path relative to `root`, with `/`. A file
+# under a folder named site-packages, dist-packages, .venv, venv, renv, or one
+# starting with a dot, is not one. Starts no Julia.
+julia_project_files <- function(root) {
+  if (!julia_running()) return(character())
+  txt <- tryCatch(JuliaCall::julia_call("WeftGuest.included"), error = function(e) NULL)
+  if (!is.character(txt) || length(txt) != 1L) return(character())
+  paths <- tryCatch(as.character(unlist(guest_json(txt))), error = function(e) character())
+  root <- norm_path(root)
+  out <- character()
+  for (p in paths) {
+    rel <- rel_path(root, norm_path(p))
+    if (is_abs_path(rel) || startsWith(rel, "..")) next
+    parts <- strsplit(rel, "/", fixed = TRUE)[[1L]]
+    dirs <- parts[-length(parts)]
+    if (any(dirs %in% c("site-packages", "dist-packages", ".venv", "venv", "renv") | startsWith(dirs, "."))) next
+    out <- c(out, rel)
+  }
+  unique(out)
 }
 
 # ---- jl_value() in expressions weft evaluates (J11) ---------------------------------

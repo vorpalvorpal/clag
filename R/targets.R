@@ -277,10 +277,12 @@ reads_walker <- function(envir = globalenv(), keys = character()) {
     rname <- hname
     if (is.call(head) && length(head) == 3L && is.symbol(head[[1L]]) &&
         as.character(head[[1L]]) %in% c("::", ":::") && is.symbol(head[[2L]]) &&
-        identical(as.character(head[[2L]]), "reticulate") && is.symbol(head[[3L]])) {
+        as.character(head[[2L]]) %in% c("reticulate", "JuliaCall") && is.symbol(head[[3L]])) {
       rname <- as.character(head[[3L]])
     }
-    if ((bname %in% c("source", "sys.source") || rname %in% c("source_python", "py_run_file")) && n >= 2L) {
+    # JuliaCall::julia_source() with a literal path is a file read too (J21)
+    if ((bname %in% c("source", "sys.source") ||
+         rname %in% c("source_python", "py_run_file", "julia_source")) && n >= 2L) {
       an <- names(x)
       if (is.null(an)) an <- rep("", n)
       k <- which(an == "file")[1L]
@@ -890,7 +892,7 @@ chapter_reads <- function(s) {
     files <- c(files, rel_path(root, norm_path(if (is_abs_path(p)) p else file.path(norm_path(getwd()), p))))
   }
   # the project's Python modules loaded by the end of the knit (G30)
-  files <- c(files, guest_project_modules(root))
+  files <- c(files, guest_project_modules(root), julia_project_files(root))
   files <- unique(enc2utf8(files[!is.na(files) & nzchar(files)]))
   files <- files[files == src | file.exists(file.path(root, files))]
   files <- sort(files, method = "radix")

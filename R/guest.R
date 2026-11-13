@@ -219,6 +219,11 @@ guest_drain_warnings <- function() {
   as.character(unlist(txt))
 }
 
+# What Python and Julia noted since the last call, each as list(class, text).
+guest_drain_conditions <- function() {
+  c(lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t)), julia_drain())
+}
+
 # The error a Python chunk with `error: true` left, as "Type: message", or
 # NULL; reticulate's note of it is cleared.
 guest_take_error <- function() {
@@ -241,9 +246,13 @@ guest_project_modules <- function(root) {
 # Before a chunk runs: what Python noted earlier belongs to no chunk, and a
 # Python error left by an earlier chunk is not this chunk's.
 guest_chunk_begin <- function(s, options) {
-  if (!guest_running()) return(invisible())
-  guest_drain_warnings()
-  if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) guest_take_error()
+  if (guest_running()) {
+    guest_drain_warnings()
+    if (identical(tolower(as.character(options$engine %||% "")[1L]), "python")) guest_take_error()
+  } else if (!julia_running()) {
+    return(invisible())
+  }
+  julia_drain()
   s$guest_mark <- list(failures = length(s$failures), ledger = length(s$ledger))
   invisible()
 }
@@ -254,9 +263,14 @@ guest_chunk_end <- function(options) {
   s <- active_state()
   if (is.null(s)) return(invisible())
   label <- options$label %||% NA_character_
-  mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
-  err <- guest_take_error()
-  if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
+  if (identical(tolower(as.character(options$engine %||% "")[1L]), "julia")) {
+    # a Julia error stops the knit (J18), so only the log's records are here
+    mine <- julia_drain()
+  } else {
+    mine <- lapply(guest_drain_warnings(), function(t) list(class = "warning", text = t))
+    err <- guest_take_error()
+    if (!is.null(err)) mine <- c(mine, list(list(class = "error", text = err)))
+  }
   mark <- s$guest_mark %||% list(failures = length(s$failures), ledger = length(s$ledger))
   nf <- length(s$failures)
   fails <- if (nf > mark$failures) s$failures[(mark$failures + 1L):nf] else list()

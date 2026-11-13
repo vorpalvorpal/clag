@@ -109,7 +109,7 @@ make_evaluate_hook <- function(prev) {
       mine[[length(mine) + 1L]] <<- list(class = class, text = conditionMessage(cond))
     }
     py_warnings <- function() {
-      for (t in guest_drain_warnings()) mine[[length(mine) + 1L]] <<- list(class = "warning", text = t)
+      for (m in guest_drain_conditions()) mine[[length(mine) + 1L]] <<- m
     }
     res <- tryCatch(
       do.call(prev, c(list(code, envir), args)),
