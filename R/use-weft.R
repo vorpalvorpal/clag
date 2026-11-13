@@ -281,7 +281,8 @@ dictionary_plan <- function(root) {
 #'
 #' Reports the state of each part of the set-up: `setup` (`_weft.yml` and the
 #' version it records), `activation`, `quarto`, `dictionary`, `hooks`, `ci`,
-#' `agent docs`, `draft`, `verify_skip` and `strict`. It writes nothing, starts
+#' `agent docs`, `draft`, `verify_skip` and `strict`, and `python` (can `import weft` run) for a project with a
+#' jupyter-engine document. It writes nothing, starts
 #' no R process and uses no network.
 #'
 #' `state` is one of `ok`, `missing`, `outdated` (weft's file is from another
@@ -339,6 +340,12 @@ status <- function(path = ".") {
   # quarto
   q <- status_quarto(root)
   add("quarto", q$state, q$detail, "use_quarto", "install the Quarto filter and scripts")
+
+  # python (N74): only for a project with a jupyter-engine document
+  if (project_has_jupyter_doc(root)) {
+    py <- status_python(root)
+    add("python", py$state, py$detail)
+  }
 
   # dictionary
   dict <- file.path(root, "dict.yml")

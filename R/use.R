@@ -140,7 +140,58 @@ use_quarto <- function(path = ".") {
 
   message(if (length(written)) paste0("Wrote: ", paste(written, collapse = ", "))
           else "Nothing to change: the project is already set up.")
+  # N74: a project with a jupyter-engine document needs the Python package in the Python Quarto uses
+  if (project_has_jupyter_doc(path)) message(MSG_E61)
   invisible(written)
+}
+
+MSG_E61 <- paste0("Install the Python package in the Python Quarto uses: ",
+                  "pip install \"git+https://github.com/vorpalvorpal/weft#subdirectory=inst/python\"")
+
+# Does Quarto run this .qmd on the jupyter engine (N74): `engine: jupyter` or a `jupyter:` key; with neither
+# an `engine:` key nor an executed {r} chunk, a {python} chunk. `engine: knitr` (or any other) is not.
+doc_is_jupyter <- function(lines) {
+  fm <- character()
+  if (length(lines) && grepl("^---[ \t\r]*$", lines[1L])) {
+    cl <- which(grepl("^(---|\\.\\.\\.)[ \t\r]*$", lines[-1L]))
+    if (length(cl)) fm <- lines[seq_len(cl[1L] - 1L) + 1L]
+  }
+  eng <- grep("^engine[ \t]*:", fm, value = TRUE)
+  if (length(eng)) {
+    v <- sub("(^|[ \t])#.*$", "", sub("^engine[ \t]*:", "", eng[1L]))
+    v <- tolower(gsub("^[ \t\"']+|[ \t\"']+$", "", v))
+    return(identical(v, "jupyter"))
+  }
+  if (any(grepl("^jupyter[ \t]*:", fm))) return(TRUE)
+  any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*python[ \t,}]", lines)) &&
+    !any(grepl("^[ \t>]*`{3,}[ \t]*\\{[ \t]*[rR][ \t,}]", lines))
+}
+
+# Does any .qmd of the project below `root` run on the jupyter engine?
+project_has_jupyter_doc <- function(root) {
+  docs <- project_doc_paths(root, "setup")
+  docs <- docs[grepl("\\.qmd$", docs, ignore.case = TRUE)]
+  for (d in docs) {
+    lines <- tryCatch(read_source_lines(file.path(root, d)), error = function(e) character())
+    if (doc_is_jupyter(lines)) return(TRUE)
+  }
+  FALSE
+}
+
+# The state of the `python` row of status() (N74): can `import weft` run in the Python Quarto would use.
+status_python <- function(root) {
+  py <- Sys.getenv("QUARTO_PYTHON", "")
+  if (!nzchar(py)) py <- unname(Sys.which("python3"))
+  if (!nzchar(py)) {
+    return(list(state = "not checked", detail = "no Python found (QUARTO_PYTHON, then python3 on the PATH)"))
+  }
+  st <- suppressWarnings(tryCatch(system2(py, c("-I", "-c", shQuote("import weft")), stdout = FALSE, stderr = FALSE),
+                                  error = function(e) 127L))
+  if (identical(as.integer(st), 0L)) {
+    list(state = "ok", detail = sprintf("`import weft` works in %s", py))
+  } else {
+    list(state = "missing", detail = sprintf("`import weft` fails in %s; %s", py, MSG_E61))
+  }
 }
 
 # ---- editing _quarto.yml ----------------------------------------------------
