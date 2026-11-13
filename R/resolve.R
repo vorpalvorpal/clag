@@ -950,7 +950,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (len == 0L && narms == 2L) {
       return(record_fail(k, "failed claim", label, paste0(
         "the list is empty, and a two-arm `list` span has no arm for the empty case (rule 1.5.3); ",
-        "add a first arm for the empty case"), hint = "add a first arm for the empty case"))
+        "add a first arm for the empty case")))
     }
     hash <- ""
     if (len > 0L) {

@@ -173,11 +173,11 @@ write_items <- function(items) {
 }
 
 # the closing message; returns the paths written, invisibly
-finish_install <- function(done, what) {
+finish_install <- function(done, what, plural = FALSE) {
   if (length(done)) {
     message("Wrote: ", paste(vapply(done, `[[`, "", "label"), collapse = ", "))
   } else {
-    message("Nothing to change: ", what, " is already set up.")
+    message("Nothing to change: ", what, if (plural) " are" else " is", " already set up.")
   }
   invisible(vapply(done, `[[`, "", "path"))
 }

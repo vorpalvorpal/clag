@@ -377,7 +377,7 @@ status <- function(path = ".") {
 
   # draft, verify_skip, strict
   if (isTRUE(cfg$draft)) {
-    add("draft", "off", "draft: true, so nothing is checked in a render or a commit")
+    add("draft", "off", "draft: true: a render reports failures and marks them instead of failing, and verify() refuses to run, but the commit gate still judges every commit")
   } else {
     add("draft", "ok", "draft mode is off")
   }

@@ -339,7 +339,7 @@ lint_literal_value <- function(src, ctx) {
     out[[length(out) + 1L]] <- lc_find(
       src, p$off, p$off + nchar(p$text) - 1, "literal-value", p$text,
       sprintf("`%s` is made only of constants, so it is a number typed in the source (rule 5.6.1).", p$text),
-      "Compute it, put it in the dictionary, or write [10]{.weft-literal why=\"...\"}.", p$context)
+      sprintf("Compute it, put it in the dictionary, or write [%s]{.weft-literal why=\"...\"}.", p$text), p$context)
   }
   bind_findings(out)
 }
@@ -657,7 +657,8 @@ lint_if_zero <- function(src, ctx) {
     out[[length(out) + 1L]] <- lc_find(
       src, p$off, p$off + nchar(p$text) - 1, "if-zero", p$text,
       sprintf("The condition `%s` compares with 0, which is a threshold typed in the source (rule 5.3.3).", p$text),
-      "Compare with a named value from the dictionary.", p$context)
+      "A comparison with zero probably wants `sign`: write [a | b | c]{sign=\"...\"} with an arm for each of positive, negative and zero (rule 5.3.3).",
+      p$context)
   }
   bind_findings(out)
 }

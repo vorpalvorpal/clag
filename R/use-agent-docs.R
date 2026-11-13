@@ -29,7 +29,7 @@ use_agent_docs <- function(path = ".", overwrite = FALSE) {
   announce_items(root, plan$items)
   done <- write_items(plan$items)
   if (nzchar(plan$note)) message(plan$note)
-  finish_install(done, "the agent documents")
+  finish_install(done, "the agent documents", plural = TRUE)
 }
 
 AGENT_FN <- "use_agent_docs"
