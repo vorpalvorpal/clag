@@ -48,8 +48,14 @@ jle_kill <- function() {
   invisible(NULL)
 }
 
-# `quarto call engine julia kill` when the file's tests are done (design section 5)
+# `quarto call engine julia kill` now, and again when the run is done (design section 5).
+# The kill NOW is the fix of open finding 19: testthat runs teardown_env() once, after the whole run, so
+# a file's first render used to reuse the server of the file before it, with that file's working folder
+# and QUARTO_DOCUMENT_PATH (a stale one made run_id() read no `.weft/run`: "run":null), and the result
+# of a file depended on which files ran before it. Each file that renders now starts from a fresh server.
 jle_kill_at_file_end <- function() {
+  jle_kill()
+  .jle$killed <- TRUE
   env <- tryCatch(testthat::teardown_env(), error = function(e) NULL)
   if (!is.null(env)) withr::defer(jle_kill(), envir = env)
   invisible(NULL)

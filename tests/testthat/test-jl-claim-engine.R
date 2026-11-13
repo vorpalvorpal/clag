@@ -160,17 +160,34 @@ test_that("N57: `line` is the line of the call when the source file ends .qmd, .
   expect_null(line(5))
 })
 
-test_that("N57: the block is displayed before the throw, so a ClaimFailed caught in the cell still leaves it", {
+# Amended for the ruling on open finding 16 (review of stage 6, "Suspected"): on the engine a failed
+# @claim PRINTS its carrier to stdout, with `~~~~` fences (a backtick fence would close Quarto's own
+# stdout fence), and then throws; it is NOT also displayed, so no version of the runner can report it
+# twice. The cell that catches the throw therefore has the carrier in its stdout before "caught true".
+test_that("N57, ruling: a failed @claim prints its carrier (tilde fences) to stdout and throws; a ClaimFailed caught in the cell leaves the carrier before what the cell printed, and nothing is displayed", {
   s <- raw_claims()
-  b <- claim_blocks("f2")
-  expect_length(b$blocks, 1L)
-  ch <- failed_checks(blk(b, 1))
+  expect_length(claim_blocks("f2")$blocks, 0L)          # not displayed: no pre.weft-values in a bare render
+  out <- jle_stdout_of(s$cells[["f2"]] %||% "")
+  expect_length(out, 1L)
+  lines <- if (length(out)) strsplit(out[1], "\n", fixed = TRUE)[[1]] else character()
+  expect_length(lines, 5L)
+  expect_identical(lines[1], "~~~~{.weft-values}")
+  expect_match(lines[2], ENV_CLAIM)
+  expect_identical(lines[3], "~~~~")
+  expect_identical(lines[4], "caught true")
+  expect_identical(lines[5], jle_msg$E55("n > 10", "7"))
+  x <- tryCatch(jsonlite::fromJSON(lines[2], simplifyVector = FALSE), error = function(e) list())
+  expect_identical(as.integer(x$weft), 1L)
+  expect_identical(x$lang, "julia")
+  expect_length(x$values, 0L)
+  ch <- failed_checks(x)
   expect_length(ch, 1L)
   expect_identical(ch[[1]]$text, "n > 10")
   expect_identical(ch[[1]]$expr, "@claim n > 10")
-  expect_identical(ch[[1]]$level %||% "fail", "fail")
+  expect_identical(ch[[1]]$ok, FALSE)
+  expect_identical(ch[[1]]$level, "fail")
   expect_identical(list(ch[[1]]$value$t, ch[[1]]$value$v), list("int", "7"))
-  expect_identical(jle_stdout_of(s$cells[["f2"]] %||% ""), paste0("caught true\n", jle_msg$E55("n > 10", "7")))
+  expect_identical(as.integer(ch[[1]]$line), as.integer(which(RAW_QMD == "    @claim n > 10")))
 })
 
 test_that("N57: a claim that passes displays nothing", {
@@ -179,26 +196,38 @@ test_that("N57: a claim that passes displays nothing", {
   expect_true(grepl("<pre><code>7</code></pre>", s$cells[["f1"]] %||% "", fixed = TRUE))
 })
 
-test_that("N57, E55: a failed claim whose cell ends in the throw displays its block, then the error with E55; the render goes on under `error: true`", {
+# Amended for the same ruling: a cell that ENDS in the throw loses what it displayed (measured), so what
+# reaches the filter is the carrier the claim printed: the whole of the cell's stdout block here, then the
+# error with E55. A bare render has no filter, so the carrier is read from the stdout block; the filter's
+# own report of it (the claim, at the line of its call) is pinned by the filtered renders below.
+test_that("N57, E55, ruling: a failed claim whose cell ends in the throw prints its carrier, then the error with E55; nothing is displayed; the render goes on under `error: true`", {
   s <- raw_claims()
-  # the error reached the cell, with the text of E55 (this part is true of the package today)
-  expect_true(grepl(jle_msg$E55("n > 10", "7"), jle_unesc(s$cells[["f4"]] %||% ""), fixed = TRUE))
+  cell <- s$cells[["f4"]] %||% ""
+  # the error reached the cell, with the text of E55
+  expect_true(grepl(jle_msg$E55("n > 10", "7"), jle_unesc(cell), fixed = TRUE))
   expect_true(grepl("The end.", s$html, fixed = TRUE))
-  # and the block was displayed first (see the READINGS: this needs a way past the engine dropping displays)
-  b <- claim_blocks("f4")
-  expect_length(b$blocks, 1L)
-  expect_match(b$texts, ENV_CLAIM)
-  ch <- failed_checks(blk(b, 1))
+  # nothing was displayed (and a display would have been dropped with the cell's output anyway)
+  expect_length(claim_blocks("f4")$blocks, 0L)
+  # the carrier is the whole stdout block, with tilde fences
+  out <- jle_stdout_of(cell)
+  expect_length(out, 1L)
+  lines <- if (length(out)) strsplit(out[1], "\n", fixed = TRUE)[[1]] else character()
+  expect_length(lines, 3L)
+  expect_identical(lines[1], "~~~~{.weft-values}")
+  expect_match(lines[2], ENV_CLAIM)
+  expect_identical(lines[3], "~~~~")
+  x <- tryCatch(jsonlite::fromJSON(lines[2], simplifyVector = FALSE), error = function(e) list())
+  ch <- failed_checks(x)
   expect_length(ch, 1L)
   expect_identical(ch[[1]]$expr, "@claim n > 10")
   expect_identical(ch[[1]]$text, "n > 10")
   expect_identical(ch[[1]]$ok, FALSE)
+  expect_identical(ch[[1]]$level, "fail")
   expect_identical(list(ch[[1]]$value$t, ch[[1]]$value$v), list("int", "7"))
   expect_identical(as.integer(ch[[1]]$line), as.integer(which(RAW_QMD == "@claim n > 10")))
-  # the block comes before the error in the cell
-  cell <- s$cells[["f4"]] %||% ""
-  expect_true(regexpr("weft-values", cell, fixed = TRUE) > 0 &&
-                regexpr("weft-values", cell, fixed = TRUE) < regexpr("cell-output-error", cell, fixed = TRUE))
+  # the printed carrier comes before the error in the cell
+  expect_true(regexpr("cell-output-stdout", cell, fixed = TRUE) > 0 &&
+                regexpr("cell-output-stdout", cell, fixed = TRUE) < regexpr("cell-output-error", cell, fixed = TRUE))
 })
 
 # ---- with the filter: the report ------------------------------------------------------------------------

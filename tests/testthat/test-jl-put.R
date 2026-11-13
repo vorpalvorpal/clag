@@ -193,7 +193,10 @@ test_that("N40's Julia form: @put a b publishes each variable under its own name
   expect_match(x$out, "RET=nothing\n$")
   y <- r[[16]]
   expect_length(y$blocks, 1L)
-  expect_match(y$block_text, PUT_BLOCK('\\{"n_sites":\\{"t":"int","v":"4"'))
+  # `block_text` holds the JSON only (jle_parse_blocks() strips the fence lines), so the envelope is
+  # matched on it, and the fence lines on what the process printed (open finding 16)
+  expect_match(y$block_text, JSON_ENV('\\{"n_sites":\\{"t":"int","v":"4"\\}\\}\\}$'))
+  expect_match(y$out, paste0(PUT_BLOCK('\\{"n_sites":\\{"t":"int","v":"4"'), '\\}\\}\\}\n````\n$'))
 })
 
 test_that("N6, E41: @put of a variable whose name is not ASCII raises PublishError", {
@@ -300,8 +303,11 @@ cell_blocks <- function(label) {
   jle_html_blocks(if (is.null(s$cells[[label]])) "" else s$cells[[label]])
 }
 
+# The outputs of a cell: Quarto writes each as <div class="cell-output ..."> and gives a display output
+# the id of the cell (`<div id="p1" class="cell-output cell-output-display ...">`, `p3-1`, `p3-2` for two),
+# so the count allows the id (open finding 16: the old pattern had no id and counted none).
 n_outputs <- function(label) {
-  m <- gregexpr("<div class=\"cell-output", put_render()$cells[[label]] %||% "", fixed = TRUE)[[1]]
+  m <- gregexpr("<div (?:id=\"[^\"]*\" )?class=\"cell-output", put_render()$cells[[label]] %||% "", perl = TRUE)[[1]]
   sum(m > 0)
 }
 
@@ -360,8 +366,10 @@ test_that("measured 2, N57: what put() displays on the engine is a Weft.Values w
   expect_identical(lines[1], "1")
   expect_identical(lines[2], "Weft.Values")
   md <- paste(lines[-(1:2)], collapse = "\n")
-  expect_match(md, "^\\s*````\\{\\.weft-values\\}\n\\{\"weft\":1,\"lang\":\"julia\",\"run\":\"run-file-1\",\"at\":[0-9]+,\"values\":\\{\"depth\":\\{\"t\":\"float\",\"v\":\"2.5\"[^\n]*\\}\\}\\}\n````\\s*$")
-})
+  # Measured (open finding 16): the block's closing line, four backticks, closes Quarto's own fence around the
+  # cell's stdout, so it is not inside the `<pre><code>` that jle_stdout_of() reads; what is inside ends with
+  # the JSON line. (The text/markdown itself, closing fence included, is pinned on plain Julia above.)
+  expect_match(md, "^\\s*````\\{\\.weft-values\\}\n\\{\"weft\":1,\"lang\":\"julia\",\"run\":\"run-file-1\",\"at\":[0-9]+,\"values\":\\{\"depth\":\\{\"t\":\"float\",\"v\":\"2.5\"[^\n]*\\}\\}\\}\\s*$")})
 
 # ---- controls: true of the package today ------------------------------------------------------------
 
