@@ -74,7 +74,7 @@ W6D_E5 <- function(value, key) {
 }
 W6D_E6 <- function(id) {
   sprintf(paste0("`#%s` names an id on a named value, which the hooks cannot read; refer to an id of the ",
-                 "same form (rule 1.12.5)."), id)
+                 "same form (rule 1.12.10)."), id)
 }
 W6D_E9 <- function(key) {
   sprintf("A named value takes no `%s`: a governor key belongs on a span (rule 1.3.3).", key)
