@@ -47,6 +47,7 @@ local cond = lib("cond")
 local config = lib("config")
 local lines_lib = lib("lines")
 local report = lib("report")
+local words = lib("words")
 
 -- ---- what weft owns -----------------------------------------------------------------------------
 
@@ -73,14 +74,15 @@ local GROUP_ORDER = { "number", "wording", "collapse", "unit", "emphasis" }
 local WORDING_WITH_VAL = { no = true, word = true, count = true, ord = true }
 
 -- the classes this filter implements (6c): the printers for a named value
-local IMPLEMENTED = { num = true, pct = true, val = true }
-local IMPLEMENTED_KEYS = { digits = true, sigfig = true }
+local IMPLEMENTED = {}
+for cl in pairs(CLASSES) do IMPLEMENTED[cl] = true end
+local IMPLEMENTED_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true }
 
 -- ---- state --------------------------------------------------------------------------------------
 
 local S = {
   values = {}, valid = {}, fails = {}, warned = {}, cfg = nil, src = nil, main = nil,
-  stash = {}, mute = 0, minus_used = false, stale = nil, lang = nil,
+  stash = {}, mute = 0, minus_used = false, stale = nil, lang = nil, ids = {}, id_log = {},
 }
 
 local function with(ctx, k, v)
@@ -414,7 +416,7 @@ local function shown_span(el, key, value)
   return string.format('[%s]{%s="%s"}', cut(text, 60), key, value)
 end
 
--- ---- named values (N5 to N8, N17, N82, N83) ---------------------------------------------------------
+-- ---- named values (N5 to N8, N17, N82, N83, N100) ---------------------------------------------------
 
 local function is_weft_class(c) return CLASSES[c] ~= nil or S.cfg.formatters[c] == true end
 
@@ -436,16 +438,140 @@ local function whole_number(text)
   return n
 end
 
+local TEXT_CLASS = { a = true, cap = true, strong = true, em = true }
+local NUMBER_STAGE = { "num", "pct", "sci", "p", "date", "val" }
+local WORDING_STAGE = { "word", "count", "ord" }
+local COLLAPSE_STAGE = { "and", "or", "pairs", "range", "ul", "ol", "dl" }
+local ENGLISH_ONLY = { "no", "word", "count", "ord", "and", "or", "pairs", "range", "a", "date", "uname" }
+local LIST_CLASS = { ul = true, ol = true, dl = true }
+
+-- ---- failures raised inside the formatters ---------------------------------------------------------
+
+local function raise(kind, detail, hint) error({ kind = kind, detail = detail, hint = hint }, 0) end
+local function vfail(detail) raise("value error", detail) end
+local function cfail(detail) raise("construct error", detail) end
+local function nofail(detail) raise("no value", detail) end
+
+-- the failure table of anything pcall caught: a Lua error that is not ours is a value error
+local function caught(e)
+  if type(e) == "table" and e.kind then return e end
+  return { kind = "value error", detail = type(e) == "table" and tostring(e.detail) or tostring(e) }
+end
+
+-- run fn(); a failure becomes the marker of the construct
+local function guarded(info, fn)
+  local ok, res, extra = pcall(fn)
+  if ok then return res, extra end
+  local f = caught(res)
+  return pandoc.Inlines({ fail(f.kind, info, f.detail, f.hint) })
+end
+
+local function need(name)
+  local rec, f = lookup(name)
+  if not rec then raise(f.kind, f.detail, f.hint) end
+  return rec
+end
+
+-- ---- markdown text to inlines ----------------------------------------------------------------------
+
+local SPECIAL = "[%*_%^~%[%]`<>\\&#%$@|{}!=\t\r\n]"
+local SPECIAL_DATA = "[%*_%^~%[%]`<>\\&#%$@|{}!\"'=\t\r\n]"
+
+-- Formatter output is markdown (1.4.10). Text with nothing in it for markdown to read is split at its
+-- single spaces; anything else goes through Pandoc's reader.
+-- `data` says the text may hold text from data, where a quote is read as typography (smart quotes); the
+-- text of a number is not read so: its marks are the configuration's.
+local function md_inlines(text, data)
+  local out = pandoc.Inlines({})
+  if text == "" then return out end
+  if not text:find(data and SPECIAL_DATA or SPECIAL) and not (data and (text:find("%-%-") or text:find("%.%.%.")))
+     and not text:find("^[%-+] ")
+     and not text:find("^%d+[%.)] ") and not text:find("  ", 1, true) and text:sub(1, 1) ~= " "
+     and text:sub(-1) ~= " " then
+    local first = true
+    for piece in text:gmatch("[^ ]+") do
+      if not first then out:insert(pandoc.Space()) end
+      out:insert(pandoc.Str(piece))
+      first = false
+    end
+    return out
+  end
+  local doc = pandoc.read(text, "markdown")
+  return pandoc.Inlines(pandoc.utils.blocks_to_inlines(doc.blocks))
+end
+
+local function md_blocks(text) return pandoc.read(text, "markdown").blocks end
+
+-- ---- text classes on inlines (stage iv; 1.1.9) ---------------------------------------------------------
+
+local function cap_first(inls)
+  local out, done = pandoc.Inlines({}), false
+  for _, el in ipairs(inls) do
+    if not done and el.t == "Str" then
+      local lead = #el.text:match("^[^%w]*")
+      if lead < #el.text then
+        out:insert(pandoc.Str(words.capitalise(el.text)))
+        done = true
+      else
+        out:insert(el)
+      end
+    elseif not done and el.content ~= nil and type(el.content) == "table" and el.t ~= "Note"
+           and el.t ~= "Cite" and el.t ~= "Math" then
+      local inner, d2 = cap_first(el.content)
+      local copy = el:clone()
+      copy.content = inner
+      out:insert(copy)
+      done = d2
+    else
+      out:insert(el)
+    end
+  end
+  return out, done
+end
+
+-- `.a`, `.cap`, `.em`, `.strong`, in the order of 1.4.1; an empty text stays empty
+local function text_inlines(inls, has)
+  if #inls == 0 then return inls end
+  if not (has.a or has.cap or has.em or has.strong) then return inls end
+  local cfg = S.cfg
+  if has.a then
+    local vowel, msg = words.vowel_sound(pandoc.utils.stringify(inls), cfg.minus, cfg.decimal_mark, cfg.big_mark)
+    if vowel == nil then vfail(msg) end
+    local lead = pandoc.Inlines({ pandoc.Str(vowel and "an" or "a"), pandoc.Space() })
+    lead:extend(inls)
+    inls = lead
+  end
+  if has.cap then inls = cap_first(inls) end
+  if has.em then inls = pandoc.Inlines({ pandoc.Emph(inls) }) end
+  if has.strong then inls = pandoc.Inlines({ pandoc.Strong(inls) }) end
+  return inls
+end
+
+-- the same stage on a string of markdown
+local function text_stage(text, has)
+  if text == "" then return text end
+  local cfg = S.cfg
+  if has.a then
+    local vowel, msg = words.vowel_sound(text, cfg.minus, cfg.decimal_mark, cfg.big_mark)
+    if vowel == nil then vfail(msg) end
+    text = (vowel and "an " or "a ") .. text
+  end
+  if has.cap then text = words.capitalise(text) end
+  if has.em then text = "*" .. text .. "*" end
+  if has.strong then text = "**" .. text .. "**" end
+  return text
+end
+
+-- ---- the construct's classes and keys --------------------------------------------------------------------
+
 -- the construct's own classes and keys; returns a failure (kind, detail) or nil
-local function check_construct(c, is_span)
-  -- groups
+local function check_construct(c)
   local by_group = {}
   for _, cl in ipairs(c.classes) do
     local g = CLASSES[cl] and CLASSES[cl].group
     if g then by_group[g] = by_group[g] or {}; table.insert(by_group[g], cl) end
   end
-  local has = {}
-  for _, cl in ipairs(c.classes) do has[cl] = true end
+  local has = c.has
   if has.val then
     for _, cl in ipairs(c.classes) do
       if WORDING_WITH_VAL[cl] then
@@ -487,20 +613,46 @@ local function check_construct(c, is_span)
   if c.keys.digits ~= nil and c.keys.sigfig ~= nil then
     return "construct error", "`digits` and `sigfig` together are an error (rule 1.4.7)."
   end
-  if c.keys.none ~= nil and not by_group.collapse then
-    return "construct error", "`none` needs a collapse class: .and, .or, .pairs, .ul, .ol or .dl (rule 1.4.14)."
+  if (has.p or has.date) and (c.keys.digits ~= nil or c.keys.sigfig ~= nil) then
+    return "construct error", string.format("`digits` and `sigfig` do not apply to `.%s`.", has.p and "p" or "date")
+  end
+  if c.keys.trunc ~= nil then
+    local n = whole_number(c.keys.trunc)
+    if n == nil or n < 0 then
+      return "construct error", string.format("`trunc` must be a whole number, not negative (got `%s`).", c.keys.trunc)
+    end
+    if n < 1 then return "construct error", "`trunc` must be at least 1 (rule 1.4.7)." end
+  end
+  if c.keys.none ~= nil then
+    if not by_group.collapse then
+      return "construct error", "`none` needs a collapse class: .and, .or, .pairs, .ul, .ol or .dl (rule 1.4.14)."
+    end
+    if has.range then
+      return "construct error", "`none` does not apply to `.range`: a range has two ends (rule 1.4.14)."
+    end
+    if c.keys.none:match("^%s*$") then
+      return "construct error", "`none` must be one string that is not empty or only spaces (rule 1.4.14)."
+    end
+  end
+  for cl in pairs(LIST_CLASS) do
+    if has[cl] then
+      if has.a or has.cap or has.em or has.strong or c.keys.trunc ~= nil then
+        return "construct error", string.format("A text class or `trunc` with `.%s` is an error: a list is a block (rule 1.4.6).", cl)
+      end
+    end
   end
   return nil
 end
 
 -- not implemented is loud (N83): a value error
-local function check_implemented(c, only_governor_classes)
+local UNSHIPPED = { uname = true, usym = true, nounit = true }
+local function check_implemented(c)
   for _, cl in ipairs(c.classes) do
     if S.cfg.formatters[cl] then
       return "value error", string.format(
         "`.%s` is a project formatter, which is an R function; a named value cannot use it (rule 2.13.3).", cl)
     end
-    if CLASSES[cl] and not IMPLEMENTED[cl] then
+    if CLASSES[cl] and (not IMPLEMENTED[cl] or UNSHIPPED[cl]) then
       return "value error", string.format(
         "`.%s` on a named value is not available in this version of weft.lua (rule 2.13.3).", cl)
     end
@@ -514,11 +666,39 @@ local function check_implemented(c, only_governor_classes)
   return nil
 end
 
+local function english()
+  local l = S.lang
+  if not l or l == "" then return true end
+  local primary = l:match("^([%a]+)")
+  return primary ~= nil and primary:lower() == "en"
+end
+
+-- 1.6.5, 1.6.8, E22: what a construct says under a lang weft ships no words for; nil when it is fine
+local function lang_problem(c, kind, narms)
+  if english() then return nil end
+  if (kind == "n" or kind == "list") and narms and narms > 1 then
+    return string.format(
+      "A `%s` span with more than one arm needs the plural rules of `%s`, which weft does not ship; English rules are never applied to another language (rules 1.6.5, 1.6.7).",
+      kind, S.lang)
+  end
+  local bad
+  for _, cl in ipairs(c.classes) do
+    for _, e in ipairs(ENGLISH_ONLY) do if e == cl then bad = bad or cl end end
+  end
+  bad = bad or (c.keys.trunc ~= nil and "trunc" or nil)
+  if bad then
+    local shown = (bad == "trunc") and "trunc" or ("." .. bad)
+    return string.format("The class `%s` prints English words, and the document's `lang` is `%s` (rule 1.6.8).", shown, S.lang)
+  end
+  return nil
+end
+
 local function analyse(el)
-  local c = { classes = {}, keys = {}, key_list = {}, pass_classes = {}, pass_attrs = {},
+  local c = { classes = {}, keys = {}, key_list = {}, pass_classes = {}, pass_attrs = {}, has = {},
               id = el.identifier or "" }
   for _, cl in ipairs(el.classes) do
     c.classes[#c.classes + 1] = cl
+    c.has[cl] = true
     if not is_weft_class(cl) then c.pass_classes[#c.pass_classes + 1] = cl end
   end
   for k, v in pairs(el.attributes) do
@@ -537,6 +717,13 @@ local function wrap_pass(c, inlines)
   return pandoc.Inlines({ pandoc.Span(inlines, pandoc.Attr(c.id, c.pass_classes, c.pass_attrs)) })
 end
 
+-- a copy of the construct with some classes taken away
+local function without(c, drop)
+  local has = {}
+  for k, v in pairs(c.has) do if not drop[k] then has[k] = v end end
+  return { has = has, keys = c.keys, classes = c.classes, id = c.id }
+end
+
 local function config_for_num()
   local cfg = S.cfg
   return { digits = cfg.digits, decimal_mark = cfg.decimal_mark, big_mark = cfg.big_mark,
@@ -550,35 +737,269 @@ local function number_keys(c)
   return keys
 end
 
-local function number_value(r)
-  return tonumber(r.v)
+-- ---- ids (1.7.5 to 1.7.11) ------------------------------------------------------------------------
+
+-- An id is unique within the document. It is claimed as a failed one, and set when its construct
+-- prints; a back-reference to a failed one is a no-value failure.
+local function id_claim(c)
+  local id = c.id
+  if id == "" or S.mute > 0 then return end
+  if S.ids[id] then
+    cfail(string.format("The id `#%s` is already defined; an id is unique within a document (rule 1.7.5).", id))
+  end
+  S.ids[id] = { failed = true }
+  S.id_log[#S.id_log + 1] = id
 end
 
--- the number a record prints for a class, and the warned check of 2.6.11: returns text, info, zero_note
-local function print_number(r, class, c, quiet_zero)
-  if S.cfg.pct_proportion == false and class == "pct" then
-    error({ detail = "`pct_proportion: false` is not available in this version of weft.lua (rule 2.13.3)." }, 0)
+local function id_set(c, ent)
+  if c.id == "" or S.mute > 0 then return end
+  S.ids[c.id] = ent
+end
+
+-- ---- the formatting pipeline (1.4.1) -----------------------------------------------------------------
+
+local function is_numeric(e) return e.t == "int" or e.t == "float" or e.t == "decimal" end
+
+-- the record as a list of elements, and the names of a named vector (or nil)
+local function elements_of(rec)
+  if rec.t == "list" then
+    local keys = rec.keys
+    if type(keys) ~= "table" or keys == pandoc.json.null or #keys ~= #rec.v then keys = nil end
+    return rec.v, keys
   end
-  local keys = number_keys(c)
-  local ok, text, info = pcall(num.format, r, class, keys, config_for_num())
-  if not ok then error({ detail = tostring(text) }, 0) end
-  if text:find("\u{2212}", 1, true) then S.minus_used = true end
-  local zero_note = nil
-  if not quiet_zero and keys.digits == nil and keys.sigfig == nil and info.zero and r.t ~= "int" then
-    local v = number_value(r)
+  return { rec }, nil
+end
+
+local function group_int(digits, mark)
+  if mark == "" or #digits <= 3 then return digits end
+  local parts = {}
+  local first = #digits % 3
+  if first > 0 then parts[#parts + 1] = digits:sub(1, first) end
+  for i = first + 1, #digits, 3 do parts[#parts + 1] = digits:sub(i, i + 2) end
+  return table.concat(parts, mark)
+end
+
+local function e17(cl, needs, name, kind)
+  return string.format("`.%s` needs a %s; `%s` is a %s (rule 1.4.3).", cl, needs, name, cond.kind_name(kind))
+end
+
+-- one number element printed as .num or .pct; `warn` asks for the printed-as-zero note (2.6.11)
+local function print_elem(e, class, keys, warn)
+  if S.cfg.pct_proportion == false and class == "pct" then
+    vfail("`pct_proportion: false` is not available in this version of weft.lua (rule 2.13.3).")
+  end
+  local ok, text, info = pcall(num.format, e, class, keys, config_for_num())
+  if not ok then vfail(tostring(text)) end
+  local p = { text = text, number = info.number, decimals = info.decimals, relation = "=" }
+  if warn and info.zero and e.t ~= "int" then
+    local v = tonumber(e.v)
     if v ~= nil then
       local sv = class == "pct" and v * 100 or v
       if sv ~= 0 and math.abs(sv - math.floor(sv + 0.5)) >= 1e-9 then
         local shown = string.format("%.12f", sv):gsub("0+$", ""):gsub("%.$", "")
-        zero_note = string.format("%s%s printed as %s: add sigfig to show it, or digits to confirm it",
-                                  shown, class == "pct" and "%" or "", text)
+        p.hit = { value = shown, printed = text }
       end
     end
   end
-  return text, info, zero_note
+  return p
 end
 
-local function resolve_code(el, ctx)
+local function zero_message(z)
+  return string.format("%s%s printed as %s%s: add sigfig to show it, or digits to confirm it",
+                       z.value, z.printed:sub(-1) == "%" and "%" or "", z.printed,
+                       z.n > 1 and string.format(" (%d values printed as zero)", z.n) or "")
+end
+
+-- Format a record by the classes and keys of a construct, as R's apply_formatters() does (1.4.1).
+--   o.governor  stages i and ii only, and the default class when there is none (1.5.7, 1.5.18)
+--   o.quiet     no printed-as-zero note
+--   o.join      what joins a vector that no collapse class joined
+--   o.collapse  the collapse class to use when the construct names none
+--   o.bare      numbers with no number class print as the record holds them (1.5.19)
+-- Returns {text, block, number, decimals, relation, zero}; text is markdown.
+local function format_vector(name, rec, c, o)
+  o = o or {}
+  local cfg, has, keys = S.cfg, c.has, c.keys
+  local governor = o.governor
+  local elems, nms = elements_of(rec)
+  local n = #elems
+  local ncl, collapse, wording
+  for _, cl in ipairs(NUMBER_STAGE) do if has[cl] then ncl = cl end end
+  for _, cl in ipairs(COLLAPSE_STAGE) do if has[cl] then collapse = cl end end
+  for _, cl in ipairs(WORDING_STAGE) do if has[cl] then wording = cl end end
+  local given = keys.digits ~= nil or keys.sigfig ~= nil
+  local default_class = (cfg.governor_class == "pct") and "pct" or "num"
+  if governor and not (ncl or has.no or wording or collapse or given) then ncl = default_class end
+  if not ncl and given then ncl = default_class end
+  local trunc = keys.trunc ~= nil and math.tointeger(tonumber(keys.trunc)) or nil
+  local explicit_collapse = collapse
+  if not collapse and not governor then
+    collapse = o.collapse or (trunc and "and") or nil
+  end
+
+  for i, e in ipairs(elems) do
+    if e.t == "missing" then
+      nofail(string.format("`%s` has a missing element (element %d) (rule 1.3.4).", name, i))
+    elseif e.t == "error" then
+      vfail((tostring(e.why or "an element has no value"):gsub("{S}", "`" .. name .. "`")))
+    end
+  end
+
+  if n == 0 then
+    if not governor and keys.none ~= nil and explicit_collapse then
+      return { text = text_stage(keys.none, has), relation = "=", decimals = false, none = true }
+    end
+    nofail(string.format("`%s` is missing (it holds no elements) (rule 1.4.14).", name))
+  end
+
+  -- stage i: number
+  local range_digits
+  if has.range and (ncl == nil or ncl == "num") and not given then
+    local all_whole = true
+    for _, e in ipairs(elems) do
+      if is_numeric(e) then
+        local v = tonumber(e.v)
+        if v == v and math.abs(v - math.floor(v + 0.5)) >= 1e-9 then all_whole = false end
+      end
+    end
+    if not all_whole then range_digits = cfg.digits end
+  end
+  local want_zero = not governor and not o.quiet and not given
+  local items, raw = {}, {}
+  local data = (keys.none ~= nil or keys.sep ~= nil or keys.last ~= nil)
+  for i, e in ipairs(elems) do
+    local it
+    if ncl == "date" then
+      if e.t ~= "date" then vfail(e17("date", "date", name, e.t)) end
+      local text, msg = words.date(e.v, cfg.date_format)
+      if not text then vfail(msg) end
+      it = { text = text, decimals = false, relation = "=" }
+    elseif ncl == "sci" or ncl == "p" then
+      if rec.t == "list" and not collapse then vfail(e17(ncl, "number", name, "list")) end
+      if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
+      local ok, text, info
+      if ncl == "sci" then ok, text, info = pcall(num.format_sci, e, number_keys(c), config_for_num())
+      else ok, text, info = pcall(num.format_p, e, config_for_num()) end
+      if not ok then vfail(tostring(text)) end
+      it = { text = text, number = info.number, decimals = info.decimals, relation = info.relation }
+    elseif ncl == "val" then
+      data = true
+      it = { text = scalar_text(e), decimals = false, relation = "=" }
+    elseif ncl == "num" or ncl == "pct" or (ncl == nil and is_numeric(e) and not o.bare) then
+      if ncl and rec.t == "list" and not collapse then vfail(e17(ncl, "number", name, "list")) end
+      if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
+      local keys_n = number_keys(c)
+      if range_digits then keys_n.digits = range_digits end
+      it = print_elem(e, ncl or "num", keys_n, want_zero)
+    elseif is_numeric(e) then
+      it = { text = scalar_text(e), decimals = false, relation = "=" }
+    elseif e.t == "bool" then
+      it = { text = e.v and "TRUE" or "FALSE", decimals = false, relation = "=" }
+    else
+      data = true
+      it = { text = tostring(e.v), decimals = false, relation = "=" }
+    end
+    items[i] = it
+    raw[i] = is_numeric(e) and tonumber(e.v) or nil
+  end
+  local hits, first = 0, nil
+  for _, it in ipairs(items) do
+    if it.hit then hits = hits + 1; first = first or it.hit end
+  end
+
+  -- stage ii: wording
+  local is_no = {}
+  if has.no then
+    for i, it in ipairs(items) do
+      is_no[i] = it.number ~= nil and it.number == 0 and not it.decimals and it.relation == "="
+      if not governor and it.hit then is_no[i] = true end
+      if is_no[i] then it.text = "no" end
+    end
+  end
+  if wording then
+    for i, it in ipairs(items) do
+      if not is_no[i] and (it.number == nil or it.relation ~= "=" or it.decimals or it.number < 0
+                           or it.number ~= math.floor(it.number)) then
+        vfail(string.format("`.%s` needs a whole number that is not negative, judged as printed (rule 1.4.12); got \"%s\".",
+                            wording, it.text))
+      end
+    end
+    for i, it in ipairs(items) do
+      if not is_no[i] then
+        local nk = it.number
+        if wording == "word" then
+          if nk < cfg.word_limit then it.text = words.spell_or(nk, it.text) end
+        elseif wording == "count" then
+          if nk < cfg.count_threshold then it.text = words.spell_or(nk, it.text) end
+        else
+          local digits = string.format("%.0f", nk)
+          if nk >= (cfg.thousands_from or 1000) then digits = group_int(digits, cfg.big_mark) end
+          it.text = digits .. words.ordinal_suffix(nk)
+        end
+      end
+    end
+  end
+
+  local P = { relation = "=", decimals = false, data = data }
+  if hits > 0 and want_zero then P.zero = { n = hits, value = first.value, printed = first.printed } end
+  local texts = {}
+  for i, it in ipairs(items) do texts[i] = it.text end
+
+  -- stage iii: collapse (a governor collapses only a range, 1.5.11)
+  local text
+  if collapse == "range" then
+    local number = { items[1] and items[1].number, items[2] and items[2].number }
+    local t, msg = words.collapse_range(texts, number, raw, cfg.minus)
+    if not t then vfail(msg) end
+    text = t
+    local one_printed = n == 2 and texts[1] == texts[2] and items[1].number == 1 and not items[1].decimals
+                        and items[1].relation == "="
+    P.number = one_printed and 1 or nil
+  elseif governor then
+    text = texts[1]
+    P.number, P.decimals, P.relation = items[1].number, items[1].decimals, items[1].relation
+  elseif collapse then
+    local serial = cfg.serial_comma == true and keys.last == nil
+    local sep = keys.sep or ", "
+    if collapse == "pairs" or collapse == "dl" then
+      local ok = nms ~= nil
+      if ok then for _, k in ipairs(nms) do if type(k) ~= "string" or k == "" then ok = false end end end
+      if not ok then vfail(string.format("`.%s` needs a named vector; this one has no names.", collapse)) end
+      if collapse == "pairs" then
+        local pairs_t = {}
+        for i, t in ipairs(texts) do pairs_t[i] = nms[i] .. " (" .. t .. ")" end
+        text = words.collapse_items(pairs_t, sep, keys.last or " and ", trunc, serial)
+      else
+        text = words.collapse_list("dl", texts, nms)
+        P.block = true
+      end
+    elseif LIST_CLASS[collapse] then
+      text = words.collapse_list(collapse, texts, nms)
+      P.block = true
+    else
+      local last = keys.last or (collapse == "or" and " or " or " and ")
+      text = words.collapse_items(texts, sep, last, trunc, serial)
+    end
+  else
+    if n > 1 and o.join then text = table.concat(texts, o.join) else text = table.concat(texts, ", ") end
+    if n == 1 then P.number, P.decimals, P.relation = items[1].number, items[1].decimals, items[1].relation end
+  end
+
+  -- stage iv: text
+  if not governor and not P.block then text = text_stage(text, has) end
+  if text:find("\u{2212}", 1, true) then S.minus_used = true end
+  P.text = text
+  return P
+end
+
+-- ---- named values -------------------------------------------------------------------------------------
+
+-- the printed record of a governor value under the construct's classes (1.7.8)
+local function governor_print(name, rec, c)
+  return format_vector(name, rec, c, { governor = true, quiet = true })
+end
+
+local function resolve_code(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
   local c = analyse(el)
@@ -595,40 +1016,42 @@ local function resolve_code(el, ctx)
   end
   local kind, detail = check_construct(c)
   if not kind then kind, detail = check_implemented(c) end
+  if not kind then detail = lang_problem(c, "value"); if detail then kind = "value error" end end
   if kind then return { fail(kind, info, detail) } end
-
-  local rec, failure = lookup(el.text)
-  if not rec then return { fail(failure.kind, info, failure.detail, failure.hint) } end
-
-  local class = nil
-  for _, cl in ipairs(c.classes) do if cl == "num" or cl == "pct" or cl == "val" then class = cl end end
-  local out = pandoc.Inlines({})
-  if class == "val" or class == nil then
-    -- a named value with a renderer key only prints as a number, as .num does (1.5.18)
-    if class == nil then class = S.cfg.governor_class == "pct" and "pct" or "num" end
+  local list_class
+  for cl in pairs(LIST_CLASS) do if c.has[cl] then list_class = cl end end
+  if list_class and not as_block then
+    return { fail("construct error", info, string.format(
+      "`.%s` makes a block, and must be alone in its paragraph, outside a list item, a block quote and a table cell (rule 1.4.6).",
+      list_class)) }
   end
-  local zero_note
-  if class == "val" then
-    local text, why = val_text(rec)
-    if not text then return { fail("no value", info, string.format("`%s` is missing (%s) (rule 1.3.4).", el.text, why)) } end
-    out:insert(pandoc.Str(text))
-  else
-    if rec.t ~= "int" and rec.t ~= "float" and rec.t ~= "decimal" then
-      return { fail("value error", info, string.format("`.%s` needs a number; `%s` is a %s (rule 1.4.3).",
-                                                       class, el.text, kind_name(rec))) }
+
+  return guarded(info, function()
+    id_claim(c)
+    local has = c.has
+    local rec = need(el.text)
+    local P = format_vector(el.text, rec, c, { join = ", " })
+    -- an id: the printed record of a single number, for a back-reference (1.7.6)
+    if c.id ~= "" and rec.t ~= "list" and is_numeric(rec) and not has.val then
+      local ok, G = pcall(governor_print, el.text, rec, c)
+      id_set(c, { printed = ok and G or nil, raw = rec })
+    elseif c.id ~= "" then
+      id_set(c, {})
     end
-    local ok, text, _, zn = pcall(print_number, rec, class, c, false)
-    if not ok then
-      local d = type(text) == "table" and text.detail or tostring(text)
-      return { fail("value error", info, d) }
+    local out
+    if P.block then
+      return md_blocks(P.text), true
+    elseif has.val and not (has.a or has.cap or has.em or has.strong) and not P.none
+           and not (has["and"] or has["or"] or has.pairs or has.range) and rec.t ~= "list" then
+      out = pandoc.Inlines({ pandoc.Str(P.text) })
+    else
+      out = md_inlines(P.text, P.data)
     end
-    zero_note = zn
-    out:insert(pandoc.Str(text))
-  end
-  out = wrap_pass(c, out)
-  if zero_note then warn("printed as zero", info, zero_note) end
-  for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
-  return out
+    out = wrap_pass(c, out)
+    if P.zero then warn("printed as zero", info, zero_message(P.zero)) end
+    for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
+    return out
+  end)
 end
 
 -- ---- spans ---------------------------------------------------------------------------------------------
@@ -684,15 +1107,27 @@ end
 
 local resolve_inlines
 
+-- An arm is its own scope: an id defined inside it does not outlive it (1.7.11).
 local function resolve_arm(arm, ctx)
-  return resolve_inlines(arm, ctx)
+  local mark = #S.id_log
+  local out = resolve_inlines(arm, ctx)
+  for i = #S.id_log, mark + 1, -1 do
+    S.ids[S.id_log[i]] = nil
+    S.id_log[i] = nil
+  end
+  return out
 end
 
-local function english()
-  local l = S.lang
-  if not l or l == "" then return true end
-  local primary = l:match("^([%a]+)")
-  return primary ~= nil and primary:lower() == "en"
+-- the chosen arm's text, then the span's own classes (stage iv) and pass-through attributes
+local function finish_span(out, c)
+  return wrap_pass(c, text_inlines(out, c.has))
+end
+
+local function formatter_class_of(c)
+  for _, cl in ipairs(c.classes) do
+    if CLASSES[cl] and not TEXT_CLASS[cl] then return cl end
+  end
+  return nil
 end
 
 local function resolve_if(el, value, ctx, shown, info, c)
@@ -706,50 +1141,96 @@ local function resolve_if(el, value, ctx, shown, info, c)
     end
     return { fail("construct error", info, msg) }
   end
-  for _, cl in ipairs(c.classes) do
-    if IMPLEMENTED[cl] or CLASSES[cl] and CLASSES[cl].group == "number" then
-      return { fail("construct error", info, "A formatter on an `if` span is an error (rule 1.5.7).") }
-    end
+  if formatter_class_of(c) then
+    return { fail("construct error", info, "A formatter on an `if` span is an error (rule 1.5.7).") }
   end
   local arms = split_arms(el.content)
   if #arms > 2 then
     return { fail("construct error", info, string.format(
       "an `if` span takes one or two arms; this one has %d (rule 1.5.2).", #arms)) }
   end
-  local markers, all = {}, true
-  for _, node in ipairs(nodes) do
-    local r, reads = cond.evaluate(node, function(name)
-      local rec, f = lookup(name)
-      if not rec then return nil, f end
-      return rec
-    end)
-    if r == nil then
-      return { fail(reads.kind, info, reads.detail, reads.hint) }
-    end
-    for _, rec in ipairs(reads) do
-      for _, m in ipairs(run_checks(rec, info)) do markers[#markers + 1] = m end
-    end
-    if not r then
-      all = false
-      if #arms == 1 then
-        markers[#markers + 1] = fail("failed claim", info, node.text .. " was false",
-                                     "optional text is written [phrase | ]{if=\"\u{2026}\"}")
+  local lp = lang_problem(c, "if")
+  if lp then return { fail("value error", info, lp) } end
+  return guarded(info, function()
+    id_claim(c)
+    local markers, all = {}, true
+    for _, node in ipairs(nodes) do
+      local r, reads = cond.evaluate(node, function(name)
+        local rec, f = lookup(name)
+        if not rec then return nil, f end
+        return rec
+      end)
+      if r == nil then
+        raise(reads.kind, reads.detail, reads.hint)
+      end
+      for _, rec in ipairs(reads) do
+        for _, m in ipairs(run_checks(rec, info)) do markers[#markers + 1] = m end
+      end
+      if not r then
+        all = false
+        if #arms == 1 then
+          markers[#markers + 1] = fail("failed claim", info, node.text .. " was false",
+                                       "optional text is written [phrase | ]{if=\"\u{2026}\"}")
+        end
       end
     end
-  end
-  local arm = (#arms == 1 or all) and arms[1] or arms[2]
-  local out = resolve_arm(arm, ctx)
-  out = wrap_pass(c, out)
-  for _, m in ipairs(markers) do out:insert(m) end
-  return out
+    local arm = (#arms == 1 or all) and arms[1] or arms[2]
+    id_set(c, {})
+    local out = resolve_arm(arm, ctx)
+    out = finish_span(out, c)
+    for _, m in ipairs(markers) do out:insert(m) end
+    return out
+  end)
 end
 
-local function pick_arm(n_arms, info)
+-- the arm a printed record selects among n_arms arms (1.5.9)
+local function pick_arm(n_arms, p)
   if n_arms == 1 then return 1 end
-  local one = info.one and not info.decimals
+  local exact = p.relation == "=" and not p.decimals and p.number ~= nil
+  local zero, one, two = exact and p.number == 0, exact and p.number == 1, exact and p.number == 2
   if n_arms == 2 then return one and 1 or 2 end
-  if n_arms == 3 then return info.zero and 1 or (one and 2 or 3) end
-  return info.zero and 1 or (one and 2 or (info.two and 3 or 4))
+  if n_arms == 3 then return zero and 1 or (one and 2 or 3) end
+  return zero and 1 or (one and 2 or (two and 3 or 4))
+end
+
+local function has_own_format(c)
+  local has = c.has
+  for _, g in ipairs({ NUMBER_STAGE, WORDING_STAGE, COLLAPSE_STAGE }) do
+    for _, cl in ipairs(g) do if has[cl] then return true end end
+  end
+  return has.no or c.keys.digits ~= nil or c.keys.sigfig ~= nil
+end
+
+local function id_value_ok(value) return value:match("^#[%w_][%w_.:%-]*$") ~= nil end
+
+-- A back-reference (1.7.6): the printed record of the occurrence, or, when the span has a formatter of
+-- its own, the raw value formatted afresh (1.7.8). Returns the printed record and the raw record.
+local function backref(value, c, strip)
+  local id = value:sub(2)
+  local ent = S.ids[id]
+  if not ent then
+    cfail(string.format("The id `#%s` is not defined before this span, or its arm was not chosen (rule 1.7.10).", id))
+  end
+  if ent.failed then
+    nofail(string.format("The id `#%s` was defined by a value that failed, so it has no value (rule 1.7.10).", id))
+  end
+  if has_own_format(c) then
+    if not ent.raw then vfail(string.format("The id `#%s` has no number to format afresh (rule 1.7.8).", id)) end
+    return format_vector(id, strip and ent.raw or ent.raw, c, { governor = true, quiet = true }), ent.raw
+  end
+  if not ent.printed then vfail(string.format("The id `#%s` has no printed number (rule 1.7.8).", id)) end
+  return ent.printed, ent.raw
+end
+
+local function single_number(key, name, rec, rule)
+  if rec.t == "list" then
+    vfail(string.format("`%s` takes a single number, and `%s` is a list; write `length(x)` to count the elements of a vector (rule %s).",
+                        key, name, rule))
+  end
+  if not is_numeric(rec) then
+    vfail(string.format("`%s` takes a single number, and `%s` is a %s; write `length(x)` to count the elements of a vector (rule %s).",
+                        key, name, kind_name(rec), rule))
+  end
 end
 
 local function resolve_n(el, value, ctx, shown, info, c)
@@ -758,50 +1239,234 @@ local function resolve_n(el, value, ctx, shown, info, c)
     return { fail("construct error", info, string.format(
       "an `n` span takes one to four arms in English; this one has %d (rule 1.5.2).", #arms)) }
   end
-  local printed, pinfo, markers
-  markers = {}
-  if value == "." then
-    if not ctx.ginfo then
-      return { fail("construct error", info, "`n=\".\"` is outside an `n` span, so there is no count to agree with (rule 1.7.2).") }
+  if value ~= "." and not (cond.is_name(value) or id_value_ok(value)) then
+    return { fail("construct error", info, string.format(
+      "`%s` is not a name for `n`; it takes a name, `.` or `#id` (rule 1.12.5).", value)) }
+  end
+  local kind, detail = check_construct(c)
+  if not kind then kind, detail = check_implemented(c) end
+  if not kind then detail = lang_problem(c, "n", #arms); if detail then kind = "value error" end end
+  if kind then return { fail(kind, info, detail) } end
+  return guarded(info, function()
+    id_claim(c)
+    local P, markers = nil, {}
+    if value == "." then
+      if not ctx.dot then
+        cfail("`n=\".\"` is outside an `n` span, so there is no count to agree with (rule 1.7.2).")
+      end
+      P = ctx.dot
+    elseif value:sub(1, 1) == "#" then
+      P = backref(value, c)
+    else
+      local rec = need(value)
+      if not c.has.range then single_number("n", value, rec, "1.5.11") end
+      P = format_vector(value, rec, c, { governor = true, quiet = true })
+      markers = run_checks(rec, info)
+      id_set(c, { printed = P, raw = (rec.t ~= "list") and rec or nil })
     end
-    printed, pinfo = ctx.hash, ctx.ginfo
-  elseif value:sub(1, 1) == "#" then
-    return { fail("value error", info, "`n=#id` on a named value is not available in this version of weft.lua (rule 2.13.3).") }
-  else
-    if not cond.is_name(value) then
+    if value == "." or value:sub(1, 1) == "#" then id_set(c, { printed = P }) end
+    local arm = arms[pick_arm(#arms, P)]
+    local out = resolve_arm(arm, with(with(ctx, "hash", P.text), "dot", P))
+    out = finish_span(out, c)
+    for _, m in ipairs(markers) do out:insert(m) end
+    return out
+  end)
+end
+
+local function abs_record(rec)
+  local copy = {}
+  for k, v in pairs(rec) do copy[k] = v end
+  if type(copy.v) == "string" then copy.v = copy.v:gsub("^%-", "") end
+  return copy
+end
+
+local function resolve_sign(el, value, ctx, shown, info, c)
+  local arms = split_arms(el.content)
+  if #arms < 2 or #arms > 3 then
+    return { fail("construct error", info, string.format(
+      "a `sign` span takes two or three arms; this one has %d (rule 1.5.1).", #arms)) }
+  end
+  if not (cond.is_name(value) or id_value_ok(value)) then
+    return { fail("construct error", info, string.format(
+      "`%s` is not a name for `sign`; it takes a name or `#id` (rule 1.12.5).", value)) }
+  end
+  local kind, detail = check_construct(c)
+  if not kind then kind, detail = check_implemented(c) end
+  if not kind then detail = lang_problem(c, "sign", #arms); if detail then kind = "value error" end end
+  if kind then return { fail(kind, info, detail) } end
+  return guarded(info, function()
+    id_claim(c)
+    -- the sign is judged on the number as printed; wording classes and the magnitude are read from the
+    -- absolute value (1.5.10, 1.5.8)
+    local judge_c = without(c, { no = true, word = true, count = true, ord = true })
+    local judge, mag, rec, markers = nil, nil, nil, {}
+    if value:sub(1, 1) == "#" then
+      local P, raw = backref(value, judge_c)
+      judge = P
+      rec = raw
+      if has_own_format(c) then
+        mag = format_vector(value:sub(2), abs_record(raw), c, { governor = true, quiet = true })
+      else
+        local txt = P.text
+        local minus = S.cfg.minus
+        if P.number and P.number < 0 and minus ~= "" and txt:sub(1, #minus) == minus then txt = txt:sub(#minus + 1) end
+        mag = { text = txt, number = P.number and math.abs(P.number) or nil, decimals = P.decimals, relation = "=" }
+      end
+    else
+      rec = need(value)
+      single_number("sign", value, rec, "1.5.1")
+      judge = format_vector(value, rec, judge_c, { governor = true, quiet = true })
+      markers = run_checks(rec, info)
+    end
+    if judge.relation ~= "=" then
+      vfail(string.format(
+        "A `sign` governor that prints as a bound (\"%s\") has no magnitude to print (rule 1.5.17); write that case with `if`.",
+        judge.text))
+    end
+    if judge.number == nil then vfail("A `sign` governor needs a number, and this has none.") end
+    local i = (judge.number > 0) and 1 or ((judge.number < 0) and 2 or 3)
+    if i == 3 and #arms == 2 then
+      raise("failed claim", string.format(
+        "the value printed as \"%s\", which is zero, and a two-arm `sign` has no arm for zero (rule 1.5.3)", judge.text),
+        "add a third arm for zero")
+    end
+    if not mag then
+      mag = format_vector(value, abs_record(rec), c, { governor = true, quiet = true })
+    end
+    id_set(c, { printed = judge, raw = (rec and rec.t ~= "list") and rec or nil })
+    local out = resolve_arm(arms[i], with(with(ctx, "hash", mag.text), "dot", mag))
+    out = finish_span(out, c)
+    for _, m in ipairs(markers) do out:insert(m) end
+    return out
+  end)
+end
+
+-- true when an arm holds a `#` that is the placeholder (an odd run), outside the spans it holds
+local function arm_has_hash(arm)
+  for _, el in ipairs(arm) do
+    if el.t == "Str" then
+      for run in el.text:gmatch("#+") do if #run % 2 == 1 then return true end end
+    end
+  end
+  return false
+end
+
+local function resolve_list(el, value, ctx, shown, info, c)
+  local arms = split_arms(el.content)
+  if #arms < 2 or #arms > 4 then
+    return { fail("construct error", info, string.format(
+      "a `list` span takes two to four arms in English; this one has %d (rule 1.5.19).", #arms)) }
+  end
+  if not cond.is_name(value) then
+    return { fail("construct error", info, string.format(
+      "`%s` is not a name for `list`; it takes a name (rule 1.12.5).", value)) }
+  end
+  if c.id ~= "" then
+    return { fail("construct error", info, "A `list` span takes no `#id` (rule 1.7.5).") }
+  end
+  for cl in pairs(LIST_CLASS) do
+    if c.has[cl] then
       return { fail("construct error", info, string.format(
-        "`%s` is not a name for `n`; it takes a name, `.` or `#id` (rule 1.12.5).", value)) }
+        "A list class (`.%s`) on a `list` span is an error: `#` is inline (rule 1.5.19).", cl)) }
     end
-    local kind, detail = check_construct(c)
-    if not kind then kind, detail = check_implemented(c) end
-    if kind then return { fail(kind, info, detail) } end
-    local rec, failure = lookup(value)
-    if not rec then return { fail(failure.kind, info, failure.detail, failure.hint) } end
-    if rec.t ~= "int" and rec.t ~= "float" and rec.t ~= "decimal" then
-      return { fail("value error", info, string.format(
-        "`n` takes a single number, and `%s` is a %s (rule 1.5.11).", value, kind_name(rec))) }
+  end
+  if #arms >= 3 and arm_has_hash(arms[1]) then
+    return { fail("construct error", info, "`#` in the zero arm of a `list` span is an error: there is nothing to print (rule 1.5.19).") }
+  end
+  local kind, detail = check_construct(c)
+  if not kind then kind, detail = check_implemented(c) end
+  if not kind then detail = lang_problem(c, "list", #arms); if detail then kind = "value error" end end
+  if kind then return { fail(kind, info, detail) } end
+  return guarded(info, function()
+    local rec = need(value)
+    local elems = elements_of(rec)
+    for i, e in ipairs(elems) do
+      if e.t == "missing" then
+        nofail(string.format("A `list` governor has a missing element (`%s`, element %d) (rule 1.5.19).", value, i))
+      end
     end
-    local class = "num"
-    local explicit = false
-    for _, cl in ipairs(c.classes) do if cl == "num" or cl == "pct" then class = cl; explicit = true end end
-    if not explicit and S.cfg.governor_class == "pct" then class = "pct" end
-    local ok, text, i2 = pcall(print_number, rec, class, c, true)
+    local len = #elems
+    if len == 0 and #arms == 2 then
+      raise("failed claim", "the list is empty, and a two-arm `list` span has no arm for the empty case (rule 1.5.3); add a first arm for the empty case")
+    end
+    local hash, zero = "", nil
+    if len > 0 then
+      local cl = without(c, { a = true, cap = true, em = true, strong = true })
+      local P = format_vector(value, rec, cl, { collapse = "and", bare = not has_own_format(c) })
+      hash = P.text
+      zero = P.zero
+    end
+    local count = { text = tostring(len), number = len, decimals = false, relation = "=" }
+    local out = resolve_arm(arms[pick_arm(#arms, count)], with(with(with(ctx, "hash", hash), "dot", count), "hash_data", true))
+    out = finish_span(out, c)
+    if zero then warn("printed as zero", info, zero_message(zero)) end
+    for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
+    return out
+  end)
+end
+
+local CITE_KEY = "^[%w_][%w_:%.#%$%%&%-%+%?<>~/]*$"
+
+local function resolve_cite(el, value, ctx, shown, info, c)
+  if c.id ~= "" then
+    return { fail("construct error", info, "A `cite` span takes no `#id` (rule 1.7.5).") }
+  end
+  local formatter = formatter_class_of(c)
+  if formatter then
+    return { fail("construct error", info, string.format(
+      "A formatter class (`.%s`) on a `cite` span is an error (rule 1.8.7).", formatter)) }
+  end
+  local with_at = value:find("@", 1, true) ~= nil
+  if not with_at then
+    local ok = value:match("%S") ~= nil
+    for part in (value .. ";"):gmatch("(.-);") do
+      local key = part:gsub("^%s+", ""):gsub("%s+$", "")
+      if not key:match(CITE_KEY) then ok = false end
+    end
     if not ok then
-      return { fail("value error", info, type(text) == "table" and text.detail or tostring(text)) }
+      return { fail("construct error", info, string.format(
+        "`cite=\"%s\"` has no `@`, so it must be citation keys separated by `;` (rule 1.8.4).", value)) }
     end
-    printed, pinfo = text, i2
-    for _, m in ipairs(run_checks(rec, info)) do markers[#markers + 1] = m end
   end
-  if #arms > 1 and not english() then
-    return { fail("value error", info, string.format(
-      "An `n` span with more than one arm needs plural rules for the language `%s`, and weft ships only English (rule 1.6.5).",
-      S.lang)) }
+  local lp = lang_problem(c, "cite")
+  if lp then return { fail("value error", info, lp) } end
+  return guarded(info, function()
+    local out = finish_span(resolve_inlines(el.content, ctx), c)
+    if with_at then
+      out:insert(pandoc.Space())
+      out:extend(pandoc.utils.blocks_to_inlines(pandoc.read("[" .. value .. "]", "markdown").blocks))
+    end
+    return out
+  end)
+end
+
+-- a bracket with a text class and no governor (1.1.9)
+local function is_text_span(el)
+  if el.classes:includes("weft-literal") then return false end
+  for k in pairs(el.attributes) do
+    if GOVERNORS[k:lower()] then return false end
   end
-  local arm = arms[pick_arm(#arms, pinfo)]
-  local out = resolve_arm(arm, with(with(ctx, "hash", printed), "ginfo", pinfo))
-  out = wrap_pass(c, out)
-  for _, m in ipairs(markers) do out:insert(m) end
-  return out
+  for _, cl in ipairs(el.classes) do
+    if TEXT_CLASS[cl] then return true end
+  end
+  return false
+end
+
+local function resolve_text_span(el, ctx)
+  local c = analyse(el)
+  local text = pandoc.utils.stringify(el.content):gsub("%s+", " ")
+  local classes = {}
+  for _, cl in ipairs(el.classes) do classes[#classes + 1] = "." .. cl end
+  local info = info_of(el, ctx, string.format("[%s]{%s}", cut(text, 60), table.concat(classes, " ")))
+  if c.id ~= "" then
+    return { fail("construct error", info, "A text span takes no `#id` (rule 1.1.9).") }
+  end
+  local kind, detail = check_construct(c)
+  if not kind then detail = lang_problem(c, "text"); if detail then kind = "value error" end end
+  if kind then return { fail(kind, info, detail) } end
+  return guarded(info, function()
+    return finish_span(resolve_inlines(el.content, ctx), c)
+  end)
 end
 
 local function resolve_span(el, ctx)
@@ -816,17 +1481,9 @@ local function resolve_span(el, ctx)
   end
   if key == "if" then return resolve_if(el, value, ctx, shown, info, c) end
   if key == "n" then return resolve_n(el, value, ctx, shown, info, c) end
-  -- sign, list, cite: 6f
-  if key == "sign" and not (cond.is_name(value) or value:match("^#[%w_.%-]+$")) then
-    return { fail("construct error", info, string.format(
-      "`%s` is not a name for `sign`; it takes a name or `#id` (rule 1.12.5).", value)) }
-  end
-  if key == "list" and not cond.is_name(value) then
-    return { fail("construct error", info, string.format(
-      "`%s` is not a name for `list`; it takes a name (rule 1.12.5).", value)) }
-  end
-  return { fail("value error", info, string.format(
-    "`%s=` on a named value is not available in this version of weft.lua (rule 2.13.3).", key)) }
+  if key == "sign" then return resolve_sign(el, value, ctx, shown, info, c) end
+  if key == "list" then return resolve_list(el, value, ctx, shown, info, c) end
+  return resolve_cite(el, value, ctx, shown, info, c)
 end
 
 -- ---- inlines and blocks -------------------------------------------------------------------------------
@@ -848,13 +1505,34 @@ end
 
 local resolve_blocks
 
-local function hash_text(text, hash)
-  if not text:find("#", 1, true) then return text end
-  return (text:gsub("#+", function(run)
-    local lit = string.rep("#", #run // 2)
-    if #run % 2 == 1 then return lit .. hash end
-    return lit
-  end))
+-- a Str with the `#` placeholders replaced by the governor's printed text (1.5.8, 1.5.12): a pair of
+-- `#` is a literal one; the text is markdown, so a superscript in it stays one
+local function hash_inlines(text, hash, data)
+  local out = pandoc.Inlines({})
+  local buf = {}
+  local function flush()
+    if #buf > 0 then out:insert(pandoc.Str(table.concat(buf))); buf = {} end
+  end
+  local pos = 1
+  while pos <= #text do
+    local s, e = text:find("#+", pos)
+    if not s then buf[#buf + 1] = text:sub(pos); break end
+    buf[#buf + 1] = text:sub(pos, s - 1)
+    local run = e - s + 1
+    buf[#buf + 1] = string.rep("#", run // 2)
+    if run % 2 == 1 then
+      local got = md_inlines(hash, data)
+      if #got == 1 and got[1].t == "Str" then
+        buf[#buf + 1] = got[1].text
+      else
+        flush()
+        out:extend(got)
+      end
+    end
+    pos = e + 1
+  end
+  flush()
+  return out
 end
 
 resolve_inlines = function(inlines, ctx)
@@ -865,6 +1543,9 @@ resolve_inlines = function(inlines, ctx)
     local t = el.t
     if t == "Code" then
       if code_candidate(el) then out:extend(resolve_code(el, ctx)) else out:insert(el) end
+      i = i + 1
+    elseif t == "Span" and is_text_span(el) then
+      out:extend(resolve_text_span(el, ctx))
       i = i + 1
     elseif t == "Span" and governor_of(el) then
       -- a chain of governed spans with nothing between them (1.5.20)
@@ -893,7 +1574,7 @@ resolve_inlines = function(inlines, ctx)
         end
       end
     elseif t == "Str" then
-      if ctx.hash then out:insert(pandoc.Str(hash_text(el.text, ctx.hash))) else out:insert(el) end
+      if ctx.hash and el.text:find("#", 1, true) then out:extend(hash_inlines(el.text, ctx.hash, ctx.hash_data)) else out:insert(el) end
       i = i + 1
     elseif t == "Note" then
       el.content = resolve_blocks(el.content, ctx)
@@ -924,9 +1605,46 @@ local function cell_label(el)
   return (id:gsub("^cell%-", ""))
 end
 
+-- A paragraph that is one named value with a list class (.ul .ol .dl) makes a block (1.4.6).
+local function list_class_code(el)
+  if #el.content ~= 1 then return nil end
+  local code = el.content[1]
+  if code.t ~= "Code" or not code_candidate(code) then return nil end
+  for _, cl in ipairs(code.classes) do
+    if cl == "ul" or cl == "ol" or cl == "dl" then return code end
+  end
+  return nil
+end
+
+-- inside a list item, a block quote or a table cell a list class is an error: resolved as inline
+local function mark_nested(el, ctx)
+  local function fix(p)
+    local code = list_class_code(p)
+    if code then
+      local r = pandoc.Inlines(resolve_code(code, ctx, false))
+      return (p.t == "Plain") and pandoc.Plain(r) or pandoc.Para(r)
+    end
+  end
+  return el:walk({ Para = fix, Plain = fix })
+end
+
 resolve_blocks = function(blocks, ctx)
+  local function block_para(el)
+    local code = list_class_code(el)
+    if not code then return nil end
+    local out, is_blocks = resolve_code(code, ctx, true)
+    if is_blocks then return out, false end
+    out = pandoc.Inlines(out)
+    return ((el.t == "Plain") and pandoc.Plain(out) or pandoc.Para(out)), false
+  end
   return blocks:walk({
     traverse = "topdown",
+    Para = block_para,
+    Plain = block_para,
+    BlockQuote = function(el) return mark_nested(el, ctx) end,
+    BulletList = function(el) return mark_nested(el, ctx) end,
+    OrderedList = function(el) return mark_nested(el, ctx) end,
+    DefinitionList = function(el) return mark_nested(el, ctx) end,
     Div = function(el)
       if el.classes:includes("weft-literal") then el.attributes["why"] = nil end
       if el.classes:includes("cell") then
@@ -945,7 +1663,7 @@ resolve_blocks = function(blocks, ctx)
       S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx }
       el.attr.attributes["weft-cap"] = tostring(#S.stash)
       el.caption = pandoc.Caption({}, nil)
-      return el
+      return mark_nested(el, ctx)
     end,
     Figure = function(el)
       S.stash[#S.stash + 1] = { caption = el.caption, ctx = ctx }
@@ -1013,9 +1731,16 @@ local function tag(el)
     needle, ok = "`" .. el.text .. "`{", prev_not_backtick
   elseif el.t == "Span" then
     local key, value = governor_of(el)
-    if not key then return nil end
-    local rawkey = get_key(el, key)
-    needle = string.format('%s="%s"', rawkey, value)
+    if not key then
+      -- a text span has no key to search for: its first text class
+      if not is_text_span(el) then return nil end
+      for _, cl in ipairs(el.classes) do
+        if TEXT_CLASS[cl] then needle = "." .. cl; break end
+      end
+    else
+      local rawkey = get_key(el, key)
+      needle = string.format('%s="%s"', rawkey, value)
+    end
   else
     return nil
   end

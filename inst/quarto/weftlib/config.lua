@@ -17,7 +17,7 @@ local M = {}
 M.DEFAULTS = {
   digits = 1, decimal_mark = ".", big_mark = ",", thousands_from = 1000, minus = "\u{2212}",
   governor_class = "num", pct_proportion = true, serial_comma = false, count_threshold = 10,
-  word_limit = 10, date_format = "%-d %B %Y", draft = false, ledger = false,
+  word_limit = 100, date_format = "%-d %B %Y", draft = false, ledger = false,
 }
 
 local KINDS = {

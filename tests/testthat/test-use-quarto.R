@@ -29,6 +29,7 @@ written_files <- c(
   "_extensions/weft-check/weftlib/lines.lua",
   "_extensions/weft-check/weftlib/num.lua",
   "_extensions/weft-check/weftlib/report.lua",
+  "_extensions/weft-check/weftlib/words.lua",
   "_extensions/weft-check/weft-check.lua",
   "_weft/pre-render.R",
   "_weft/post-render.R",
