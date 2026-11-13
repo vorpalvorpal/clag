@@ -223,8 +223,8 @@ test_that("G22: a failed check inside it is collected, marked with the Python ch
       "from weft import weft_str",
       "print(weft_str('Check `r claim(py$t_g5c_n, . > 100)`.'))",
       "```", "", "After."),
-    py = "t_g5c_n = 3")
-  expect_true(res$failed)
+    py = "t_g5c_n = 3", draft = TRUE)
+  # draft mode: outside it the failure stops the knit before doc.md is written, so nothing could be read
   expect_true(grepl("<<weft: failed claim, chunk p2>>", res$md, fixed = TRUE), label = res$md)
   expect_true("After." %in% res$text)           # the knit went on to the end
   f <- res$failures

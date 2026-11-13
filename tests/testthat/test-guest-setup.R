@@ -238,7 +238,7 @@ test_that("G24: with python.reticulate = FALSE each chunk is a separate Python p
     c(G24 = "Depth `r py$t_g5c_ext_only`{.num} m."),
     before = c(sprintf("```{python gx1, python.reticulate=FALSE, engine.path='%s'}", py3),
                "t_g5c_ext_only = 3.5",
-               "```", ""))
+               "```", ""), draft = TRUE)
   expect_false(is.null(res$failures))
   f <- res$fail("G24")
   expect_identical(nrow(f), 1L)
