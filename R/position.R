@@ -94,6 +94,17 @@ block_lines <- function(x) {
 
 # ---- per-file state ----------------------------------------------------------
 
+# A scan of the knitted file that failed turns its checks off for that file
+# (the end-of-document check of 2.5.2, the id errors of 1.7.10, the pre-check of
+# inline code). That is said, not silent (review A 8); an encoding problem is
+# not recoverable and stops the knit, naming the file.
+scan_lost <- function(path, e, what = "the end-of-document check is off for it") {
+  if (inherits(e, "weft_encoding_error")) stop(e)
+  ledger_warn(sprintf("weft: %s could not be scanned: %s; %s.", basename(path),
+                      conditionMessage(e), what))
+  NULL
+}
+
 new_file_state <- function(path, config) {
   F <- new.env(parent = emptyenv())
   F$path <- path
@@ -122,12 +133,12 @@ new_file_state <- function(path, config) {
   # is a reference to an id a caption defines
   extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
                                     project = project_type(path)),
-                    error = function(e) NULL)
+                    error = function(e) scan_lost(path, e))
   lenient <- is_child_knit() || has_child_chunk(F$lines)
   cap_ids <- caption_ids(extra)
   exp <- tryCatch(scan_text(blank_front_matter(txt), config = config, lenient = lenient,
                             known = cap_ids),
-                  error = function(e) NULL)
+                  error = function(e) scan_lost(path, e))
   F$unparseable <- character()
   F$unparse_rows <- NULL
   # the errors about ids are the whole document's (1.7.10): the blocks of
@@ -276,7 +287,12 @@ current_file_state <- function(s) {
   if (is.null(p)) return(NULL)
   F <- s$files[[p]]
   if (is.null(F)) {
-    F <- tryCatch(new_file_state(p, s$config), error = function(e) NULL)
+    if (isTRUE(s$scan_failed[[p]])) return(NULL)
+    F <- tryCatch(new_file_state(p, s$config), error = function(e) {
+      if (inherits(e, "weft_encoding_error")) stop(e)
+      s$scan_failed[[p]] <- TRUE
+      scan_lost(p, e, "its positions and the end-of-document check are off")
+    })
     if (is.null(F)) return(NULL)
     s$files[[p]] <- F
   }

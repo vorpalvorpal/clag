@@ -26,6 +26,7 @@ new_state <- function() {
   s$output <- NULL
   s$written <- c(ledger = NA_character_, conditions = NA_character_)
   s$files <- list()
+  s$scan_failed <- list()
   s$pending_cache <- NULL
   s$ids <- list()
   s$sentence_starts <- list()
