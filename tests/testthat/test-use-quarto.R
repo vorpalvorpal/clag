@@ -23,6 +23,12 @@ use_quarto_says <- function(dir, first_message_hook = NULL) {
 
 written_files <- c(
   "_extensions/weft-check/_extension.yml",
+  "_extensions/weft-check/weft.lua",
+  "_extensions/weft-check/weftlib/cond.lua",
+  "_extensions/weft-check/weftlib/config.lua",
+  "_extensions/weft-check/weftlib/lines.lua",
+  "_extensions/weft-check/weftlib/num.lua",
+  "_extensions/weft-check/weftlib/report.lua",
   "_extensions/weft-check/weft-check.lua",
   "_weft/pre-render.R",
   "_weft/post-render.R",

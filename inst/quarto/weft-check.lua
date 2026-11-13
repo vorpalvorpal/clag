@@ -4,7 +4,8 @@
 --   * a span still carrying n, if, sign, cite or list (any letter case), or a weft
 --     text class (.a .cap .strong .em)
 --   * text that still shows an attribute block
---   * a code span carrying a weft class or key
+--   * a code span carrying a weft class or key (a named value, which weft.lua resolves, says the
+--     resolver filter is not installed, N94b)
 --   * a code span with an attribute block whose text begins `r `, `R ` or
 --     `{r}`, and any code span whose text begins `r `
 --   * a leftover placeholder (private-use) character
@@ -36,11 +37,11 @@ local function excerpt(s)
   return s
 end
 
-local function add(kind, what, text)
+local function add(kind, what, text, bare)
   local key = kind .. "\0" .. what .. "\0" .. text
   if seen[key] then return end
   seen[key] = true
-  found[#found + 1] = { kind = kind, what = what, text = text }
+  found[#found + 1] = { kind = kind, what = what, text = text, bare = bare }
 end
 
 -- ---- helpers --------------------------------------------------------------
@@ -93,20 +94,40 @@ local function check_span(el)
   end
 end
 
+-- A NAME (N6): the text of a named value
+local RESERVED = {}
+for w in ([[TRUE FALSE True False true false NA NULL None nothing missing Inf NaN]]):gmatch("%S+") do
+  RESERVED[w] = true
+end
+local function is_name(s)
+  return #s <= 64 and s:match("^[A-Za-z_][A-Za-z0-9_.]*$") ~= nil and s:sub(-1) ~= "." and not RESERVED[s]
+end
+
+local E35 = "a named value was not resolved: the filter weft.lua is not installed before weft-check.lua (rule 2.5.3)."
+
 local function check_code(el)
   local text = el.text
+  local named = is_name(text)
   for _, c in ipairs(el.classes) do
-    if FORMATTER_CLASSES[c] or TEXT_CLASSES[c] then
-      add("leftover code", "a code span carries the weft class `." .. c .. "`",
-          "`" .. excerpt(text) .. "`{." .. c .. "}")
+    if FORMATTER_CLASSES[c] or TEXT_CLASSES[c] or c == "val" then
+      if named then
+        add("leftover code", E35, "`" .. excerpt(text) .. "`{." .. c .. "}", true)
+      else
+        add("leftover code", "a code span carries the weft class `." .. c .. "`",
+            "`" .. excerpt(text) .. "`{." .. c .. "}")
+      end
       return
     end
   end
   for k, _ in pairs(el.attributes) do
     local l = k:lower()
     if KEYS[l] or RENDERER_KEYS[l] then
-      add("leftover code", "a code span carries the weft key `" .. k .. "`",
-          "`" .. excerpt(text) .. "`{" .. k .. "=...}")
+      if named and RENDERER_KEYS[l] then
+        add("leftover code", E35, "`" .. excerpt(text) .. "`{" .. k .. "=...}", true)
+      else
+        add("leftover code", "a code span carries the weft key `" .. k .. "`",
+            "`" .. excerpt(text) .. "`{" .. k .. "=...}")
+      end
       return
     end
   end
@@ -303,7 +324,25 @@ end
 
 -- ---- run ------------------------------------------------------------------
 
-function Pandoc(doc)
+local function is_marker(el)
+  return el.classes:includes("weft-marker")
+end
+
+function Pandoc(full)
+  -- N94a: a span.weft-marker is unwrapped, and the marker text inside it is not reported
+  local unwrapped, n_markers = nil, 0
+  local function count(el) if is_marker(el) then n_markers = n_markers + 1 end end
+  full:walk({ Span = count })
+  pandoc.Pandoc({}, full.meta):walk({ Span = count })
+  local doc = full
+  if n_markers > 0 then
+    unwrapped = full:walk({ Span = function(el) if is_marker(el) then return el.content end end })
+    doc = full:walk({ Span = function(el) if is_marker(el) then return {} end end })
+  end
+  local function result()
+    if unwrapped then return unwrapped end
+    return nil
+  end
   doc:walk({
     Inlines = function(inlines) check_inlines(inlines) end,
     Span = function(el) check_span(el) end,
@@ -319,7 +358,7 @@ function Pandoc(doc)
     })
   end)
 
-  if #found == 0 then return nil end
+  if #found == 0 then return result() end
 
   local inputs = PANDOC_STATE and PANDOC_STATE.input_files
   local file = inputs and inputs[1]
@@ -334,7 +373,7 @@ function Pandoc(doc)
 
   local lines = {}
   for _, it in ipairs(found) do
-    lines[#lines + 1] = "  - " .. it.what .. ": " .. it.text
+    lines[#lines + 1] = "  - " .. it.what .. (it.bare and " " or ": ") .. it.text
   end
   io.stderr:write(string.format("\nweft-check: %d leftover weft %s%s%s\n%s\n",
     #found, #found == 1 and "construct" or "constructs",
@@ -351,9 +390,9 @@ function Pandoc(doc)
       io.stderr:write("weft-check: cannot append to " .. coll .. "\n")
       if not draft then os.exit(1) end
     end
-    return nil
+    return result()
   end
-  if draft then return nil end
+  if draft then return result() end
   io.stderr:write("weft-check: the render fails (set WEFT_DRAFT=1 to report instead).\n")
   os.exit(1)
 end

@@ -66,8 +66,12 @@ use_quarto <- function(path = ".") {
     if (!nzchar(p)) tool_abort(paste0("weft's own file inst/quarto/", f, " is missing"))
     p
   }
+  # the resolver filter weft.lua loads its modules from the folder weftlib/ beside it (N80)
+  libs <- sort(list.files(file.path(dirname(src("weft.lua")), "weftlib"), pattern = "[.]lua$"))
   copies <- c(
     "_extensions/weft-check/_extension.yml" = "_extension.yml",
+    "_extensions/weft-check/weft.lua"       = "weft.lua",
+    stats::setNames(file.path("weftlib", libs), file.path("_extensions/weft-check/weftlib", libs)),
     "_extensions/weft-check/weft-check.lua" = "weft-check.lua",
     "_weft/pre-render.R"                    = "weft-pre-render.R",
     "_weft/post-render.R"                   = "weft-post-render.R"
@@ -78,7 +82,8 @@ use_quarto <- function(path = ".") {
   make_weft_yml <- !file.exists(weft_yml)
 
   # never through a link, and every refusal before the first write
-  targets <- c(names(sources), "_weft", "_extensions", "_extensions/weft-check", "_weft.yml", yml_name)
+  targets <- c(names(sources), "_weft", "_extensions", "_extensions/weft-check",
+               "_extensions/weft-check/weftlib", "_weft.yml", yml_name)
   for (rel in targets) {
     l <- Sys.readlink(file.path(path, rel))
     if (!is.na(l) && nzchar(l)) {
@@ -89,7 +94,7 @@ use_quarto <- function(path = ".") {
   }
 
   message("weft will write, under ", path, ":")
-  message("  _extensions/weft-check/_extension.yml and weft-check.lua  (the weft-check filter)")
+  message("  _extensions/weft-check/_extension.yml, weft.lua, weftlib/ and weft-check.lua  (the weft filters)")
   message("  _weft/pre-render.R   (fails a .qmd with constructs and no `engine: knitr`; opens .weft/failures.jsonl)")
   message("  _weft/post-render.R  (reports what the render collected)")
   message(if (make_weft_yml) "  _weft.yml  (new, empty but for a comment)"
