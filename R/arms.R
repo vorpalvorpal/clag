@@ -78,7 +78,11 @@ arms_empty <- function() {
 }
 
 arms_one <- function(path, offset = 0L) {
-  rows <- scan_file(path)
+  # the configuration and the language are the knit's: the project's classes
+  # are known, and the language is Quarto's merged metadata (3.7.1)
+  front <- read_front_matter(path)
+  cfg <- read_config(find_project_root(path), front$weft, doc = path)
+  rows <- scan_file(path, config = cfg)
   errors <- data.frame(file = character(), line = integer(), message = character(),
                        stringsAsFactors = FALSE)
   if (nrow(rows)) {
@@ -91,7 +95,8 @@ arms_one <- function(path, offset = 0L) {
   gov <- if (nrow(rows)) which(rows$kind %in% names(ARM_ROLES)) else integer()
   # a two-arm or longer `n` in a language whose plural rules weft does not ship
   # is a construct error (1.6.4, 1.6.5): listed in `errors`, with no rows
-  lang <- tolower(sub("[-_].*$", "", as.character(read_front_matter(path)$lang)[1L] %||% ""))
+  lang_raw <- document_lang(front, path)
+  lang <- tolower(sub("[-_].*$", "", lang_raw))
   if (!is.na(lang) && nzchar(lang) && lang != "en" && length(gov)) {
     plural <- gov[rows$kind[gov] %in% c("n", "list") & lengths(rows$arms[gov]) > 1L &
                     is.na(rows$error[gov])]
@@ -101,7 +106,7 @@ arms_one <- function(path, offset = 0L) {
         message = sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
                                  "which weft does not ship; English rules are never applied to another ",
                                  "language (rules 1.6.5, 1.6.7)."),
-                          rows$kind[plural], as.character(read_front_matter(path)$lang)[1L]),
+                          rows$kind[plural], lang_raw),
         stringsAsFactors = FALSE))
       gov <- setdiff(gov, plural)
     }

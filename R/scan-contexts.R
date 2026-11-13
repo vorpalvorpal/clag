@@ -735,17 +735,31 @@ scan_extra_rows <- function(lines, file = NA_character_, config = NULL, project 
   bind_scan_rows(parts)
 }
 
-# All the rows of a document, in textual order, each with its context.
+# The ids the captions of a document define (rows of scan_extra_rows()): a
+# reference in prose to one is known (1.7.10).
+caption_ids <- function(extra) {
+  if (is.null(extra) || !nrow(extra)) return(character())
+  unique(extra$id[extra$context == "caption" & !is.na(extra$id) & nzchar(extra$id)])
+}
+
+# A file that names a child document is not the whole document: a reference
+# to an id it cannot see is the knit's to judge (1.7.10).
+has_child_chunk <- function(lines) any(grepl("child[ \t]*[=:]", lines))
+
+# All the rows of a document, in textual order, each with its context. Prose
+# is judged as the knit judges it: an id a caption defines is known, and a
+# file with children is lenient about the ids it cannot see.
 scan_document <- function(lines, file = NA_character_, config = NULL, project = "") {
   text <- paste(lines, collapse = "\n")
-  prose <- scan_text(blank_front_matter(text), file = file, config = config)
+  extra <- scan_extra_rows(lines, file, config, project)
+  prose <- scan_text(blank_front_matter(text), file = file, config = config,
+                     lenient = has_child_chunk(lines), known = caption_ids(extra))
   prose$context <- rep("prose", nrow(prose))
   prose$fstart <- as.numeric(prose$start)
   prose$fend <- as.numeric(prose$end)
   prose$fblock <- as.numeric(prose$block_start)
   prose$chunk <- rep(NA_character_, nrow(prose))
   prose$option <- rep(NA_character_, nrow(prose))
-  extra <- scan_extra_rows(lines, file, config, project)
   all <- bind_scan_rows(list(prose, extra))
   if (is.null(all)) return(prose)
   ord <- order(all$line, seq_len(nrow(all)))

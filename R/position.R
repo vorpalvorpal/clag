@@ -123,10 +123,8 @@ new_file_state <- function(path, config) {
   extra <- tryCatch(scan_extra_rows(F$lines, file = NA_character_, config = config,
                                     project = project_type(path)),
                     error = function(e) NULL)
-  lenient <- is_child_knit() || any(grepl("child[ \t]*[=:]", F$lines))
-  cap_ids <- if (!is.null(extra) && nrow(extra)) {
-    unique(extra$id[extra$context == "caption" & !is.na(extra$id) & nzchar(extra$id)])
-  } else character()
+  lenient <- is_child_knit() || has_child_chunk(F$lines)
+  cap_ids <- caption_ids(extra)
   exp <- tryCatch(scan_text(blank_front_matter(txt), config = config, lenient = lenient,
                             known = cap_ids),
                   error = function(e) NULL)
