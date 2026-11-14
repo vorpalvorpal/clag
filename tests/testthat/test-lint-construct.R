@@ -22,7 +22,7 @@ CONS_CASES <- list(
   list(src = "`r x`{.num .pct .sci}",                   text = "`r x`{.num .pct .sci}",     spec = "1.4.2"),
   list(src = r"{[a]{if="x" .num}}",                     text = r"{[a]{if="x" .num}}",       spec = "1.5.7"),
   list(src = r"{`r x`{foo="a" foo="b"}}",               text = r"{`r x`{foo="a" foo="b"}}", spec = "1.2.10"),
-  list(src = "$p = `r p`{.p}$",                         text = "`r p`{.p}",                 spec = "5.2.6"),
+  list(src = "$p = `r p`{.word}$",                      text = "`r p`{.word}",              spec = "5.2.6"),
   list(src = "`r\nx`",                                  text = "`r\nx`",                    spec = "5.3.4")
 )
 
