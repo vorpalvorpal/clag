@@ -467,3 +467,14 @@ or hold); no answer yet.
   the hint "Publish it in code above" now that a publication below
   works; a CRAN release of JuliaCall with its libunwind fix (ask
   upstream or not); attribution on upstream posts.
+
+## Released (14 Nov)
+
+- v0.1.0 is tagged at 93d485c and released on GitHub (not CRAN). CI was
+  green on that commit: R-CMD-check with Julia on, and pkgdown.
+- One Linux-only flake fixed on the way: a two-chapter test project gave
+  Quarto no render order. Other multi-file test projects without
+  `render:` have not been audited.
+- After the release, still open: package H of the refactor sweep;
+  findings 1, 2, 7, 21; `claim-word` noise; the units switch (issue 451);
+  Windows CI; the questions listed under "Position after stage 7".
