@@ -4,6 +4,9 @@
 - The hint for a name published nowhere no longer says "above": it now reads "Publish it in code in this document", since a named value may be published below its use.
 - The `claim-word` lint is quieter. The shipped list drops `each`, `both`, `either` and `whole` (65 words), skips idioms such as "at least" and "no longer" (`claim_words: {idioms: [...]}` adds your own), and skips a word with a hyphen beside it or a capital that does not start its sentence. A quantifier is now listed only in a sentence with a value or a digit; the new setting `claim_quantifiers` (`number`, `any` or `none`) changes that.
 - A `claim-word` finding in a blockquote no longer shows the `>` markers, and the last sentence of a list item no longer runs on into the next item's marker.
+- `fmt_num()` and `fmt_pct()` no longer round a number of exactly 15 significant digits one digit early when it lies just below a power of ten: `fmt_pct(999999999999999)` prints "99,999,999,999,999,900%", not "100,000,000,000,000,000%". The Lua filter prints the same.
+- `.sci` prints a mantissa that rounds up to 10 as an exact 1, so 999000 prints "1 x 10^6^", as 1e6 does, not "1.0 x 10^6^". Zero prints as "0" with no exponent.
+- The gate no longer counts a `claim()` in an R chunk set to `eval: false`, as it never counted one in a Python or Julia chunk. Turning `eval` off on a chunk that holds a claim is now a removal.
 
 # weft 0.1.0
 

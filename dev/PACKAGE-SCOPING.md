@@ -252,7 +252,7 @@ a wording class together with `.pct` or `.sci`. The three unit classes
 |---|---|
 | `.num` | a number, to the document's defaults (§9.1); a whole number with no decimals (1.4.13) |
 | `.pct` | a proportion as a percentage: 0.12 prints "12%" |
-| `.sci` | scientific notation |
+| `.sci` | scientific notation; a mantissa that rounds up to 10 is an exact 1 and prints as a typed power of ten does (999000 prints "1 × 10^6^", as 1e6 does); zero prints with no exponent ("0", or "0.00" under `digits="2"`) |
 | `.p` | a p-value: "p = 0.046", "p < 0.001", never "p = 0.000" (1.4.17) |
 | `.date` | a date, in the document's default format |
 | `.plus` | a number above zero with a plus sign: "+1.2", "+12%" (1.4.21) |
@@ -361,7 +361,9 @@ every digit exactly, under any `digits`: `999999999999999` prints
 "9,007,199,254,740,992.00". `sigfig` still rounds: `2^53` with
 `sigfig="3"` prints "9,010,000,000,000,000". A larger number is read to 15
 significant digits, so its digits after the fifteenth print as zeros: `2^70`
-prints "1,180,591,620,717,410,000,000", and `1e23` prints as written.
+prints "1,180,591,620,717,410,000,000", and `1e23` prints as written. A
+number of exactly 15 significant digits keeps all 15, however near a power of
+ten it lies: `fmt_pct(999999999999999)` prints "99,999,999,999,999,900%".
 
 **1.4.14** `none` is the text printed when a value with a collapse class
 (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) is an atomic vector of length
@@ -4910,12 +4912,13 @@ elsewhere in one commit nets to zero.
 **6.3.1** The hook counts three things in every changed document and in its
 `HEAD` version: inline R values, with or without an attribute block; weft
 spans (1.1.5); and `claim()` calls anywhere in the file, chunk code
-included, whatever the chunk's `eval` says. A value whose expression holds a
+included, except in a chunk that is statically not evaluated (`eval: false`,
+in R as in a guest engine). A value whose expression holds a
 `claim()` counts once as a value and once as a call. A named value counts as a
 value, and a span in a document the filter resolves counts as a span. `claim(`
 in a Python chunk and `@claim` in a Julia chunk count as `claim()` calls, by
-pattern, and only in an executed chunk, so turning `eval` off on a guest chunk
-with a claim is a removal. A hand-written `weft-values` block's names and a
+pattern. A claim in a chunk that is not evaluated counts for none of them, so
+turning `eval` off on a chunk with a claim is a removal. A hand-written `weft-values` block's names and a
 values file are not counted.
 
 **6.3.2** There are two totals in each project: calls to `claim()`, and

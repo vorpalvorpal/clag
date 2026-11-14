@@ -505,7 +505,7 @@ values file.
   `why`, `; {why}` is added. A check that gave no bool:
   `{check} gave a {type}, not True or False`.
 - **N59. The gate and the lints for guest claims.**
-  - **Counting (6.3.1).** In the code of an executed chunk whose engine is
+  - **Counting (6.3.1).** In the code of an executed chunk (an R chunk too, from 14 Nov) whose engine is
     `python`, each match of `(?<![A-Za-z0-9_.])(weft\.)?claim\(` on a line
     whose first non-blank character is not `#`, and that is not
     `def claim(`, counts as one `claim()` call. In a `julia` chunk, each

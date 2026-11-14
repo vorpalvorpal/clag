@@ -330,14 +330,15 @@ To be fixed with the per-area behaviour fixes, each with a test first.
 
 ## Found while building the resolver filter (stage 6)
 
-1. `fmt_pct(999999999999999)` prints "100,000,000,000,000,000%". The
+1. FIXED 14 Nov. `fmt_pct(999999999999999)` prints "100,000,000,000,000,000%". The
    value times 100 is 99,999,999,999,999,900, which has exactly 15
    significant digits and should print as that. R's `signif()` in
    `round_half_away()` rounds one digit early when `log10` of the
    value rounds up. The Lua port reproduces it faithfully. Fix in
    `R/format.R` with a test first, then regenerate the conformance
    tables; the Lua port must follow.
-2. The gate counts a guest `claim` only in an executed chunk (N59), so
+2. FIXED 14 Nov (ruling: R follows the guests; an R chunk's claim does not count under
+   `eval: false`). The gate counts a guest `claim` only in an executed chunk (N59), so
    turning `eval` off on a Python chunk with a claim is a removal. An
    R chunk's claims still count under `eval: false`, so turning it off
    there costs nothing. Decide whether R should follow.
@@ -354,7 +355,7 @@ To be fixed with the per-area behaviour fixes, each with a test first.
    should widen.
 6. The `.weft/run` search looks in the document's folder and up to 8
    parents; the Python and Julia packages (6e, 6h) must match.
-7. `.sci` is inconsistent on whole mantissas: 1e10 prints
+7. FIXED 14 Nov. `.sci` is inconsistent on whole mantissas: 1e10 prints
    "1 x 10^10" but 999000 and 99999 print "1.0 x 10^6" and
    "1.0 x 10^5" (the mantissa rounds up to a whole number and keeps
    its decimal). `.sci` of 0 prints "0 x 10^0". Both are in
