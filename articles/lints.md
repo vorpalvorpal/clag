@@ -217,7 +217,10 @@ A word whose first letter or digit is a digit is a numeral: “12”, “45%”,
 “CO2”, “PM2.5”. The rule reads the body, captions, the front-matter
 fields that take constructs,
 [`weft_str()`](https://vorpalvorpal.github.io/weft/reference/weft_str.md)
-strings, and inline math, where an exponent or a subscript is exempt.
+strings, and inline math, where an exponent or a subscript is exempt. A
+value in math is written as inline R with a class block, which writes
+TeX there: see “Values in math and raw LaTeX” in
+[`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md).
 
 The `.weft-literal` span in the example above is why “0.45” is not a
 finding. Its `why` is the record: nothing else lists it.
@@ -272,15 +275,20 @@ rounds in code with [`round()`](https://rdrr.io/r/base/Round.html),
 [`sprintf()`](https://rdrr.io/r/base/sprintf.html). Rounding in code
 skips weft’s formatters, so the value has no printed record and
 [`round()`](https://rdrr.io/r/base/Round.html) drops trailing zeros.
+`value-format` also lists a bare
+[`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) or
+another `fmt_*()` in math, which writes markdown there; a class block
+writes TeX.
 
 ## Construct errors
 
 A **construct error** is a mistake in weft syntax that the scanner finds
 without running R: a formatter on an `if` span, as in the example, the
 wrong number of arms, two classes from one group, a `"` inside an
-attribute value, an id defined twice. The rule is `construct`. A render
-stops at the first construct error, and the commit gate refuses a
-changed document that holds one, whatever `HEAD` held.
+attribute value, an id defined twice, a class with no TeX form (such as
+`.word`) in math. The rule is `construct`. A render stops at the first
+construct error, and the commit gate refuses a changed document that
+holds one, whatever `HEAD` held.
 
 The rule `block-start` finds a line inside a span that Pandoc would read
 as the start of a new block, which cuts the span in two.

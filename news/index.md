@@ -2,6 +2,57 @@
 
 ## weft (development version)
 
+- A class block now works inside math and raw LaTeX, and writes TeX
+  there. `` `r x`{.num} `` in `$...$`, `$$...$$`, a math environment
+  (`align`, `equation`, `cases`, `pmatrix` and the rest, starred or not)
+  or, in an `.Rmd` knitted with R Markdown, `\(...\)` or `\[...\]`,
+  prints `-1{,}234.5`, `12.3\%`, `1.2 \times 10^{6}`, `p = 0.046` or
+  `1.2\ \text{to}\ 3.4` and not markdown; a value with a unit prints
+  `5\,\text{mg/L}`. The same holds in raw LaTeX (any other `\begin{...}`
+  environment, a `{=latex}` or `{=tex}` fence, a code span followed by
+  `{=latex}` or `{=tex}`), where the output of a construct is wrapped in
+  `\ensuremath{}`. A bare value (inline R with no class block) prints as
+  before, in math and in raw LaTeX. The classes that print words,
+  emphasis or a list, and any class or key that is not weft’s, are a
+  construct error in math, found from the source and reported by the
+  `construct` lint, as is a project class that does not list `tex` in
+  `targets:`. A failure marker in math is written inside `\text{}`, a
+  value in math is never a sentence start, and its ledger `context` is
+  `math` or `tex`. The `numeral` lint reads math environments as math,
+  and `value-format` flags a bare `fmt_*()` in math. This replaces the
+  old advice to write
+  [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  inside the expression. From code, every `fmt_*()` and
+  `apply_formatters()` gains `target`, its last argument: `"markdown"`
+  (the default, today’s output) or `"tex"`, which writes the same TeX. A
+  result made for TeX carries `attr(x, "target") == "tex"`; passing it
+  to a markdown formatter is a value error. The formatters that print
+  words, emphasis or a list refuse `"tex"`, and so does any other value
+  of `target`. A project formatter that lists `tex` in its new
+  `targets:` key is called with `target`, after any options. Named
+  values in math, on the Lua filter route, are not resolved yet. See
+  [`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md).
+- A project formatter can now declare typed `options:` in `_weft.yml`
+  (`number`, `integer`, `string` or `logical`, as a mapping from name to
+  type or a list of names). An option written on a construct reaches the
+  function as a named argument, in declaration order, at every stage and
+  for a text class on a governed span’s arms; an option that is not
+  written is not passed, and a formatter with no `options:` is called as
+  before. A value outside its type, and a function with no argument (or
+  `...`) for a declared option or with an option named like its first
+  argument, are construct errors. A name that is not a weft key of the
+  class’s stage and is not declared still passes through.
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  knows the declared options: it does not list them, and it names the
+  option a misspelt key is one edit from. A later registration of the
+  same class replaces `options` whole, and an unknown key in a
+  registration now warns. See
+  [`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md).
+- **Behaviour change:** `digits` or `sigfig` on a project class of the
+  number stage, and `sep`, `last` or `trunc` on one of the collapse
+  stage, were silently dropped. They are now a construct error unless
+  the formatter declares them as options, which then pass the value to
+  the function. Weft does not apply them itself.
 - The repository now holds the weft skill as `skills/weft/` (the Agent
   Skills layout, which cross-tool installers read) and a Claude Code
   plugin manifest in `.claude-plugin/`, so
@@ -60,6 +111,17 @@
   daemon kernel may read a stale front matter (set the key in
   `_weft.yml`), and the julia engine and Jupyter engine add no note for
   a later error.
+- Inline R inside a code span, a fenced block that is not a chunk, or an
+  HTML comment (closed, multi-line, or unclosed) is now read as it is in
+  prose. knitr evaluates it there, but weft did not scan it, so the gate
+  and the lints missed a computed value and a class block after it was
+  left as text. `` `lm(y ~ `r x`{.num})` `` is now a value row, counted
+  by the gate, seen by `value-constant` and `literal-value`, and
+  formatted inside the code span. A tilde fence, or one written `{{r}}`
+  or `{ r}`, is not a chunk to knitr and is read too; a real chunk is
+  not. Wrapping a paragraph in an HTML comment no longer hides its
+  values from the gate. Bracketed spans in comments, fences and code
+  spans are still left as text. Rule 1.1.10 (rule 1.9.2 is withdrawn).
 - The ledger now records the tables of a document on the Jupyter or
   Julia engine, and of Markdown run through the filter. The filter
   writes one `table` entry for each Pandoc table or HTML table in a

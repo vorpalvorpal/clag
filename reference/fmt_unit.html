@@ -68,7 +68,7 @@ reads a unit, with no number: for a heading or a table column. It is a
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fmt_unit</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fmt_unit</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -88,6 +88,11 @@ prints), or one string naming a unit.</p></dd>
 <dt id="arg-unit">unit<a class="anchor" aria-label="anchor" href="#arg-unit"></a></dt>
 <dd><p>A unit to convert <code>x</code> to first, as a string, or a ladder of units
 (one string with <code>|</code> between the units, or a character vector; see <code><a href="fmt.html">fmt_num()</a></code>).</p></dd>
+
+
+<dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
+<dd><p><code>"markdown"</code> (the default) or <code>"tex"</code>, which writes the symbol or name as TeX for use
+inside math (rule 4.4.25); anything else is a <code>weft_construct_error</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

@@ -10,7 +10,7 @@ works on it.
 ## Usage
 
 ``` r
-fmt_unit(x, unit_form = NULL, unit = NULL)
+fmt_unit(x, unit_form = NULL, unit = NULL, target = "markdown")
 ```
 
 ## Arguments
@@ -30,6 +30,12 @@ fmt_unit(x, unit_form = NULL, unit = NULL)
   A unit to convert `x` to first, as a string, or a ladder of units (one
   string with `|` between the units, or a character vector; see
   [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)).
+
+- target:
+
+  `"markdown"` (the default) or `"tex"`, which writes the symbol or name
+  as TeX for use inside math (rule 4.4.25); anything else is a
+  `weft_construct_error`.
 
 ## Value
 

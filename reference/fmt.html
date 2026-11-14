@@ -80,20 +80,35 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 <span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  plus <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  plus <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_pct</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, plus <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
+<span><span class="fu">fmt_pct</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  digits <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  plus <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_sci</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_sci</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  digits <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_no</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_no</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_word</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_word</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_count</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_count</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_ord</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_ord</span><span class="op">(</span><span class="va">x</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_and</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
@@ -101,14 +116,23 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 <span>  last <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  trunc <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  none <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_or</span><span class="op">(</span><span class="va">x</span>, sep <span class="op">=</span> <span class="st">", "</span>, last <span class="op">=</span> <span class="cn">NULL</span>, trunc <span class="op">=</span> <span class="cn">NULL</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_or</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  sep <span class="op">=</span> <span class="st">", "</span>,</span>
+<span>  last <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  trunc <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  none <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_p</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, label <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_p</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, label <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_date</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="fu">fmt_date</span><span class="op">(</span><span class="va">x</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_range</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
@@ -116,7 +140,8 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 <span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  plus <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span>  plus <span class="op">=</span> <span class="cn">FALSE</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_pairs</span><span class="op">(</span></span>
@@ -125,22 +150,23 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 <span>  last <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  trunc <span class="op">=</span> <span class="cn">NULL</span>,</span>
 <span>  none <span class="op">=</span> <span class="cn">NULL</span>,</span>
-<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span></span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  target <span class="op">=</span> <span class="st">"markdown"</span></span>
 <span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_ul</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_ul</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_ol</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_ol</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_dl</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_dl</span><span class="op">(</span><span class="va">x</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_cap</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="fu">fmt_cap</span><span class="op">(</span><span class="va">x</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_a</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="fu">fmt_a</span><span class="op">(</span><span class="va">x</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_strong</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="fu">fmt_strong</span><span class="op">(</span><span class="va">x</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_em</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span></code></pre></div>
+<span><span class="fu">fmt_em</span><span class="op">(</span><span class="va">x</span>, target <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -200,6 +226,21 @@ with no unit is a <code>weft_value_error</code>. <code>fmt_pct()</code> and <cod
 <code>fmt_pct()</code>, <code>fmt_range()</code>; the class <code>.plus</code>, rule 1.4.21). Zero and a number
 that prints as zero have no sign; a negative number prints the <code>minus</code>
 setting. Anything but <code>TRUE</code> or <code>FALSE</code> is a <code>weft_construct_error</code>.</p></dd>
+
+
+<dt id="arg-target">target<a class="anchor" aria-label="anchor" href="#arg-target"></a></dt>
+<dd><p><code>"markdown"</code> (the default, today's output) or <code>"tex"</code>, which writes
+the number, percentage, scientific notation, p-value, range and unit as TeX for
+use inside math (rule 3.4.11): the minus is <code>-</code>, a thousands mark of <code>,</code> is
+<code>{,}</code>, <code>.sci</code> is <code>1.2 \times 10^{6}</code>, and a range says <code>\text{to}</code>. The result
+carries the attribute <code>target = "tex"</code>, and printing it as markdown (through
+<code>fmt_strong()</code> or a collapse, say) is a <code>weft_value_error</code>; format the number
+again without <code>target</code>. The formatters that print words, emphasis or a list
+(<code>fmt_word()</code>, <code>fmt_count()</code>, <code>fmt_ord()</code>, <code>fmt_no()</code>, <code>fmt_date()</code>, <code>fmt_a()</code>,
+<code>fmt_cap()</code>, <code>fmt_em()</code>, <code>fmt_strong()</code>, <code>fmt_and()</code>, <code>fmt_or()</code>, <code>fmt_pairs()</code>,
+<code>fmt_ul()</code>, <code>fmt_ol()</code>, <code>fmt_dl()</code>) have no TeX form and raise a
+<code>weft_construct_error</code> under <code>"tex"</code>. Any other value of <code>target</code> is a
+<code>weft_construct_error</code>.</p></dd>
 
 
 <dt id="arg-sep">sep<a class="anchor" aria-label="anchor" href="#arg-sep"></a></dt>

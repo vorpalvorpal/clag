@@ -98,8 +98,35 @@ closing backtick, with nothing in between: <code>`r x`{.num}</code>. The
 block holds one or more <strong>formatter classes</strong>, and
 sometimes <strong>keys</strong> that adjust them. Under Quarto,
 <code>`{r} x`{.num}</code> behaves the same.</p>
-<p>The examples below come from one document. Its data chunk is:</p>
+</div>
+<div class="section level2">
+<h2 id="where-weft-reads-inline-r">Where weft reads inline R<a class="anchor" aria-label="anchor" href="#where-weft-reads-inline-r"></a>
+</h2>
+<p>weft reads inline R wherever knitr evaluates it:</p>
+<ul>
+<li>in prose, headings, lists, tables and captions;</li>
+<li>inside a code span;</li>
+<li>inside a fenced block that is not a chunk;</li>
+<li>inside an HTML comment, closed or not;</li>
+<li>inside math and raw LaTeX.</li>
+</ul>
+<p>It does not read a chunk’s code, which is R and not text. Read there,
+inline R counts as a value, the lints see it, and an attribute block
+after it formats it. In the source below, <code>x</code> is
+<code>12.4567</code>, and the reader sees <code>lm(y ~ 12.46)</code> in
+a code span:</p>
 <div class="sourceCode" id="cb1"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="co"># Fit `lm(y ~ `r x`{.num})` to the data.</span></span></code></pre></div>
+<p>Two consequences follow, and both are because knitr does the same.
+Wrapping a paragraph in an HTML comment does not switch its values or
+claims off, since knitr still runs them, so the gate still counts them.
+And a fenced block cannot show weft syntax literally: the inline R in it
+is evaluated. A bracketed span (<code>[...]{.if ...}</code>) in a code
+span, a fence or a comment is left as text.</p>
+<p>Inline R in math is read and counted, and a class block after it
+writes TeX: see “Values in math and raw LaTeX” below.</p>
+<p>The examples below come from one document. Its data chunk is:</p>
+<div class="sourceCode" id="cb2"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mean_ntu</span> <span class="op">&lt;-</span> <span class="fl">8.2333</span></span>
 <span><span class="va">share</span> <span class="op">&lt;-</span> <span class="fl">0.1234</span></span>
 <span><span class="va">p_val</span> <span class="op">&lt;-</span> <span class="fl">0.0462</span></span>
@@ -117,12 +144,12 @@ sometimes <strong>keys</strong> that adjust them. Under Quarto,
 <div class="section level2">
 <h2 id="numbers">Numbers<a class="anchor" aria-label="anchor" href="#numbers"></a>
 </h2>
-<div class="sourceCode" id="cb2"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}, or <span class="in">`r mean_ntu`</span>{.num digits="2"} to</span>
-<span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a>two places, or <span class="in">`r mean_ntu`</span>{.num sigfig="1"} to one significant figure.</span>
-<span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a></span>
-<span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a><span class="in">`r share`</span>{.pct} of samples exceeded the guideline (<span class="in">`r p_val`</span>{.p}).</span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>The pond holds <span class="in">`r volume`</span>{.num} L, <span class="in">`r volume`</span>{.sci} L in scientific notation.</span></code></pre></div>
+<div class="sourceCode" id="cb3"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}, or <span class="in">`r mean_ntu`</span>{.num digits="2"} to</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>two places, or <span class="in">`r mean_ntu`</span>{.num sigfig="1"} to one significant figure.</span>
+<span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a></span>
+<span id="cb3-4"><a href="#cb3-4" tabindex="-1"></a><span class="in">`r share`</span>{.pct} of samples exceeded the guideline (<span class="in">`r p_val`</span>{.p}).</span>
+<span id="cb3-5"><a href="#cb3-5" tabindex="-1"></a></span>
+<span id="cb3-6"><a href="#cb3-6" tabindex="-1"></a>The pond holds <span class="in">`r volume`</span>{.num} L, <span class="in">`r volume`</span>{.sci} L in scientific notation.</span></code></pre></div>
 <pre class="text"><code>Mean turbidity was 8.2, or 8.23 to two places, or 8 to one significant figure.
 
 12.3% of samples exceeded the guideline (p = 0.046).
@@ -167,7 +194,7 @@ thousands mark in numbers from 1,000 up. A year held as a plain number
 gets one too, so print a year as a bare value, or keep it in the
 dictionary as a <code>year</code> entry, which never gets a mark (see
 <code><a href="../articles/units.html">vignette("units", package = "weft")</a></code>):</p>
-<div class="sourceCode" id="cb4"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">2024</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "2,024"</span></span></code></pre></div>
@@ -178,8 +205,8 @@ prints “0.2”. It prints the minus sign as the true minus (U+2212).</p>
 </h3>
 <p>A difference reads better with its sign. <code>.plus</code> prints
 <code>+</code> before a number above zero:</p>
-<div class="sourceCode" id="cb5"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>The mean rose by <span class="in">`r d_mean`</span>{.num .plus} mg/L (<span class="in">`r d_pct`</span>{.pct .plus}).</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>The change ranged <span class="in">`r d_rng`</span>{.range .plus} across sites.</span></code></pre></div>
+<div class="sourceCode" id="cb6"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a>The mean rose by <span class="in">`r d_mean`</span>{.num .plus} mg/L (<span class="in">`r d_pct`</span>{.pct .plus}).</span>
+<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a>The change ranged <span class="in">`r d_rng`</span>{.range .plus} across sites.</span></code></pre></div>
 <pre class="text"><code>The mean rose by +1.2 mg/L (+12%).
 The change ranged −0.5 to +1.2 across sites.</code></pre>
 <p>with <code>d_mean &lt;- 1.2</code>, <code>d_pct &lt;- 0.12</code> and
@@ -187,7 +214,7 @@ The change ranged −0.5 to +1.2 across sites.</code></pre>
 minus. A number that prints as zero has no sign, as it has no minus.
 Under <code>.range</code> the ends are joined by ” to ” when either end
 has a sign, so no dash stands next to a sign:</p>
-<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.25</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">1.25</span><span class="op">)</span>, plus <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "+1.3" "0"    "−1.3"</span></span>
@@ -214,7 +241,7 @@ print “+12 sites”.</p>
 from 0.1 up, with “p &lt; 0.001” and “p &gt; 0.99” at the ends.
 <code>digits</code> fixes the number of decimals, and the ends move with
 it, so “p = 0.000” never prints:</p>
-<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb9"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_p</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0004</span>, <span class="fl">0.046</span>, <span class="fl">0.12</span>, <span class="fl">0.995</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "p &lt; 0.001" "p = 0.046" "p = 0.12"  "p &gt; 0.99"</span></span>
@@ -231,9 +258,9 @@ other value prints with exactly three decimals, trailing zeros kept: “p
 1 to 6. <code>sigfig</code> on <code>.p</code> is a construct error.</p>
 <p><code>label</code> sets the text before the relation. Use it for an
 adjusted value, or leave it empty to print the number alone:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>The trend was weak (<span class="in">`r fit_p`</span>{.p digits="3"}).</span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>After correction it held (<span class="in">`r fit_q`</span>{.p label="q"}).</span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>Effects were small (<span class="in">`r fit_p`</span>{.p label=""}).</span></code></pre></div>
+<div class="sourceCode" id="cb10"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb10-1"><a href="#cb10-1" tabindex="-1"></a>The trend was weak (<span class="in">`r fit_p`</span>{.p digits="3"}).</span>
+<span id="cb10-2"><a href="#cb10-2" tabindex="-1"></a>After correction it held (<span class="in">`r fit_q`</span>{.p label="q"}).</span>
+<span id="cb10-3"><a href="#cb10-3" tabindex="-1"></a>Effects were small (<span class="in">`r fit_p`</span>{.p label=""}).</span></code></pre></div>
 <pre class="text"><code>The trend was weak (p = 0.046).
 After correction it held (q = 0.003).
 Effects were small (0.046).</code></pre>
@@ -247,11 +274,11 @@ over them.</p>
 <div class="section level2">
 <h2 id="counts-and-wording">Counts and wording<a class="anchor" aria-label="anchor" href="#counts-and-wording"></a>
 </h2>
-<div class="sourceCode" id="cb11"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="in">`r n_dry`</span>{.no .word .cap} sites were dry and <span class="in">`r n_wet`</span>{.count} were wet.</span>
-<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>This is the <span class="in">`r survey_no`</span>{.ord} survey.</span>
-<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a></span>
-<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="in">`r n_wet`</span>{.word .cap} sites were wet. The logger gave</span>
-<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="in">`r record_years`</span>{.num .a}-year record.</span></code></pre></div>
+<div class="sourceCode" id="cb12"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb12-1"><a href="#cb12-1" tabindex="-1"></a><span class="in">`r n_dry`</span>{.no .word .cap} sites were dry and <span class="in">`r n_wet`</span>{.count} were wet.</span>
+<span id="cb12-2"><a href="#cb12-2" tabindex="-1"></a>This is the <span class="in">`r survey_no`</span>{.ord} survey.</span>
+<span id="cb12-3"><a href="#cb12-3" tabindex="-1"></a></span>
+<span id="cb12-4"><a href="#cb12-4" tabindex="-1"></a><span class="in">`r n_wet`</span>{.word .cap} sites were wet. The logger gave</span>
+<span id="cb12-5"><a href="#cb12-5" tabindex="-1"></a><span class="in">`r record_years`</span>{.num .a}-year record.</span></code></pre></div>
 <pre class="text"><code>No sites were dry and 12 were wet. This is the 3rd survey.
 
 Twelve sites were wet. The logger gave an 11-year record.</code></pre>
@@ -305,14 +332,14 @@ line.</p>
 <div class="section level2">
 <h2 id="lists">Lists<a class="anchor" aria-label="anchor" href="#lists"></a>
 </h2>
-<div class="sourceCode" id="cb13"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>We sampled <span class="in">`r sites`</span>{.and trunc="3"}, or <span class="in">`r sites`</span>{.or sep="; "}.</span>
-<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a></span>
-<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>Means were <span class="in">`r means`</span>{.num .pairs}.</span>
-<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
-<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>Depths ranged over <span class="in">`r depth_range`</span>{.range} m. The first visit was on</span>
-<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="in">`r visit`</span>{.date}.</span>
-<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a></span>
-<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>Flagged sites: <span class="in">`r flagged`</span>{.and none="none"}.</span></code></pre></div>
+<div class="sourceCode" id="cb14"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb14-1"><a href="#cb14-1" tabindex="-1"></a>We sampled <span class="in">`r sites`</span>{.and trunc="3"}, or <span class="in">`r sites`</span>{.or sep="; "}.</span>
+<span id="cb14-2"><a href="#cb14-2" tabindex="-1"></a></span>
+<span id="cb14-3"><a href="#cb14-3" tabindex="-1"></a>Means were <span class="in">`r means`</span>{.num .pairs}.</span>
+<span id="cb14-4"><a href="#cb14-4" tabindex="-1"></a></span>
+<span id="cb14-5"><a href="#cb14-5" tabindex="-1"></a>Depths ranged over <span class="in">`r depth_range`</span>{.range} m. The first visit was on</span>
+<span id="cb14-6"><a href="#cb14-6" tabindex="-1"></a><span class="in">`r visit`</span>{.date}.</span>
+<span id="cb14-7"><a href="#cb14-7" tabindex="-1"></a></span>
+<span id="cb14-8"><a href="#cb14-8" tabindex="-1"></a>Flagged sites: <span class="in">`r flagged`</span>{.and none="none"}.</span></code></pre></div>
 <pre class="text"><code>We sampled Upper, Middle, Lower and 2 others, or Upper; Middle; Lower;
 Estuary or Mouth.
 
@@ -359,9 +386,9 @@ prints a vector.</p>
 <p><code>.ul</code>, <code>.ol</code> and <code>.dl</code> make a block,
 so the value must be alone in its paragraph, and not inside a list item,
 a block quote or a table cell:</p>
-<div class="sourceCode" id="cb15"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="an">The sites were:</span></span>
-<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
-<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="in">`r sites[1:3]`</span>{.ul}</span></code></pre></div>
+<div class="sourceCode" id="cb16"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb16-1"><a href="#cb16-1" tabindex="-1"></a><span class="an">The sites were:</span></span>
+<span id="cb16-2"><a href="#cb16-2" tabindex="-1"></a></span>
+<span id="cb16-3"><a href="#cb16-3" tabindex="-1"></a><span class="in">`r sites[1:3]`</span>{.ul}</span></code></pre></div>
 <pre class="text"><code>The sites were:
 
 - Upper
@@ -446,7 +473,7 @@ which the lints report without running anything.</p>
 <p>A class or key that weft does not own passes through to a Pandoc span
 around the output. <code><a href="../reference/weft_str.html">weft_str()</a></code>, described below, shows the
 markdown weft writes:</p>
-<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mean_ntu</span> <span class="op">&lt;-</span> <span class="fl">8.2333</span></span>
 <span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Turbidity was **8.2** and [8.2]{.smallcaps}."</span></span></code></pre></div>
@@ -461,7 +488,7 @@ error. The tier-2 lint <code>name</code> lists it (see
 digits is easy to miss. weft prints it, and records a <strong>warned
 check</strong>: the render does not fail, and the warning is printed at
 the end of the knit. Outside a knit it is an R warning:</p>
-<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">0.04</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: weft: 0.04 printed as 0.0: add sigfig to show it, or digits to confirm</span></span>
 <span><span class="co">#&gt; it</span></span>
@@ -504,7 +531,7 @@ above.</p>
 </h2>
 <p>Every class <code>.x</code> has a function <code>fmt_x()</code>, for
 chunks, plot labels and table cells:</p>
-<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">8.2333</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "8.23"</span></span>
@@ -542,20 +569,20 @@ chunks, plot labels and table cells:</p>
 carries its <strong>printed record</strong>, the number as printed,
 whether decimals show, and whether it is a bound such as “&lt; 0.01”.
 Pass one formatter’s result to another and the record goes with it:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_pairs</a></span><span class="op">(</span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">4.2</span>, Middle <span class="op">=</span> <span class="fl">7.9</span>, Lower <span class="op">=</span> <span class="fl">12.6</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "Upper (4.2), Middle (7.9) and Lower (12.6)"</span></span></code></pre></div>
 <p><code><a href="../reference/glue_vec.html">glue_vec()</a></code> is the joining engine behind
 <code>.and</code> and <code>.or</code>:</p>
-<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/glue_vec.html">glue_vec</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Middle"</span>, <span class="st">"Lower"</span><span class="op">)</span>, last <span class="op">=</span> <span class="st">" or "</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "Upper, Middle or Lower"</span></span></code></pre></div>
 <p><code><a href="../reference/weft_str.html">weft_str()</a></code> resolves weft markup in a string, for text
 that no chunk option reaches: a <code>kable()</code> caption, a plot
 title, text written by a chunk with <code>results: asis</code>.</p>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Turbidity at three sites, mean 8.2 NTU."</span></span></code></pre></div>
@@ -566,14 +593,14 @@ title, text written by a chunk with <code>results: asis</code>.</p>
 <p>A construct works in a chunk’s caption. Write the caption as a YAML
 block scalar (<code>|</code>), because a construct in any other form of
 scalar is a construct error:</p>
-<div class="sourceCode" id="cb23"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="in">#| label: fig-depth</span></span>
-<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="in">#| fig-cap: |</span></span>
-<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a><span class="in">#|   Depth at [a site | # sites]{n="n_sites"}, mean `r mean(d)`{.num} m.</span></span>
-<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a><span class="in">d &lt;- c(0.4, 0.7, 1.3)</span></span>
-<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a><span class="in">n_sites &lt;- length(d)</span></span>
-<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a><span class="in">barplot(d)</span></span>
-<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a><span class="in">#| label: fig-depth</span></span>
+<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a><span class="in">#| fig-cap: |</span></span>
+<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="in">#|   Depth at [a site | # sites]{n="n_sites"}, mean `r mean(d)`{.num} m.</span></span>
+<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a><span class="in">d &lt;- c(0.4, 0.7, 1.3)</span></span>
+<span id="cb24-6"><a href="#cb24-6" tabindex="-1"></a><span class="in">n_sites &lt;- length(d)</span></span>
+<span id="cb24-7"><a href="#cb24-7" tabindex="-1"></a><span class="in">barplot(d)</span></span>
+<span id="cb24-8"><a href="#cb24-8" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 <p>The caption is resolved after the chunk runs, so it sees objects the
 chunk made. The same works in <code>fig-alt</code>,
 <code>fig-subcap</code> and <code>tbl-cap</code> under Quarto, and in
@@ -586,11 +613,203 @@ figure div instead.</p>
 when written as a block scalar. Front matter is read before any chunk
 runs, so a field that needs a chunk’s values goes in a second metadata
 block at the end of the document:</p>
-<div class="sourceCode" id="cb24"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a><span class="an">abstract:</span><span class="co"> |</span></span>
-<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a><span class="co">  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of</span></span>
-<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="co">  `r mean(d)`{.num} m.</span></span>
-<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="an">abstract:</span><span class="co"> |</span></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="co">  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of</span></span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="co">  `r mean(d)`{.num} m.</span></span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
+</div>
+<div class="section level2">
+<h2 id="values-in-math-and-raw-latex">Values in math and raw LaTeX<a class="anchor" aria-label="anchor" href="#values-in-math-and-raw-latex"></a>
+</h2>
+<p>A formatter’s markdown is wrong inside a formula. <code>.sci</code>
+would write a markdown superscript, <code>.pct</code> a bare
+<code>%</code> that TeX reads as a comment, and the comma in
+<code>1,234</code> would be spaced as punctuation. So in math and raw
+LaTeX a class block writes TeX. Write the value as inline R with a class
+block, as in prose:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>The fit gave $a = <span class="in">`r mean_ntu`</span>{.num digits=2}$ and $b = <span class="in">`r share`</span>{.pct}$.</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a></span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a>$$ V = <span class="in">`r volume`</span>{.sci} $$</span></code></pre></div>
+<p>weft puts this into the document before the renderer sees it:</p>
+<pre class="text"><code>The fit gave $a = 8.23$ and $b = 12.3\%$.
+
+$$ V = 1.2 \times 10^{6} $$</code></pre>
+<p>and the renderer sets it as math, so the page shows a = 8.23, b =
+12.3% and V = 1.2 × 10⁶.</p>
+<p>These places count as math: <code>$...$</code>, <code>$$...$$</code>,
+the math environments of LaTeX (<code>equation</code>,
+<code>align</code>, <code>gather</code>, <code>multline</code>,
+<code>cases</code>, the matrices and the others, starred or not) and, in
+an <code>.Rmd</code> knitted with R Markdown, <code>\(...\)</code> and
+<code>\[...\]</code>. Under Quarto those two forms are not math, and
+weft does not treat them as math. Raw LaTeX is any other
+<code>\begin{...}</code> environment, a fence written
+<code>```{=latex}</code> or <code>```{=tex}</code>, and a code span
+followed by <code>{=latex}</code> or <code>{=tex}</code>. A
+<code>{=typst}</code> or <code>{=html}</code> fence is neither, and
+keeps the markdown of prose. A raw command such as
+<code>\textbf{...}</code> in the middle of a paragraph is not found.</p>
+<div class="section level3">
+<h3 id="what-each-class-prints">What each class prints<a class="anchor" aria-label="anchor" href="#what-each-class-prints"></a>
+</h3>
+<p>With the values of the document above (<code>depth_range</code> is
+<code>c(0.4, 1.3)</code>), in math:</p>
+<table class="table">
+<thead><tr class="header">
+<th>Written</th>
+<th>Prints, as TeX</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>`r mean_ntu`{.num}</code></td>
+<td><code>8.2</code></td>
+</tr>
+<tr class="even">
+<td><code>`r volume`{.num}</code></td>
+<td><code>1{,}234{,}567</code></td>
+</tr>
+<tr class="odd">
+<td><code>`r share`{.pct}</code></td>
+<td><code>12.3\%</code></td>
+</tr>
+<tr class="even">
+<td><code>`r share`{.pct .plus}</code></td>
+<td><code>+12.3\%</code></td>
+</tr>
+<tr class="odd">
+<td><code>`r p_val`{.p}</code></td>
+<td><code>p = 0.046</code></td>
+</tr>
+<tr class="even">
+<td><code>`r volume`{.sci}</code></td>
+<td><code>1.2 \times 10^{6}</code></td>
+</tr>
+<tr class="odd">
+<td><code>`r depth_range`{.range}</code></td>
+<td><code>0.4\ \text{to}\ 1.3</code></td>
+</tr>
+</tbody>
+</table>
+<p><code>.p</code> writes its label, so a formula holds
+<code>`r p_val`{.p}</code> alone, and not <code>p =</code> before it.
+The minus sign is always <code>-</code>, whatever the <code>minus</code>
+setting says. The thousands mark is <code>{,}</code>, which keeps the
+comma from taking punctuation spacing. A range always says “to”, even
+between two positive numbers: no dash survives every renderer, and a
+dash between numbers in a formula reads as a subtraction. The other
+marks follow your settings, in TeX: <code>big_mark: " "</code> prints
+<code>1\,234\,567</code>, and <code>p_label: "adj. p"</code> prints
+<code>\text{adj. p}</code>. A <code>label</code> key on <code>.p</code>
+is TeX already and goes in as you write it:
+<code>label="\tilde{p}"</code> prints
+<code>\tilde{p} = 0.046</code>.</p>
+<p>A value with a unit prints the unit inside <code>\text{}</code>:
+<code>5\,\text{mg/L}</code>, <code>5\,\text{m}^{2}</code>,
+<code>20\,\text{°C}</code>. The characters of a unit, such as the degree
+and micro signs, go through unchanged. <code>.uname</code> prints the
+name, <code>5\ \text{milligrams per litre}</code>.</p>
+</div>
+<div class="section level3">
+<h3 id="what-is-refused-and-why">What is refused, and why<a class="anchor" aria-label="anchor" href="#what-is-refused-and-why"></a>
+</h3>
+<p>A formula holds numbers. The classes that print words, emphasis or a
+list have no TeX form, and in math and raw LaTeX they are a construct
+error:</p>
+<ul>
+<li>
+<code>.word</code>, <code>.count</code>, <code>.ord</code>,
+<code>.no</code>, <code>.date</code>, <code>.a</code> and
+<code>.cap</code> print words.</li>
+<li>
+<code>.em</code> and <code>.strong</code> are markdown emphasis. Put
+<code>\mathbf{}</code> or <code>\mathit{}</code> round the value in the
+formula.</li>
+<li>
+<code>.and</code>, <code>.or</code>, <code>.pairs</code>,
+<code>.ul</code>, <code>.ol</code> and <code>.dl</code>, and the keys
+<code>sep</code>, <code>last</code>, <code>trunc</code> and
+<code>none</code>, join items. Use <code>.range</code> for two
+ends.</li>
+</ul>
+<p>So is a class or key that is not weft’s, because weft would put the
+value in a Pandoc span, and a formula has none. <code><a href="../reference/lints.html">lints()</a></code>
+finds these without running R, and a render stops at one. The message
+names the class and says why.</p>
+</div>
+<div class="section level3">
+<h3 id="in-raw-latex">In raw LaTeX<a class="anchor" aria-label="anchor" href="#in-raw-latex"></a>
+</h3>
+<p>In raw LaTeX the output of a construct is wrapped in
+<code>\ensuremath{...}</code>, so it is safe in running text as well as
+in a math mode:</p>
+<div class="sourceCode" id="cb28"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb28-1"><a href="#cb28-1" tabindex="-1"></a><span class="in">```{=latex}</span></span>
+<span id="cb28-2"><a href="#cb28-2" tabindex="-1"></a><span class="in">\begin{tabular}{ll}</span></span>
+<span id="cb28-3"><a href="#cb28-3" tabindex="-1"></a><span class="in">Share &amp; `r share`{.pct} \\</span></span>
+<span id="cb28-4"><a href="#cb28-4" tabindex="-1"></a><span class="in">\end{tabular}</span></span>
+<span id="cb28-5"><a href="#cb28-5" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<p>writes <code>\ensuremath{12.3\%}</code> into the cell. A failure
+marker is written inside <code>\text{}</code>, and in raw LaTeX inside
+the wrapper too.</p>
+<p>A <strong>bare value</strong>, inline R with no class block, is left
+as it is everywhere. In math it prints as knitr prints it. In raw LaTeX
+it is not wrapped, so a string in a <code>tabular</code> cell stays
+text. Writing <code>fmt_num(x)</code> in a bare value in math therefore
+writes markdown, which is the fault the class block removes: the
+<code>value-format</code> lint says so, and suggests the class
+block.</p>
+</div>
+<div class="section level3">
+<h3 id="from-code">From code<a class="anchor" aria-label="anchor" href="#from-code"></a>
+</h3>
+<p>Every <code>fmt_*()</code> takes <code>target</code> as its last
+argument. <code>"markdown"</code> is the default and the output you
+know. <code>target = "tex"</code> writes the TeX of this section, for
+text you build in code and put into a formula:</p>
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">1234567</span>, target <span class="op">=</span> <span class="st">"tex"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "1{,}234{,}567"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_pct</a></span><span class="op">(</span><span class="fl">0.1234</span>, target <span class="op">=</span> <span class="st">"tex"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "12.3\\%"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.4</span>, <span class="fl">1.3</span><span class="op">)</span>, target <span class="op">=</span> <span class="st">"tex"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "0.4\\ \\text{to}\\ 1.3"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fl">5</span>, <span class="va">mg</span><span class="op">/</span><span class="va">L</span><span class="op">)</span>, target <span class="op">=</span> <span class="st">"tex"</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "5\\,\\text{mg/L}"</span></span></code></pre></div>
+<p>A text made for TeX carries the attribute
+<code>target = "tex"</code>. Passing it to a markdown formatter is an
+error, because it would print TeX source in a paragraph: format the
+number again, without <code>target</code>. The functions that print
+words, emphasis or a list refuse <code>target = "tex"</code>, as the
+classes are refused in math, and any other value of <code>target</code>
+is an error too.</p>
+</div>
+<div class="section level3">
+<h3 id="project-formatters-in-math">Project formatters in math<a class="anchor" aria-label="anchor" href="#project-formatters-in-math"></a>
+</h3>
+<p>A project formatter writes markdown. To use it in math it must say
+that it can write TeX, with <code>targets:</code> in its
+registration:</p>
+<div class="sourceCode" id="cb30"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb30-1"><a href="#cb30-1" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
+<span id="cb30-2"><a href="#cb30-2" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
+<span id="cb30-3"><a href="#cb30-3" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
+<span id="cb30-4"><a href="#cb30-4" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span>
+<span id="cb30-5"><a href="#cb30-5" tabindex="-1"></a><span class="at">    </span><span class="fu">targets</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="at">markdown</span><span class="kw">,</span><span class="at"> tex</span><span class="kw">]</span></span></code></pre></div>
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">in_millions</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">target</span> <span class="op">=</span> <span class="st">"markdown"</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="va">txt</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="va">x</span> <span class="op">/</span> <span class="fl">1e6</span>, target <span class="op">=</span> <span class="va">target</span><span class="op">)</span>, <span class="st">"million"</span><span class="op">)</span></span>
+<span>  <span class="kw">if</span> <span class="op">(</span><span class="va">target</span> <span class="op">==</span> <span class="st">"tex"</span><span class="op">)</span> <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste0</a></span><span class="op">(</span><span class="st">"\\text{"</span>, <span class="va">txt</span>, <span class="st">"}"</span><span class="op">)</span> <span class="kw">else</span> <span class="va">txt</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<p><code>targets:</code> is <code>[markdown]</code> unless set, and must
+include <code>markdown</code>. A function that lists <code>tex</code> is
+called with <code>target = "markdown"</code> or
+<code>target = "tex"</code> as its last argument, after any options, and
+must take <code>target</code> or <code>...</code>. A class that does not
+list <code>tex</code> is a construct error in math.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="changing-the-defaults">Changing the defaults<a class="anchor" aria-label="anchor" href="#changing-the-defaults"></a>
@@ -688,36 +907,36 @@ check</td>
 </tbody>
 </table>
 <p>With this <code>_weft.yml</code>:</p>
-<div class="sourceCode" id="cb25"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">digits</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
-<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="fu">serial_comma</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="fu">count_threshold</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
-<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
-<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
-<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
-<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span></code></pre></div>
+<div class="sourceCode" id="cb32"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb32-1"><a href="#cb32-1" tabindex="-1"></a><span class="fu">digits</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
+<span id="cb32-2"><a href="#cb32-2" tabindex="-1"></a><span class="fu">serial_comma</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb32-3"><a href="#cb32-3" tabindex="-1"></a><span class="fu">count_threshold</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb32-4"><a href="#cb32-4" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
+<span id="cb32-5"><a href="#cb32-5" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
+<span id="cb32-6"><a href="#cb32-6" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
+<span id="cb32-7"><a href="#cb32-7" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span></code></pre></div>
 <p>and this document:</p>
-<div class="sourceCode" id="cb26"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Settings"</span></span>
-<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> html_document</span></span>
-<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a><span class="an">knitr:</span></span>
-<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a><span class="co">  opts_knit:</span></span>
-<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a><span class="co">    weft: !expr weft::weft_setup()</span></span>
-<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a><span class="an">weft:</span></span>
-<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a><span class="co">  date_format: "%d/%m/%Y"</span></span>
-<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb26-10"><a href="#cb26-10" tabindex="-1"></a></span>
-<span id="cb26-11"><a href="#cb26-11" tabindex="-1"></a><span class="in">```{r data}</span></span>
-<span id="cb26-12"><a href="#cb26-12" tabindex="-1"></a><span class="in">in_millions &lt;- function(x) paste(format(round(x / 1e6, 1), nsmall = 1), "million")</span></span>
-<span id="cb26-13"><a href="#cb26-13" tabindex="-1"></a><span class="in">mean_ntu &lt;- 8.2333</span></span>
-<span id="cb26-14"><a href="#cb26-14" tabindex="-1"></a><span class="in">n_wet &lt;- 12</span></span>
-<span id="cb26-15"><a href="#cb26-15" tabindex="-1"></a><span class="in">sites &lt;- c("Upper", "Middle", "Lower")</span></span>
-<span id="cb26-16"><a href="#cb26-16" tabindex="-1"></a><span class="in">visit &lt;- as.Date("2024-09-02")</span></span>
-<span id="cb26-17"><a href="#cb26-17" tabindex="-1"></a><span class="in">volume &lt;- 1234567</span></span>
-<span id="cb26-18"><a href="#cb26-18" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb26-19"><a href="#cb26-19" tabindex="-1"></a></span>
-<span id="cb26-20"><a href="#cb26-20" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}. <span class="in">`r n_wet`</span>{.count .cap} sites were wet:</span>
-<span id="cb26-21"><a href="#cb26-21" tabindex="-1"></a><span class="in">`r sites`</span>{.and}. The first visit was on <span class="in">`r visit`</span>{.date}. The pond holds</span>
-<span id="cb26-22"><a href="#cb26-22" tabindex="-1"></a><span class="in">`r volume`</span>{.millions} litres.</span></code></pre></div>
+<div class="sourceCode" id="cb33"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb33-1"><a href="#cb33-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb33-2"><a href="#cb33-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Settings"</span></span>
+<span id="cb33-3"><a href="#cb33-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> html_document</span></span>
+<span id="cb33-4"><a href="#cb33-4" tabindex="-1"></a><span class="an">knitr:</span></span>
+<span id="cb33-5"><a href="#cb33-5" tabindex="-1"></a><span class="co">  opts_knit:</span></span>
+<span id="cb33-6"><a href="#cb33-6" tabindex="-1"></a><span class="co">    weft: !expr weft::weft_setup()</span></span>
+<span id="cb33-7"><a href="#cb33-7" tabindex="-1"></a><span class="an">weft:</span></span>
+<span id="cb33-8"><a href="#cb33-8" tabindex="-1"></a><span class="co">  date_format: "%d/%m/%Y"</span></span>
+<span id="cb33-9"><a href="#cb33-9" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb33-10"><a href="#cb33-10" tabindex="-1"></a></span>
+<span id="cb33-11"><a href="#cb33-11" tabindex="-1"></a><span class="in">```{r data}</span></span>
+<span id="cb33-12"><a href="#cb33-12" tabindex="-1"></a><span class="in">in_millions &lt;- function(x) paste(format(round(x / 1e6, 1), nsmall = 1), "million")</span></span>
+<span id="cb33-13"><a href="#cb33-13" tabindex="-1"></a><span class="in">mean_ntu &lt;- 8.2333</span></span>
+<span id="cb33-14"><a href="#cb33-14" tabindex="-1"></a><span class="in">n_wet &lt;- 12</span></span>
+<span id="cb33-15"><a href="#cb33-15" tabindex="-1"></a><span class="in">sites &lt;- c("Upper", "Middle", "Lower")</span></span>
+<span id="cb33-16"><a href="#cb33-16" tabindex="-1"></a><span class="in">visit &lt;- as.Date("2024-09-02")</span></span>
+<span id="cb33-17"><a href="#cb33-17" tabindex="-1"></a><span class="in">volume &lt;- 1234567</span></span>
+<span id="cb33-18"><a href="#cb33-18" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb33-19"><a href="#cb33-19" tabindex="-1"></a></span>
+<span id="cb33-20"><a href="#cb33-20" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}. <span class="in">`r n_wet`</span>{.count .cap} sites were wet:</span>
+<span id="cb33-21"><a href="#cb33-21" tabindex="-1"></a><span class="in">`r sites`</span>{.and}. The first visit was on <span class="in">`r visit`</span>{.date}. The pond holds</span>
+<span id="cb33-22"><a href="#cb33-22" tabindex="-1"></a><span class="in">`r volume`</span>{.millions} litres.</span></code></pre></div>
 <p>the paragraph renders as:</p>
 <pre class="text"><code>Mean turbidity was 8.23. Twelve sites were wet: Upper, Middle, and Lower.
 The first visit was on 02/09/2024. The pond holds 1.2 million litres.</code></pre>
@@ -726,7 +945,70 @@ formatter</strong>: a class name, the function behind it
 (<code>pkg::fun</code>, or a name the document can see), and the stage
 it acts in (<code>number</code> unless given). It counts towards that
 stage’s “at most one” rule, and it may not reuse the name of a weft
-class.</p>
+class. A formatter that is to be used in math lists
+<code>targets: [markdown, tex]</code> as well (see “Project formatters
+in math” above).</p>
+<div class="section level3">
+<h3 id="options-for-a-project-formatter">Options for a project formatter<a class="anchor" aria-label="anchor" href="#options-for-a-project-formatter"></a>
+</h3>
+<p>A project formatter can take <strong>options</strong>: keys written
+on the construct that reach the function as named arguments. Declare
+them under <code>options:</code>, each with a type:</p>
+<div class="sourceCode" id="cb35"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb35-1"><a href="#cb35-1" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
+<span id="cb35-2"><a href="#cb35-2" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
+<span id="cb35-3"><a href="#cb35-3" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
+<span id="cb35-4"><a href="#cb35-4" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span>
+<span id="cb35-5"><a href="#cb35-5" tabindex="-1"></a><span class="at">    </span><span class="fu">options</span><span class="kw">:</span></span>
+<span id="cb35-6"><a href="#cb35-6" tabindex="-1"></a><span class="at">      </span><span class="fu">digits</span><span class="kw">:</span><span class="at"> integer</span></span>
+<span id="cb35-7"><a href="#cb35-7" tabindex="-1"></a><span class="at">      </span><span class="fu">word</span><span class="kw">:</span><span class="at"> string</span></span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">in_millions</span> <span class="op">&lt;-</span> <span class="kw">function</span><span class="op">(</span><span class="va">x</span>, <span class="va">digits</span> <span class="op">=</span> <span class="cn">NULL</span>, <span class="va">word</span> <span class="op">=</span> <span class="st">"million"</span><span class="op">)</span> <span class="op">{</span></span>
+<span>  <span class="fu"><a href="https://rdrr.io/r/base/paste.html" class="external-link">paste</a></span><span class="op">(</span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="va">x</span> <span class="op">/</span> <span class="fl">1e6</span>, digits <span class="op">=</span> <span class="va">digits</span><span class="op">)</span>, <span class="va">word</span><span class="op">)</span></span>
+<span><span class="op">}</span></span></code></pre></div>
+<p><code>`r volume`{.millions digits=2}</code> then prints “1.23
+million” and <code>`r volume`{.millions word="M"}</code> prints “1.2 M”.
+The function gets only the options the construct writes, in the order
+<code>options:</code> lists them, so its own defaults apply to the rest.
+Give a forwarded option a <code>NULL</code> default, as
+<code>digits</code> has here, and the project’s <code>digits</code>
+setting still applies when the construct writes none. A formatter with
+no <code>options:</code> is called with the value alone, as before.</p>
+<p>The types are <code>number</code>, <code>integer</code>,
+<code>string</code> and <code>logical</code>. A value is read by its
+type and arrives as a number, a whole number, a string exactly as
+written, or <code>TRUE</code> or <code>FALSE</code> (written
+<code>true</code> or <code>false</code>, in any case). A value outside
+its type is a construct error, found when the document is scanned. A
+list of names (<code>options: [digits, word]</code>) declares each as a
+string, except that a weft key of the formatter’s stage
+(<code>digits</code> and <code>sigfig</code> for a number formatter,
+<code>sep</code>, <code>last</code> and <code>trunc</code> for a
+collapse formatter) keeps its own type. The function must have an
+argument for every declared option, or <code>...</code>, and no option
+may share the name of its first argument, which receives the value; weft
+says so when the formatter runs.</p>
+<p>What happens to a key that is not declared:</p>
+<ul>
+<li>A weft key of the formatter’s stage is an error.
+<code>{.millions digits=2}</code> with no <code>digits</code> declared
+stops the render, where <code>digits</code> was once dropped without a
+word. Declare it, or remove it.</li>
+<li>Any other key passes through to the output as an attribute, as it
+does on a weft class. <code><a href="../reference/lints.html">lints()</a></code> points out a name that is one
+edit from an option, and an option of another formatter.</li>
+<li>A declared option is yours: it is not passed through, and its letter
+case does not matter.</li>
+</ul>
+<p>A later <code>formatters:</code> entry for the same class, in a
+document’s front matter, replaces <code>options:</code> as a whole. The
+names <code>n</code>, <code>if</code>, <code>sign</code>,
+<code>list</code>, <code>cite</code>, <code>unit</code>,
+<code>none</code>, <code>label</code>, <code>why</code>,
+<code>decision</code>, <code>claim</code>, <code>level</code> and
+<code>target</code> are weft’s and cannot be options. Options are for R
+documents; a named value on the Lua filter route cannot take a project
+formatter.</p>
+</div>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>
     </nav></aside>

@@ -108,6 +108,10 @@ pct_rule <- function(x) {
 `` `r share`{.pctrule} `` then prints “23%” for 0.234 and “4.6%” for
 0.0456.
 
+A formatter can take options written on the construct, such as
+`digits=1`; see
+[`vignette("values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/values.md).
+
 ## Helpers to classes
 
 A report’s own formatting helpers map onto classes. Replace each call in

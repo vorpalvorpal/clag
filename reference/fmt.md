@@ -16,20 +16,35 @@ fmt_num(
   sigfig = NULL,
   unit = NULL,
   unit_form = NULL,
-  plus = FALSE
+  plus = FALSE,
+  target = "markdown"
 )
 
-fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE)
+fmt_pct(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  plus = FALSE,
+  target = "markdown"
+)
 
-fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
+fmt_sci(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  unit_form = NULL,
+  target = "markdown"
+)
 
-fmt_no(x, unit_form = NULL)
+fmt_no(x, unit_form = NULL, target = "markdown")
 
-fmt_word(x, unit_form = NULL)
+fmt_word(x, unit_form = NULL, target = "markdown")
 
-fmt_count(x, unit_form = NULL)
+fmt_count(x, unit_form = NULL, target = "markdown")
 
-fmt_ord(x, unit_form = NULL)
+fmt_ord(x, unit_form = NULL, target = "markdown")
 
 fmt_and(
   x,
@@ -37,14 +52,23 @@ fmt_and(
   last = NULL,
   trunc = NULL,
   none = NULL,
-  unit_form = NULL
+  unit_form = NULL,
+  target = "markdown"
 )
 
-fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL)
+fmt_or(
+  x,
+  sep = ", ",
+  last = NULL,
+  trunc = NULL,
+  none = NULL,
+  unit_form = NULL,
+  target = "markdown"
+)
 
-fmt_p(x, digits = NULL, label = NULL)
+fmt_p(x, digits = NULL, label = NULL, target = "markdown")
 
-fmt_date(x)
+fmt_date(x, target = "markdown")
 
 fmt_range(
   x,
@@ -52,7 +76,8 @@ fmt_range(
   sigfig = NULL,
   unit = NULL,
   unit_form = NULL,
-  plus = FALSE
+  plus = FALSE,
+  target = "markdown"
 )
 
 fmt_pairs(
@@ -61,22 +86,23 @@ fmt_pairs(
   last = NULL,
   trunc = NULL,
   none = NULL,
-  unit_form = NULL
+  unit_form = NULL,
+  target = "markdown"
 )
 
-fmt_ul(x, none = NULL, unit_form = NULL)
+fmt_ul(x, none = NULL, unit_form = NULL, target = "markdown")
 
-fmt_ol(x, none = NULL, unit_form = NULL)
+fmt_ol(x, none = NULL, unit_form = NULL, target = "markdown")
 
-fmt_dl(x, none = NULL, unit_form = NULL)
+fmt_dl(x, none = NULL, unit_form = NULL, target = "markdown")
 
-fmt_cap(x)
+fmt_cap(x, target = "markdown")
 
-fmt_a(x)
+fmt_a(x, target = "markdown")
 
-fmt_strong(x)
+fmt_strong(x, target = "markdown")
 
-fmt_em(x)
+fmt_em(x, target = "markdown")
 ```
 
 ## Arguments
@@ -139,6 +165,22 @@ fmt_em(x)
   a number that prints as zero have no sign; a negative number prints
   the `minus` setting. Anything but `TRUE` or `FALSE` is a
   `weft_construct_error`.
+
+- target:
+
+  `"markdown"` (the default, today's output) or `"tex"`, which writes
+  the number, percentage, scientific notation, p-value, range and unit
+  as TeX for use inside math (rule 3.4.11): the minus is `-`, a
+  thousands mark of `,` is `{,}`, `.sci` is `1.2 \times 10^{6}`, and a
+  range says `\text{to}`. The result carries the attribute
+  `target = "tex"`, and printing it as markdown (through `fmt_strong()`
+  or a collapse, say) is a `weft_value_error`; format the number again
+  without `target`. The formatters that print words, emphasis or a list
+  (`fmt_word()`, `fmt_count()`, `fmt_ord()`, `fmt_no()`, `fmt_date()`,
+  `fmt_a()`, `fmt_cap()`, `fmt_em()`, `fmt_strong()`, `fmt_and()`,
+  `fmt_or()`, `fmt_pairs()`, `fmt_ul()`, `fmt_ol()`, `fmt_dl()`) have no
+  TeX form and raise a `weft_construct_error` under `"tex"`. Any other
+  value of `target` is a `weft_construct_error`.
 
 - sep:
 

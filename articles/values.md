@@ -19,6 +19,36 @@ with nothing in between: `` `r x`{.num} ``. The block holds one or more
 **formatter classes**, and sometimes **keys** that adjust them. Under
 Quarto, `` `{r} x`{.num} `` behaves the same.
 
+## Where weft reads inline R
+
+weft reads inline R wherever knitr evaluates it:
+
+- in prose, headings, lists, tables and captions;
+- inside a code span;
+- inside a fenced block that is not a chunk;
+- inside an HTML comment, closed or not;
+- inside math and raw LaTeX.
+
+It does not read a chunk’s code, which is R and not text. Read there,
+inline R counts as a value, the lints see it, and an attribute block
+after it formats it. In the source below, `x` is `12.4567`, and the
+reader sees `lm(y ~ 12.46)` in a code span:
+
+``` r
+
+# Fit `lm(y ~ `r x`{.num})` to the data.
+```
+
+Two consequences follow, and both are because knitr does the same.
+Wrapping a paragraph in an HTML comment does not switch its values or
+claims off, since knitr still runs them, so the gate still counts them.
+And a fenced block cannot show weft syntax literally: the inline R in it
+is evaluated. A bracketed span (`[...]{.if ...}`) in a code span, a
+fence or a comment is left as text.
+
+Inline R in math is read and counted, and a class block after it writes
+TeX: see “Values in math and raw LaTeX” below.
+
 The examples below come from one document. Its data chunk is:
 
 ``` r
@@ -451,6 +481,171 @@ abstract: |
 ---
 ```
 
+## Values in math and raw LaTeX
+
+A formatter’s markdown is wrong inside a formula. `.sci` would write a
+markdown superscript, `.pct` a bare `%` that TeX reads as a comment, and
+the comma in `1,234` would be spaced as punctuation. So in math and raw
+LaTeX a class block writes TeX. Write the value as inline R with a class
+block, as in prose:
+
+``` markdown
+The fit gave $a = `r mean_ntu`{.num digits=2}$ and $b = `r share`{.pct}$.
+
+$$ V = `r volume`{.sci} $$
+```
+
+weft puts this into the document before the renderer sees it:
+
+``` text
+The fit gave $a = 8.23$ and $b = 12.3\%$.
+
+$$ V = 1.2 \times 10^{6} $$
+```
+
+and the renderer sets it as math, so the page shows a = 8.23, b = 12.3%
+and V = 1.2 × 10⁶.
+
+These places count as math: `$...$`, `$$...$$`, the math environments of
+LaTeX (`equation`, `align`, `gather`, `multline`, `cases`, the matrices
+and the others, starred or not) and, in an `.Rmd` knitted with R
+Markdown, `\(...\)` and `\[...\]`. Under Quarto those two forms are not
+math, and weft does not treat them as math. Raw LaTeX is any other
+`\begin{...}` environment, a fence written ```` ```{=latex} ```` or
+```` ```{=tex} ````, and a code span followed by `{=latex}` or `{=tex}`.
+A `{=typst}` or `{=html}` fence is neither, and keeps the markdown of
+prose. A raw command such as `\textbf{...}` in the middle of a paragraph
+is not found.
+
+### What each class prints
+
+With the values of the document above (`depth_range` is `c(0.4, 1.3)`),
+in math:
+
+| Written                       | Prints, as TeX        |
+|-------------------------------|-----------------------|
+| `` `r mean_ntu`{.num} ``      | `8.2`                 |
+| `` `r volume`{.num} ``        | `1{,}234{,}567`       |
+| `` `r share`{.pct} ``         | `12.3\%`              |
+| `` `r share`{.pct .plus} ``   | `+12.3\%`             |
+| `` `r p_val`{.p} ``           | `p = 0.046`           |
+| `` `r volume`{.sci} ``        | `1.2 \times 10^{6}`   |
+| `` `r depth_range`{.range} `` | `0.4\ \text{to}\ 1.3` |
+
+`.p` writes its label, so a formula holds `` `r p_val`{.p} `` alone, and
+not `p =` before it. The minus sign is always `-`, whatever the `minus`
+setting says. The thousands mark is `{,}`, which keeps the comma from
+taking punctuation spacing. A range always says “to”, even between two
+positive numbers: no dash survives every renderer, and a dash between
+numbers in a formula reads as a subtraction. The other marks follow your
+settings, in TeX: `big_mark: " "` prints `1\,234\,567`, and
+`p_label: "adj. p"` prints `\text{adj. p}`. A `label` key on `.p` is TeX
+already and goes in as you write it: `label="\tilde{p}"` prints
+`\tilde{p} = 0.046`.
+
+A value with a unit prints the unit inside `\text{}`: `5\,\text{mg/L}`,
+`5\,\text{m}^{2}`, `20\,\text{°C}`. The characters of a unit, such as
+the degree and micro signs, go through unchanged. `.uname` prints the
+name, `5\ \text{milligrams per litre}`.
+
+### What is refused, and why
+
+A formula holds numbers. The classes that print words, emphasis or a
+list have no TeX form, and in math and raw LaTeX they are a construct
+error:
+
+- `.word`, `.count`, `.ord`, `.no`, `.date`, `.a` and `.cap` print
+  words.
+- `.em` and `.strong` are markdown emphasis. Put `\mathbf{}` or
+  `\mathit{}` round the value in the formula.
+- `.and`, `.or`, `.pairs`, `.ul`, `.ol` and `.dl`, and the keys `sep`,
+  `last`, `trunc` and `none`, join items. Use `.range` for two ends.
+
+So is a class or key that is not weft’s, because weft would put the
+value in a Pandoc span, and a formula has none.
+[`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+finds these without running R, and a render stops at one. The message
+names the class and says why.
+
+### In raw LaTeX
+
+In raw LaTeX the output of a construct is wrapped in `\ensuremath{...}`,
+so it is safe in running text as well as in a math mode:
+
+```` markdown
+```{=latex}
+\begin{tabular}{ll}
+Share & `r share`{.pct} \\
+\end{tabular}
+```
+````
+
+writes `\ensuremath{12.3\%}` into the cell. A failure marker is written
+inside `\text{}`, and in raw LaTeX inside the wrapper too.
+
+A **bare value**, inline R with no class block, is left as it is
+everywhere. In math it prints as knitr prints it. In raw LaTeX it is not
+wrapped, so a string in a `tabular` cell stays text. Writing
+`fmt_num(x)` in a bare value in math therefore writes markdown, which is
+the fault the class block removes: the `value-format` lint says so, and
+suggests the class block.
+
+### From code
+
+Every `fmt_*()` takes `target` as its last argument. `"markdown"` is the
+default and the output you know. `target = "tex"` writes the TeX of this
+section, for text you build in code and put into a formula:
+
+``` r
+
+fmt_num(1234567, target = "tex")
+#> <weft_text>
+#> [1] "1{,}234{,}567"
+fmt_pct(0.1234, target = "tex")
+#> <weft_text>
+#> [1] "12.3\\%"
+fmt_range(c(0.4, 1.3), target = "tex")
+#> <weft_text>
+#> [1] "0.4\\ \\text{to}\\ 1.3"
+fmt_num(u(5, mg/L), target = "tex")
+#> <weft_text>
+#> [1] "5\\,\\text{mg/L}"
+```
+
+A text made for TeX carries the attribute `target = "tex"`. Passing it
+to a markdown formatter is an error, because it would print TeX source
+in a paragraph: format the number again, without `target`. The functions
+that print words, emphasis or a list refuse `target = "tex"`, as the
+classes are refused in math, and any other value of `target` is an error
+too.
+
+### Project formatters in math
+
+A project formatter writes markdown. To use it in math it must say that
+it can write TeX, with `targets:` in its registration:
+
+``` yaml
+formatters:
+  .millions:
+    function: in_millions
+    stage: number
+    targets: [markdown, tex]
+```
+
+``` r
+
+in_millions <- function(x, target = "markdown") {
+  txt <- paste(weft::fmt_num(x / 1e6, target = target), "million")
+  if (target == "tex") paste0("\\text{", txt, "}") else txt
+}
+```
+
+`targets:` is `[markdown]` unless set, and must include `markdown`. A
+function that lists `tex` is called with `target = "markdown"` or
+`target = "tex"` as its last argument, after any options, and must take
+`target` or `...`. A class that does not list `tex` is a construct error
+in math.
+
 ## Changing the defaults
 
 Project settings live in `_weft.yml` at the project root. A document
@@ -524,4 +719,70 @@ The `formatters:` setting registers a **project formatter**: a class
 name, the function behind it (`pkg::fun`, or a name the document can
 see), and the stage it acts in (`number` unless given). It counts
 towards that stage’s “at most one” rule, and it may not reuse the name
-of a weft class.
+of a weft class. A formatter that is to be used in math lists
+`targets: [markdown, tex]` as well (see “Project formatters in math”
+above).
+
+### Options for a project formatter
+
+A project formatter can take **options**: keys written on the construct
+that reach the function as named arguments. Declare them under
+`options:`, each with a type:
+
+``` yaml
+formatters:
+  .millions:
+    function: in_millions
+    stage: number
+    options:
+      digits: integer
+      word: string
+```
+
+``` r
+
+in_millions <- function(x, digits = NULL, word = "million") {
+  paste(weft::fmt_num(x / 1e6, digits = digits), word)
+}
+```
+
+`` `r volume`{.millions digits=2} `` then prints “1.23 million” and
+`` `r volume`{.millions word="M"} `` prints “1.2 M”. The function gets
+only the options the construct writes, in the order `options:` lists
+them, so its own defaults apply to the rest. Give a forwarded option a
+`NULL` default, as `digits` has here, and the project’s `digits` setting
+still applies when the construct writes none. A formatter with no
+`options:` is called with the value alone, as before.
+
+The types are `number`, `integer`, `string` and `logical`. A value is
+read by its type and arrives as a number, a whole number, a string
+exactly as written, or `TRUE` or `FALSE` (written `true` or `false`, in
+any case). A value outside its type is a construct error, found when the
+document is scanned. A list of names (`options: [digits, word]`)
+declares each as a string, except that a weft key of the formatter’s
+stage (`digits` and `sigfig` for a number formatter, `sep`, `last` and
+`trunc` for a collapse formatter) keeps its own type. The function must
+have an argument for every declared option, or `...`, and no option may
+share the name of its first argument, which receives the value; weft
+says so when the formatter runs.
+
+What happens to a key that is not declared:
+
+- A weft key of the formatter’s stage is an error.
+  `{.millions digits=2}` with no `digits` declared stops the render,
+  where `digits` was once dropped without a word. Declare it, or remove
+  it.
+- Any other key passes through to the output as an attribute, as it does
+  on a weft class.
+  [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md)
+  points out a name that is one edit from an option, and an option of
+  another formatter.
+- A declared option is yours: it is not passed through, and its letter
+  case does not matter.
+
+A later `formatters:` entry for the same class, in a document’s front
+matter, replaces `options:` as a whole. The names `n`, `if`, `sign`,
+`list`, `cite`, `unit`, `none`, `label`, `why`, `decision`, `claim`,
+`level` and `target` are weft’s and cannot be options. Options are for R
+documents; a named value on the Lua filter route cannot take a project
+formatter.

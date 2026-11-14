@@ -308,8 +308,10 @@ source;</li>
 “45%”, “11-year”, “3rd”, “1990s”. A word that starts with a letter is a
 name: “CO2”, “PM2.5”. The rule reads the body, captions, the
 front-matter fields that take constructs, <code><a href="../reference/weft_str.html">weft_str()</a></code>
-strings, and inline math, where an exponent or a subscript is
-exempt.</p>
+strings, and inline math, where an exponent or a subscript is exempt. A
+value in math is written as inline R with a class block, which writes
+TeX there: see “Values in math and raw LaTeX” in
+<code><a href="../articles/values.html">vignette("values")</a></code>.</p>
 <p>The <code>.weft-literal</code> span in the example above is why
 “0.45” is not a finding. Its <code>why</code> is the record: nothing
 else lists it.</p>
@@ -359,7 +361,10 @@ in the dictionary, or write it as a <code>.weft-literal</code> with its
 (other than 0 and 1) and a value that rounds in code with
 <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">round()</a></code>, <code><a href="https://rdrr.io/r/base/format.html" class="external-link">format()</a></code> or <code><a href="https://rdrr.io/r/base/sprintf.html" class="external-link">sprintf()</a></code>.
 Rounding in code skips weft’s formatters, so the value has no printed
-record and <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">round()</a></code> drops trailing zeros.</p>
+record and <code><a href="https://rdrr.io/r/base/Round.html" class="external-link">round()</a></code> drops trailing zeros.
+<code>value-format</code> also lists a bare <code><a href="../reference/fmt.html">fmt_num()</a></code> or
+another <code>fmt_*()</code> in math, which writes markdown there; a
+class block writes TeX.</p>
 </div>
 <div class="section level2">
 <h2 id="construct-errors">Construct errors<a class="anchor" aria-label="anchor" href="#construct-errors"></a>
@@ -367,10 +372,11 @@ record and <code><a href="https://rdrr.io/r/base/Round.html" class="external-lin
 <p>A <strong>construct error</strong> is a mistake in weft syntax that
 the scanner finds without running R: a formatter on an <code>if</code>
 span, as in the example, the wrong number of arms, two classes from one
-group, a <code>"</code> inside an attribute value, an id defined twice.
-The rule is <code>construct</code>. A render stops at the first
-construct error, and the commit gate refuses a changed document that
-holds one, whatever <code>HEAD</code> held.</p>
+group, a <code>"</code> inside an attribute value, an id defined twice,
+a class with no TeX form (such as <code>.word</code>) in math. The rule
+is <code>construct</code>. A render stops at the first construct error,
+and the commit gate refuses a changed document that holds one, whatever
+<code>HEAD</code> held.</p>
 <p>The rule <code>block-start</code> finds a line inside a span that
 Pandoc would read as the start of a new block, which cuts the span in
 two.</p>
