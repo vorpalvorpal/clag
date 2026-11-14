@@ -4443,7 +4443,15 @@ not seen. It is named in the configuration.
 **5.5.1** Quantifiers, extrema and direction words ("all", "none", "only",
 "largest", "rose", "significantly") are listed in two cases: a claim word in
 the same sentence as a value, and a claim word in a newly added sentence with
-no value at all. The rule is `claim-word`, and it gives one finding per
+no value at all. Four cases are not claims and are not listed, whatever the
+list: a word inside an idiom of 5.5.4 ("at least", "no longer"); a word with
+a hyphen directly before or after it ("best-supported", "all-time"; a hyphen
+is `-`, U+2010 or U+2011); a word that starts with a capital and is not the
+first word of its sentence, which is taken for a proper name ("Wentworth
+Falls"); and a quantifier in a sentence with no value and no typed digit,
+under the default of 5.5.5. The first word of a sentence is the first run of
+letters in it. The sentence of a finding is shown without a blockquote's `>`
+markers, and the last sentence of a list item ends at the item. The rule is `claim-word`, and it gives one finding per
 sentence, naming its claim words. It reads prose, captions, front matter and
 `weft_str()` strings, and not phrases (5.1.6). A sentence has a value when a
 value, a bare value, an `n`, a `sign` or a `list` span starts inside it; an
@@ -4460,12 +4468,33 @@ so a claim word inside one is listed as it would be outside.
 words than `claim_cap` (20 unless set), `changes()` gives one count instead of
 the sentences.
 
-**5.5.4** The default lexicon is 69 English words in three lists, `quantifier`,
-`extremum` and `direction`, shipped as `inst/weft-claim-words.yml`. It is used
-when the document's `lang` is missing or starts `en`, and under any other
-`lang` there are no claim words. `claim_words` in the configuration adds
-words (`add`) and drops them (`drop`), so a project can restore a word the
-default leaves out.
+**5.5.4** The default lexicon is 65 English words in three lists, `quantifier`,
+`extremum` and `direction`, shipped as `inst/weft-claim-words.yml`, with a
+fourth list, `idioms`, of 26 lower-case phrases in which a lexicon word is an
+ordinary word ("at least", "at most", "most likely", "no longer", "not only",
+"best practice", "lower bound", "significant figures", "either way", and so
+on). `each`, `both`, `either` and `whole` are not in the lexicon. Both are
+used when the document's `lang` is missing or starts `en`, and under any
+other `lang` there are no claim words. An idiom is matched ignoring case, any
+run of white space (a line break included) counts as one space, and the
+phrase must start and end at a word boundary. `claim_words` in the
+configuration adds words (`add`) and drops them (`drop`), so a project can
+restore a word the default leaves out, and adds phrases (`idioms`) to the
+shipped list. Each of the three is a list of strings; an idiom is a string
+that may hold spaces. Anything else is a `weft_config_error` naming
+`claim_words` and this rule. A word from `add` is a hit in any sentence,
+whatever list a shipped word of the same spelling sat in.
+
+**5.5.5** The setting `claim_quantifiers` says when a word of the
+`quantifier` list is listed. `number` (the default): only in a sentence that
+holds a value (the kinds 5.5.1 names) or a typed digit, 0 to 9, in its prose
+(a digit inside code, a link target or a citation key is not typed prose).
+`any`: in any sentence. `none`: never. Extremum and direction words are
+listed in any sentence under all three. Any other value is a
+`weft_config_error` that names the three values and this rule. The condition
+is tested after the idiom, hyphen and capital tests of 5.5.1, so a sentence
+whose quantifier drops out but which holds another claim word is still one
+finding, naming only the words that are listed.
 
 ### 5.6 Value expressions
 
@@ -5547,7 +5576,7 @@ rule 8), and its message names `_weft.yml`.
 | the severity list | 7.4.2 |
 | `strict`: the tier-1 rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
-| the claim-word lexicon, words added and dropped; the cap on listed sentences | 5.5.4, 5.5.3 |
+| the claim-word lexicon, words and idioms added, words dropped; when a quantifier is listed; the cap on listed sentences | 5.5.4, 5.5.5, 5.5.3 |
 | the word count above which a guarded bracket is listed | 3.1.9 |
 | whether the sentence-start list fails the render (it does not unless set) | 5.10.1 |
 | the classes and keys the project expects on a construct, from other systems | 5.3.3 |
@@ -5590,7 +5619,8 @@ formatters: {}         # 1.4.8
 severity: []           # 7.4.2, added to the shipped patterns
 label_words: []        # 5.2.4: words after which a numeral is exempt, as typed ("Site")
 numeral_years: false   # 5.2.4: true exempts a four-digit year, 1000 to 2999
-claim_words: {add: [], drop: []}   # 5.5.4
+claim_words: {add: [], drop: [], idioms: []}   # 5.5.4
+claim_quantifiers: number   # 5.5.5: number, any or none
 claim_cap: 20          # 5.5.3: claim-word sentences listed per file by changes()
 guard_words: 25        # 3.1.9: words in the longest arm of an `if` before it is listed
 expected_names: []     # 5.3.3: classes (".foo") and keys ("foo") the project expects
@@ -5604,8 +5634,8 @@ weft_version: null     # 9.5.4: the weft version that set the project up
 A `date_format` that is not one string, a `ci_level` or `about_tolerance`
 outside its range, and a `sentence_start_fail` that is not `true` or `false`
 are errors when the configuration is read, each naming the setting. A wrong
-value for `label_words`, `numeral_years`, `claim_words`, `claim_cap`,
-`guard_words`, `expected_names`, `strict`, `verify_skip` or `weft_version` is a
+value for `label_words`, `numeral_years`, `claim_words`, `claim_quantifiers`,
+`claim_cap`, `guard_words`, `expected_names`, `strict`, `verify_skip` or `weft_version` is a
 `weft_config_error` naming the setting and the rule. `strict` takes the ids of
 tier-1 rules (`lint_rules()` lists them); an id that is not a rule is an
 error that offers the nearest, and a tier-2 id is an error, since tier 2 blocks

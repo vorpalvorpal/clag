@@ -424,7 +424,7 @@ names it.
 | `units` | none | units the project defines | `units` |
 | `decisions` | `"github"` | where a dictionary entry's `decision` pointer resolves | `units` |
 | `bibliography` | none | bibliography files the lints read for citation keys | `lints` |
-| `label_words`, `numeral_years`, `claim_words`, `claim_cap`, `guard_words`, `expected_names`, `strict` | | the lints | `lints` |
+| `label_words`, `numeral_years`, `claim_words`, `claim_quantifiers`, `claim_cap`, `guard_words`, `expected_names`, `strict` | | the lints | `lints` |
 | `bare_missing` | `true` | whether a bare value that prints `NA`, `NaN`, `Inf` or `-Inf` is a warned check | `values` |
 | `anchor_calls` | none | helper calls that define anchors for the cross-reference lints | `lints` |
 | `severity` | two patterns | regular expressions: a warning or message that matches one fails the render | below |

@@ -225,8 +225,14 @@ anything:
 
 - `claim-word`: a quantifier, extreme or direction word ("all", "only",
   "largest", "rose") in a sentence with a value, which the value may no
-  longer bear out, or in a new sentence with no value at all. A word inside
-  an `if` or `sign` span is already guarded and is not listed.
+  longer bear out, or in a new sentence with no value at all. The list holds
+  65 English words. A word inside an `if` or `sign` span is already guarded
+  and is not listed. Neither is a word inside an idiom such as "at least",
+  "no longer" or "most likely" (the list has 26), a word with a hyphen next
+  to it ("best-supported"), or a word with a capital that does not start its
+  sentence ("Wentworth Falls"). A quantifier ("all", "only", "never") is
+  listed only in a sentence that holds a value or a typed digit; the
+  setting `claim_quantifiers` changes that.
 - `if-zero`: an `if` condition that compares with zero.
 - `lone-bar`: a bracket with one `|` and no governor, which is probably a
   span with a misspelt key.
@@ -246,7 +252,8 @@ since a commit.
 |---|---|---|
 | `label_words` | `[]` | words after which a number is exempt |
 | `numeral_years` | `false` | whether a four-digit year is exempt |
-| `claim_words` | `{add: [], drop: []}` | words added to or dropped from the claim-word list |
+| `claim_words` | `{add: [], drop: [], idioms: []}` | words added to or dropped from the claim-word list, and phrases added to its idioms |
+| `claim_quantifiers` | `number` | when a quantifier is listed: `number` (only in a sentence with a value or a digit), `any` or `none` |
 | `claim_cap` | `20` | claim-word sentences listed per file before a count replaces them |
 | `guard_words` | `25` | the length of an `if` arm that `long-guard` lists |
 | `expected_names` | `[]` | classes (`.foo`) and keys (`foo`) from other tools that `name` should accept |
