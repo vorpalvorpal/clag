@@ -204,6 +204,8 @@ decision_pointer_rows <- function(src) {
   if (!is.null(ch) && nrow(ch)) {
     for (j in seq_len(nrow(ch))) {
       if (!identical(tolower(ch$engine[j]), "r")) next
+      # a chunk that is statically not evaluated is not collected (owner's ruling, 15 Nov)
+      if (isTRUE(isFALSE(ch$eval[j]))) next
       cd <- claim_decisions(ch$code[[j]])
       if (nrow(cd)) add(ch$code_line[j] + cd$line - 1L, "claim()", cd$decision)
     }
