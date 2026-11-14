@@ -19,7 +19,7 @@
 
     <a class="navbar-brand me-2" href="../index.html">weft</a>
 
-    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.0.0.9001</small>
+    <small class="nav-text text-muted me-auto" data-bs-toggle="tooltip" data-bs-placement="bottom" title="">0.1.0</small>
 
 
     <button class="navbar-toggler" type="button" data-bs-toggle="collapse" data-bs-target="#navbar" aria-controls="navbar" aria-expanded="false" aria-label="Toggle navigation">
@@ -500,7 +500,7 @@ whole repository, including every subfolder that holds a
 <p><code><a href="../reference/use_hooks.html">use_hooks()</a></code> writes <code>.git/hooks/commit-msg</code>.
 The script is POSIX <code>sh</code> and starts:</p>
 <div class="sourceCode" id="cb25"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.0.0.9001 063f9359c3c3c3c91daa6def625f32d8</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.1.0 063f9359c3c3c3c91daa6def625f32d8</span></span>
 <span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="co"># The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().</span></span>
 <span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="co"># Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit</span></span>
 <span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="co"># with: git commit --no-verify</span></span></code></pre></div>
@@ -770,11 +770,11 @@ missing or out of date:</p>
 <div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/status.html">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft status: creek-report</span></span>
-<span><span class="co">#&gt;   setup        ok        _weft.yml records weft 0.0.0.9001 (installed: 0.0.0.9001)</span></span>
+<span><span class="co">#&gt;   setup        ok        _weft.yml records weft 0.1.0 (installed: 0.1.0)</span></span>
 <span><span class="co">#&gt;   activation   ok        route found (the .Rprofile)</span></span>
 <span><span class="co">#&gt;   quarto       ok        extension, scripts and _quarto.yml entries are in place</span></span>
 <span><span class="co">#&gt;   dictionary   ok        dict.yml and its schema are in place</span></span>
-<span><span class="co">#&gt;   hooks        ok        the commit-msg hook is weft 0.0.0.9001, Rscript /usr/local/bin/Rscript</span></span>
+<span><span class="co">#&gt;   hooks        ok        the commit-msg hook is weft 0.1.0, Rscript /usr/local/bin/Rscript</span></span>
 <span><span class="co">#&gt;   ci           n/a       origin is not on GitHub</span></span>
 <span><span class="co">#&gt;   agent docs   ok        the AGENTS.md block and the skill are current</span></span>
 <span><span class="co">#&gt;   draft        ok        draft mode is off</span></span>

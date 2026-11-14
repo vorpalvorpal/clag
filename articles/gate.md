@@ -453,7 +453,7 @@ writes `.git/hooks/commit-msg`. The script is POSIX `sh` and starts:
 
 ``` sh
 #!/bin/sh
-# weft-file: use_hooks 0.0.0.9001 063f9359c3c3c3c91daa6def625f32d8
+# weft-file: use_hooks 0.1.0 063f9359c3c3c3c91daa6def625f32d8
 # The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().
 # Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit
 # with: git commit --no-verify
@@ -692,11 +692,11 @@ reports what weft has installed, and what is missing or out of date:
 
 weft::status()
 #> weft status: creek-report
-#>   setup        ok        _weft.yml records weft 0.0.0.9001 (installed: 0.0.0.9001)
+#>   setup        ok        _weft.yml records weft 0.1.0 (installed: 0.1.0)
 #>   activation   ok        route found (the .Rprofile)
 #>   quarto       ok        extension, scripts and _quarto.yml entries are in place
 #>   dictionary   ok        dict.yml and its schema are in place
-#>   hooks        ok        the commit-msg hook is weft 0.0.0.9001, Rscript /usr/local/bin/Rscript
+#>   hooks        ok        the commit-msg hook is weft 0.1.0, Rscript /usr/local/bin/Rscript
 #>   ci           n/a       origin is not on GitHub
 #>   agent docs   ok        the AGENTS.md block and the skill are current
 #>   draft        ok        draft mode is off
