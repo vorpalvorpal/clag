@@ -168,13 +168,13 @@ git:</p>
 <span><span class="co">#&gt;   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)</span></span>
 <span><span class="co">#&gt;   use_hooks       .git/hooks/commit-msg (new)</span></span>
 <span><span class="co">#&gt;   use_ci          skipped: origin is not on GitHub</span></span>
-<span><span class="co">#&gt;   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)</span></span>
+<span><span class="co">#&gt;   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new)</span></span>
 <span><span class="co">#&gt; Wrote: .Rprofile, _weft.yml, report.qmd, ...</span></span></code></pre></div>
 <p><code><a href="../articles/setup.html">vignette("setup", package = "weft")</a></code> describes each of
 these files. The edit to <code>report.qmd</code> adds
 <code>engine: knitr</code> to its front matter.</p>
 <div class="sourceCode" id="cb3"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb3-1"><a href="#cb3-1" tabindex="-1"></a><span class="fu">git</span> add .Rprofile _weft.yml report.qmd _extensions _weft _quarto.yml <span class="dt">\</span></span>
-<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  dict.yml AGENTS.md .claude</span>
+<span id="cb3-2"><a href="#cb3-2" tabindex="-1"></a>  dict.yml AGENTS.md .agents</span>
 <span id="cb3-3"><a href="#cb3-3" tabindex="-1"></a><span class="fu">git</span> commit <span class="at">-m</span> <span class="st">"Set up weft"</span></span></code></pre></div>
 <pre class="text"><code>commit-msg: weft passed (1 changed file, 0.3 s)
 [main 780cac8] Set up weft
@@ -646,7 +646,8 @@ a commit</td>
 <td>checks the <code>decision</code> pointers in <code>dict.yml</code>
 and in the documents: on <code>.weft-literal</code> and
 <code>cite</code> spans, and in <code><a href="../reference/claim.html">claim()</a></code> calls that give a
-literal <code>decision</code>
+literal <code>decision</code>, except in a chunk with
+<code>eval: false</code>
 </td>
 </tr>
 <tr class="odd">

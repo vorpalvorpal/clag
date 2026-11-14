@@ -9,7 +9,7 @@ to make a render pass, a commit that removes constructs carries the
 ## Usage
 
 ``` r
-use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
+use_agent_docs(path = ".", overwrite = FALSE, skills = "agents")
 ```
 
 ## Arguments
@@ -25,7 +25,11 @@ use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
 - skills:
 
   The skills folders to write into: a character vector of preset names
-  or folders relative to the project root. The presets are `agents`
+  or folders relative to the project root. The default, `"agents"`,
+  writes `.agents/skills` alone. Claude Code reads `.claude/skills` and
+  not `.agents/skills`, so Claude Code users pass
+  `skills = c("agents", "claude")`, or install the plugin with
+  `/plugin marketplace add vorpalvorpal/weft`. The presets are `agents`
   (`.agents/skills`), `claude` (`.claude/skills`), `codex`
   (`.agents/skills`), `gemini` (`.gemini/skills`), `opencode`
   (`.opencode/skills`), `kimi` (`.kimi-code/skills`) and `cursor`
@@ -33,7 +37,9 @@ use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
   folder; an absolute path or one with a `..` part is an error. Folders
   that come to the same place are written once.
   [`character()`](https://rdrr.io/r/base/character.html) writes the
-  `AGENTS.md` block only.
+  `AGENTS.md` block only. A weft-written copy in a preset folder that is
+  not named, and is older than this weft, is not touched; the call says
+  so and how to update it.
 
 ## Value
 

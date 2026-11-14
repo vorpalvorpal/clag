@@ -156,13 +156,20 @@ each:
 | `kimi` | `.kimi-code/skills` | Kimi Code |
 | `cursor` | `.cursor/skills` | reported for Cursor |
 
-The default is `c("agents", "claude")`. That Codex, opencode and Cursor
-read `.agents/skills` is reported by secondary sources; it was not
-checked against the vendors’ documents. A folder of your own is a path
-such as `"tools/skills"`; an absolute path or one with `..` is an error.
-`skills = character()` writes only the `AGENTS.md` block. Gemini CLI
-reads `GEMINI.md`, so if the project has one, add the line `@AGENTS.md`
-to it; the call says so.
+The default is `"agents"`, which writes `.agents/skills` alone. **Claude
+Code reads `.claude/skills/` and not `.agents/skills/`**, so Claude Code
+users pass `skills = c("agents", "claude")`, or install the plugin with
+`/plugin marketplace add vorpalvorpal/weft`. A `.claude/skills/weft`
+copy that an earlier weft wrote is left as it is by the default call;
+the closing message says that it was not updated and gives that call to
+update it, and
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+names it. That Codex, opencode and Cursor read `.agents/skills` is
+reported by secondary sources; it was not checked against the vendors’
+documents. A folder of your own is a path such as `"tools/skills"`; an
+absolute path or one with `..` is an error. `skills = character()`
+writes only the `AGENTS.md` block. Gemini CLI reads `GEMINI.md`, so if
+the project has one, add the line `@AGENTS.md` to it; the call says so.
 
 The copies in a project can be older than the installed package.
 [`weft::agent_docs()`](https://vorpalvorpal.github.io/weft/reference/agent_docs.md)

@@ -268,14 +268,23 @@ into each:</p>
 </tr>
 </tbody>
 </table>
-<p>The default is <code>c("agents", "claude")</code>. That Codex,
-opencode and Cursor read <code>.agents/skills</code> is reported by
-secondary sources; it was not checked against the vendors’ documents. A
-folder of your own is a path such as <code>"tools/skills"</code>; an
-absolute path or one with <code>..</code> is an error.
-<code>skills = character()</code> writes only the <code>AGENTS.md</code>
-block. Gemini CLI reads <code>GEMINI.md</code>, so if the project has
-one, add the line <code>@AGENTS.md</code> to it; the call says so.</p>
+<p>The default is <code>"agents"</code>, which writes
+<code>.agents/skills</code> alone. <strong>Claude Code reads
+<code>.claude/skills/</code> and not
+<code>.agents/skills/</code></strong>, so Claude Code users pass
+<code>skills = c("agents", "claude")</code>, or install the plugin with
+<code>/plugin marketplace add vorpalvorpal/weft</code>. A
+<code>.claude/skills/weft</code> copy that an earlier weft wrote is left
+as it is by the default call; the closing message says that it was not
+updated and gives that call to update it, and <code><a href="../reference/status.html">status()</a></code>
+names it. That Codex, opencode and Cursor read
+<code>.agents/skills</code> is reported by secondary sources; it was not
+checked against the vendors’ documents. A folder of your own is a path
+such as <code>"tools/skills"</code>; an absolute path or one with
+<code>..</code> is an error. <code>skills = character()</code> writes
+only the <code>AGENTS.md</code> block. Gemini CLI reads
+<code>GEMINI.md</code>, so if the project has one, add the line
+<code>@AGENTS.md</code> to it; the call says so.</p>
 <p>The copies in a project can be older than the installed package.
 <code><a href="../reference/agent_docs.html">weft::agent_docs()</a></code> lists the documents and
 <code>weft::agent_docs("syntax")</code> prints the installed version of

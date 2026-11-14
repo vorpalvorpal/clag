@@ -73,7 +73,7 @@ weft::use_weft()
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          skipped: origin is not on GitHub
-#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)
+#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new)
 #> Wrote: .Rprofile, _weft.yml, report.qmd, ...
 ```
 
@@ -83,7 +83,7 @@ describes each of these files. The edit to `report.qmd` adds
 
 ``` sh
 git add .Rprofile _weft.yml report.qmd _extensions _weft _quarto.yml \
-  dict.yml AGENTS.md .claude
+  dict.yml AGENTS.md .agents
 git commit -m "Set up weft"
 ```
 
@@ -561,7 +561,7 @@ the full check. It has four parts:
 | Part | What it does |
 |----|----|
 | `lints` | runs the tier-1 lints over the whole project and compares them with a commit |
-| `decisions` | checks the `decision` pointers in `dict.yml` and in the documents: on `.weft-literal` and `cite` spans, and in [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) calls that give a literal `decision` |
+| `decisions` | checks the `decision` pointers in `dict.yml` and in the documents: on `.weft-literal` and `cite` spans, and in [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) calls that give a literal `decision`, except in a chunk with `eval: false` |
 | `render` | renders every document with Quarto (or knits it, under R Markdown), backing up and restoring `_freeze`, and reads the record each render leaves to see that every check ran and passed; it also collects the findings of the rendered-output check, below |
 | `ledger` | checks that no ledger is stale |
 

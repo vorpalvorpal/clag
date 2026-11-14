@@ -2,6 +2,14 @@
 
 ## weft (development version)
 
+- A `decision` pointer on a
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+  an R chunk that is statically not evaluated (a literal `eval: false`
+  or `eval = FALSE`, the test the claims rule uses) is no longer
+  collected: it is not a use of the decision and
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  does not check it against the record. A non-literal `eval` counts as
+  evaluated. Pointers in prose and in inline code are unchanged.
 - A class block now works inside math and raw LaTeX, and writes TeX
   there. `` `r x`{.num} `` in `$...$`, `$$...$$`, a math environment
   (`align`, `equation`, `cases`, `pmatrix` and the rest, starred or not)
@@ -81,17 +89,22 @@
 - [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
   gains `skills`, the folders to write the weft skill into: preset names
   (`agents`, `claude`, `codex`, `gemini`, `opencode`, `kimi`, `cursor`)
-  or project-relative folders. The default, `c("agents", "claude")`,
-  writes `.agents/skills/weft/` and `.claude/skills/weft/`, so one call
-  reaches Claude Code and the tools that read `.agents/skills`. Each
-  folder now holds `SKILL.md` and `references/syntax.md` and
+  or project-relative folders. The default, `"agents"`, writes
+  `.agents/skills/weft/` alone; Claude Code reads `.claude/skills/` and
+  not `.agents/skills/`, so its users pass
+  `skills = c("agents", "claude")` (or install the plugin). Each folder
+  now holds `SKILL.md` and `references/syntax.md` and
   `references/reports.md`, the constructs and how to read a failed
   render, a lint report and a refused commit. Each file is judged alone
   as before: an edited copy is left, a stale one replaced. A project
-  that holds only `.claude/skills/weft/SKILL.md` gains the rest at the
-  next call. The `SKILL.md` front matter gains `metadata: weft-version`.
-  A call that writes says “Wrote: N files, listed above”, not the paths
-  again.
+  that holds only `.claude/skills/weft/SKILL.md` gains the
+  `.agents/skills` copy at the next call, and its `.claude` copy is left
+  as it is: when it is older than this weft the call says that it was
+  not updated and gives `use_agent_docs(skills = c("agents", "claude"))`
+  to update it. **Behaviour change:** the default was
+  `c("agents", "claude")`. The `SKILL.md` front matter gains
+  `metadata: weft-version`. A call that writes says “Wrote: N files,
+  listed above”, not the paths again.
 - The new
   [`agent_docs()`](https://vorpalvorpal.github.io/weft/reference/agent_docs.md)
   prints the installed package’s agent documents (`"skill"`, `"syntax"`,

@@ -141,8 +141,8 @@ scripts, entries in <code>_quarto.yml</code>
 <td><code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code></td>
 <td>always</td>
 <td>a block in <code>AGENTS.md</code> and the weft skill, in
-<code>.agents/skills</code> and <code>.claude/skills</code>
-</td>
+<code>.agents/skills</code> (<code>skills = c("agents", "claude")</code>
+adds <code>.claude/skills</code>, which Claude Code reads)</td>
 </tr>
 </tbody>
 </table>
@@ -156,7 +156,7 @@ remote:</p>
 <span><span class="co">#&gt;   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)</span></span>
 <span><span class="co">#&gt;   use_hooks       .git/hooks/commit-msg (new)</span></span>
 <span><span class="co">#&gt;   use_ci          .github/workflows/weft.yml (new)</span></span>
-<span><span class="co">#&gt;   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)</span></span>
+<span><span class="co">#&gt;   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new)</span></span>
 <span><span class="co">#&gt; Wrote: .Rprofile, _weft.yml, index.qmd, _extensions/weft-check/_extension.yml, ...</span></span></code></pre></div>
 <p>The call is the consent: it never asks. If any step cannot be done
 safely, it writes nothing and says why. If a step fails part-way, it
@@ -429,10 +429,13 @@ github.com.</p>
 </h2>
 <p><code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> tells a coding agent the rules of a
 weft project. It appends a block to <code>AGENTS.md</code>, creating the
-file if needed, and writes a skill to <code>.agents/skills/weft/</code>
-and <code>.claude/skills/weft/</code>. If the project has a
-<code>CLAUDE.md</code> that does not include <code>AGENTS.md</code>, it
-says so:</p>
+file if needed, and writes a skill to <code>.agents/skills/weft/</code>.
+Claude Code reads <code>.claude/skills/</code> and not
+<code>.agents/skills/</code>, so Claude Code users call
+<code>use_agent_docs(skills = c("agents", "claude"))</code> (or install
+the plugin: <code>/plugin marketplace add vorpalvorpal/weft</code>). If
+the project has a <code>CLAUDE.md</code> that does not include
+<code>AGENTS.md</code>, it says so:</p>
 <pre class="text"><code>Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there.</code></pre>
 <p><code><a href="../articles/agents.html">vignette("agents", package = "weft")</a></code> describes what the
 block and the skill say.</p>
@@ -461,12 +464,9 @@ replaced, even with <code>overwrite = TRUE</code>.</li>
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/use_agent_docs.html">use_agent_docs</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft will write, under creek-site:</span></span>
 <span><span class="co">#&gt;   AGENTS.md  (keep: the weft rules for coding agents)</span></span>
-<span><span class="co">#&gt;   .agents/skills/weft/SKILL.md  (keep: the weft skill for coding agents)</span></span>
+<span><span class="co">#&gt;   .agents/skills/weft/SKILL.md  (edited: edited since weft wrote it; left as it is (use overwrite = TRUE to replace it))</span></span>
 <span><span class="co">#&gt;   .agents/skills/weft/references/reports.md  (keep: the weft skill for coding agents)</span></span>
 <span><span class="co">#&gt;   .agents/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)</span></span>
-<span><span class="co">#&gt;   .claude/skills/weft/SKILL.md  (edited: edited since weft wrote it; left as it is (use overwrite = TRUE to replace it))</span></span>
-<span><span class="co">#&gt;   .claude/skills/weft/references/reports.md  (keep: the weft skill for coding agents)</span></span>
-<span><span class="co">#&gt;   .claude/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)</span></span>
 <span><span class="co">#&gt; Nothing to change: the agent documents are already set up.</span></span></code></pre></div>
 <p><code><a href="../reference/use_hooks.html">use_hooks()</a></code>, <code><a href="../reference/use_ci.html">use_ci()</a></code> and
 <code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> take <code>overwrite</code>.</p>
@@ -551,8 +551,8 @@ the two scripts</td>
 <td>agent documents</td>
 <td>the block between <code>&lt;!-- weft:start</code> and
 <code>&lt;!-- weft:end --&gt;</code> in <code>AGENTS.md</code>, and
-<code>.claude/skills/weft/</code>
-</td>
+<code>.agents/skills/weft/</code> (and <code>.claude/skills/weft/</code>
+when you ask for it)</td>
 </tr>
 <tr class="odd">
 <td>records</td>
