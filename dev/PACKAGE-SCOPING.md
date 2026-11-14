@@ -1045,7 +1045,11 @@ Pandoc class.
 
 **1.8.12** `decision` is a key on a `.weft-literal` span or div and on a `cite`
 span. It points at a decision, as the dictionary's `decision:` field does
-(4.5), and `claim()` takes the same pointer as an argument (3.1.12).
+(4.5), and `claim()` takes the same pointer as an argument (3.1.12). A
+pointer on a `claim()` in an R chunk that is statically not evaluated (a
+literal `eval: false` or `eval = FALSE`, as in 6.3.1) is not collected: it is
+no use of the decision and is not checked. Pointers in prose and in inline
+code are unaffected.
 
 ```
 filtered through [0.45 µm]{.weft-literal why="method" decision="12"} membranes
@@ -2479,7 +2483,8 @@ bare `"warn"` or `"fail"` in the position of a check is an error that says to
 write `level = `. A guard has no level (1.5.5).
 
 **3.1.12** `decision`, given by name, points at the decision the check rests
-on (1.8.12): one string that is not blank, or one whole number from 1.
+on (1.8.12): one string that is not blank, or one whole number from 1. In an
+R chunk that is statically not evaluated the pointer is not collected (1.8.12).
 Anything else is an error of class `weft_claim_decision` (and `weft_error`),
 raised before the checks run, in any context: "`decision` of claim() must be
 one string that is not blank, or a whole number from 1." A failure's detail
@@ -4322,7 +4327,8 @@ cached between calls.
 each distinct pointer once, the pointers of `dict.yml` and of the documents it
 verifies: every `decision` on a `.weft-literal` or a `cite` span in the
 source, and every `claim()` call in an R chunk or in inline code whose
-`decision` argument is a literal string or number. A computed argument is not
+`decision` argument is a literal string or number, except in a chunk that is
+statically not evaluated (1.8.12). A computed argument is not
 checked. Each document pointer is a row of the table of 4.5.3: `file` the
 document, `line` the construct's line, and `key` one of `.weft-literal`,
 `cite="<value>"` or `claim()`.
@@ -7060,7 +7066,9 @@ that a function written for markdown does not put markdown into a formula; the
 one function serves every target through its `target` argument.
 
 
-**1.8.12** A pointer prints nothing; recording it in the ledger would only
+**1.8.12** A pointer on a claim that never runs supports nothing, so it is not
+collected; the claims rule (6.3.1) and this rule now agree on which chunks do
+not run. A pointer prints nothing; recording it in the ledger would only
 churn it. Scanning comments for decision ids would make weft keep a register
 convention, which §16 leaves to the project.
 

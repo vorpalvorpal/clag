@@ -538,9 +538,11 @@ Routine before a push: the whole suite on a fresh export
 with the package installed into a temporary library. The suite does
 not build vignettes: a push on 14 Nov broke CI that way for two runs.
 
+Ruled "drop" on 15 Nov: a decision pointer on a `claim()` in a chunk with
+`eval: false` is not collected (done).
+
 Open, waiting on Robin: the pieces of "weft everywhere" (section
-above); the default `skills` folders of `use_agent_docs()`; whether
-decision pointers follow the `eval: false` rule; one wording for the
+above); the default `skills` folders of `use_agent_docs()`; one wording for the
 static errors (A11). Deferred by Robin: Windows CI; the untested areas
 (Render and Knit buttons, Windows, a real `renv`); project formatters
 for named values in Jupyter and Julia documents. Paused: the `units`

@@ -531,7 +531,7 @@ fails it, and `warn` findings are listed. Its result holds them in
 | Part | What it does |
 |---|---|
 | `lints` | runs the tier-1 lints over the whole project and compares them with a commit |
-| `decisions` | checks the `decision` pointers in `dict.yml` and in the documents: on `.weft-literal` and `cite` spans, and in `claim()` calls that give a literal `decision` |
+| `decisions` | checks the `decision` pointers in `dict.yml` and in the documents: on `.weft-literal` and `cite` spans, and in `claim()` calls that give a literal `decision`, except in a chunk with `eval: false` |
 | `render` | renders every document with Quarto (or knits it, under R Markdown), backing up and restoring `_freeze`, and reads the record each render leaves to see that every check ran and passed; it also collects the findings of the rendered-output check, below |
 | `ledger` | checks that no ledger is stale |
 
