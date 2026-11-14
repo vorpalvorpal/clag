@@ -339,28 +339,39 @@ test_that("TX1: a bracket in a math environment, a raw environment or a {=latex}
   }
 })
 
-test_that("TX1 (control): a named value in `$` math gives no row", {
+test_that("TX1 (T2): a named value in `$` math gives a named row with tex math, beside the one in prose", {
   r <- tx_sc("Here $x = `depth`{.num}$ and `depth`{.num}.")
-  expect_identical(r$kind, "named")
-  expect_identical(r$line, 1L)
-  expect_identical(nrow(r), 1L)
+  expect_identical(r$kind, c("named", "named"))
+  expect_identical(r$line, c(1L, 1L))
+  expect_identical(r$tex, c("math", ""))
 })
 
-test_that("TX1: a named value in math, in a math environment, in raw LaTeX or in a {=latex} fence gives no row in P2", {
-  # T2 (named values in math) adds these rows; P2 must not
-  for (src in list("Here $x = `depth`{.num}$ only.",
-                   "$$ x = `depth`{.num} $$",
-                   tx_env("align", "x &= `depth`{.num}"),
-                   tx_env("tabular", "`depth`{.num}"),
+test_that("TX1 (T2): a named value in math, in a math environment, in raw LaTeX or in a {=latex} fence gives a named row with tex set", {
+  # T2 (named values in math) adds these rows
+  srcs <- list("Here $x = `depth`{.num}$ only." = "math",
+               "$$ x = `depth`{.num} $$" = "math")
+  for (nm in names(srcs)) {
+    r <- tx_sc(nm)
+    expect_identical(r$kind, "named", label = nm)
+    expect_identical(r$tex, srcs[[nm]], label = nm)
+  }
+  for (src in list(tx_env("align", "x &= `depth`{.num}"))) {
+    r <- tx_sc(src)
+    expect_identical(r$kind, "named")
+    expect_identical(r$tex, "math")
+  }
+  for (src in list(tx_env("tabular", "`depth`{.num}"),
                    c("```{=latex}", "\\textbf{`depth`{.num}}", "```"))) {
-    expect_identical(nrow(tx_sc(src)), 0L, label = paste(src, collapse = " / "))
+    r <- tx_sc(src)
+    expect_identical(r$kind, "named", label = paste(src, collapse = " / "))
+    expect_identical(r$tex, "raw", label = paste(src, collapse = " / "))
   }
 })
 
 test_that("TX1: a named value outside math beside a formula is still a row, with tex empty", {
   r <- tx_sc("Here $x = `depth`{.num}$ and `depth`{.num}.")
-  expect_identical(r$kind, "named")
-  expect_identical(r$tex, "")
+  expect_identical(r$kind, c("named", "named"))
+  expect_identical(r$tex[[2]], "")
 })
 
 # ---- TX2: classes that work -----------------------------------------------------------------------
