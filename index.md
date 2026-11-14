@@ -142,7 +142,9 @@ project](https://vorpalvorpal.github.io/weft/articles/setup.html), and,
 to bring a long report across, [Adopting weft in an existing
 report](https://vorpalvorpal.github.io/weft/articles/adopting.html). If
 an AI coding agent edits your documents, read [Working with coding
-agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
+agents](https://vorpalvorpal.github.io/weft/articles/agents.html), which
+also says how to install the skill into Claude Code without a project
+(`/plugin marketplace add vorpalvorpal/weft`).
 
 Start with [Getting
 started](https://vorpalvorpal.github.io/weft/articles/weft.html).

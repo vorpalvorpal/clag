@@ -22,7 +22,7 @@ runs every installer in order, from one plan:
 | [`use_dictionary()`](https://vorpalvorpal.github.io/weft/reference/use_dictionary.md) | always | `dict.yml` and its schema |
 | [`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md) | in a git work tree | the `commit-msg` hook |
 | [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md) | when `origin` is on github.com | a GitHub Actions workflow |
-| [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md) | always | a block in `AGENTS.md` and a Claude skill |
+| [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md) | always | a block in `AGENTS.md` and the weft skill, in `.agents/skills` and `.claude/skills` |
 
 It prints the plan, then writes. In a Quarto website with a GitHub
 remote:
@@ -36,7 +36,7 @@ weft::use_weft()
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          .github/workflows/weft.yml (new)
-#>   use_agent_docs  AGENTS.md (new), .claude/skills/weft/SKILL.md (new)
+#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)
 #> Wrote: .Rprofile, _weft.yml, index.qmd, _extensions/weft-check/_extension.yml, ...
 ```
 
@@ -348,8 +348,8 @@ left its base. It needs `origin` to be on github.com.
 [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
 tells a coding agent the rules of a weft project. It appends a block to
 `AGENTS.md`, creating the file if needed, and writes a skill to
-`.claude/skills/weft/SKILL.md`. If the project has a `CLAUDE.md` that
-does not include `AGENTS.md`, it says so:
+`.agents/skills/weft/` and `.claude/skills/weft/`. If the project has a
+`CLAUDE.md` that does not include `AGENTS.md`, it says so:
 
 ``` text
 Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there.
@@ -378,8 +378,13 @@ tell three cases apart:
 weft::use_agent_docs()
 #> weft will write, under creek-site:
 #>   AGENTS.md  (keep: the weft rules for coding agents)
+#>   .agents/skills/weft/SKILL.md  (keep: the weft skill for coding agents)
+#>   .agents/skills/weft/references/reports.md  (keep: the weft skill for coding agents)
+#>   .agents/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)
 #>   .claude/skills/weft/SKILL.md  (edited: edited since weft wrote it; left as it is (use overwrite = TRUE to replace it))
-#> Nothing to change: the agent documents is already set up.
+#>   .claude/skills/weft/references/reports.md  (keep: the weft skill for coding agents)
+#>   .claude/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)
+#> Nothing to change: the agent documents are already set up.
 ```
 
 [`use_hooks()`](https://vorpalvorpal.github.io/weft/reference/use_hooks.md),

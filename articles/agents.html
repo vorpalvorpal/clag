@@ -100,9 +100,9 @@ instead.</p>
 <div class="section level2">
 <h2 id="what-use_agent_docs-writes">What <code>use_agent_docs()</code> writes<a class="anchor" aria-label="anchor" href="#what-use_agent_docs-writes"></a>
 </h2>
-<p><code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> writes two files.
-<code><a href="../reference/use_weft.html">use_weft()</a></code> runs it, or you can run it alone (see
-<code><a href="../articles/setup.html">vignette("setup", package = "weft")</a></code>).</p>
+<p><code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> writes an <code>AGENTS.md</code> block
+and a skill. <code><a href="../reference/use_weft.html">use_weft()</a></code> runs it, or you can run it alone
+(see <code><a href="../articles/setup.html">vignette("setup", package = "weft")</a></code>).</p>
 <p>The first is a block in <code>AGENTS.md</code>, the file many coding
 agents read when they start. weft appends it after any text already
 there:</p>
@@ -123,7 +123,8 @@ there:</p>
 <span id="cb1-15"><a href="#cb1-15" tabindex="-1"></a><span class="st">  under `weft: dict_local:`, each with a `why:`; read them as</span></span>
 <span id="cb1-16"><a href="#cb1-16" tabindex="-1"></a><span class="st">  `dict_local$key`, never `dict$key`.</span></span>
 <span id="cb1-17"><a href="#cb1-17" tabindex="-1"></a></span>
-<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="st">The weft skill (`.claude/skills/weft/`) has the detail.</span></span></code></pre></div>
+<span id="cb1-18"><a href="#cb1-18" tabindex="-1"></a><span class="st">The weft skill is in the project'</span>s skills <span class="fu">folders</span> (<span class="st">`</span><span class="at">.agents/skills/weft/</span><span class="st">`</span>,</span>
+<span id="cb1-19"><a href="#cb1-19" tabindex="-1"></a><span class="st">`</span><span class="at">.claude/skills/weft/</span><span class="st">`</span>) and has the detail; <span class="st">`</span><span class="at">weft::agent_docs()</span><span class="st">`</span> prints it.</span></code></pre></div>
 <p>In the project, the block sits between a
 <code>&lt;!-- weft:start ... --&gt;</code> line and a
 <code>&lt;!-- weft:end --&gt;</code> line. weft replaces only what lies
@@ -131,72 +132,176 @@ between them. Claude Code reads <code>CLAUDE.md</code>, not
 <code>AGENTS.md</code>. If the project has a <code>CLAUDE.md</code>, add
 the line <code>@AGENTS.md</code> to it so that it includes the
 block.</p>
-<p>The second is a skill, <code>.claude/skills/weft/SKILL.md</code>,
-which Claude Code loads when a task touches a weft document or a weft
-report:</p>
+<p>The second is a skill, <code>weft/SKILL.md</code>, which a coding
+agent loads when a task touches a weft document or a weft report. It
+sits in each skills folder (see the next section), with two files in
+<code>references/</code>, <code>syntax.md</code> and
+<code>reports.md</code>:</p>
 <div class="sourceCode" id="cb2"><pre class="sourceCode r"><code class="sourceCode r"><span id="cb2-1"><a href="#cb2-1" tabindex="-1"></a><span class="fu">cat</span>(<span class="fu">readLines</span>(<span class="fu">system.file</span>(<span class="st">"agent"</span>, <span class="st">"SKILL.md"</span>, <span class="at">package =</span> <span class="st">"weft"</span>)), <span class="at">sep =</span> <span class="st">"</span><span class="sc">\n</span><span class="st">"</span>)</span>
 <span id="cb2-2"><a href="#cb2-2" tabindex="-1"></a><span class="sc">---</span></span>
 <span id="cb2-3"><a href="#cb2-3" tabindex="-1"></a>name<span class="sc">:</span> weft</span>
 <span id="cb2-4"><a href="#cb2-4" tabindex="-1"></a>description<span class="sc">:</span> Use when editing a document of a project that uses the weft R <span class="fu">package</span> (inline <span class="st">`</span><span class="at">r</span><span class="st">`</span> values, spans with <span class="at">n=</span>, <span class="at">if=</span>, <span class="at">sign=</span>, <span class="at">list=</span>, <span class="at">cite=</span>, <span class="fu">claim</span>() checks, _weft.yml), or when a render, a lint or a commit fails with a weft report.</span>
-<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a><span class="sc">---</span></span>
-<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a></span>
-<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="co"># weft</span></span>
+<span id="cb2-5"><a href="#cb2-5" tabindex="-1"></a>metadata<span class="sc">:</span></span>
+<span id="cb2-6"><a href="#cb2-6" tabindex="-1"></a>  weft<span class="sc">-</span>version<span class="sc">:</span> <span class="st">"@VERSION@"</span></span>
+<span id="cb2-7"><a href="#cb2-7" tabindex="-1"></a><span class="sc">---</span></span>
 <span id="cb2-8"><a href="#cb2-8" tabindex="-1"></a></span>
-<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a>weft keeps the numbers <span class="cf">in</span> a manuscript computed and the wording that depends</span>
-<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a>on them chosen by the numbers. This file is written by <span class="st">`</span><span class="at">weft::use_agent_docs()</span><span class="st">`</span>.</span>
-<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a></span>
-<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a><span class="do">## The four rules</span></span>
+<span id="cb2-9"><a href="#cb2-9" tabindex="-1"></a><span class="co"># weft</span></span>
+<span id="cb2-10"><a href="#cb2-10" tabindex="-1"></a></span>
+<span id="cb2-11"><a href="#cb2-11" tabindex="-1"></a>weft keeps the numbers <span class="cf">in</span> a manuscript computed and the wording that depends</span>
+<span id="cb2-12"><a href="#cb2-12" tabindex="-1"></a>on them chosen by the numbers. This file is written by <span class="st">`</span><span class="at">weft::use_agent_docs()</span><span class="st">`</span>.</span>
 <span id="cb2-13"><a href="#cb2-13" tabindex="-1"></a></span>
-<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="sc">-</span> A failed claim is a finding to report to the author, not an error to clear.</span>
-<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a><span class="sc">-</span> Do not change or remove a <span class="fu">check</span> (<span class="st">`</span><span class="at">claim()</span><span class="st">`</span>, a guard, a bound) to make a</span>
-<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a>  render or a commit pass, unless the author asks <span class="cf">for</span> exactly that.</span>
-<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a><span class="sc">-</span> When a commit removes weft constructs on purpose, add the line the</span>
-<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a>  commit<span class="sc">-</span>msg hook prints, <span class="st">`</span><span class="at">Weft-Removed: N</span><span class="st">`</span>, with its number. Do not use</span>
-<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a>  <span class="st">`</span><span class="at">--no-verify</span><span class="st">`</span> to get past the hook.</span>
-<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="sc">-</span> Values that hold <span class="cf">for</span> one chapter only go <span class="cf">in</span> that document<span class="st">'s front matter</span></span>
-<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a><span class="st">  under `weft: dict_local:`, each with a `why:`; read them as</span></span>
-<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="st">  `dict_local$key`, never `dict$key`.</span></span>
+<span id="cb2-14"><a href="#cb2-14" tabindex="-1"></a><span class="do">## References</span></span>
+<span id="cb2-15"><a href="#cb2-15" tabindex="-1"></a></span>
+<span id="cb2-16"><a href="#cb2-16" tabindex="-1"></a><span class="st">`</span><span class="at">references/syntax.md</span><span class="st">`</span> has the constructs, one example each; <span class="st">`</span><span class="at">references/reports.md</span><span class="st">`</span></span>
+<span id="cb2-17"><a href="#cb2-17" tabindex="-1"></a>shows how to read a failed render, a lint report and a refused commit.</span>
+<span id="cb2-18"><a href="#cb2-18" tabindex="-1"></a><span class="st">`</span><span class="at">weft::agent_docs()</span><span class="st">`</span> lists them, and <span class="st">`</span><span class="at">Rscript -e "weft::agent_docs('syntax')"</span><span class="st">`</span> (or</span>
+<span id="cb2-19"><a href="#cb2-19" tabindex="-1"></a><span class="st">`</span><span class="at">'reports'</span><span class="st">`</span>) prints the installed package<span class="st">'s version of each; it wins if the copy</span></span>
+<span id="cb2-20"><a href="#cb2-20" tabindex="-1"></a><span class="st">here is older.</span></span>
+<span id="cb2-21"><a href="#cb2-21" tabindex="-1"></a></span>
+<span id="cb2-22"><a href="#cb2-22" tabindex="-1"></a><span class="st">## The four rules</span></span>
 <span id="cb2-23"><a href="#cb2-23" tabindex="-1"></a></span>
-<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a><span class="st">## Reading a failed-claim report</span></span>
-<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a></span>
-<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="st">The report gives the line, the expression, the check and the value. Say</span></span>
-<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="st">which of the check and the value looks wrong and why. Do not decide: the author does. Never edit the</span></span>
-<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="st">check or the value to make the claim true.</span></span>
-<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a></span>
-<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="st">## The trailer</span></span>
-<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a></span>
-<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a><span class="st">A commit that removes constructs on purpose needs the number the hook</span></span>
-<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a><span class="st">printed: `git commit --trailer "Weft-Removed: N"`. A wrong number is refused.</span></span>
-<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a></span>
-<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a><span class="st">## Findings added at a commit</span></span>
-<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a></span>
-<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a><span class="st">The hook refuses a commit that adds findings. Fix each one at its source:</span></span>
-<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a><span class="st">- a typed number: compute it and write the value (`r x`), or put it in the</span></span>
-<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a><span class="st">  dictionary (`dict.yml`);</span></span>
-<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="st">- a literal that must stay: mark it with `.weft-literal` and give a real `why`.</span></span>
+<span id="cb2-24"><a href="#cb2-24" tabindex="-1"></a><span class="st">- A failed claim is a finding to report to the author, not an error to clear.</span></span>
+<span id="cb2-25"><a href="#cb2-25" tabindex="-1"></a><span class="st">- Do not change or remove a check (`claim()`, a guard, a bound) to make a</span></span>
+<span id="cb2-26"><a href="#cb2-26" tabindex="-1"></a><span class="st">  render or a commit pass, unless the author asks for exactly that.</span></span>
+<span id="cb2-27"><a href="#cb2-27" tabindex="-1"></a><span class="st">- When a commit removes weft constructs on purpose, add the line the</span></span>
+<span id="cb2-28"><a href="#cb2-28" tabindex="-1"></a><span class="st">  commit-msg hook prints, `Weft-Removed: N`, with its number. Do not use</span></span>
+<span id="cb2-29"><a href="#cb2-29" tabindex="-1"></a><span class="st">  `--no-verify` to get past the hook.</span></span>
+<span id="cb2-30"><a href="#cb2-30" tabindex="-1"></a><span class="st">- Values that hold for one chapter only go in that document'</span>s front matter</span>
+<span id="cb2-31"><a href="#cb2-31" tabindex="-1"></a>  under <span class="st">`</span><span class="at">weft: dict_local:</span><span class="st">`</span>, each with a <span class="st">`</span><span class="at">why:</span><span class="st">`</span>; read them as</span>
+<span id="cb2-32"><a href="#cb2-32" tabindex="-1"></a>  <span class="st">`</span><span class="at">dict_local$key</span><span class="st">`</span>, never <span class="st">`</span><span class="at">dict$key</span><span class="st">`</span>.</span>
+<span id="cb2-33"><a href="#cb2-33" tabindex="-1"></a></span>
+<span id="cb2-34"><a href="#cb2-34" tabindex="-1"></a><span class="do">## Reading a failed-claim report</span></span>
+<span id="cb2-35"><a href="#cb2-35" tabindex="-1"></a></span>
+<span id="cb2-36"><a href="#cb2-36" tabindex="-1"></a>The report gives the line, the expression, the check and the value. Say</span>
+<span id="cb2-37"><a href="#cb2-37" tabindex="-1"></a>which of the check and the value looks wrong and why. Do not decide<span class="sc">:</span> the author does. Never edit the</span>
+<span id="cb2-38"><a href="#cb2-38" tabindex="-1"></a>check or the value to make the claim true.</span>
+<span id="cb2-39"><a href="#cb2-39" tabindex="-1"></a></span>
+<span id="cb2-40"><a href="#cb2-40" tabindex="-1"></a><span class="do">## The trailer</span></span>
 <span id="cb2-41"><a href="#cb2-41" tabindex="-1"></a></span>
-<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a><span class="st">## dict_local</span></span>
-<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a></span>
-<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a><span class="st">- It lives in one document'</span>s front matter under <span class="st">`</span><span class="at">weft: dict_local:</span><span class="st">`</span>.</span>
-<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a><span class="sc">-</span> Each key has a <span class="st">`</span><span class="at">why:</span><span class="st">`</span> saying why it is not <span class="cf">in</span> <span class="st">`</span><span class="at">dict.yml</span><span class="st">`</span>.</span>
-<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a><span class="sc">-</span> Read it as <span class="st">`</span><span class="at">dict_local$key</span><span class="st">`</span>; <span class="st">`</span><span class="at">dict$key</span><span class="st">`</span> does not see it.</span>
-<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a><span class="sc">-</span> A key that two documents need belongs <span class="cf">in</span> <span class="st">`</span><span class="at">dict.yml</span><span class="st">`</span>.</span>
-<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a></span>
-<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a><span class="do">## Draft mode</span></span>
-<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a></span>
-<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a>With <span class="st">`</span><span class="at">draft: true</span><span class="st">`</span> (or <span class="st">`</span><span class="at">WEFT_DRAFT</span><span class="st">`</span>) a render passes everything. <span class="st">`</span><span class="at">verify()</span><span class="st">`</span></span>
-<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a>refuses a draft, and the commit gate ignores it and judges every commit as</span>
-<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a>usual. Do not leave a project <span class="cf">in</span> draft mode to get a result.</span>
-<span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a></span>
-<span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a><span class="do">## Before you commit and before you hand back</span></span>
-<span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a></span>
-<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists every finding. <span class="st">`</span><span class="at">weft::gate()</span><span class="st">`</span></span>
-<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a>  judges the staged commit as the hook does.</span>
-<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
-<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
-<p>In the project, the placeholders in the last line hold the weft
+<span id="cb2-42"><a href="#cb2-42" tabindex="-1"></a>A removal on purpose needs the hook<span class="st">'s number: `git commit --trailer "Weft-Removed: N"`.</span></span>
+<span id="cb2-43"><a href="#cb2-43" tabindex="-1"></a><span class="st">A wrong number is refused.</span></span>
+<span id="cb2-44"><a href="#cb2-44" tabindex="-1"></a></span>
+<span id="cb2-45"><a href="#cb2-45" tabindex="-1"></a><span class="st">## Findings added at a commit</span></span>
+<span id="cb2-46"><a href="#cb2-46" tabindex="-1"></a></span>
+<span id="cb2-47"><a href="#cb2-47" tabindex="-1"></a><span class="st">The hook refuses a commit that adds findings. Fix each one at its source:</span></span>
+<span id="cb2-48"><a href="#cb2-48" tabindex="-1"></a><span class="st">- a typed number: compute it and write the value (`r x`), or put it in the</span></span>
+<span id="cb2-49"><a href="#cb2-49" tabindex="-1"></a><span class="st">  dictionary (`dict.yml`);</span></span>
+<span id="cb2-50"><a href="#cb2-50" tabindex="-1"></a><span class="st">- a literal that must stay: mark it with `.weft-literal` and give a real `why`.</span></span>
+<span id="cb2-51"><a href="#cb2-51" tabindex="-1"></a></span>
+<span id="cb2-52"><a href="#cb2-52" tabindex="-1"></a><span class="st">## dict_local</span></span>
+<span id="cb2-53"><a href="#cb2-53" tabindex="-1"></a></span>
+<span id="cb2-54"><a href="#cb2-54" tabindex="-1"></a><span class="st">- It lives in one document'</span>s front matter under <span class="st">`</span><span class="at">weft: dict_local:</span><span class="st">`</span>.</span>
+<span id="cb2-55"><a href="#cb2-55" tabindex="-1"></a><span class="sc">-</span> Each key has a <span class="st">`</span><span class="at">why:</span><span class="st">`</span> saying why it is not <span class="cf">in</span> <span class="st">`</span><span class="at">dict.yml</span><span class="st">`</span>.</span>
+<span id="cb2-56"><a href="#cb2-56" tabindex="-1"></a><span class="sc">-</span> Read it as <span class="st">`</span><span class="at">dict_local$key</span><span class="st">`</span>; <span class="st">`</span><span class="at">dict$key</span><span class="st">`</span> does not see it.</span>
+<span id="cb2-57"><a href="#cb2-57" tabindex="-1"></a><span class="sc">-</span> A key that two documents need belongs <span class="cf">in</span> <span class="st">`</span><span class="at">dict.yml</span><span class="st">`</span>.</span>
+<span id="cb2-58"><a href="#cb2-58" tabindex="-1"></a></span>
+<span id="cb2-59"><a href="#cb2-59" tabindex="-1"></a><span class="do">## Draft mode</span></span>
+<span id="cb2-60"><a href="#cb2-60" tabindex="-1"></a></span>
+<span id="cb2-61"><a href="#cb2-61" tabindex="-1"></a>With <span class="st">`</span><span class="at">draft: true</span><span class="st">`</span> (or <span class="st">`</span><span class="at">WEFT_DRAFT</span><span class="st">`</span>) a render passes everything. <span class="st">`</span><span class="at">verify()</span><span class="st">`</span></span>
+<span id="cb2-62"><a href="#cb2-62" tabindex="-1"></a>refuses a draft, and the commit gate ignores it and judges every commit as</span>
+<span id="cb2-63"><a href="#cb2-63" tabindex="-1"></a>usual. Do not leave a project <span class="cf">in</span> draft mode to get a result.</span>
+<span id="cb2-64"><a href="#cb2-64" tabindex="-1"></a></span>
+<span id="cb2-65"><a href="#cb2-65" tabindex="-1"></a><span class="do">## Before you commit and before you hand back</span></span>
+<span id="cb2-66"><a href="#cb2-66" tabindex="-1"></a></span>
+<span id="cb2-67"><a href="#cb2-67" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::lints()</span><span class="st">`</span> before a commit<span class="sc">:</span> it lists every finding. <span class="st">`</span><span class="at">weft::gate()</span><span class="st">`</span></span>
+<span id="cb2-68"><a href="#cb2-68" tabindex="-1"></a>  judges the staged commit as the hook does.</span>
+<span id="cb2-69"><a href="#cb2-69" tabindex="-1"></a><span class="sc">-</span> <span class="st">`</span><span class="at">weft::verify()</span><span class="st">`</span> before handing work back<span class="sc">:</span> it renders and checks the claims.</span>
+<span id="cb2-70"><a href="#cb2-70" tabindex="-1"></a><span class="sc">&lt;!--</span> weft<span class="sc">-</span>file<span class="sc">:</span> use_agent_docs <span class="sc">@</span>VERSION<span class="sc">@</span> <span class="er">@</span>HASH<span class="sc">@</span> <span class="sc">-</span><span class="ot">-&gt;</span></span></code></pre></div>
+<p>In the project, the placeholders (the version in
+<code>metadata</code> and the last line, and the hash) hold the weft
 version and a hash, so that <code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code> can tell
 whether you have edited the file.</p>
+</div>
+<div class="section level2">
+<h2 id="which-tools-read-which-folder-skills">Which tools read which folder: <code>skills</code><a class="anchor" aria-label="anchor" href="#which-tools-read-which-folder-skills"></a>
+</h2>
+<p>The skill format is the same for every tool; the tools differ in the
+folder they scan. <code>use_agent_docs(skills = )</code> takes preset
+names or folders relative to the project root, and writes the same files
+into each:</p>
+<table class="table">
+<colgroup>
+<col width="33%">
+<col width="33%">
+<col width="33%">
+</colgroup>
+<thead><tr class="header">
+<th>preset</th>
+<th>folder</th>
+<th>read by</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td><code>agents</code></td>
+<td><code>.agents/skills</code></td>
+<td>Gemini CLI; reported for Codex, opencode and Cursor</td>
+</tr>
+<tr class="even">
+<td><code>claude</code></td>
+<td><code>.claude/skills</code></td>
+<td>Claude Code</td>
+</tr>
+<tr class="odd">
+<td><code>codex</code></td>
+<td><code>.agents/skills</code></td>
+<td>reported for Codex</td>
+</tr>
+<tr class="even">
+<td><code>gemini</code></td>
+<td><code>.gemini/skills</code></td>
+<td>Gemini CLI</td>
+</tr>
+<tr class="odd">
+<td><code>opencode</code></td>
+<td><code>.opencode/skills</code></td>
+<td>reported for opencode</td>
+</tr>
+<tr class="even">
+<td><code>kimi</code></td>
+<td><code>.kimi-code/skills</code></td>
+<td>Kimi Code</td>
+</tr>
+<tr class="odd">
+<td><code>cursor</code></td>
+<td><code>.cursor/skills</code></td>
+<td>reported for Cursor</td>
+</tr>
+</tbody>
+</table>
+<p>The default is <code>c("agents", "claude")</code>. That Codex,
+opencode and Cursor read <code>.agents/skills</code> is reported by
+secondary sources; it was not checked against the vendors’ documents. A
+folder of your own is a path such as <code>"tools/skills"</code>; an
+absolute path or one with <code>..</code> is an error.
+<code>skills = character()</code> writes only the <code>AGENTS.md</code>
+block. Gemini CLI reads <code>GEMINI.md</code>, so if the project has
+one, add the line <code>@AGENTS.md</code> to it; the call says so.</p>
+<p>The copies in a project can be older than the installed package.
+<code><a href="../reference/agent_docs.html">weft::agent_docs()</a></code> lists the documents and
+<code>weft::agent_docs("syntax")</code> prints the installed version of
+one.</p>
+</div>
+<div class="section level2">
+<h2 id="installing-the-skill-without-a-project">Installing the skill without a project<a class="anchor" aria-label="anchor" href="#installing-the-skill-without-a-project"></a>
+</h2>
+<p>To give the skill to Claude Code for yourself, in every project,
+install the plugin from the GitHub repository. In a Claude Code
+session:</p>
+<pre class="text"><code>/plugin marketplace add vorpalvorpal/weft
+/plugin install weft@weft</code></pre>
+<p>or in one step, on Claude Code 2.1.275 or later:</p>
+<pre class="text"><code>/plugin install weft --marketplace vorpalvorpal/weft</code></pre>
+<p>From a shell,
+<code>claude plugin marketplace add vorpalvorpal/weft</code> then
+<code>claude plugin install weft@weft</code> do the same. Cross-tool
+installers that read a <code>skills/&lt;name&gt;/SKILL.md</code> folder
+from a repository can read <code>skills/weft/</code> from
+<code>vorpalvorpal/weft</code>.</p>
+<p>A copy installed this way belongs to you, not to a project. It is not
+updated with the R package, so it can fall behind the installed weft;
+update it from Claude Code, or run <code><a href="../reference/agent_docs.html">weft::agent_docs()</a></code> to
+read the current text. The copy that <code><a href="../reference/use_agent_docs.html">use_agent_docs()</a></code>
+writes into the project is the one <code><a href="../reference/status.html">status()</a></code> checks.</p>
 </div>
 <div class="section level2">
 <h2 id="the-four-rules">The four rules<a class="anchor" aria-label="anchor" href="#the-four-rules"></a>
@@ -207,7 +312,7 @@ whether you have edited the file.</p>
 <p>When a claim fails, the sentence, the check and the value disagree.
 One of them is wrong, and only the author knows which. Here a draft says
 all sites met the guideline, and one did not:</p>
-<div class="sourceCode" id="cb3"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb5"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"---"</span>,</span>
 <span>  <span class="st">"title: \"Survey\""</span>,</span>
@@ -264,13 +369,13 @@ is refused.</p>
 </h3>
 <p>A value that holds for one document goes in that document’s front
 matter, with a <code>why</code>:</p>
-<div class="sourceCode" id="cb6"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb6-1"><a href="#cb6-1" tabindex="-1"></a><span class="fu">weft</span><span class="kw">:</span></span>
-<span id="cb6-2"><a href="#cb6-2" tabindex="-1"></a><span class="at">  </span><span class="fu">dict_local</span><span class="kw">:</span></span>
-<span id="cb6-3"><a href="#cb6-3" tabindex="-1"></a><span class="at">    </span><span class="fu">lab_sites</span><span class="kw">:</span></span>
-<span id="cb6-4"><a href="#cb6-4" tabindex="-1"></a><span class="at">      </span><span class="fu">value</span><span class="kw">:</span><span class="at"> </span><span class="dv">4</span></span>
-<span id="cb6-5"><a href="#cb6-5" tabindex="-1"></a><span class="at">      </span><span class="fu">type</span><span class="kw">:</span><span class="at"> number</span></span>
-<span id="cb6-6"><a href="#cb6-6" tabindex="-1"></a><span class="at">      </span><span class="fu">definition</span><span class="kw">:</span><span class="at"> </span><span class="st">"Sites sent to the laboratory in this chapter."</span></span>
-<span id="cb6-7"><a href="#cb6-7" tabindex="-1"></a><span class="at">      </span><span class="fu">why</span><span class="kw">:</span><span class="at"> </span><span class="st">"Only the autumn survey sent samples away."</span></span></code></pre></div>
+<div class="sourceCode" id="cb8"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb8-1"><a href="#cb8-1" tabindex="-1"></a><span class="fu">weft</span><span class="kw">:</span></span>
+<span id="cb8-2"><a href="#cb8-2" tabindex="-1"></a><span class="at">  </span><span class="fu">dict_local</span><span class="kw">:</span></span>
+<span id="cb8-3"><a href="#cb8-3" tabindex="-1"></a><span class="at">    </span><span class="fu">lab_sites</span><span class="kw">:</span></span>
+<span id="cb8-4"><a href="#cb8-4" tabindex="-1"></a><span class="at">      </span><span class="fu">value</span><span class="kw">:</span><span class="at"> </span><span class="dv">4</span></span>
+<span id="cb8-5"><a href="#cb8-5" tabindex="-1"></a><span class="at">      </span><span class="fu">type</span><span class="kw">:</span><span class="at"> number</span></span>
+<span id="cb8-6"><a href="#cb8-6" tabindex="-1"></a><span class="at">      </span><span class="fu">definition</span><span class="kw">:</span><span class="at"> </span><span class="st">"Sites sent to the laboratory in this chapter."</span></span>
+<span id="cb8-7"><a href="#cb8-7" tabindex="-1"></a><span class="at">      </span><span class="fu">why</span><span class="kw">:</span><span class="at"> </span><span class="st">"Only the autumn survey sent samples away."</span></span></code></pre></div>
 <p>It is read as <code>`r dict_local$lab_sites`</code>. A value two
 documents need belongs in <code>dict.yml</code> (see
 <code><a href="../articles/units.html">vignette("units", package = "weft")</a></code>).</p>

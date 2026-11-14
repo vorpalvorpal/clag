@@ -180,4 +180,6 @@ See which arms a document can choose, and what the last knit did.
 - [`use_ci()`](https://vorpalvorpal.github.io/weft/reference/use_ci.md)
   : Write the GitHub Actions workflow that runs weft's static checks
 - [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
-  : Write the agent documents: an AGENTS.md block and a Claude skill
+  : Write the agent documents: an AGENTS.md block and a skill
+- [`agent_docs()`](https://vorpalvorpal.github.io/weft/reference/agent_docs.md)
+  : Print the agent documents of the installed package

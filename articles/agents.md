@@ -20,7 +20,7 @@ below close those ways, and say what to do instead.
 ## What `use_agent_docs()` writes
 
 [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
-writes two files.
+writes an `AGENTS.md` block and a skill.
 [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
 runs it, or you can run it alone (see
 [`vignette("setup", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/setup.md)).
@@ -46,7 +46,8 @@ This project uses the weft R package: numbers in the prose are computed
   under `weft: dict_local:`, each with a `why:`; read them as
   `dict_local$key`, never `dict$key`.
 
-The weft skill (`.claude/skills/weft/`) has the detail.
+The weft skill is in the project's skills folders (`.agents/skills/weft/`,
+`.claude/skills/weft/`) and has the detail; `weft::agent_docs()` prints it.
 ```
 
 In the project, the block sits between a `<!-- weft:start ... -->` line
@@ -55,20 +56,32 @@ them. Claude Code reads `CLAUDE.md`, not `AGENTS.md`. If the project has
 a `CLAUDE.md`, add the line `@AGENTS.md` to it so that it includes the
 block.
 
-The second is a skill, `.claude/skills/weft/SKILL.md`, which Claude Code
-loads when a task touches a weft document or a weft report:
+The second is a skill, `weft/SKILL.md`, which a coding agent loads when
+a task touches a weft document or a weft report. It sits in each skills
+folder (see the next section), with two files in `references/`,
+`syntax.md` and `reports.md`:
 
 ``` r
 cat(readLines(system.file("agent", "SKILL.md", package = "weft")), sep = "\n")
 ---
 name: weft
 description: Use when editing a document of a project that uses the weft R package (inline `r` values, spans with n=, if=, sign=, list=, cite=, claim() checks, _weft.yml), or when a render, a lint or a commit fails with a weft report.
+metadata:
+  weft-version: "@VERSION@"
 ---
 
 # weft
 
 weft keeps the numbers in a manuscript computed and the wording that depends
 on them chosen by the numbers. This file is written by `weft::use_agent_docs()`.
+
+## References
+
+`references/syntax.md` has the constructs, one example each; `references/reports.md`
+shows how to read a failed render, a lint report and a refused commit.
+`weft::agent_docs()` lists them, and `Rscript -e "weft::agent_docs('syntax')"` (or
+`'reports'`) prints the installed package's version of each; it wins if the copy
+here is older.
 
 ## The four rules
 
@@ -90,8 +103,8 @@ check or the value to make the claim true.
 
 ## The trailer
 
-A commit that removes constructs on purpose needs the number the hook
-printed: `git commit --trailer "Weft-Removed: N"`. A wrong number is refused.
+A removal on purpose needs the hook's number: `git commit --trailer "Weft-Removed: N"`.
+A wrong number is refused.
 
 ## Findings added at a commit
 
@@ -121,10 +134,71 @@ usual. Do not leave a project in draft mode to get a result.
 <!-- weft-file: use_agent_docs @VERSION@ @HASH@ -->
 ```
 
-In the project, the placeholders in the last line hold the weft version
-and a hash, so that
+In the project, the placeholders (the version in `metadata` and the last
+line, and the hash) hold the weft version and a hash, so that
 [`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
 can tell whether you have edited the file.
+
+## Which tools read which folder: `skills`
+
+The skill format is the same for every tool; the tools differ in the
+folder they scan. `use_agent_docs(skills = )` takes preset names or
+folders relative to the project root, and writes the same files into
+each:
+
+| preset | folder | read by |
+|----|----|----|
+| `agents` | `.agents/skills` | Gemini CLI; reported for Codex, opencode and Cursor |
+| `claude` | `.claude/skills` | Claude Code |
+| `codex` | `.agents/skills` | reported for Codex |
+| `gemini` | `.gemini/skills` | Gemini CLI |
+| `opencode` | `.opencode/skills` | reported for opencode |
+| `kimi` | `.kimi-code/skills` | Kimi Code |
+| `cursor` | `.cursor/skills` | reported for Cursor |
+
+The default is `c("agents", "claude")`. That Codex, opencode and Cursor
+read `.agents/skills` is reported by secondary sources; it was not
+checked against the vendors’ documents. A folder of your own is a path
+such as `"tools/skills"`; an absolute path or one with `..` is an error.
+`skills = character()` writes only the `AGENTS.md` block. Gemini CLI
+reads `GEMINI.md`, so if the project has one, add the line `@AGENTS.md`
+to it; the call says so.
+
+The copies in a project can be older than the installed package.
+[`weft::agent_docs()`](https://vorpalvorpal.github.io/weft/reference/agent_docs.md)
+lists the documents and `weft::agent_docs("syntax")` prints the
+installed version of one.
+
+## Installing the skill without a project
+
+To give the skill to Claude Code for yourself, in every project, install
+the plugin from the GitHub repository. In a Claude Code session:
+
+``` text
+/plugin marketplace add vorpalvorpal/weft
+/plugin install weft@weft
+```
+
+or in one step, on Claude Code 2.1.275 or later:
+
+``` text
+/plugin install weft --marketplace vorpalvorpal/weft
+```
+
+From a shell, `claude plugin marketplace add vorpalvorpal/weft` then
+`claude plugin install weft@weft` do the same. Cross-tool installers
+that read a `skills/<name>/SKILL.md` folder from a repository can read
+`skills/weft/` from `vorpalvorpal/weft`.
+
+A copy installed this way belongs to you, not to a project. It is not
+updated with the R package, so it can fall behind the installed weft;
+update it from Claude Code, or run
+[`weft::agent_docs()`](https://vorpalvorpal.github.io/weft/reference/agent_docs.md)
+to read the current text. The copy that
+[`use_agent_docs()`](https://vorpalvorpal.github.io/weft/reference/use_agent_docs.md)
+writes into the project is the one
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+checks.
 
 ## The four rules
 
