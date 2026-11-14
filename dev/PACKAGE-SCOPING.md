@@ -601,7 +601,7 @@ so the lints and the gate see it (2.10.2).
   `{=latex}` or `{=tex}`. A `{=typst}` or `{=html}` fence stays markdown
   (1.1.10). A raw inline command such as `\textbf{...}` in prose is not found.
 - Only inline R is read in these places. A bracket in them is never a span
-  (1.9.1). A named value there is not resolved (2.13.16).
+  (1.9.1). A named value there is resolved by the filter (2.13.16).
 - A bare value (1.1.8) prints as stock prints it, in math and in raw LaTeX
   alike. Only a construct's output is TeX. In raw LaTeX that output is wrapped
   in `\ensuremath{...}`, markers included (below), so that it is safe in text
@@ -1379,7 +1379,8 @@ works on it and `.pairs` keeps its key (3.8.4). `date_format` reads the tokens
 the weekday computed from the date and no platform `strftime`; any other token
 is a value error. `.ord`, `.word`, `.count`, `.range` and the `n` and `sign`
 governors build their digits and suffix from the exact text of an integer,
-never from a double. `word_limit` is 100, as in R.
+never from a double. `word_limit` is 100, as in R. In math and raw LaTeX the
+classes print the TeX forms of 1.4.23 (2.13.16).
 
 ---
 
@@ -1606,6 +1607,8 @@ After knitting, the render fails on:
   or `{r}`, and any code span whose text begins `r ` (5.3.4)
 - any leftover placeholder character
 - any marker `<<weft:` (2.9.5)
+- a named value left in math or raw TeX (E106, 2.13.16): the finding says that
+  math holds a named value the filter did not resolve
 
 The extension lists `weft.lua` before `weft-check.lua` (2.13.2). It works when
 the package was never loaded, and when the file was never knit (9.2.8). It covers captions. The filter exits through `os.exit(1)` (tier 1).
@@ -2375,9 +2378,9 @@ not recorded; a cell of an included file is recorded under the main source; and
 a library update that changes what a table prints shows as a change, once.
 Tables printed by Python or Julia under knitr are not recorded.
 
-**2.13.16** Not built (design 9, phase 2): named values in math. Today a named
-value inside math or raw LaTeX is not resolved: Pandoc keeps its backticks
-inside the `Math` element and the output shows them. The rule is this.
+**2.13.16** Named values in math (design 9, phase 2). Pandoc keeps a named
+value's backticks inside the `Math` element, so the filter finds and resolves
+it there. The rule is this.
 
 - The filter resolves a named value in every `Math` element, and in a
   `RawInline` or `RawBlock` whose format is `tex` or `latex`. The target is
@@ -2398,7 +2401,19 @@ inside the `Math` element and the output shows them. The rule is this.
   name counts in the stamp's `named` list, and a forward reference follows
   1.12.7.
 - `weft-check.lua` reports a named value that is still in math or raw TeX after
-  the filter as a leftover.
+  the filter as a leftover, **E106**: "math holds a named value the filter did
+  not resolve", with the excerpt (2.5.3).
+- The scanner reads the same constructs: `handle_named` gives a named value in
+  math or raw LaTeX a `named` row with `tex` set (`math` or `raw`), so the
+  lints, the gate and the publication check of 2.13.11 see it. A construct in
+  a `{=latex}` fence or a `{=latex}` code span is found in the source too.
+- A construct's line is its own. Where the document has a raw environment
+  that is a math environment, the filter takes the text as math (no
+  `\ensuremath{}`), even inside a `{=latex}` fence, which the scanner reads as
+  raw; this changes only the wrapper and the ledger context.
+- With no backtick in the text of an element the filter reads nothing and
+  leaves the tree as it is; a text whose candidates are not constructs is also
+  left as it is.
 
 ---
 

@@ -35,7 +35,8 @@ and list classes (`.word`, `.count`, `.ord`, `.date`, `.a`, `.cap`, `.em`,
 in math. A bare `` `r x` `` there prints as stock prints it, and `fmt_num(x)`
 in it writes markdown; for code that builds a formula, `fmt_num(x, target =
 "tex")` writes TeX. A project formatter needs `targets: [markdown, tex]` in
-`_weft.yml` to be used in math.
+`_weft.yml` to be used in math. A named value (`` $`depth`{.num}$ ``) works in
+math and raw LaTeX too: the filter resolves it and writes the same TeX.
 
 ## Spans that choose wording
 
