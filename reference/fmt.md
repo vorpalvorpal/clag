@@ -10,9 +10,16 @@ decimals are shown, and the relation (`"="`, `"<"` or `">"`). Passing a
 ## Usage
 
 ``` r
-fmt_num(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
+fmt_num(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  unit_form = NULL,
+  plus = FALSE
+)
 
-fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL)
+fmt_pct(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE)
 
 fmt_sci(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
 
@@ -35,11 +42,18 @@ fmt_and(
 
 fmt_or(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL)
 
-fmt_p(x)
+fmt_p(x, digits = NULL, label = NULL)
 
 fmt_date(x)
 
-fmt_range(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL)
+fmt_range(
+  x,
+  digits = NULL,
+  sigfig = NULL,
+  unit = NULL,
+  unit_form = NULL,
+  plus = FALSE
+)
 
 fmt_pairs(
   x,
@@ -116,6 +130,14 @@ fmt_em(x)
   `"auto"` on a value with no unit is a `weft_value_error`. `fmt_pct()`
   and `fmt_p()` take none.
 
+- plus:
+
+  `TRUE` to print a number above zero with a plus sign (`fmt_num()`,
+  `fmt_pct()`, `fmt_range()`; the class `.plus`, rule 1.4.21). Zero and
+  a number that prints as zero have no sign; a negative number prints
+  the `minus` setting. Anything but `TRUE` or `FALSE` is a
+  `weft_construct_error`.
+
 - sep:
 
   The text between items of a collapse.
@@ -137,6 +159,14 @@ fmt_em(x)
   zero (`fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`, `fmt_ol()`,
   `fmt_dl()`). The default, `NULL`, makes an empty vector a
   `weft_no_value` error. `NULL` itself is always an error.
+
+- label:
+
+  For `fmt_p()`, the text before the relation: "q" prints "q = 0.046",
+  `""` prints "0.046". `NULL` takes the setting `p_label` (default "p").
+  With `digits`, `fmt_p()` takes a whole number from 1 to 6 (and the
+  setting `p_digits`): below 10^-digits it prints "p \< 0.001", above 1
+  less that "p \> 0.999", else that many decimals (rule 1.4.17).
 
 ## Value
 

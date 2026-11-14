@@ -11,7 +11,17 @@ of_n(k, n, singular, plural)
 
 about(x, to = 1/2, tolerance = NULL)
 
-ci(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL)
+ci(
+  est,
+  lo,
+  hi,
+  level = NULL,
+  digits = NULL,
+  sigfig = NULL,
+  plus = FALSE,
+  pct = FALSE,
+  short = NULL
+)
 
 pm(est, se, digits = NULL, sigfig = NULL)
 
@@ -53,6 +63,10 @@ clamp(x, floor = NULL, ceiling = NULL)
   Decimal places or significant figures, as for
   [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md).
 
+- plus, pct, short:
+
+  `TRUE` or `FALSE` (`short` also `NULL`) for `ci()`; see above.
+
 - floor, ceiling:
 
   The bounds of `clamp()`; `NULL` for none.
@@ -73,8 +87,12 @@ A `weft_text`.
   `tolerance` from `to` is a value error, because the sentence would be
   false. The default tolerance is the setting `about_tolerance` (0.05).
 
-- `ci(est, lo, hi, level, digits, sigfig)` prints "2.1 (95% CI 1.3 to
-  2.9)". The default level is the setting `ci_level` (0.95).
+- `ci(est, lo, hi, level, digits, sigfig, plus, pct, short)` prints "2.1
+  (95% CI 1.3 to 2.9)". The default level is the setting `ci_level`
+  (0.95). `plus = TRUE` signs the three numbers as `.plus` does;
+  `pct = TRUE` prints each as `.pct` does; `short = TRUE` (default: the
+  setting `ci_short`) leaves out "95% CI", and a `level` given with the
+  short form is a `weft_value_error`.
 
 - `pm(est, se, digits, sigfig)` prints the estimate, a plus-minus sign
   and the standard error. When `digits` and `sigfig` are not given and a

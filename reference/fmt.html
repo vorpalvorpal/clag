@@ -73,9 +73,16 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fmt_num</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">fmt_num</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  digits <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  plus <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_pct</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_pct</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, plus <span class="op">=</span> <span class="cn">FALSE</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_sci</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span></span>
@@ -98,11 +105,18 @@ Passing a <code>weft_text</code> to another formatter carries the record forward
 <span></span>
 <span><span class="fu">fmt_or</span><span class="op">(</span><span class="va">x</span>, sep <span class="op">=</span> <span class="st">", "</span>, last <span class="op">=</span> <span class="cn">NULL</span>, trunc <span class="op">=</span> <span class="cn">NULL</span>, none <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_p</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
+<span><span class="fu">fmt_p</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, label <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_date</span><span class="op">(</span><span class="va">x</span><span class="op">)</span></span>
 <span></span>
-<span><span class="fu">fmt_range</span><span class="op">(</span><span class="va">x</span>, digits <span class="op">=</span> <span class="cn">NULL</span>, sigfig <span class="op">=</span> <span class="cn">NULL</span>, unit <span class="op">=</span> <span class="cn">NULL</span>, unit_form <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span>
+<span><span class="fu">fmt_range</span><span class="op">(</span></span>
+<span>  <span class="va">x</span>,</span>
+<span>  digits <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  sigfig <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  unit_form <span class="op">=</span> <span class="cn">NULL</span>,</span>
+<span>  plus <span class="op">=</span> <span class="cn">FALSE</span></span>
+<span><span class="op">)</span></span>
 <span></span>
 <span><span class="fu">fmt_pairs</span><span class="op">(</span></span>
 <span>  <span class="va">x</span>,</span>
@@ -178,6 +192,13 @@ document's <code>lang</code> is not English. A form other than <code>"auto"</cod
 with no unit is a <code>weft_value_error</code>. <code>fmt_pct()</code> and <code>fmt_p()</code> take none.</p></dd>
 
 
+<dt id="arg-plus">plus<a class="anchor" aria-label="anchor" href="#arg-plus"></a></dt>
+<dd><p><code>TRUE</code> to print a number above zero with a plus sign (<code>fmt_num()</code>,
+<code>fmt_pct()</code>, <code>fmt_range()</code>; the class <code>.plus</code>, rule 1.4.21). Zero and a number
+that prints as zero have no sign; a negative number prints the <code>minus</code>
+setting. Anything but <code>TRUE</code> or <code>FALSE</code> is a <code>weft_construct_error</code>.</p></dd>
+
+
 <dt id="arg-sep">sep<a class="anchor" aria-label="anchor" href="#arg-sep"></a></dt>
 <dd><p>The text between items of a collapse.</p></dd>
 
@@ -198,6 +219,14 @@ given here is used as it is.</p></dd>
 length zero (<code>fmt_and()</code>, <code>fmt_or()</code>, <code>fmt_pairs()</code>, <code>fmt_ul()</code>,
 <code>fmt_ol()</code>, <code>fmt_dl()</code>). The default, <code>NULL</code>, makes an empty vector a
 <code>weft_no_value</code> error. <code>NULL</code> itself is always an error.</p></dd>
+
+
+<dt id="arg-label">label<a class="anchor" aria-label="anchor" href="#arg-label"></a></dt>
+<dd><p>For <code>fmt_p()</code>, the text before the relation: "q" prints "q =
+0.046", <code>""</code> prints "0.046". <code>NULL</code> takes the setting <code>p_label</code> (default
+"p"). With <code>digits</code>, <code>fmt_p()</code> takes a whole number from 1 to 6 (and
+the setting <code>p_digits</code>): below 10^-digits it prints "p &lt; 0.001", above 1
+less that "p &gt; 0.999", else that many decimals (rule 1.4.17).</p></dd>
 
 </dl></div>
     <div class="section level2">
