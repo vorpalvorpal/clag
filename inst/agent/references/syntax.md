@@ -20,12 +20,22 @@ weft reads inline R wherever knitr evaluates it: prose, a code span, a fenced
 block that is not a chunk, an HTML comment, math. Wrapping text in an HTML
 comment does not switch its values or checks off.
 
-Inside math (`$...$`) a class block is an error, because a formatter writes
-markdown and math is TeX. Format the value in the expression instead:
+Inside math (`$...$`, `$$...$$`, a math environment such as `align`) and raw
+LaTeX (a `{=latex}` fence, another `\begin{...}` environment) a class block
+writes TeX, not markdown:
 
 ```markdown
-$p = `r fmt_num(p_val, digits = 3)`$
+$a = `r x`{.num digits=2}$, $b = `r share`{.pct}$ -> $a = 8.23$, $b = 12.3\%$
 ```
+
+Use `.num`, `.pct`, `.sci`, `.p`, `.plus`, `.range` and the unit classes there.
+`.p` prints its own label, so write `` $`r p_val`{.p}$ ``. The words, emphasis
+and list classes (`.word`, `.count`, `.ord`, `.date`, `.a`, `.cap`, `.em`,
+`.strong`, `.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) are a construct error
+in math. A bare `` `r x` `` there prints as stock prints it, and `fmt_num(x)`
+in it writes markdown; for code that builds a formula, `fmt_num(x, target =
+"tex")` writes TeX. A project formatter needs `targets: [markdown, tex]` in
+`_weft.yml` to be used in math.
 
 ## Spans that choose wording
 
