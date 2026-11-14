@@ -522,8 +522,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     reg <- cfg$formatters
     # a unit's symbol keeps its case (4.4.16)
     if (symbol) own <- setdiff(own, ".cap")
-    tcl <- own[own %in% c(".a", ".cap", ".em", ".strong") |
-                 vapply(own, function(c) identical((reg[[c]] %||% list())[["stage"]], "text"), NA)]
+    tcl <- own[own %in% text_classes(reg)]
     if (!length(tcl) || !nzchar(text)) return(text)
     as.character(apply_formatters(text, tcl, list(), cfg))
   }
@@ -1007,11 +1006,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     hash <- ""
     if (len > 0L) {
       reg <- cfg$formatters
-      is_text <- cc$own %in% c(".a", ".cap", ".em", ".strong") |
-        vapply(cc$own, function(c) identical((reg[[c]] %||% list())[["stage"]], "text"), NA)
-      fcl <- cc$own[!is_text]
-      if (!length(intersect(fcl, c(COLLAPSE_CLASSES, names(reg)[vapply(
-          reg, function(r) identical(r[["stage"]], "collapse"), NA)])))) fcl <- c(fcl, ".and")
+      fcl <- cc$own[!(cc$own %in% text_classes(reg))]
+      if (!length(intersect(fcl, c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))))) fcl <- c(fcl, ".and")
       # a number vector with no number or wording class prints each element as
       # a bare value prints
       if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc)) {

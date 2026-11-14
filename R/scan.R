@@ -461,12 +461,19 @@ atom_end <- function(S, i) {
 
 # ---- arms (1.5.12, 1.5.14) ----------------------------------------------
 
-# Split the body `b1:b2` of a span. Returns the resolved arms, the position
-# of each separator, and whether a separator was written unescaped.
-split_arms <- function(S, b1, b2) {
+# Tokenise the arm text `a:b` of the scan: `|` and `#` and their escapes
+# (1.5.12), with an atom (code, math, link target) kept as one verbatim
+# token (1.5.14). With `items` (a data frame of `start`, `end`: constructs
+# and inline code whose output is filled in later) each item becomes the
+# sentinel `SENT_OPEN k SENT_CLOSE`, and an atom that holds an item is walked
+# through verbatim up to the item. Returns the token type ("t" text, "s"
+# separator, "h" hash), text, position and escaped flag, as vectors.
+arm_tokens <- function(S, a, b, items = NULL) {
   ch <- S$chars
-  tp <- character()   # token type: "t", "s", "h"
-  tv <- character()   # token text
+  istart <- items$start
+  iend <- items$end
+  tp <- character()
+  tv <- character()
   tpos <- integer()
   tesc <- logical()
   push <- function(type, val, pos, esc = FALSE) {
@@ -475,11 +482,24 @@ split_arms <- function(S, b1, b2) {
     tpos <<- c(tpos, pos)
     tesc <<- c(tesc, esc)
   }
-  i <- b1
-  while (i <= b2) {
+  is_item <- function(i) if (length(istart)) match(i, istart) else NA_integer_
+  i <- a
+  verbatim_to <- 0L
+  while (i <= b) {
+    k <- is_item(i)
+    if (!is.na(k)) {
+      push("t", paste0(SENT_OPEN, k, SENT_CLOSE), i)
+      i <- iend[k] + 1L
+      next
+    }
     c <- ch[i]
+    if (i <= verbatim_to) {
+      push("t", c, i)
+      i <- i + 1L
+      next
+    }
     if (c == "\\") {
-      nx <- if (i < b2) ch[i + 1L] else ""
+      nx <- if (i < b && is.na(is_item(i + 1L))) ch[i + 1L] else ""
       if (nx == "|") {
         push("s", "|", i, TRUE)   # at the backslash
       } else if (nx == "#") {
@@ -487,21 +507,34 @@ split_arms <- function(S, b1, b2) {
       } else {
         push("t", paste0(c, nx), i)
       }
-      i <- i + 2L
+      i <- i + 1L + nzchar(nx)
       next
     }
     if (c %in% c("`", "$", "[", "<")) {
       e <- if (c == "<") angle_end(S, i) else atom_end(S, i)
-      if (!is.na(e) && e <= b2) {
-        push("t", paste(ch[i:e], collapse = ""), i)
-        i <- e + 1L
+      if (!is.na(e) && e <= b) {
+        if (length(istart) && any(istart >= i & istart <= e)) {
+          verbatim_to <- e
+          push("t", c, i)
+        } else {
+          push("t", paste(ch[i:e], collapse = ""), i)
+          i <- e
+        }
+        i <- i + 1L
         next
       }
     }
     if (c == "|") push("s", "|", i) else if (c == "#") push("h", "#", i) else push("t", c, i)
     i <- i + 1L
   }
-  assemble_arms(tp, tv, tpos, tesc)
+  list(tp = tp, tv = tv, tpos = tpos, tesc = tesc)
+}
+
+# Split the body `b1:b2` of a span. Returns the resolved arms, the position
+# of each separator, and whether a separator was written unescaped.
+split_arms <- function(S, b1, b2) {
+  tk <- arm_tokens(S, b1, b2)
+  assemble_arms(tk$tp, tk$tv, tk$tpos, tk$tesc)
 }
 
 # Join the tokens of an arm body into arms: a run of `|` tokens gives pairs
@@ -556,65 +589,8 @@ assemble_arms <- function(tp, tv, tpos, tesc) {
 SENT_OPEN <- "\ue002"
 SENT_CLOSE <- "\ue003"
 arm_template_range <- function(S, a, b, items) {
-  ch <- S$chars
-  istart <- items$start
-  iend <- items$end
-  tp <- character()
-  tv <- character()
-  tpos <- integer()
-  tesc <- logical()
-  push <- function(type, val, pos, esc = FALSE) {
-    tp <<- c(tp, type)
-    tv <<- c(tv, val)
-    tpos <<- c(tpos, pos)
-    tesc <<- c(tesc, esc)
-  }
-  is_item <- function(i) if (length(istart)) match(i, istart) else NA_integer_
-  i <- a
-  verbatim_to <- 0L
-  while (i <= b) {
-    k <- is_item(i)
-    if (!is.na(k)) {
-      push("t", paste0(SENT_OPEN, k, SENT_CLOSE), i)
-      i <- iend[k] + 1L
-      next
-    }
-    c <- ch[i]
-    if (i <= verbatim_to) {
-      push("t", c, i)
-      i <- i + 1L
-      next
-    }
-    if (c == "\\") {
-      nx <- if (i < b && is.na(is_item(i + 1L))) ch[i + 1L] else ""
-      if (nx == "|") {
-        push("s", "|", i, TRUE)   # at the backslash
-      } else if (nx == "#") {
-        push("h", "#", i + 1L)
-      } else {
-        push("t", paste0(c, nx), i)
-      }
-      i <- i + 1L + nzchar(nx)
-      next
-    }
-    if (c %in% c("`", "$", "[", "<")) {
-      e <- if (c == "<") angle_end(S, i) else atom_end(S, i)
-      if (!is.na(e) && e <= b) {
-        if (length(istart) && any(istart >= i & istart <= e)) {
-          verbatim_to <- e
-          push("t", c, i)
-        } else {
-          push("t", paste(ch[i:e], collapse = ""), i)
-          i <- e
-        }
-        i <- i + 1L
-        next
-      }
-    }
-    if (c == "|") push("s", "|", i) else if (c == "#") push("h", "#", i) else push("t", c, i)
-    i <- i + 1L
-  }
-  asm <- assemble_arms(tp, tv, tpos, tesc)
+  tk <- arm_tokens(S, a, b, items)
+  asm <- assemble_arms(tk$tp, tk$tv, tk$tpos, tk$tesc)
   paste(asm$templates, collapse = "|")
 }
 
@@ -724,8 +700,7 @@ block_errors <- function(S, blk, kind) {
     e <- c(e, "Two ids in one block; an element has one id (rule 1.7.5).")
   }
   if (any(cls %in% LIST_CLASSES)) {
-    reg_text <- names(S$reg)[vapply(S$reg, function(r) identical(r[["stage"]], "text"), NA)]
-    tx <- c(intersect(cls, c(TEXT_CLASSES, reg_text)), intersect(lc, "trunc"))
+    tx <- c(intersect(cls, text_classes(S$reg)), intersect(lc, "trunc"))
     if (length(tx)) {
       e <- c(e, sprintf(paste0("`%s` makes a block, so a text class or `trunc` (`%s`) cannot ",
                                "go with it (rule 1.4.6)."),
@@ -752,8 +727,7 @@ block_errors <- function(S, blk, kind) {
     # `.val` is in the number stage's at-most-one group (N8), and takes no wording class
     grp[cls == ".val"] <- "number"
     if (".val" %in% cls) {
-      reg_wording <- names(S$reg)[vapply(S$reg, function(r) identical(r[["stage"]], "wording"), NA)]
-      wc <- intersect(cls, c(WORDING_CLASSES, reg_wording))
+      wc <- intersect(cls, c(WORDING_CLASSES, registered_classes(S$reg, "wording")))
       if (length(wc)) {
         e <- c(e, sprintf("`.val` prints a value as it is and cannot take `.%s` (rule 1.12.2).",
                           sub("^[.]", "", wc[1L])))
@@ -773,9 +747,7 @@ block_errors <- function(S, blk, kind) {
   # a spelled number takes the unit's name, so `.usym` cannot go with the
   # classes that spell one (1.4.19)
   spelling <- c(intersect(cls, c(".no", ".word", ".count")),
-                intersect(cls, names(S$reg))[vapply(intersect(cls, names(S$reg)), function(k) {
-                  identical(S$reg[[k]][["stage"]], "wording")
-                }, NA)])
+                intersect(cls, registered_classes(S$reg, "wording")))
   if (".usym" %in% cls && length(spelling)) {
     e <- c(e, sprintf("The unit class `.usym` with `%s` is an error: a spelled number takes the unit's name (rule 1.4.19).",
                       spelling[1L]))
@@ -794,8 +766,7 @@ block_errors <- function(S, blk, kind) {
     }
     fm <- intersect(cls, formatter_classes(S$reg))
     # a text-stage class acts on the chosen arm's final text (1.5.7, 1.4.8)
-    is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text & !(fm %in% c(".em", ".strong", ".plus", UNIT_CLASSES))]
+    fm <- fm[!(fm %in% c(registered_classes(S$reg, "text"), ".em", ".strong", ".plus", UNIT_CLASSES))]
     ky <- intersect(lc, RENDERER_KEYS)
     if (length(fm) || length(ky)) {
       e <- c(e, sprintf("A formatter on an `if` span is an error (rule 1.5.7): %s.",
@@ -818,9 +789,7 @@ block_errors <- function(S, blk, kind) {
   }
   if (".plus" %in% cls) {
     clash <- c(intersect(cls, PLUS_CLASH),
-               intersect(cls, names(S$reg))[vapply(intersect(cls, names(S$reg)), function(k) {
-                 identical(S$reg[[k]][["stage"]] %||% "number", "number")
-               }, NA)])
+               intersect(cls, registered_classes(S$reg, "number")))
     if (length(clash)) {
       e <- c(e, sprintf(paste0("`.plus` cannot go with `%s`: it signs a number that `.num` or `.pct` ",
                                "prints (rule 1.4.21)."), clash[1L]))
@@ -844,8 +813,7 @@ block_errors <- function(S, blk, kind) {
     nv <- blk$values[lc == "none"][1L]
     if (!kind %in% c("value", "named")) {
       e <- c(e, "The key `none` belongs on a value with a collapse class (stage 1h).")
-    } else if (!any(cls %in% c(COLLAPSE_CLASSES, names(S$reg)[vapply(
-        S$reg, function(r) identical(r[["stage"]], "collapse"), NA)]))) {
+    } else if (!any(cls %in% c(COLLAPSE_CLASSES, registered_classes(S$reg, "collapse")))) {
       e <- c(e, "The key `none` needs a collapse class (`.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`) on the value (stage 1h).")
     } else if (".range" %in% cls) {
       e <- c(e, "The key `none` does not apply to `.range`: a range has two ends (stage 1h).")
@@ -855,8 +823,7 @@ block_errors <- function(S, blk, kind) {
   }
   if (kind == "cite") {
     fm <- intersect(cls, formatter_classes(S$reg))
-    is_text <- vapply(fm, function(k) identical((S$reg[[k]] %||% list())[["stage"]], "text"), NA)
-    fm <- fm[!is_text & !(fm %in% c(".plus", UNIT_CLASSES))]
+    fm <- fm[!(fm %in% c(registered_classes(S$reg, "text"), ".plus", UNIT_CLASSES))]
     if (length(fm)) {
       e <- c(e, sprintf("A formatter class on a cite span is an error (rule 1.8.7): %s.",
                         paste(fm, collapse = " ")))
@@ -1354,7 +1321,8 @@ handle_bracket <- function(S, p, parent) {
     gov <- which(lc %in% GOVERNOR_KEYS)
     kind <- if (length(gov)) {
       lc[gov[1]]
-    } else if (any(blk$classes %in% c(".a", ".cap", ".strong", ".em")) || "none" %in% lc) {
+    } else if (any(blk$classes %in% TEXT_CLASSES) || "none" %in% lc) {
+      # a text span is decided by the shipped four only (rule 1.1.9)
       "text"
     } else if (".weft-literal" %in% blk$classes) {
       "literal"

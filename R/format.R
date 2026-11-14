@@ -32,6 +32,16 @@ class_group <- function(cls, reg = list()) {
   out
 }
 
+# The classes of the configuration's `formatters` registered at `stage`; a
+# class with no stage is a number-stage class (config.R fills it in).
+registered_classes <- function(reg, stage) {
+  if (!length(reg)) return(character())
+  names(reg)[vapply(reg, function(r) identical(r[["stage"]] %||% "number", stage), NA)]
+}
+
+# The text classes: the four shipped and those registered at the text stage.
+text_classes <- function(reg = list()) c(TEXT_CLASSES, registered_classes(reg, "text"))
+
 # Every formatter class: those that make a construct a formatted one.
 formatter_classes <- function(reg = list()) {
   c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, UNIT_CLASSES, ".plus", names(reg))
@@ -574,6 +584,21 @@ add_serial_comma <- function(last, mark = ",") {
   if (grepl("^[ ]*,", last)) last else paste0(mark, last)
 }
 
+# What a unit adds to a number: its suffix (a no-break space, then the unit)
+# or, when `before` is set, its prefix (4.4.22). `form` is "name" or "symbol"
+# and not `NA`; `word` is a spelled number, which keeps its space before a
+# symbol written first.
+unit_affix <- function(un, form, plural, before, word, cfg, lang) {
+  if (before) {
+    txt <- if (form == "name") unit_name_text(un, plural, cfg, lang) else unit_symbol_text(un, plural, cfg, lang)
+    paste0(txt, if (form == "name" || word || unit_space(un, cfg)) UNIT_SEP else "")
+  } else if (form == "name") {
+    paste0(UNIT_SEP, unit_name_text(un, plural, cfg, lang))
+  } else {
+    paste0(if (unit_space(un, cfg)) UNIT_SEP else "", unit_symbol_text(un, plural, cfg, lang))
+  }
+}
+
 # The mark before the last joiner: the separator without its trailing spaces
 # (", " gives ","; "; " gives ";").
 serial_mark <- function(sep) sub("[ \t]+$", "", sep)
@@ -608,10 +633,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   keys <- keys[!vapply(keys, is.null, NA)]
   if (inherits(value, "POSIXlt")) value <- as.POSIXct(value)
   check_one_unit(value)
-  proj <- function(stage) {
-    nm <- intersect(classes, names(reg))
-    nm[vapply(nm, function(k) identical(reg[[k]][["stage"]] %||% "number", stage), NA)]
-  }
+  proj <- function(stage) intersect(classes, registered_classes(reg, stage))
   # the form a unit is asked to print in at the use: a unit class, or the
   # `unit_form` of a function (4.4.15)
   explicit <- unit_class_form(classes)
@@ -697,9 +719,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # or wording class on it is a value error (1.4.1, 1.4.12)
   if (isTRUE(attr(value, "phrase"))) {
     bad_cls <- c(intersect(classes, c(NUMBER_CLASSES, ".no", WORDING_CLASSES, ".plus")),
-                 intersect(classes, names(reg))[vapply(intersect(classes, names(reg)), function(k) {
-                   !identical(reg[[k]][["stage"]] %||% "number", "text")
-                 }, NA)])
+                 setdiff(intersect(classes, names(reg)), registered_classes(reg, "text")))
     if (length(bad_cls) || !is.null(keys$digits) || !is.null(keys$sigfig) || !is.null(keys$unit)) {
       value_error(sprintf(
         "`%s` cannot format \"%s\": it is finished wording, not a number (rules 1.4.1, 1.4.12).",
@@ -1003,11 +1023,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (is.na(form) || unit_pre) return("")
     key <- paste(form, plural)
     if (!is.null(memo[[key]])) return(memo[[key]])
-    out <- if (form == "name") {
-      paste0(UNIT_SEP, unit_name_text(un, plural, cfg, lang))
-    } else {
-      paste0(if (unit_space(un, cfg)) UNIT_SEP else "", unit_symbol_text(un, plural, cfg, lang))
-    }
+    out <- unit_affix(un, form, plural, FALSE, FALSE, cfg, lang)
     memo[[key]] <- out
     out
   }
@@ -1018,8 +1034,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (is.na(form) || !unit_pre) return("")
     key <- paste("pre", form, plural, word)
     if (!is.null(memo[[key]])) return(memo[[key]])
-    txt <- if (form == "name") unit_name_text(un, plural, cfg, lang) else unit_symbol_text(un, plural, cfg, lang)
-    out <- paste0(txt, if (form == "name" || word || unit_space(un, cfg)) UNIT_SEP else "")
+    out <- unit_affix(un, form, plural, TRUE, word, cfg, lang)
     memo[[key]] <- out
     out
   }
@@ -1032,22 +1047,30 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   out_suffix <- if (unit_pre) elem_pre else elem_suffix
   if (pass_text && length(attr(orig_text, "unit_suffix")) == n_el) out_suffix <- attr(orig_text, "unit_suffix")
 
+  # `.range` makes one printed range of its two ends (1.5.11): the unit goes
+  # once, in the last end's form, and is plural unless both ends print "1"
+  range_text <- function() {
+    lf <- forms[n_el]
+    one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
+    txt <- collapse_range(text, number, cfg, raw, plus = ".plus" %in% classes)
+    sfx <- suffix_of(lf, !one_printed)
+    pre <- prefix_of(lf, !one_printed, spelled[n_el])
+    list(text = paste0(pre, txt, sfx), suffix = if (unit_pre) pre else sfx, forms = lf,
+         placed = !is.na(lf), one_printed = one_printed)
+  }
+
   collapsed <- FALSE
   if (governor) {
     # a governor is never collapsed, except that `.range` makes one printed
     # range of its two ends (1.5.11): the span takes the plural unless both
     # ends print "1"
     if (".range" %in% classes) {
-      lf <- forms[n_el]
-      one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
-      text <- collapse_range(text, number, cfg, raw, plus = ".plus" %in% classes)
-      out_suffix <- suffix_of(lf, !one_printed)
-      out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
-      out_forms <- lf
-      text <- paste0(out_pre, text, out_suffix)
-      if (unit_pre) out_suffix <- out_pre
-      placed <- !is.na(lf)
-      number <- if (one_printed) 1 else NA_real_
+      rg <- range_text()
+      text <- rg$text
+      out_suffix <- rg$suffix
+      out_forms <- rg$forms
+      placed <- rg$placed
+      number <- if (rg$one_printed) 1 else NA_real_
       decimals <- FALSE
       relation <- "="
       raw <- NA_real_
@@ -1068,15 +1091,11 @@ apply_formatters <- function(value, classes = character(), keys = list(),
         out_forms <- forms[n_el]
         out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
       } else if (cl == ".range") {
-        lf <- forms[n_el]
-        one_printed <- n_el == 2L && identical(text[1L], text[2L]) && is_one[1L]
-        text <- collapse_range(text, number, cfg, raw, plus = ".plus" %in% classes)
-        out_suffix <- suffix_of(lf, !one_printed)
-        out_pre <- prefix_of(lf, !one_printed, spelled[n_el])
-        out_forms <- lf
-        text <- paste0(out_pre, text, out_suffix)
-        if (unit_pre) out_suffix <- out_pre
-        placed <- !is.na(lf)
+        rg <- range_text()
+        text <- rg$text
+        out_suffix <- rg$suffix
+        out_forms <- rg$forms
+        placed <- rg$placed
       } else if (cl %in% c(".pairs", ".dl")) {
         placed <- any(!is.na(forms))
         text <- add_unit(text)
@@ -1163,7 +1182,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
   if (!governor) {
-    tc <- union(prior_tc, intersect(classes, c(".a", ".cap", ".em", ".strong", proj("text"))))
+    tc <- union(prior_tc, intersect(classes, text_classes(reg)))
     if (length(tc)) attr(out, "text_classes") <- tc
     if (was_symbol) attr(out, "is_symbol") <- TRUE
   }
@@ -1489,15 +1508,10 @@ glue_vec <- function(x, sep = ", ", last = " and ") {
   before <- placed && unit_before(un, cfg)
   if (before) {
     # a unit written before its number goes once before the first item (4.4.22)
-    suf <- paste0(if (form == "name") unit_name_text(un, !one, cfg, lang) else unit_symbol_text(un, !one, cfg, lang),
-                  if (form == "name" || unit_space(un, cfg)) UNIT_SEP else "")
+    suf <- unit_affix(un, form, !one, TRUE, FALSE, cfg, lang)
     x[1L] <- paste0(suf, x[1L])
   } else if (placed) {
-    suf <- if (form == "name") {
-      paste0(UNIT_SEP, unit_name_text(un, !one, cfg, lang))
-    } else {
-      paste0(if (unit_space(un, cfg)) UNIT_SEP else "", unit_symbol_text(un, !one, cfg, lang))
-    }
+    suf <- unit_affix(un, form, !one, FALSE, FALSE, cfg, lang)
     x[n] <- paste0(x[n], suf)
   }
   out <- if (n == 1L) {
