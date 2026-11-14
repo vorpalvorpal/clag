@@ -47,11 +47,13 @@ the line only when it holds an R construct: an R value (\verb{`r x`\{.num\}})
 or a span whose governor is outside the grammar of the filter. A page of
 named values (\verb{`depth`\{.num\}}) and spans of that grammar, or with no
 construct, stays as it is.
-\item for an \code{.Rmd} outside a Quarto project, \code{weft.lua}, \code{weft-check.lua} and
-the folder \verb{weftlib/} beside the document (weft's own files: kept when
-identical, replaced when they differ) and, under each format of
-\verb{output:}, \verb{pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]}. A document set up before named values, which names
-only \code{weft-check.lua}, gets \code{weft.lua} named before it.
+\item for an \code{.Rmd} outside a Quarto project, \code{weft.lua}, \code{weft-check.lua},
+\code{weft-output.lua} and the folder \verb{weftlib/} beside the document (weft's
+own files: kept when identical, replaced when they differ) and, under
+each format of \verb{output:}, \verb{pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]}.
+A document set up before named values, which names only \code{weft-check.lua},
+gets \code{weft.lua} named before it; one set up before the rendered-output
+check gets \code{weft-output.lua} named last.
 }
 
 Front matter is edited as text and checked by parsing it again. When an

@@ -10,6 +10,7 @@ quarto_copies <- function() {
     "_extensions/weft-check/weft.lua"       = "weft.lua",
     stats::setNames(file.path("weftlib", libs), file.path("_extensions/weft-check/weftlib", libs)),
     "_extensions/weft-check/weft-check.lua" = "weft-check.lua",
+    "_extensions/weft-check/weft-output.lua" = "weft-output.lua",
     "_weft/pre-render.R"                    = "weft-pre-render.R",
     "_weft/post-render.R"                   = "weft-post-render.R")
 }
@@ -237,8 +238,9 @@ quarto_plan <- function(qroot) {
   if (is.null(quarto_yml_with_weft(old))) {
     tool_abort(paste0("weft cannot edit ", basename(qy), " as text without risking what is in it, so it ",
                       "has changed nothing. Add these lines by hand, then run use_weft() again:\n\n",
-                      paste(c("filters:", "  - weft-check", "project:", "  pre-render: _weft/pre-render.R",
-                              "  post-render: _weft/post-render.R"), collapse = "\n")))
+                      paste(c("filters:", "  - weft-check", weft_output_entry, "project:",
+                              "  pre-render: _weft/pre-render.R", "  post-render: _weft/post-render.R"),
+                            collapse = "\n")))
   }
   out <- character()
   copies <- quarto_copies()
@@ -493,7 +495,10 @@ status_quarto <- function(root) {
   entries <- !is.null(new) && identical(new, old)
   if (length(missing) || !entries) {
     what <- c(if (length(missing)) paste("missing:", paste(missing, collapse = ", ")),
-              if (!entries) sprintf("%s lacks the weft entries", basename(qy)))
+              if (!entries) sprintf("%s lacks the weft entries%s", basename(qy),
+                                    if (!quarto_yml_has_output(old)) {
+                                      " (the weft-output.lua filter entry, `at: post-render`)"
+                                    } else ""))
     return(list(state = "missing", detail = paste(what, collapse = "; ")))
   }
   if (length(differs)) {

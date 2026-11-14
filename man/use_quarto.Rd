@@ -24,12 +24,16 @@ writes anything.
 \details{
 It writes:
 \itemize{
-\item \verb{_extensions/weft-check/_extension.yml} and \code{weft-check.lua}
+\item \verb{_extensions/weft-check/_extension.yml}, \code{weft-check.lua} and
+\code{weft-output.lua} (the rendered-output check, rule 2.5.5)
 \item \verb{_weft/pre-render.R} and \verb{_weft/post-render.R}
 \item \verb{_weft.yml}, only when there is none (empty but for a comment)
 }
 
-and edits \verb{_quarto.yml}: \code{weft-check} is added under \verb{filters:}, and the
+and edits \verb{_quarto.yml}: \code{weft-check} is added under \verb{filters:}, then a
+\verb{path: _extensions/weft-check/weft-output.lua} entry with \code{at: post-render}
+(an extension cannot place a filter after Quarto's own; a project set up
+before this check gets the entry when \code{use_quarto()} is run again), and the
 two scripts under \verb{project: pre-render:} and \verb{post-render:}. The file is
 edited as text, line by line, and never rewritten from parsed YAML: every
 other line, comments and anchors included, stays as it was. When the edit

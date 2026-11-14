@@ -36,7 +36,8 @@ RPROFILE_SOURCE <- paste0("# R reads this file instead of your ~/.Rprofile; ",
 RPROFILE_HOME <- "if (file.exists(\"~/.Rprofile\")) source(\"~/.Rprofile\")"
 RPROFILE_ACTIVATE <- "if (requireNamespace(\"weft\", quietly = TRUE)) weft::weft_setup()"
 FM_WEFT_LINE <- "weft: !expr weft::weft_setup()"
-FM_FILTER_ARGS <- "pandoc_args: [\"--lua-filter\", \"weft.lua\", \"--lua-filter\", \"weft-check.lua\"]"
+FM_FILTER_ARGS <- paste0("pandoc_args: [\"--lua-filter\", \"weft.lua\", \"--lua-filter\", \"weft-check.lua\", ",
+                         "\"--lua-filter\", \"weft-output.lua\"]")
 # what use_setup() wrote before named values: the check alone
 FM_FILTER_ARGS_OLD <- "pandoc_args: [\"--lua-filter\", \"weft-check.lua\"]"
 
@@ -72,12 +73,14 @@ FM_FILTER_ARGS_OLD <- "pandoc_args: [\"--lua-filter\", \"weft-check.lua\"]"
 #'   or a span whose governor is outside the grammar of the filter. A page of
 #'   named values (`` `depth`{.num} ``) and spans of that grammar, or with no
 #'   construct, stays as it is.
-#' * for an `.Rmd` outside a Quarto project, `weft.lua`, `weft-check.lua` and
-#'   the folder `weftlib/` beside the document (weft's own files: kept when
-#'   identical, replaced when they differ) and, under each format of
-#'   `output:`, `pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter",
-#'   "weft-check.lua"]`. A document set up before named values, which names
-#'   only `weft-check.lua`, gets `weft.lua` named before it.
+#' * for an `.Rmd` outside a Quarto project, `weft.lua`, `weft-check.lua`,
+#'   `weft-output.lua` and the folder `weftlib/` beside the document (weft's
+#'   own files: kept when identical, replaced when they differ) and, under
+#'   each format of `output:`, `pandoc_args: ["--lua-filter", "weft.lua",
+#'   "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]`.
+#'   A document set up before named values, which names only `weft-check.lua`,
+#'   gets `weft.lua` named before it; one set up before the rendered-output
+#'   check gets `weft-output.lua` named last.
 #'
 #' Front matter is edited as text and checked by parsing it again. When an
 #' edit cannot be made safely (flow-style `knitr:` or `pandoc_args`, a YAML
@@ -250,8 +253,11 @@ setup_plan <- function(path, route) {
 
   # the filters, beside each .Rmd that names them: weft.lua with its weftlib/, and weft-check.lua
   if (length(lua_dirs)) {
-    srcs <- c("weft-check.lua" = system.file("quarto", "weft-check.lua", package = "weft"))
-    if (!nzchar(srcs[[1L]])) tool_abort("weft's own file inst/quarto/weft-check.lua is missing.")
+    srcs <- c("weft-check.lua" = system.file("quarto", "weft-check.lua", package = "weft"),
+              "weft-output.lua" = system.file("quarto", "weft-output.lua", package = "weft"))
+    for (nm in names(srcs)) {
+      if (!nzchar(srcs[[nm]])) tool_abort(sprintf("weft's own file inst/quarto/%s is missing.", nm))
+    }
     # weft.lua and weftlib/ are the resolver's own files (N80): copied when the package ships them
     qd <- system.file("quarto", package = "weft")
     lua <- file.path(qd, "weft.lua")
@@ -264,6 +270,7 @@ setup_plan <- function(path, route) {
         src <- srcs[[rel_name]]
         check_place(dest)
         what <- if (identical(rel_name, "weft-check.lua")) "the weft-check filter for rmarkdown" else
+          if (identical(rel_name, "weft-output.lua")) "the rendered-output check for rmarkdown" else
           "the weft filter for rmarkdown"
         if (!file.exists(dest)) {
           add(dest, character(), "new", what, copy_from = src)
@@ -293,7 +300,7 @@ fm_parse <- function(fm) {
 fm_hand_opts <- c("knitr:", "  opts_knit:", paste0("    ", FM_WEFT_LINE))
 fm_hand_filter <- c("output:", "  html_document:", paste0("    ", FM_FILTER_ARGS),
                     paste0("(under each format of `output:`; add \"--lua-filter\", \"weft.lua\", \"--lua-filter\" and ",
-                           "\"weft-check.lua\" to its pandoc_args)"))
+                           "\"weft-check.lua\", \"--lua-filter\" and \"weft-output.lua\" to its pandoc_args)"))
 
 fm_inline <- function(line) {
   trimws(sub("(^|\\s+)#.*$", "", sub("^[^:]*:", "", line)))
@@ -423,11 +430,12 @@ lua_filter_at <- function(args, file) {
   which(a[-length(a)] == "--lua-filter" & a[-1L] == file)
 }
 
-# Does pandoc_args name weft.lua and then weft-check.lua (N74).
+# Does pandoc_args name weft.lua, then weft-check.lua, then weft-output.lua (N74, N50).
 filter_in_args <- function(args) {
   w <- lua_filter_at(args, "weft.lua")
   k <- lua_filter_at(args, "weft-check.lua")
-  length(w) > 0L && length(k) > 0L && min(w) < max(k)
+  o <- lua_filter_at(args, "weft-output.lua")
+  length(w) > 0L && length(k) > 0L && length(o) > 0L && min(w) < max(k) && max(k) < max(o)
 }
 
 fm_add_filter <- function(fm, y) {
@@ -477,8 +485,11 @@ fm_add_filter <- function(fm, y) {
     pi <- pi[1]
     # set up before named values: weft-check.lua alone, so weft.lua goes in before it
     old_only <- length(lua_filter_at(args, "weft-check.lua")) > 0L && !length(lua_filter_at(args, "weft.lua"))
+    has_out <- length(lua_filter_at(args, "weft-output.lua")) > 0L
     if (nzchar(fm_inline(fm[pi]))) {
-      if (old_only && identical(gsub("\\s+", "", fm_inline(fm[pi])), "[\"--lua-filter\",\"weft-check.lua\"]")) {
+      flat <- gsub("\\s+", "", fm_inline(fm[pi]))
+      if (flat %in% c("[\"--lua-filter\",\"weft-check.lua\"]",
+                      "[\"--lua-filter\",\"weft.lua\",\"--lua-filter\",\"weft-check.lua\"]")) {
         fm[pi] <- paste0(fm_pad(fc), FM_FILTER_ARGS)
         next
       }
@@ -496,12 +507,22 @@ fm_add_filter <- function(fm, y) {
       at <- items[match(k[1L], items) - 1L]
       fm <- append(fm, c(paste0(fm_pad(yml_indent(fm[at])), "- \"--lua-filter\""),
                          paste0(fm_pad(yml_indent(fm[at])), "- \"weft.lua\"")), after = at - 1L)
+      pend <- pend + 2L
+    }
+    if (old_only || length(lua_filter_at(args, "weft-check.lua")) > 0L) {
+      # the resolver and the check are named: the output check goes last
+      if (!has_out) {
+        fm <- append(fm, c(paste0(fm_pad(ipad), "- \"--lua-filter\""),
+                           paste0(fm_pad(ipad), "- \"weft-output.lua\"")), after = pend)
+      }
       next
     }
     fm <- append(fm, c(paste0(fm_pad(ipad), "- \"--lua-filter\""),
                        paste0(fm_pad(ipad), "- \"weft.lua\""),
                        paste0(fm_pad(ipad), "- \"--lua-filter\""),
-                       paste0(fm_pad(ipad), "- \"weft-check.lua\"")), after = pend)
+                       paste0(fm_pad(ipad), "- \"weft-check.lua\""),
+                       paste0(fm_pad(ipad), "- \"--lua-filter\""),
+                       paste0(fm_pad(ipad), "- \"weft-output.lua\"")), after = pend)
   }
   fm
 }

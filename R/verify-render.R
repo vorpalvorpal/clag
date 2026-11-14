@@ -157,7 +157,7 @@ freeze_backup <- function(root, stems, all_stems, run) {
 
 # ---- running a child ----------------------------------------------------------------------------------
 
-verify_run <- function(cmd, args, root, run, log) {
+verify_run <- function(cmd, args, root, run, log, output_log = NULL) {
   old <- setwd(root)
   on.exit(setwd(old), add = TRUE)
   # Every reader takes `.weft/run` before WEFT_RUN (stage 6 ruling 17, D22), so the run is written there
@@ -170,7 +170,9 @@ verify_run <- function(cmd, args, root, run, log) {
   write_lines_atomic(c(run, old_run[-1L]), f)
   if (!had) on.exit(unlink(f), add = TRUE)
   # set here, not through system2()'s `env =`, which Windows ignores for most commands
-  st <- withr::with_envvar(c(WEFT_RUN = run),
+  ev <- c(WEFT_RUN = run)
+  if (!is.null(output_log)) ev[["WEFT_OUTPUT_LOG"]] <- output_log
+  st <- withr::with_envvar(ev,
                            suppressWarnings(system2(cmd, shQuote(args), stdout = log, stderr = log)))
   if (is.null(st)) 0L else as.integer(st)
 }
@@ -207,6 +209,9 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
   one <- tempfile("weft-verify-doc-", fileext = ".log")
   on.exit(unlink(one), add = TRUE)
   all_log <- character()
+  # N57: the rendered-output filter appends each finding to this file as a JSON line
+  olog <- tempfile("weft-verify-output-", fileext = ".jsonl")
+  on.exit(unlink(olog), add = TRUE)
   if (quarto_mode) {
     q <- verify_quarto_path()
     if (is.na(q)) {
@@ -246,7 +251,7 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
                                 julia))
     }
     for (cl in calls) {
-      s <- verify_run(q, c("render", cl, "--execute-daemon-restart"), root, run, one)
+      s <- verify_run(q, c("render", cl, "--execute-daemon-restart"), root, run, one, olog)
       if (file.exists(one)) all_log <- c(all_log, readLines(one, warn = FALSE))
       if (s != 0L) status <- s
     }
@@ -256,7 +261,7 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
     rs <- file.path(R.home("bin"), "Rscript")
     for (rel in docs) {
       expr <- sprintf("rmarkdown::render(%s, quiet = TRUE)", deparse(rel))
-      s <- verify_run(rs, c("-e", expr), root, run, one)
+      s <- verify_run(rs, c("-e", expr), root, run, one, olog)
       if (file.exists(one)) all_log <- c(all_log, readLines(one, warn = FALSE))
       if (s != 0L) status <- s
     }
@@ -283,7 +288,35 @@ verify_render <- function(root, docs, files_rel, cfg, all_docs = docs) {
                                      length(unexec)))
   }
   list(status = status, knit = knit, unexecuted = unexec, unfresh = stamps$unfresh, log = logl, detail = detail,
-       notes = notes)
+       notes = notes, output = verify_read_output(olog))
+}
+
+# ---- the rendered-output findings (N57) -----------------------------------------------------------------
+
+VERIFY_OUTPUT_COLS <- c("file", "format", "kind", "level", "section", "text", "excerpt")
+
+verify_empty_output <- function() {
+  x <- lapply(VERIFY_OUTPUT_COLS, function(i) character())
+  names(x) <- VERIFY_OUTPUT_COLS
+  as.data.frame(x, stringsAsFactors = FALSE)
+}
+
+# The findings the output filter appended to `path`, one row per JSON line of source "output".
+verify_read_output <- function(path) {
+  out <- verify_empty_output()
+  if (!file.exists(path)) return(out)
+  lines <- readLines(path, warn = FALSE, encoding = "UTF-8")
+  rows <- list()
+  for (l in lines[nzchar(trimws(lines))]) {
+    r <- tryCatch(jsonlite::fromJSON(l, simplifyVector = FALSE), error = function(e) NULL)
+    if (!is.list(r) || !identical(r$source, "output")) next
+    ch <- function(k) if (is.null(r[[k]]) || is.na(r[[k]])) "" else as.character(r[[k]])
+    rows[[length(rows) + 1L]] <- data.frame(file = ch("file"), format = ch("format"), kind = ch("kind"),
+                                           level = ch("level"), section = ch("section"), text = ch("text"),
+                                           excerpt = ch("excerpt"), stringsAsFactors = FALSE)
+  }
+  if (length(rows)) out <- do.call(rbind, rows)
+  out
 }
 
 # Does a document use the julia engine: `engine: julia` in its front matter, or a julia chunk?

@@ -69,7 +69,8 @@ local({
          text = field(l, "text"),
          file = field(l, "file"), line = ln, chunk = field(l, "chunk"),
          expr = field(l, "expr"), detail = detail, hint = field(l, "hint"),
-         option = field(l, "option"), chunk_line = suppressWarnings(as.integer(field(l, "chunk_line"))))
+         option = field(l, "option"), chunk_line = suppressWarnings(as.integer(field(l, "chunk_line"))),
+         format = field(l, "format"), section = field(l, "section"), excerpt = field(l, "excerpt"))
   }
   relpath <- function(f) {
     if (is.na(f)) return(f)
@@ -88,6 +89,25 @@ local({
   cl <- rd(coll)
   recs <- lapply(cl[grepl("\"source\":", cl, fixed = TRUE)], record)
   for (i in seq_along(recs)) recs[[i]]$file <- relpath(recs[[i]]$file)
+
+  # the rendered-output check (source "output", N56): one entry for the same file, kind, text and section
+  # found in several formats, the formats joined in the order they were found
+  merged <- list()
+  keys <- character()
+  for (r in recs) {
+    if (!identical(r$source, "output")) { merged[[length(merged) + 1L]] <- r; keys <- c(keys, NA_character_); next }
+    k <- paste(r$file, r$kind, r$text, r$section, r$level, sep = "\r")
+    j <- match(k, keys)
+    if (is.na(j)) {
+      r$formats <- if (is.na(r$format)) character() else r$format
+      merged[[length(merged) + 1L]] <- r
+      keys <- c(keys, k)
+    } else if (!is.na(r$format) && !(r$format %in% merged[[j]]$formats)) {
+      merged[[j]]$formats <- c(merged[[j]]$formats, r$format)
+    }
+  }
+  recs <- merged
+  had_output <- any(vapply(recs, function(r) identical(r$source, "output"), NA))
 
   # ---- documents served from freeze ------------------------------------------
   frozen <- list()
@@ -176,7 +196,32 @@ local({
                                       if (!is.na(r$option)) paste0(", ", r$option) else "")
     else f
   }
+  # E21 to E24: what an output finding says
+  output_detail <- function(r) {
+    if (identical(r$kind, "unresolved reference")) {
+      if (startsWith(r$text, "?@")) {
+        id <- substring(r$text, 3L)
+        return(sprintf("Quarto could not resolve the reference `@%s`, and printed \"?@%s\" (rule 2.5.5).", id, id))
+      }
+      key <- substring(r$text, 2L)
+      return(sprintf("the shortcode value `%s` was not found, and printed \"?%s\" (rule 2.5.5).", key, key))
+    }
+    if (identical(r$kind, "missing value in output")) {
+      return(sprintf("\"%s\" in the rendered prose: a value printed as missing. Mark a deliberate one [%s]{.weft-literal why=\"...\"} (rule 2.5.5).",
+                     r$text, r$text))
+    }
+    sprintf("\"%s\" in the rendered text: markup that Pandoc did not read (rule 2.5.5).", r$text)
+  }
+  output_entry <- function(r) {
+    f <- if (is.na(r$file)) "<unknown>" else r$file
+    fm <- if (length(r$formats)) paste0(" (", paste(r$formats, collapse = ", "), ")") else ""
+    c(sprintf("  %s%s%s  [%s] %s", f, if (!is.na(r$section) && nzchar(r$section)) paste0(" #", r$section) else "",
+              fm, r$kind, r$text),
+      if (!is.na(r$excerpt) && nzchar(r$excerpt)) paste0("      ", r$excerpt),
+      paste0("    ", output_detail(r)))
+  }
   entry <- function(r, tag = FALSE) {
+    if (identical(r$source, "output")) return(output_entry(r))
     head <- sprintf("  %s  %s%s", where(r), if (tag) paste0("[", r$kind, "] ") else "",
                     if (is.na(r$expr)) "" else r$expr)
     det <- if (is.na(r$detail)) character() else strsplit(r$detail, "\n", fixed = TRUE)[[1]]
@@ -221,6 +266,9 @@ local({
   }
 
   unlink(c(coll, runf))
+  # Quarto ends its own warnings with a colour-reset code and no newline (measured), which would sit in front
+  # of the first line of the report: an output-check render has such warnings, so the report starts on a new line
+  if (length(out) && had_output) out <- c("", out)
   if (length(out)) cat(out, sep = "\n", file = stderr())
   if (!length(fails)) return(invisible())
 

@@ -7,11 +7,15 @@
 #'
 #' It writes:
 #'
-#' * `_extensions/weft-check/_extension.yml` and `weft-check.lua`
+#' * `_extensions/weft-check/_extension.yml`, `weft-check.lua` and
+#'   `weft-output.lua` (the rendered-output check, rule 2.5.5)
 #' * `_weft/pre-render.R` and `_weft/post-render.R`
 #' * `_weft.yml`, only when there is none (empty but for a comment)
 #'
-#' and edits `_quarto.yml`: `weft-check` is added under `filters:`, and the
+#' and edits `_quarto.yml`: `weft-check` is added under `filters:`, then a
+#' `path: _extensions/weft-check/weft-output.lua` entry with `at: post-render`
+#' (an extension cannot place a filter after Quarto's own; a project set up
+#' before this check gets the entry when `use_quarto()` is run again), and the
 #' two scripts under `project: pre-render:` and `post-render:`. The file is
 #' edited as text, line by line, and never rewritten from parsed YAML: every
 #' other line, comments and anchors included, stays as it was. When the edit
@@ -55,8 +59,9 @@ use_quarto <- function(path = ".") {
   if (is.null(new)) {
     tool_abort(paste0("use_quarto(): weft cannot edit ", yml_name, " as text without risking what is in it, so it has ",
                       "changed nothing. Add these lines by hand, then run use_quarto() again:\n\n",
-                      paste(c("filters:", "  - weft-check", "project:", "  pre-render: _weft/pre-render.R",
-                              "  post-render: _weft/post-render.R"), collapse = "\n"),
+                      paste(c("filters:", "  - weft-check", weft_output_entry, "project:",
+                              "  pre-render: _weft/pre-render.R", "  post-render: _weft/post-render.R"),
+                            collapse = "\n"),
                       "\n\n(merge them into the `filters:` and `project:` entries the file already has; ",
                       "each of those holds a list, and `weft-check` and the two scripts go into it.)"))
   }
@@ -86,11 +91,12 @@ use_quarto <- function(path = ".") {
 
   message("weft will write, under ", path, ":")
   message("  _extensions/weft-check/_extension.yml, weft.lua, weftlib/ and weft-check.lua  (the weft filters)")
+  message("  _extensions/weft-check/weft-output.lua  (the rendered-output check; it runs after Quarto's own filters)")
   message("  _weft/pre-render.R   (fails a .qmd with constructs and no `engine: knitr`; opens .weft/failures.jsonl)")
   message("  _weft/post-render.R  (reports what the render collected)")
   message(if (make_weft_yml) "  _weft.yml  (new, empty but for a comment)"
           else "  _weft.yml  (exists: left as it is)")
-  message("  ", yml_name, "  (adds the filter weft-check, and the two scripts under project:)")
+  message("  ", yml_name, "  (adds the filter weft-check, the weft-output.lua filter entry, and the two scripts under project:)")
 
   written <- character()
   failed <- function(rel) {
@@ -194,6 +200,17 @@ status_python <- function(root) {
 
 # ---- editing _quarto.yml ----------------------------------------------------
 
+weft_output_path <- "_extensions/weft-check/weft-output.lua"
+# the filters: item that runs the rendered-output check, as it is written (a mapping, not a scalar)
+weft_output_entry <- c(paste0("  - path: ", weft_output_path), "    at: post-render")
+
+# does the `filters:` of _quarto.yml hold the output entry (as a mapping with this path)?
+quarto_yml_has_output <- function(lines) {
+  y <- tryCatch(yaml_read_text(c(lines, "")), error = function(e) NULL)
+  if (!is.list(y)) return(FALSE)
+  any(vapply(as.list(y$filters), function(f) is.list(f) && identical(f$path, weft_output_path), NA))
+}
+
 weft_pre_entry  <- "_weft/pre-render.R"
 weft_post_entry <- "_weft/post-render.R"
 
@@ -212,7 +229,8 @@ quarto_yml_with_weft <- function(lines) {
   if (!is.null(y$project) && !is.list(y$project)) return(NULL)
   as_chr <- function(x) as.character(unlist(x))
   need <- list(
-    filters = !"weft-check" %in% as_chr(y$filters),
+    filters = !"weft-check" %in% as.character(unlist(Filter(is.character, as.list(y$filters)))),
+    output  = !quarto_yml_has_output(lines),
     pre     = !any(as_chr(y$project[["pre-render"]]) == weft_pre_entry),
     post    = !any(as_chr(y$project[["post-render"]]) == weft_post_entry)
   )
@@ -221,6 +239,7 @@ quarto_yml_with_weft <- function(lines) {
   tryCatch({
     x <- lines
     if (need$filters) x <- yml_add_item(x, character(), "filters", "weft-check")
+    if (need$output) x <- yml_add_output_entry(x)
     if (need$pre)  x <- yml_add_item(x, "project", "pre-render", weft_pre_entry)
     if (need$post) x <- yml_add_item(x, "project", "post-render", weft_post_entry)
     chk <- load(x)
@@ -230,7 +249,8 @@ quarto_yml_with_weft <- function(lines) {
       identical(chk[setdiff(names(chk), c("filters", "project"))],
                 y[setdiff(names(y), c("filters", "project"))]) &&
       identical(seq_of(chk$filters),
-                c(seq_of(y$filters), if (need$filters) list("weft-check"))) &&
+                c(seq_of(y$filters), if (need$filters) list("weft-check"),
+                  if (need$output) list(list(path = weft_output_path, `at` = "post-render")))) &&
       identical(chk$project[setdiff(names(chk$project), c("pre-render", "post-render"))],
                 y$project[setdiff(names(y$project), c("pre-render", "post-render"))]) &&
       identical(as_chr(chk$project[["pre-render"]]),
@@ -239,6 +259,16 @@ quarto_yml_with_weft <- function(lines) {
                 c(as_chr(y$project[["post-render"]]), if (need$post) weft_post_entry))
     if (isTRUE(ok)) x else NULL
   }, error = function(e) NULL)
+}
+
+# add the mapping item of the output filter at the end of `filters:` (after the item it appended), with its
+# `at:` line under the `path:` line
+yml_add_output_entry <- function(lines) {
+  x <- yml_add_item(lines, character(), "filters", paste0("path: ", weft_output_path))
+  i <- which(grepl(paste0("^\\s*-\\s+path:\\s+", gsub("([.-])", "\\\\\\1", weft_output_path), "\\s*$"), x))
+  if (length(i) != 1L) stop("the output entry was not placed")
+  at <- paste0(strrep(" ", yml_indent(x[i]) + 2L), "at: post-render")
+  append(x, at, after = i)
 }
 
 yml_indent <- function(x) nchar(sub("^( *).*$", "\\1", x))
