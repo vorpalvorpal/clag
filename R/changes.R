@@ -445,10 +445,12 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
     a <- if (is.na(j)) NA_real_ else nx$raw[j]
     sb <- if (is.na(i)) NA_character_ else tx$sentence[i]
     sa <- if (is.na(j)) NA_character_ else nx$sentence[j]
-    cw <- c(if (!is.na(i)) sentence_claim(sb, tx$text[i]), if (!is.na(j)) sentence_claim(sa, nx$text[j]))
+    # a table has no claim word and no structural reason (N35)
+    cw <- if (identical(kinds[r], "table")) NULL else
+      c(if (!is.na(i)) sentence_claim(sb, tx$text[i]), if (!is.na(j)) sentence_claim(sa, nx$text[j]))
     cw <- cw[!is.na(cw)]
     if (length(cw)) claim[r] <- cw[[1L]]
-    if (change[r] != "changed") next
+    if (change[r] != "changed" || identical(kinds[r], "table")) next
     keys <- c(dict_keys_of(tx$dict[[i]]), dict_keys_of(nx$dict[[j]]))
     if (!is.na(sb) && nzchar(sb)) keys <- c(keys, gtx[[paste(tx$file[i], tx$section[i], sb, sep = "\001")]])
     if (!is.na(sa) && nzchar(sa)) keys <- c(keys, gnx[[paste(nx$file[j], nx$section[j], sa, sep = "\001")]])
@@ -472,6 +474,7 @@ compare_entries <- function(tx, nx, ledger, output, stale, tb, ta) {
     sentence_before = pick(tx, I, "sentence"), sentence_after = pick(nx, J, "sentence"),
     stringsAsFactors = FALSE)
   rows$.key <- key
+  rows$.pos <- ifelse(is.na(J), I, J)
   rows$.place <- place
   rows$.rel <- relv
   rows$.failed <- pick(nx, J, "failed")
@@ -706,15 +709,19 @@ order_entries <- function(e) {
   claim <- ifelse(ch & !struct & !is.na(e$claim_word), 0L, 1L)
   rel <- e$.rel
   rel[is.na(rel)] <- -Inf
-  grp <- ifelse(ch, ifelse(struct, 0L, 1L), ifelse(e$change == "added", 2L, 3L))
-  o <- order(grp, place, claim, -rel, e$ledger, e$output, e$.key, method = "radix")
+  tbl <- e$kind == "table"
+  grp <- ifelse(ch, ifelse(struct, 0L, ifelse(tbl, 4L, 1L)), ifelse(e$change == "added", 2L, 3L))
+  # tables come after the ranked value changes, in file order (N35)
+  pos <- ifelse(tbl, e$.pos, 0L)
+  o <- order(grp, place, claim, -rel, e$ledger, e$output, pos, e$.key, method = "radix")
   e <- e[o, , drop = FALSE]
-  ch <- e$change == "changed"
+  ch <- e$change == "changed" & e$kind != "table"
   e$rank[ch] <- seq_len(sum(ch))
   failed <- e$.failed
   from_sec <- e$.from_sec
   e$.from_sec <- NULL
   e$.key <- NULL
+  e$.pos <- NULL
   e$.place <- NULL
   e$.rel <- NULL
   e$.failed <- NULL
@@ -772,6 +779,7 @@ print.weft_changes <- function(x, brief = FALSE, ...) {
   sec_from <- attr(e, "section_from")
   if (is.null(sec_from)) sec_from <- rep(NA_character_, nrow(e))
   in_whole <- paste(e$ledger, e$output) %in% whole
+  is_tbl <- e$kind == "table"
   say <- function(s, t) if (!is.na(t) && !nzchar(t)) "(prints nothing)" else if (!is.na(s) && nzchar(s)) s else if (!is.na(t)) t else ""
   entry_lines <- function(idx, marker) {
     unlist(lapply(idx, function(i) {
@@ -803,12 +811,13 @@ print.weft_changes <- function(x, brief = FALSE, ...) {
     }, "")
     out <- c(out, sect("Not re-rendered", lines))
   }
-  struct <- which(e$change == "changed" & nzchar(e$structural))
-  other <- which(e$change == "changed" & !nzchar(e$structural))
+  struct <- which(e$change == "changed" & nzchar(e$structural) & !is_tbl)
+  other <- which(e$change == "changed" & !nzchar(e$structural) & !is_tbl)
   out <- c(out, sect("Structural changes", entry_lines(struct, "~")),
            if (!brief) c(sect("Other changes, ranked", entry_lines(other, "~")),
-           sect("Added", entry_lines(which(e$change == "added" & !in_whole), "+")),
-           sect("Removed", entry_lines(which(e$change == "removed" & !in_whole), "-"))))
+           sect("Added", entry_lines(which(e$change == "added" & !in_whole & !is_tbl), "+")),
+           sect("Removed", entry_lines(which(e$change == "removed" & !in_whole & !is_tbl), "-")),
+           sect("Tables", table_lines(e, in_whole))))
   if (nrow(x$conditions)) {
     cd <- x$conditions
     out <- c(out, sect("New conditions",
@@ -842,4 +851,48 @@ print.weft_changes <- function(x, brief = FALSE, ...) {
   }
   cat(paste0(out, "\n"), sep = "")
   invisible(x)
+}
+
+# ---- tables (N35, E70 to E72) ------------------------------------------------------------------
+
+# "tbl-a", "tbl-a #2", or "(unlabelled)" (E71, E72)
+table_name <- function(id, expr, occ) {
+  lab <- if (!is.na(id)) id else expr
+  lab <- if (is.na(lab) || !nzchar(lab)) "(unlabelled)" else lab
+  if (!is.na(occ) && occ > 1L) paste0(lab, " #", occ) else lab
+}
+
+# E71, E72: at most ten labels, then " and N other(s)"
+table_labels <- function(x) {
+  s <- paste(utils::head(x, 10L), collapse = ", ")
+  if (length(x) > 10L) {
+    k <- length(x) - 10L
+    s <- sprintf("%s and %d other%s", s, k, if (k == 1L) "" else "s")
+  }
+  s
+}
+
+# The lines of the tables: those changed (E70, with the caption under), then, one line per
+# ledger, those added (E71) and removed (E72).
+table_lines <- function(e, in_whole) {
+  t <- which(e$kind == "table" & !in_whole)
+  if (!length(t)) return(character())
+  ch <- t[e$change[t] == "changed"]
+  out <- unlist(lapply(ch, function(i) {
+    lab <- if (!is.na(e$id[i])) e$id[i] else e$expr[i]
+    nm <- if (is.na(lab) || !nzchar(lab)) "(unlabelled)" else paste0("`", lab, "`")
+    sfx <- if (!is.na(e$occ[i]) && e$occ[i] > 1L) sprintf(" #%d", e$occ[i]) else ""
+    cap <- e$sentence_after[i]
+    c(sprintf("  ~ table %s%s changed", nm, sfx), if (!is.na(cap) && nzchar(cap)) paste0("      ", cap))
+  }), use.names = FALSE)
+  for (what in c("added", "removed")) {
+    w <- t[e$change[t] == what]
+    for (lg in unique(paste(e$ledger[w], e$output[w], sep = "\001"))) {
+      k <- w[paste(e$ledger[w], e$output[w], sep = "\001") == lg]
+      nm <- vapply(k, function(i) table_name(e$id[i], e$expr[i], e$occ[i]), "")
+      out <- c(out, sprintf("  %s: %d table%s %s: %s", ledger_label(e$ledger[k[1L]], e$output[k[1L]]),
+                            length(k), if (length(k) == 1L) "" else "s", what, table_labels(nm)))
+    }
+  }
+  out
 }

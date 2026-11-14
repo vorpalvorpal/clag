@@ -129,6 +129,7 @@ make_evaluate_hook <- function(prev) {
       }
     }
     py_warnings()
+    record_chunk_tables(s, label, opts, res)
     fails <- if (length(s$failures) > n0) s$failures[(n0 + 1L):length(s$failures)] else list()
     record_chunk_conditions(s, label, mine, opts, fails, ledger_since(s, l0))
     # what the author's settings say to hide is hidden, as evaluate() would
