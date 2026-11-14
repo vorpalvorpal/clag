@@ -1,0 +1,17 @@
+case	weft_yml	front	want	problem
+none			stop
+bare-collect	chunk_claims: collect		collect
+double-quoted	chunk_claims: "collect"		collect
+single-quoted-comment	chunk_claims: 'collect'  # opt in		collect
+stop	chunk_claims: stop		stop
+nested-under-other-key	other:\n  chunk_claims: collect		stop
+front-block-over-yml-stop	chunk_claims: stop	---\ntitle: t\nweft:\n  chunk_claims: collect\n---\n\nText.\n	collect
+front-flow	digits: 2	---\ntitle: t\nweft: {chunk_claims: collect}\n---\n\nText.\n	collect
+front-flow-other-keys-quoted	digits: 2	---\ntitle: t\nweft: {digits: 3, "chunk_claims": 'collect', serial_comma: true}\n---\n\nText.\n	collect
+front-stop-over-yml-collect	chunk_claims: collect	---\ntitle: t\nweft:\n  chunk_claims: stop\n---\n\nText.\n	stop
+bad-value	chunk_claims: sometimes		stop	yes
+deeper-under-formatters	formatters:\n  .f:\n    function: base::format\n    chunk_claims: collect		stop
+line-in-body-not-front-matter	digits: 2	---\ntitle: t\n---\n\nweft:\n  chunk_claims: collect\n	stop
+yml-two-folders-up	chunk_claims: collect		collect
+capital-collect	chunk_claims: Collect		stop	yes
+crlf-line-ends	digits: 2\r\nchunk_claims: collect\r\n		collect

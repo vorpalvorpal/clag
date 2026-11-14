@@ -313,17 +313,16 @@ test_that("N77: the gate counts the claim() calls of a document the same whether
   expect_identical(sum(weft:::count_constructs(src)$kind == "claim"), 4L)
 })
 
-# ---- N78: a Python claim() still stops its chunk under collect (pin: needs Python; skipped without it) ------
+# ---- N78 (superseded by dev/design-8.md GN3): under stop a Python claim() stops its chunk -------------------
+# Under collect a guest claim is collected too (test-guest-chunk-claims.R); this is the stop-mode control.
 
-test_that("N78: a failed Python claim() with error = FALSE stops the knit under chunk_claims: collect, as under stop", {
-  for (setting in c("stop", "collect")) {
-    res <- k5(c(pc6k("stopper", "claim(3, '> 10')", opts = "error=FALSE"),
-                pc6k("never", "t_7e_never = 1", opts = "error=FALSE")),
-              py = "from weft import claim",
-              weft_yml = c("draft: false", paste0("chunk_claims: ", setting)))
-    expect_true(res$failed, label = setting)
-    expect_match(res$message, "a claim failed: (_ )?> 10 was false \\(value 3\\)")
-    expect_match(res$message, "ClaimFailed", fixed = TRUE)
-    expect_identical(reticulate::py_eval("'t_7e_never' in globals()"), FALSE, label = setting)
-  }
+test_that("control N78 (GN3): a failed Python claim() with error = FALSE stops the knit under chunk_claims: stop", {
+  res <- k5(c(pc6k("stopper", "claim(3, '> 10')", opts = "error=FALSE"),
+              pc6k("never", "t_7e_never = 1", opts = "error=FALSE")),
+            py = "from weft import claim",
+            weft_yml = c("draft: false", "chunk_claims: stop"))
+  expect_true(res$failed)
+  expect_match(res$message, "a claim failed: (_ )?> 10 was false \\(value 3\\)")
+  expect_match(res$message, "ClaimFailed", fixed = TRUE)
+  expect_identical(reticulate::py_eval("'t_7e_never' in globals()"), FALSE)
 })
