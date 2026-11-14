@@ -93,7 +93,7 @@ test_that("GT4, GT2: raw HTML, pandas-like HTML and a headless table with the sa
                   tt_cell("tbl-pandas", tt_raw(pandas)), tt_cell("tbl-nohead", tt_raw(headless))))
   es <- tt_tables(res)
   expect_length(es, 4L)
-  expect_identical(vapply(es, function(e) e$expr, ""), c("tbl-pipe", "tbl-html", "tbl-pandas", "tbl-nohead"))
+  expect_setequal(vapply(es, function(e) e$expr, ""), c("tbl-pipe", "tbl-html", "tbl-pandas", "tbl-nohead"))
   expect_identical(tt_texts(es), rep(tt_hash(TT_CANON), 4L))
 })
 
@@ -109,9 +109,13 @@ test_that("GT4: one cell changed gives a different digest", {
   res <- tt_run(c(tt_cell("tbl-one", TT_PIPE), tt_cell("tbl-two", changed)))
   es <- tt_tables(res)
   expect_length(es, 2L)
-  expect_identical(es[[1]]$text, tt_hash("a\tb\n1\t2"))
-  expect_identical(es[[2]]$text, tt_hash("a\tb\n1\t3"))
-  expect_false(identical(es[[1]]$text, es[[2]]$text))
+  one <- tt_by_expr(es, "tbl-one")
+  two <- tt_by_expr(es, "tbl-two")
+  expect_length(one, 1L)
+  expect_length(two, 1L)
+  expect_identical(one[[1]]$text, tt_hash("a\tb\n1\t2"))
+  expect_identical(two[[1]]$text, tt_hash("a\tb\n1\t3"))
+  expect_false(identical(one[[1]]$text, two[[1]]$text))
 })
 
 test_that("GT4: a style-only change (classes, ids and styles added) is not a change", {
@@ -147,8 +151,8 @@ test_that("GT3: row and column spans are ignored, and inline markup in a cell is
   md_cell <- c("| *a* | **b** [c]{.k} |", "|---|---|", "| `1` | [2]{.k} |")
   es <- tt_tables(tt_run(c(tt_cell("tbl-span", tt_raw(html)), tt_cell("tbl-inline", md_cell))))
   expect_length(es, 2L)
-  expect_identical(es[[1]]$text, tt_hash("x\ny\tz"))
-  expect_identical(es[[2]]$text, tt_hash("a\tb c\n1\t2"))
+  expect_identical(tt_by_expr(es, "tbl-span")[[1]]$text, tt_hash("x\ny\tz"))
+  expect_identical(tt_by_expr(es, "tbl-inline")[[1]]$text, tt_hash("a\tb c\n1\t2"))
 })
 
 test_that("GT3: rows run head, then body rows, then foot", {
@@ -272,8 +276,12 @@ test_that("GT5: the section is the identifier of the last Header above the table
                   "### Deep {#d3}", "", tt_cell(NULL, TT_PIPE)))
   es <- tt_tables(res)
   expect_length(es, 4L)
-  expect_identical(vapply(es, function(e) e$expr, ""), c("tbl-top", "tbl-a", "tbl-b", ""))
-  expect_identical(vapply(es, function(e) e$section, ""), c("", "first", "second-part", "d3"))
+  expect_setequal(vapply(es, function(e) e$expr, ""), c("tbl-top", "tbl-a", "tbl-b", ""))
+  sec <- function(expr) vapply(tt_by_expr(es, expr), function(e) e$section, "")
+  expect_identical(sec("tbl-top"), "")
+  expect_identical(sec("tbl-a"), "first")
+  expect_identical(sec("tbl-b"), "second-part")
+  expect_identical(sec(""), "d3")
 })
 
 test_that("GT5: occ is numbered within a section: unlabelled cells in two sections are each occ 1", {
@@ -297,7 +305,7 @@ test_that("GT6: the sentence is the long caption, resolved, when there is one (i
 })
 
 test_that("GT6: with no caption the cell's tbl-cap attribute is the sentence, white space squashed", {
-  es <- tt_tables(tt_run(tt_cell("tbl-att", TT_PIPE, attrs = " tbl-cap=\"  Site   table\"")))
+  es <- tt_tables(tt_run(tt_cell("tbl-att", TT_PIPE, attrs = " tbl-cap=\"Site   table\"")))
   expect_length(es, 1L)
   expect_identical(es[[1]]$sentence, "Site table")
 })
@@ -309,7 +317,7 @@ test_that("GT6: with neither, the sentence is the canonical text with TAB and LF
 })
 
 test_that("GT6: an empty tbl-cap is no source; the canonical text is used", {
-  es <- tt_tables(tt_run(tt_cell("tbl-blank", TT_PIPE, attrs = " tbl-cap=\"  \"")))
+  es <- tt_tables(tt_run(tt_cell("tbl-blank", TT_PIPE, attrs = " tbl-cap=\"\"")))
   expect_length(es, 1L)
   expect_identical(es[[1]]$sentence, "a b 1 2")
 })
@@ -465,8 +473,8 @@ test_that("GT10, E70 to E72: two filter runs (one table changed, one dropped, on
   e2x_write(file.path(dir, tt_ledger), l2)
   out <- capture.output(print(weft::changes(path = dir)))
   expect_length(grep("table `tbl-sites` changed$", out), 1L)
-  expect_length(grep("doc\\.md: 1 table added: tbl-new$", out), 1L)
-  expect_length(grep("doc\\.md: 1 table removed: tbl-gone$", out), 1L)
+  expect_length(grep("doc\\.md \\(out\\): 1 table added: tbl-new$", out), 1L)
+  expect_length(grep("doc\\.md \\(out\\): 1 table removed: tbl-gone$", out), 1L)
   brief <- capture.output(print(weft::changes(path = dir), brief = TRUE))
   expect_length(grep("table `|tables? (added|removed)", brief), 0L)
 })

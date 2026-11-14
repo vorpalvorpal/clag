@@ -59,9 +59,10 @@ test_that("GT2 to GT6: a julia-engine render records the HTML table and the Mark
   skip_if_no_julia_engine()
   qmd <- c("---", "title: Tables", "---", "",
            "```{julia}", "#| label: tbl-sites", "#| echo: false",
-           sprintf("display(\"text/html\", \"%s\")", TE_HTML), "```", "",
+           sprintf("display(MIME(\"text/html\"), HTML(\"%s\"))", TE_HTML), "```", "",
            "```{julia}", "#| label: pub", "#| echo: false",
-           "display(\"text/markdown\", \"| a | b |\\n|---|---|\\n| 1 | 2 |\")", "```")
+           "using Markdown",
+           "display(Markdown.parse(\"| a | b |\\n|---|---|\\n| 1 | 2 |\"))", "```")
   dir <- jle_project(list("tables.qmd" = qmd))
   r <- jle_render(dir, "tables.qmd")
   expect_identical(r$status, 0L, info = paste(utils::tail(r$stderr, 12), collapse = "\n"))
