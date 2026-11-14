@@ -95,8 +95,8 @@ test_that("3d L40: with no commit yet, every line of every document is added", {
 test_that("3d L40: a finding is kept when one of its lines is added, though it starts on an old line", {
   skip_if_no_git()
   # a sentence on lines 3 and 4; line 4 is new
-  before <- list("a.qmd" = c("# A {#sec-a}", "", "All the sites", ""))
-  after  <- list("a.qmd" = c("# A {#sec-a}", "", "All the sites", "rose again.", ""))
+  before <- list("a.qmd" = c("# A {#sec-a}", "", "The largest sites", ""))
+  after  <- list("a.qmd" = c("# A {#sec-a}", "", "The largest sites", "rose again.", ""))
   f <- findings_of(f3d_scenario(before, after))
   expect_identical(nrow(f), 1L)
   expect_identical(f$rule, "claim-word")
