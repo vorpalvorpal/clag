@@ -187,6 +187,17 @@ find_up <- function(start, markers) {
 QUARTO_MARKERS <- c("_quarto.yml", "_quarto.yaml")
 METADATA_MARKERS <- c("_metadata.yml", "_metadata.yaml")
 
+# `path` relative to `root`: the text after `root/`, or `path` unchanged when it
+# is not inside `root`. Both are read as they are written (normalise them first
+# if they may differ in spelling); the separator is `/`. A root that already
+# ends in a separator (`/`, `C:/`) is not given a second one.
+rel_to <- function(path, root) {
+  prefix <- if (endsWith(root, "/")) root else paste0(root, "/")
+  inside <- startsWith(path, prefix) %in% TRUE
+  path[inside] <- substring(path[inside], nchar(prefix) + 1L)
+  path
+}
+
 # The nearest folder, from the file (or folder) upward, that holds `_weft.yml`;
 # failing that one that holds `_quarto.yml` or `_quarto.yaml`; failing that the
 # folder itself.
