@@ -328,6 +328,8 @@ test_that("7j N141: path and files are read as lints() reads them, with its erro
   x <- checks(root)
   expect_identical(sort(unique(x$file)), c("a.Rmd", "b.qmd"))
   # a path inside the project reports the documents under it
+  # the project root is marked, or `sub` would be its own root and the path "c.Rmd" (as in lints())
+  f3_write(file.path(root, "_weft.yml"), "draft: false")
   dir.create(file.path(root, "sub"))
   f3_write(file.path(root, "sub", "c.Rmd"), j7_gdoc("z > 5"))
   expect_identical(unique(checks(file.path(root, "sub"))$file), "sub/c.Rmd")

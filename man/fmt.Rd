@@ -96,9 +96,11 @@ fmt_em(x)
 \item{x}{The value to format. A \code{weft_text} from another formatter is
 accepted.}
 
-\item{digits}{Decimal places. Not together with \code{sigfig}.}
+\item{digits}{Decimal places. Not together with \code{sigfig}. For \code{fmt_p()}
+and \code{.p}, a whole number from 1 to 6 (rule 1.4.21).}
 
-\item{sigfig}{Significant figures. Not together with \code{digits}.}
+\item{sigfig}{Significant figures. Not together with \code{digits}. Not for
+\code{fmt_p()} or \code{.p}.}
 
 \item{unit}{The unit to print a quantity in, as a string: \code{fmt_num(u(150, "cm"), unit = "m")} is "1.5 m". The quantity is converted first, so the
 number, the unit and the arm an \code{n} span chooses are all in that unit. A

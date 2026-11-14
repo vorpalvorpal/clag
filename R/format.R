@@ -1205,8 +1205,10 @@ apply_project <- function(spec, x, number_source) {
 #'
 #' @param x The value to format. A `weft_text` from another formatter is
 #'   accepted.
-#' @param digits Decimal places. Not together with `sigfig`.
-#' @param sigfig Significant figures. Not together with `digits`.
+#' @param digits Decimal places. Not together with `sigfig`. For `fmt_p()`
+#'   and `.p`, a whole number from 1 to 6 (rule 1.4.21).
+#' @param sigfig Significant figures. Not together with `digits`. Not for
+#'   `fmt_p()` or `.p`.
 #' @param unit The unit to print a quantity in, as a string: `fmt_num(u(150,
 #'   "cm"), unit = "m")` is "1.5 m". The quantity is converted first, so the
 #'   number, the unit and the arm an `n` span chooses are all in that unit. A

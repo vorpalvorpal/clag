@@ -45,6 +45,11 @@ is left and the render does not fail; the check is recorded in
 of the knit. Outside a knit it is a \code{warning()} of class
 \code{weft_claim_warning}, and \code{x} is returned. A check that itself raises an
 error is a failed check at the level given.
+
+With the setting \code{chunk_claims: collect}, a failing claim in a chunk of
+R code does not stop the knit: it is recorded, the chunk goes on with
+\code{x}, and the render fails once at its end with every failure listed
+(rule 2.4.4). The default, \code{stop}, stops at the first.
 }
 \examples{
 claim(5, . > 1)

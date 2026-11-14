@@ -72,7 +72,8 @@ check_table <- function(lits, who, subj = "x", filter = FALSE) {
     }
   }
   expect_identical(n, 108L)
-  expect_gt(n_true, 30L)
+  # N129: 30 of the 108 cells hold
+  expect_identical(n_true, 30L)
 }
 
 test_that("7j N129: a name against numbers, all 36 cells for a < b, a = b and a > b (108 cases)", {

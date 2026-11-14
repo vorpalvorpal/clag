@@ -1,7 +1,8 @@
 # `weft` — package scoping
 
 **Date:** 2026-11-11
-**Status:** Stages 0 to 6 of §22 are built. The syntax and the
+**Status:** Stages 0 to 6 of §22 are built, and stage 7 (`dev/design-7.md`:
+the features approved after the trial on a long report). The syntax and the
 runtime were first exercised with throwaway stand-ins; Part 3 says exactly what was
 run and what was not. Integration facts were checked against knitr 1.51 and
 Quarto 1.11.9 (Pandoc 3.10) on macOS.
