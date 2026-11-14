@@ -264,6 +264,7 @@ merge_config <- function(base, over) {
       # a later registration replaces `options` as a whole (rule 1.4.22)
       for (cl in intersect(names(v), names(old))) {
         if (is.list(v[[cl]]) && "options" %in% names(v[[cl]])) old[[cl]][["options"]] <- NULL
+        if (is.list(v[[cl]]) && "targets" %in% names(v[[cl]])) old[[cl]][["targets"]] <- NULL
       }
       base$formatters <- utils::modifyList(old, v)
     } else if (nm == "severity") {
@@ -397,13 +398,25 @@ check_formatters <- function(fm) {
         paste(formatter_stages(), collapse = ", ")), "weft_config_error")
     }
     fm[[nm]][["stage"]] <- stage
-    for (k in setdiff(names(spec), c("function", "stage", "options"))) {
+    for (k in setdiff(names(spec), c("function", "stage", "options", "targets"))) {
       weft_warn(sprintf("Unknown key `%s` in the formatter `%s`; it is ignored (rule 1.4.8).", k, nm),
                 class = "weft_config_warning")
     }
     fm[[nm]][["options"]] <- check_options(spec[["options"]], nm, stage)
+    if ("targets" %in% names(spec)) fm[[nm]][["targets"]] <- check_targets(spec[["targets"]], nm)
   }
   fm
+}
+
+# `targets:` of a registration (rule 1.4.8, E104): markdown and, optionally, tex.
+check_targets <- function(raw, nm) {
+  got <- as.character(unlist(raw))
+  if (!"markdown" %in% got || !all(got %in% TARGETS) || anyDuplicated(got)) {
+    weft_abort(sprintf(paste0("The formatter `%s` has `targets: %s`; `targets` lists markdown and, ",
+                              "optionally, tex (rule 1.4.8)."), nm, paste(got, collapse = ", ")),
+               "weft_config_error")
+  }
+  got
 }
 
 # The options a project formatter declares (rule 1.4.22), as a named character

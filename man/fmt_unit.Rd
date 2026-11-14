@@ -4,7 +4,7 @@
 \alias{fmt_unit}
 \title{Print a unit alone}
 \usage{
-fmt_unit(x, unit_form = NULL, unit = NULL)
+fmt_unit(x, unit_form = NULL, unit = NULL, target = "markdown")
 }
 \arguments{
 \item{x}{A quantity of any length (a missing value is allowed: no number
@@ -15,6 +15,9 @@ prints), or one string naming a unit.}
 
 \item{unit}{A unit to convert \code{x} to first, as a string, or a ladder of units
 (one string with \code{|} between the units, or a character vector; see \code{\link[=fmt_num]{fmt_num()}}).}
+
+\item{target}{\code{"markdown"} (the default) or \code{"tex"}, which writes the symbol or name as TeX for use
+inside math (rule 4.4.25); anything else is a \code{weft_construct_error}.}
 }
 \value{
 A \code{weft_text} of length one.

@@ -123,6 +123,8 @@ check_present <- function(x, what = "A formatter") {
 
 group_int <- function(digits, mark) {
   if (!nzchar(mark)) return(digits)
+  # a backslash in a TeX mark would be read as an escape in the replacement
+  if (grepl("\\", mark, fixed = TRUE)) mark <- gsub("\\", "\\\\", mark, fixed = TRUE)
   gsub("(\\d)(?=(\\d{3})+$)", paste0("\\1", mark), digits, perl = TRUE)
 }
 
@@ -295,7 +297,7 @@ format_numbers <- function(value, class, keys, cfg, bound = NULL, range = FALSE,
     }
     # `.plus` (N2 to N4): a number printed above zero takes `+` where the minus would stand
     if (plus && p$number > 0) p$text <- paste0("+", p$text)
-    if (class == ".pct") p$text <- paste0(p$text, "%")
+    if (class == ".pct") p$text <- paste0(p$text, if (isTRUE(cfg$tex)) "\\%" else "%")
     p
   }
   res <- lapply(seq_along(value), one)
@@ -367,7 +369,7 @@ sci_one <- function(v, digits, sigfig, cfg) {
   }
   exp_txt <- if (e < 0) paste0(cfg$minus, abs(e)) else as.character(e)
   list(
-    text = paste0(p$text, " \u00d7 10^", exp_txt, "^"),
+    text = if (isTRUE(cfg$tex)) paste0(p$text, " \\times 10^{", exp_txt, "}") else paste0(p$text, " \u00d7 10^", exp_txt, "^"),
     number = (p$number * 10^(e %/% 2)) * 10^(e - e %/% 2),
     decimals = p$decimals
   )
@@ -586,7 +588,7 @@ collapse_range <- function(text, number, cfg, raw = NULL, plus = FALSE) {
   if (identical(text[1L], text[2L])) return(text[1L])
   neg <- any(number < 0, na.rm = TRUE) || any(startsWith(text, cfg$minus)) ||
     (plus && any(startsWith(text, "+")))
-  paste0(text[1L], if (neg) " to " else "\u2013", text[2L])
+  paste0(text[1L], if (isTRUE(cfg$tex)) "\\ \\text{to}\\ " else if (neg) " to " else "\u2013", text[2L])
 }
 
 # `.and`, `.or` and `.pairs` with `trunc` (1.4.7): the first `k` items, then
@@ -614,6 +616,7 @@ add_serial_comma <- function(last, mark = ",") {
 # and not `NA`; `word` is a spelled number, which keeps its space before a
 # symbol written first.
 unit_affix <- function(un, form, plural, before, word, cfg, lang) {
+  if (isTRUE(cfg$tex)) return(unit_affix_tex(un, form, plural, before, word, cfg, lang))
   if (before) {
     txt <- if (form == "name") unit_name_text(un, plural, cfg, lang) else unit_symbol_text(un, plural, cfg, lang)
     paste0(txt, if (form == "name" || word || unit_space(un, cfg)) UNIT_SEP else "")
@@ -649,10 +652,20 @@ collapse_list <- function(cls, text, nms) {
 apply_formatters <- function(value, classes = character(), keys = list(),
                              config = current_config(), governor = FALSE,
                              join = NULL, on_zero = note_zero, unit_form = NULL,
-                             on_pick = NULL) {
+                             on_pick = NULL, target = "markdown") {
+  # the one check the markdown path pays for the TeX target (rule 3.4.11)
+  tex <- FALSE
+  tex_in <- FALSE
+  if (!identical(target, "markdown")) {
+    tex <- tex_target(target)
+  } else if (inherits(value, "weft_text")) {
+    tex_in <- identical(attr(value, "target"), "tex")
+  }
   cfg <- config
+  if (tex) cfg <- tex_cfg(cfg)
   reg <- cfg$formatters %||% list()
   classes <- unique(as.character(classes))
+  if (tex) tex_class_check(classes)
   keys <- as.list(keys)
   names(keys) <- tolower(names(keys))
   keys <- keys[!vapply(keys, is.null, NA)]
@@ -832,7 +845,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (".em" %in% cl) text <- wrap(text, "*")
     if (".strong" %in% cl) text <- wrap(text, "**")
     for (nm in intersect(proj("text"), cl)) {
-      text <- as.character(apply_project(reg[[nm]], text, NULL, pargs[[nm]], nm))
+      text <- as.character(apply_project(reg[[nm]], text, NULL, pargs[[nm]], nm, target = target))
     }
     text
   }
@@ -866,6 +879,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   # only text classes on a quantity's text: the unit stays where it is, inside any markup (4.4.8)
   pass_text <- keep_forms && !governor && !length(c(intersect(classes, COLLAPSE_CLASSES), proj("collapse"))) &&
     is.null(trunc)
+  if (tex_in && !length(ncls)) tex_in_markdown_error()
   if (length(ncls)) prior_tc <- NULL
   judge_unit <- function(un1, rung = FALSE) {
     if (keep_forms) {
@@ -942,7 +956,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                             cls, class(value)[1]))
       }
       if (cls %in% names(reg)) {
-        rec <- apply_project(reg[[cls]], value, value, pargs[[cls]], cls)
+        rec <- apply_project(reg[[cls]], value, value, pargs[[cls]], cls, target = target)
       } else if (cls == ".p") {
         rec <- format_p(value, cfg, keys)
       } else {
@@ -1003,7 +1017,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     w <- wording_cls[1]
     if (w %in% names(reg)) {
       before <- text
-      text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL, pargs[[w]], w))
+      text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL, pargs[[w]], w, target = target))
       if (length(text) == length(before)) spelled <- spelled | text != before
     } else {
       chk <- !is_no
@@ -1121,7 +1135,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       cl <- ccls[1]
       if (cl %in% names(reg)) {
         placed <- any(!is.na(forms))
-        text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL, pargs[[cl]], cl))
+        text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL, pargs[[cl]], cl, target = target))
         text <- text[1]
         out_forms <- forms[n_el]
         out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
@@ -1216,6 +1230,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     }
   }
   if (!governor && !is.null(zero)) attr(out, "warned") <- TRUE
+  if (tex) attr(out, "target") <- "tex"
   if (!governor) {
     tc <- union(prior_tc, intersect(classes, text_classes(reg)))
     if (length(tc)) attr(out, "text_classes") <- tc
@@ -1333,12 +1348,23 @@ check_project_function <- function(fn, spec, cls, names) {
 
 # Run a project formatter's function. Its result is a character vector or a
 # weft_text; a weft_text brings its own record.
-apply_project <- function(spec, x, number_source, args = list(), cls = NULL) {
+apply_project <- function(spec, x, number_source, args = list(), cls = NULL, target = "markdown") {
   fn <- resolve_formatter(spec)
   declared <- spec[["options"]]
+  # `targets:` listing more than markdown: the function takes `target` (TX8, rule 1.4.8)
+  multi <- length(spec[["targets"]]) > 1L
+  if (multi) {
+    fml <- names(formals(args(fn)))
+    if (!any(c("target", "...") %in% fml)) {
+      construct_error(sprintf(paste0("The formatter `%s` lists tex in `targets:`, so its function `%s` must ",
+                                     "take an argument `target` (rule 1.4.8)."), cls, spec[["function"]]))
+    }
+  }
   # arguments weft supplies itself go on the end of `args`, here and nowhere else
-  args <- c(args, list())
-  if (length(declared) || length(args)) check_project_function(fn, spec, cls, c(names(declared), names(args)))
+  args <- c(args, if (multi) list(target = target))
+  if (length(declared) || length(args)) {
+    check_project_function(fn, spec, cls, c(names(declared), setdiff(names(args), "target")))
+  }
   out <- if (length(args)) do.call(fn, c(list(x), args)) else fn(x)
   if (inherits(out, "weft_text")) return(out)
   if (!is.character(out)) out <- as.character(out)
@@ -1410,6 +1436,18 @@ apply_project <- function(spec, x, number_source, args = list(), cls = NULL) {
 #'   " and " (" or " for `fmt_or()`), with a comma before it when the
 #'   `serial_comma` setting is on and there are three or more items; a `last`
 #'   given here is used as it is.
+#' @param target `"markdown"` (the default, today's output) or `"tex"`, which writes
+#'   the number, percentage, scientific notation, p-value, range and unit as TeX for
+#'   use inside math (rule 3.4.11): the minus is `-`, a thousands mark of `,` is
+#'   `{,}`, `.sci` is `1.2 \times 10^{6}`, and a range says `\text{to}`. The result
+#'   carries the attribute `target = "tex"`, and printing it as markdown (through
+#'   `fmt_strong()` or a collapse, say) is a `weft_value_error`; format the number
+#'   again without `target`. The formatters that print words, emphasis or a list
+#'   (`fmt_word()`, `fmt_count()`, `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`,
+#'   `fmt_cap()`, `fmt_em()`, `fmt_strong()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`,
+#'   `fmt_ul()`, `fmt_ol()`, `fmt_dl()`) have no TeX form and raise a
+#'   `weft_construct_error` under `"tex"`. Any other value of `target` is a
+#'   `weft_construct_error`.
 #'
 #' @details
 #' A missing value (`NA`, `NaN`, `Inf`, `-Inf` or a value of length zero)
@@ -1470,53 +1508,53 @@ NULL
 
 #' @rdname fmt
 #' @export
-fmt_num <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE) {
+fmt_num <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE, target = "markdown") {
   check_unit_form(unit_form, "fmt_num")
   check_flag(plus, "plus")
   apply_formatters(x, c(".num", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit),
-                   unit_form = unit_form)
+                   unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_pct <- function(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE) {
+fmt_pct <- function(x, digits = NULL, sigfig = NULL, unit = NULL, plus = FALSE, target = "markdown") {
   check_flag(plus, "plus")
-  apply_formatters(x, c(".pct", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit))
+  apply_formatters(x, c(".pct", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit), target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_sci <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL) {
+fmt_sci <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_sci")
-  apply_formatters(x, ".sci", list(digits = digits, sigfig = sigfig, unit = unit), unit_form = unit_form)
+  apply_formatters(x, ".sci", list(digits = digits, sigfig = sigfig, unit = unit), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_no <- function(x, unit_form = NULL) {
+fmt_no <- function(x, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_no", no_symbol = TRUE)
-  apply_formatters(x, ".no", unit_form = unit_form)
+  apply_formatters(x, ".no", unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_word <- function(x, unit_form = NULL) {
+fmt_word <- function(x, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_word", no_symbol = TRUE)
-  apply_formatters(x, ".word", unit_form = unit_form)
+  apply_formatters(x, ".word", unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_count <- function(x, unit_form = NULL) {
+fmt_count <- function(x, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_count", no_symbol = TRUE)
-  apply_formatters(x, ".count", unit_form = unit_form)
+  apply_formatters(x, ".count", unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_ord <- function(x, unit_form = NULL) {
+fmt_ord <- function(x, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_ord")
-  apply_formatters(x, ".ord", unit_form = unit_form)
+  apply_formatters(x, ".ord", unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
@@ -1526,80 +1564,80 @@ fmt_ord <- function(x, unit_form = NULL) {
 #'   `fmt_ol()`, `fmt_dl()`). The default, `NULL`, makes an empty vector a
 #'   `weft_no_value` error. `NULL` itself is always an error.
 #' @export
-fmt_and <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL) {
+fmt_and <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_and")
-  apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form)
+  apply_formatters(x, ".and", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL) {
+fmt_or <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_or")
-  apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form)
+  apply_formatters(x, ".or", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_p <- function(x, digits = NULL, label = NULL) {
-  apply_formatters(x, ".p", list(digits = digits, label = label))
+fmt_p <- function(x, digits = NULL, label = NULL, target = "markdown") {
+  apply_formatters(x, ".p", list(digits = digits, label = label), target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_date <- function(x) apply_formatters(x, ".date")
+fmt_date <- function(x, target = "markdown") apply_formatters(x, ".date", target = target)
 
 #' @rdname fmt
 #' @export
-fmt_range <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE) {
+fmt_range <- function(x, digits = NULL, sigfig = NULL, unit = NULL, unit_form = NULL, plus = FALSE, target = "markdown") {
   check_unit_form(unit_form, "fmt_range")
   check_flag(plus, "plus")
   apply_formatters(x, c(".range", if (plus) ".plus"), list(digits = digits, sigfig = sigfig, unit = unit),
-                   unit_form = unit_form)
+                   unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_pairs <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL) {
+fmt_pairs <- function(x, sep = ", ", last = NULL, trunc = NULL, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_pairs")
-  apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form)
+  apply_formatters(x, ".pairs", list(sep = sep, last = last, trunc = trunc, none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_ul <- function(x, none = NULL, unit_form = NULL) {
+fmt_ul <- function(x, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_ul")
-  apply_formatters(x, ".ul", list(none = none), unit_form = unit_form)
+  apply_formatters(x, ".ul", list(none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_ol <- function(x, none = NULL, unit_form = NULL) {
+fmt_ol <- function(x, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_ol")
-  apply_formatters(x, ".ol", list(none = none), unit_form = unit_form)
+  apply_formatters(x, ".ol", list(none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_dl <- function(x, none = NULL, unit_form = NULL) {
+fmt_dl <- function(x, none = NULL, unit_form = NULL, target = "markdown") {
   check_unit_form(unit_form, "fmt_dl")
-  apply_formatters(x, ".dl", list(none = none), unit_form = unit_form)
+  apply_formatters(x, ".dl", list(none = none), unit_form = unit_form, target = target)
 }
 
 #' @rdname fmt
 #' @export
-fmt_cap <- function(x) apply_formatters(x, ".cap")
+fmt_cap <- function(x, target = "markdown") apply_formatters(x, ".cap", target = target)
 
 #' @rdname fmt
 #' @export
-fmt_a <- function(x) apply_formatters(x, ".a")
+fmt_a <- function(x, target = "markdown") apply_formatters(x, ".a", target = target)
 
 #' @rdname fmt
 #' @export
-fmt_strong <- function(x) apply_formatters(x, ".strong")
+fmt_strong <- function(x, target = "markdown") apply_formatters(x, ".strong", target = target)
 
 #' @rdname fmt
 #' @export
-fmt_em <- function(x) apply_formatters(x, ".em")
+fmt_em <- function(x, target = "markdown") apply_formatters(x, ".em", target = target)
 
 #' Join items into a phrase
 #'
