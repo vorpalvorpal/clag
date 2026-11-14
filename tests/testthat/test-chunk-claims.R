@@ -289,3 +289,41 @@ test_that("N76: a case that stops under N74 is reported with E31's text", {
   expect_match(r$cases$c$error, "the knit stopped on an error after 2 failed claims in chunk code.", fixed = TRUE)
   expect_match(r$cases$c$error, "boom", fixed = TRUE)
 })
+
+# ---- N77: the gate counts claim() calls the same under both settings (pin: this already holds) ---------
+
+test_that("N77: the gate counts the claim() calls of a document the same whether chunk_claims is stop or collect", {
+  before <- c("```{r a}", "x <- claim(n, . > 1)", "y <- claim(n, . > 2)", "z <- claim(n, . > 3)", "```", "",
+              "Prose `r claim(n, . > 4)` here.")
+  after <- c("```{r a}", "x <- claim(n, . > 1)", "```", "", "Prose here.")
+  seen <- list()
+  for (setting in c("stop", "collect")) {
+    d <- g_scenario(list("a.qmd" = before), list("a.qmd" = after),
+                    weft_yml = c("draft: false", paste0("chunk_claims: ", setting)))
+    res <- g_gate(d)
+    # two chunk claims and the inline one are removed; the inline `r claim()` is also a value row (4a G11)
+    expect_equal(res$n_removed, 4, label = paste("n_removed under", setting))
+    expect_identical(nrow(res$removed), 4L, label = paste("removed rows under", setting))
+    expect_identical(sum(res$removed$kind == "claim"), 3L, label = setting)
+    seen[[setting]] <- res$removed[, c("file", "line", "kind", "text")]
+  }
+  expect_identical(seen$stop, seen$collect)
+  # the same count straight from the construct counter, whatever the setting
+  src <- read_src(before, ext = "qmd")
+  expect_identical(sum(weft:::count_constructs(src)$kind == "claim"), 4L)
+})
+
+# ---- N78: a Python claim() still stops its chunk under collect (pin: needs Python; skipped without it) ------
+
+test_that("N78: a failed Python claim() with error = FALSE stops the knit under chunk_claims: collect, as under stop", {
+  for (setting in c("stop", "collect")) {
+    res <- k5(c(pc6k("stopper", "claim(3, '> 10')", opts = "error=FALSE"),
+                pc6k("never", "t_7e_never = 1", opts = "error=FALSE")),
+              py = "from weft import claim",
+              weft_yml = c("draft: false", paste0("chunk_claims: ", setting)))
+    expect_true(res$failed, label = setting)
+    expect_match(res$message, "a claim failed: (_ )?> 10 was false \\(value 3\\)")
+    expect_match(res$message, "ClaimFailed", fixed = TRUE)
+    expect_identical(reticulate::py_eval("'t_7e_never' in globals()"), FALSE, label = setting)
+  }
+})
