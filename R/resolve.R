@@ -401,6 +401,16 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     if (!is.null(msg)) unit_note(msg, file, line, expr)
   }
 
+  # E43 (N98): a single name that is "not found" in an inline value may be computed further down
+  forward_hint <- function(expr, msg) {
+    nm <- sub("^[ \t\r\n]*r[ \t\r\n]+", "", trim_ws(expr))
+    nm <- trim_ws(nm)
+    if (!grepl("^[A-Za-z.][A-Za-z0-9._]*$", nm)) return(NA_character_)
+    if (!identical(msg, sprintf("object '%s' not found", nm))) return(NA_character_)
+    sprintf(paste0("If `%s` is computed further down, write it as a named value, `%s`{.num}, ",
+                   "which takes its value from below (rule 1.12.7)."), nm, nm)
+  }
+
   # the label of a record made inside a governed span: its governor expression
   gov_label <- function(k) trim_ws(gsub("[ \t\r\n]+", " ", R$expr[k]))
 
@@ -451,7 +461,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       return(record_fail(k, "value error", label, conditionMessage(e)))
     }
     record_fail(k, "no value", label,
-                sprintf("error evaluating %s: %s", label, conditionMessage(e)))
+                sprintf("error evaluating %s: %s", label, conditionMessage(e)),
+                hint = forward_hint(R$expr[k], conditionMessage(e)))
   }
 
   eval_expr <- function(k, expr, label, envir = env0, stock = FALSE,

@@ -324,17 +324,35 @@ end
 
 -- a failure table when the name has no usable value
 local function lookup(name)
+  local forward = false
   if S.values[name] == nil then
-    return nil, {
-      kind = "no value",
-      detail = string.format("no value is published under the name `%s` above this point (rule 1.12.7).", name),
-      hint = string.format(
-        "Publish it in code above: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. "
-        .. "A cell with include: false or output: false publishes nothing on the jupyter and julia engines.",
-        name, name, name),
-    }
+    local fw = S.fwd and S.fwd[name]
+    if fw == nil then
+      return nil, {
+        kind = "no value",
+        detail = string.format("no value is published under the name `%s` in this document (rule 1.12.7).", name),
+        hint = string.format(
+          "Publish it in code above: weft_put(%s = ...) in R, put(%s=...) in Python, @put %s in Julia. "
+          .. "A cell with include: false or output: false publishes nothing on the jupyter and julia engines.",
+          name, name, name),
+      }
+    end
+    if fw.n > 1 then
+      return nil, {
+        kind = "no value",
+        detail = string.format(
+          "`%s` is used above its first publication, and the document publishes %d different values for it below; "
+          .. "a use above every publication needs a name that takes one value (rule 1.12.7).", name, fw.n),
+        hint = "Move the sentence below the value it means, or publish that value under a name of its own.",
+      }
+    end
+    -- N90, N92: the one value the document publishes below, the last publication's record
+    S.values[name] = fw.last
+    S.valid[name] = nil
+    forward = true
   end
   local r = record_of(name)
+  if forward then S.values[name] = nil; S.valid[name] = nil end
   if r.t == "missing" then
     return nil, { kind = "no value", detail = string.format("`%s` is missing (%s) (rule 1.3.4).", name, why_of(r)) }
   elseif r.t == "error" then
@@ -407,7 +425,8 @@ end
 -- set below, once the path helpers exist: a values file's text by its path as written, or nil and why (N30)
 local values_file_text
 
-local function read_block(el, ctx)
+-- the decoded block, or nil and the failure's text (the main pass reports it; the pre-pass, N90, ignores it)
+local function parse_block(el)
   local text = el.text
   local from_file = el.attributes["file"]
   local fpath = from_file
@@ -419,25 +438,21 @@ local function read_block(el, ctx)
       text, reason = values_file_text(fpath)
     end
     if not text then
-      block_failure(el, ctx, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason))
-      return
+      return nil, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason)
     end
   end
   if #text > 5000000 then
     if from_file then
-      block_failure(el, ctx, string.format("the values file %s cannot be read: %d bytes, and the limit is 5000000 (rule 2.13.10).", fpath, #text))
-    else
-      block_failure(el, ctx, string.format("a weft-values block of %d bytes; the limit is 5000000 (rule 2.13.1).", #text))
+      return nil, string.format("the values file %s cannot be read: %d bytes, and the limit is 5000000 (rule 2.13.10).", fpath, #text)
     end
-    return
+    return nil, string.format("a weft-values block of %d bytes; the limit is 5000000 (rule 2.13.1).", #text)
   end
   local ok, d = pcall(pandoc.json.decode, text, false)
   local function bad(reason)
     if from_file then
-      block_failure(el, ctx, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason))
-      return
+      return nil, string.format("the values file %s cannot be read: %s (rule 2.13.10).", fpath, reason)
     end
-    block_failure(el, ctx, string.format("a weft-values block that does not read: %s (rule 2.13.1).", reason))
+    return nil, string.format("a weft-values block that does not read: %s (rule 2.13.1).", reason)
   end
   if not ok or d == nil or d == pandoc.json.null then return bad("not JSON") end
   if type(d) ~= "table" or getmetatable(d) ~= nil then return bad("not a JSON object") end
@@ -450,6 +465,15 @@ local function read_block(el, ctx)
   table.sort(names)
   for _, k in ipairs(names) do
     if not cond.is_name(k) then return bad(string.format("`%s` in `values` is not a name", k)) end
+  end
+  return d, nil, names, from_file
+end
+
+local function read_block(el, ctx)
+  local d, reason, names, from_file = parse_block(el)
+  if not d then
+    block_failure(el, ctx, reason)
+    return
   end
   for _, k in ipairs(names) do
     S.values[k] = d.values[k]
@@ -2118,6 +2142,67 @@ local function restore_captions(blocks)
   })
 end
 
+-- ---- forward references (N90 to N94): what the document publishes, wherever it stands ------------------
+
+-- a text for a record that ignores its `checks`, so that two records compare as N91 says (a float's `v` is
+-- text in the carrier, so it compares as text)
+local function canon(v, top)
+  if v == pandoc.json.null then return "null" end
+  local t = type(v)
+  if t == "string" then return string.format("%q", v) end
+  if t == "number" then return string.format("%.17g", v) end
+  if t ~= "table" then return tostring(v) end
+  local parts = {}
+  if is_array(v) then
+    for i, x in ipairs(v) do parts[i] = canon(x, false) end
+    return "[" .. table.concat(parts, ",") .. "]"
+  end
+  local keys = {}
+  for k in pairs(v) do
+    if not (top and k == "checks") then keys[#keys + 1] = k end
+  end
+  table.sort(keys, function(a, b) return tostring(a) < tostring(b) end)
+  for i, k in ipairs(keys) do parts[i] = string.format("%q", tostring(k)) .. ":" .. canon(v[k], false) end
+  return "{" .. table.concat(parts, ",") .. "}"
+end
+
+-- Before the main pass: every block the main pass will read (a `weft-values` block or file, and a printed
+-- carrier of a cell output, N57), in document order, in S.fwd[name] = { last = record, n = distinct values }.
+-- A block that does not read is left to the main pass to report.
+local function prepass(doc)
+  S.fwd = {}
+  local function take(el)
+    local d, _, names = parse_block(el)
+    if not d then return end
+    for _, k in ipairs(names) do
+      local rec = d.values[k]
+      local f = S.fwd[k]
+      if not f then f = { seen = {}, n = 0 }; S.fwd[k] = f end
+      local key = canon(rec, true)
+      if not f.seen[key] then f.seen[key] = true; f.n = f.n + 1 end
+      f.last = rec
+    end
+  end
+  doc:walk({
+    traverse = "topdown",
+    Div = function(el)
+      if el.classes:includes("cell-output-stdout") then
+        for _, b in ipairs(el.content) do
+          if b.t == "CodeBlock" and not b.classes:includes("weft-values") then
+            local bodies = printed_carrier(b)
+            if bodies then
+              for _, body in ipairs(bodies) do take(pandoc.CodeBlock(body, pandoc.Attr("", { "weft-values" }))) end
+            end
+          end
+        end
+      end
+    end,
+    CodeBlock = function(el)
+      if el.classes:includes("weft-values") then take(el) end
+    end,
+  })
+end
+
 -- ---- lines (N89): tag each construct, before anything is resolved --------------------------------------
 
 local function prev_not_backtick(text, s)
@@ -2492,6 +2577,7 @@ function Pandoc(doc)
   end
 
   doc = tag_all(doc)
+  prepass(doc)
   local ctx = {}
   local blocks = resolve_blocks(doc.blocks, ctx)
   blocks = restore_captions(blocks)
