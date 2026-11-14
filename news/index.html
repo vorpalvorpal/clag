@@ -58,6 +58,11 @@
 <li>The hint for a name published nowhere no longer says “above”: it now reads “Publish it in code in this document”, since a named value may be published below its use.</li>
 <li>The <code>claim-word</code> lint is quieter. The shipped list drops <code>each</code>, <code>both</code>, <code>either</code> and <code>whole</code> (65 words), skips idioms such as “at least” and “no longer” (<code>claim_words: {idioms: [...]}</code> adds your own), and skips a word with a hyphen beside it or a capital that does not start its sentence. A quantifier is now listed only in a sentence with a value or a digit; the new setting <code>claim_quantifiers</code> (<code>number</code>, <code>any</code> or <code>none</code>) changes that.</li>
 <li>A <code>claim-word</code> finding in a blockquote no longer shows the <code>&gt;</code> markers, and the last sentence of a list item no longer runs on into the next item’s marker.</li>
+<li>
+<code><a href="../reference/fmt.html">fmt_num()</a></code> and <code><a href="../reference/fmt.html">fmt_pct()</a></code> no longer round a number of exactly 15 significant digits one digit early when it lies just below a power of ten: <code>fmt_pct(999999999999999)</code> prints “99,999,999,999,999,900%”, not “100,000,000,000,000,000%”. The Lua filter prints the same.</li>
+<li>
+<code>.sci</code> prints a mantissa that rounds up to 10 as an exact 1, so 999000 prints “1 x 10<sup>6</sup>”, as 1e6 does, not “1.0 x 10<sup>6</sup>”. Zero prints as “0” with no exponent.</li>
+<li>The gate no longer counts a <code><a href="../reference/claim.html">claim()</a></code> in an R chunk set to <code>eval: false</code>, as it never counted one in a Python or Julia chunk. Turning <code>eval</code> off on a chunk that holds a claim is now a removal.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="weft-010">weft 0.1.0<a class="anchor" aria-label="anchor" href="#weft-010"></a></h2>

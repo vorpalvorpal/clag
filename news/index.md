@@ -26,6 +26,21 @@
 - A `claim-word` finding in a blockquote no longer shows the `>`
   markers, and the last sentence of a list item no longer runs on into
   the next item’s marker.
+- [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md)
+  and
+  [`fmt_pct()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) no
+  longer round a number of exactly 15 significant digits one digit early
+  when it lies just below a power of ten: `fmt_pct(999999999999999)`
+  prints “99,999,999,999,999,900%”, not “100,000,000,000,000,000%”. The
+  Lua filter prints the same.
+- `.sci` prints a mantissa that rounds up to 10 as an exact 1, so 999000
+  prints “1 x 10⁶”, as 1e6 does, not “1.0 x 10⁶”. Zero prints as “0”
+  with no exponent.
+- The gate no longer counts a
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) in
+  an R chunk set to `eval: false`, as it never counted one in a Python
+  or Julia chunk. Turning `eval` off on a chunk that holds a claim is
+  now a removal.
 
 ## weft 0.1.0
 
