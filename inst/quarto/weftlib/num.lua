@@ -6,7 +6,10 @@
 -- record  the decoded JSON record of schema 1: {t = "float"|"int"|"decimal", v = "<text>"}
 -- class   "num" or "pct" (no dot); nothing else is implemented
 -- keys    table or nil: digits, sigfig (Lua numbers); any other key is not implemented
--- config  table or nil: digits, decimal_mark, big_mark, thousands_from, minus
+-- config  table or nil: digits, decimal_mark, big_mark, thousands_from, minus; target ("markdown", the
+--         default, or "tex": the forms a formula holds, dev/design-9.md TX4 to TX6; the minus is "-", the
+--         marks are converted, a percent sign is \%, and sci and p write TeX). Without a target the text is
+--         what it was before the target existed.
 --
 -- info.ip is the integer part of the printed number as digits (no sign, no group marks).
 -- Doubles (kind "float") go through a literal port of round_half_away(), fixed_text(),
@@ -28,6 +31,49 @@ local function fail(fmt, ...) assert(false, string.format(fmt, ...)) end
 
 -- ---- configuration -------------------------------------------------------------------------
 
+-- ---- the TeX target (dev/design-9.md TX4 to TX6; the same text as tex_text() and tex_cfg() of R/tex.R) ----
+
+local TEX_SPECIAL = {
+  ["\\"] = "\\backslash", ["{"] = "\\{", ["}"] = "\\}", ["$"] = "\\$", ["%"] = "\\%", ["&"] = "\\&",
+  ["#"] = "\\#", ["_"] = "\\_", ["^"] = "\\hat{}", ["~"] = "\\sim", ["<"] = "<", [">"] = ">", ["|"] = "|",
+  ["\u{a0}"] = "\\,",
+}
+
+-- Maximal runs of ordinary characters go in \text{}; each special character maps singly.
+function M.tex_text(str)
+  if str == "" then return "" end
+  local out, run = {}, {}
+  local function flush()
+    if #run > 0 then out[#out + 1] = "\\text{" .. table.concat(run) .. "}"; run = {} end
+  end
+  for ch in str:gmatch(utf8.charpattern) do
+    local t = TEX_SPECIAL[ch]
+    if t then flush(); out[#out + 1] = t else run[#run + 1] = ch end
+  end
+  flush()
+  return table.concat(out)
+end
+
+local function tex_mark(mark)
+  if mark == "" then return "" end
+  if mark == "," then return "{,}" end
+  if mark == "." then return "." end
+  if mark == " " or mark == "\u{a0}" or mark == "\u{2009}" or mark == "\u{202f}" then return "\\," end
+  if mark == "'" or mark == "\u{2019}" then return "\\text{'}" end
+  if mark == "\u{b7}" then return "{\\cdot}" end
+  return M.tex_text(mark)
+end
+
+-- the setting p_label under TeX: one ASCII letter, bare or inside one pair of * or _, is the letter;
+-- anything else is text
+local function tex_p_label(label)
+  if label == "" then return "" end
+  if label:match("^[A-Za-z]$") then return label end
+  local m = label:match("^%*([A-Za-z])%*$") or label:match("^_([A-Za-z])_$")
+  if m then return m end
+  return M.tex_text(label)
+end
+
 local function read_config(config)
   local cfg = {}
   for k, v in pairs(DEFAULTS) do cfg[k] = v end
@@ -47,6 +93,14 @@ local function read_config(config)
   end
   cfg.digits = math.floor(cfg.digits)
   if cfg.digits < 0 then fail("config digits must not be negative") end
+  local target = config.target
+  if target ~= nil and target ~= "markdown" then
+    if target ~= "tex" then fail("config target must be \"markdown\" or \"tex\" (got %s)", tostring(target)) end
+    local big, dec = tex_mark(cfg.big_mark), tex_mark(cfg.decimal_mark)
+    if dec ~= "" and dec == big then dec = "\\text{" .. cfg.decimal_mark .. "}" end
+    cfg.minus, cfg.big_mark, cfg.decimal_mark = "-", big, dec
+    cfg.tex = true
+  end
   return cfg
 end
 
@@ -233,7 +287,7 @@ local function print_float(text, class, digits, sigfig, cfg)
   local sv = (class == "pct") and v * 100 or v
   local p = print_one(sv, digits, sigfig, cfg)
   p.text = zero_noise(p, cfg)
-  if class == "pct" then p.text = p.text .. "%" end
+  if class == "pct" then p.text = p.text .. (cfg.tex and "\\%" or "%") end
   return p.text, p.number, p.decimals, p.ip
 end
 
@@ -319,7 +373,7 @@ local function print_exact(text, class, digits, sigfig, cfg)
   local txt = shown
   if nd > 0 then txt = txt .. cfg.decimal_mark .. fp end
   if neg and not zero then txt = cfg.minus .. txt end
-  if class == "pct" then txt = txt .. "%" end
+  if class == "pct" then txt = txt .. (cfg.tex and "\\%" or "%") end
   local number = 0.0
   if not zero then
     number = tonumber(ip .. (nd > 0 and ("." .. fp) or "")) * 1.0
@@ -395,7 +449,9 @@ function M.format_sci(record, keys, config)
   local ei = math.tointeger(e) or math.floor(e)
   local exp_txt = (ei < 0) and (cfg.minus .. string.format("%d", -ei)) or string.format("%d", ei)
   local h2 = e // 2
-  return p.text .. " \u{d7} 10^" .. exp_txt .. "^", {
+  local sci_text = cfg.tex and (p.text .. " \\times 10^{" .. exp_txt .. "}")
+    or (p.text .. " \u{d7} 10^" .. exp_txt .. "^")
+  return sci_text, {
     number = (p.number * 10.0 ^ h2) * 10.0 ^ (e - h2), decimals = p.decimals, relation = "=",
   }
 end
@@ -409,8 +465,11 @@ function M.format_p(record, config, keys)
   config = config or {}
   if v < 0 or v > 1 then fail("`.p` needs a value from 0 to 1; got %s.", string.format("%.15g", v)) end
   local label = keys.label
-  if label == nil then label = config.p_label end
-  if label == nil then label = "p" end
+  if label == nil then
+    label = config.p_label
+    if label == nil then label = "p" end
+    if cfg.tex then label = tex_p_label(label) end
+  end
   local function mk(str, rel, number)
     local s = str:gsub("%.", function() return cfg.decimal_mark end, 1)
     local lead

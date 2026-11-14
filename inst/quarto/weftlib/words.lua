@@ -234,7 +234,9 @@ end
 -- `.range`: text is {a, b}, number the printed numbers (or nil), raw the numbers as given (or nil), exact_gt
 -- the order of the ends judged on their text (or nil).
 -- Returns the text, or nil and a message.
-function M.collapse_range(text, number, raw, minus, exact_gt, plus)
+-- `target` is "markdown" (or nil: today's text) or "tex": the ends are TeX texts and the joiner is always
+-- `\ \text{to}\ `.
+function M.collapse_range(text, number, raw, minus, exact_gt, plus, target)
   if #text ~= 2 then
     return nil, string.format("`.range` needs a value of length 2; this has %d (rule 5.3.2).", #text)
   end
@@ -247,6 +249,7 @@ function M.collapse_range(text, number, raw, minus, exact_gt, plus)
     return nil, string.format("`.range` needs its first end not above its second; got %s and %s.", text[1], text[2])
   end
   if text[1] == text[2] then return text[1] end
+  if target == "tex" then return text[1] .. "\\ \\text{to}\\ " .. text[2] end
   local neg = false
   for i = 1, 2 do
     if (number and number[i] and number[i] < 0) or (minus ~= "" and text[i]:sub(1, #minus) == minus)
