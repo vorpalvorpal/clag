@@ -34,6 +34,7 @@ julia_ensure <- function(read, home = NULL) {
       "Install it with install.packages(\"JuliaCall\") (rule 2.12.6)."), read))
   }
   if (julia_running()) return(invisible(TRUE))
+  jl_preload_unwind(home)
   err <- tryCatch({
     JuliaCall::julia_setup(JULIA_HOME = home, installJulia = FALSE, install = FALSE, verbose = FALSE)
     jl_register()
@@ -45,6 +46,52 @@ julia_ensure <- function(read, home = NULL) {
                         read, why))
   }
   invisible(TRUE)
+}
+
+# On Linux, load Julia's own libunwind into R before Julia starts, so that Julia
+# uses it rather than the system's (dev/open-findings.md, finding 22). R's
+# start-up script puts /usr/lib/x86_64-linux-gnu (or the like) on
+# LD_LIBRARY_PATH, which the loader searches before libjulia-internal's RUNPATH,
+# so where the system has a libunwind.so.8 Julia gets that one, and it
+# segfaults R the first time Julia records the backtrace of an exception, even
+# one caught at once. JuliaCall 0.17.6 (CRAN) does not guard against it; its
+# development version does the same as this (JuliaCall issue 238). `home` is
+# the folder of Julia's binaries, as julia_setup() takes it, or NULL. Does
+# nothing elsewhere, or once a libjulia is loaded, or when the library cannot
+# be found; never fails.
+jl_preload_unwind <- function(home = NULL) {
+  if (!identical(Sys.info()[["sysname"]], "Linux")) return(invisible(FALSE))
+  loaded <- vapply(getLoadedDLLs(), function(d) d[["path"]], "")
+  if (any(grepl("libjulia", basename(loaded), fixed = TRUE))) return(invisible(FALSE))
+  lib <- tryCatch(jl_unwind_path(home), error = function(e) NULL)
+  if (is.null(lib)) return(invisible(FALSE))
+  if (lib %in% loaded) return(invisible(TRUE))
+  ok <- tryCatch({
+    dyn.load(lib, local = FALSE, now = TRUE)
+    TRUE
+  }, error = function(e) FALSE)
+  invisible(ok)
+}
+
+# The path of the libunwind that ships with the Julia JuliaCall would start, or
+# NULL. The folder of Julia's binaries is `home`, else as JuliaCall looks for
+# it: the option or variable JULIA_HOME, else the `julia` on PATH (a symlink is
+# followed; a launcher such as juliaup's is asked for Sys.BINDIR).
+jl_unwind_path <- function(home = NULL) {
+  if (is.null(home)) home <- getOption("JULIA_HOME")
+  if (is.null(home) && nzchar(Sys.getenv("JULIA_HOME"))) home <- Sys.getenv("JULIA_HOME")
+  exe <- if (!is.null(home)) file.path(home, "julia") else unname(Sys.which("julia"))
+  if (!nzchar(exe) || !file.exists(exe)) return(NULL)
+  find <- function(bindir) {
+    hit <- Sys.glob(file.path(bindir, "..", "lib", "julia", "libunwind.so*"))
+    if (length(hit)) normalizePath(hit[1L]) else NULL
+  }
+  hit <- find(dirname(normalizePath(exe)))
+  if (!is.null(hit)) return(hit)
+  out <- suppressWarnings(system2(exe, c("--startup-file=no", "-e", shQuote("print(Sys.BINDIR)")),
+                                  stdout = TRUE, stderr = FALSE))
+  if (!is.null(attr(out, "status")) || !length(out)) return(NULL)
+  find(out[length(out)])
 }
 
 # Define `WeftGuest` unless a Julia of this process has it already.

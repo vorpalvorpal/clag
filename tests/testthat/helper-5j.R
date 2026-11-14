@@ -44,8 +44,8 @@
 #   skip_if_no_julia()    skips ONLY when JuliaCall is not installed or cannot
 #                         start Julia (the first call starts it, once per
 #                         process; later calls cost nothing), or when the
-#                         environment variable WEFT_SKIP_JULIA is set (the CI
-#                         workflow sets it: dev/open-findings.md, finding 22)
+#                         environment variable WEFT_SKIP_JULIA is set (a
+#                         switch for a run that should not start Julia)
 #   jl_set(...)           runs Julia lines: name = "expr" becomes `name = expr;`
 #                         an unnamed string is run as it is, with a `;` added.
 #                         Every line ends with `;` so JuliaCall converts no
@@ -78,11 +78,10 @@
 
 # ---- skips -------------------------------------------------------------------
 
-# Julia is skipped wherever WEFT_SKIP_JULIA is set (the CI workflow does): finding 22 in
-# dev/open-findings.md. One helper, used by both Julia skips.
+# Julia is skipped wherever WEFT_SKIP_JULIA is set. One helper, used by both Julia skips.
 skip_if_julia_disabled <- function() {
   testthat::skip_if(nzchar(Sys.getenv("WEFT_SKIP_JULIA")),
-                    "WEFT_SKIP_JULIA is set: Julia segfaults R on the CI runner (dev/open-findings.md, finding 22)")
+                    "WEFT_SKIP_JULIA is set")
 }
 
 skip_if_no_julia <- function() {
@@ -90,6 +89,8 @@ skip_if_no_julia <- function() {
   testthat::skip_if_not_installed("JuliaCall")
   if (is.null(.w5j$started)) {
     .w5j$started <- tryCatch({
+      # as weft does before it starts Julia: Julia's own libunwind, on Linux (finding 22)
+      weft:::jl_preload_unwind()
       JuliaCall::julia_setup(installJulia = FALSE, install = FALSE,
                              verbose = FALSE)
       TRUE
@@ -420,8 +421,12 @@ k5j_fresh <- function(script, env = NULL) {
   dir.create(dir)
   out <- file.path(dir, "saved.rds")
   file_script <- file.path(dir, "script.R")
+  # some scripts start Julia with JuliaCall::julia_setup(), not through weft, so
+  # Julia's own libunwind is loaded first, as weft does (finding 22); this
+  # loads neither JuliaCall nor Julia
   writeLines(c(
     sprintf(".out <- %s", deparse(out)),
+    "try(weft:::jl_preload_unwind(), silent = TRUE)",
     paste("knit1 <-", paste(deparse(k5j_knit1), collapse = "\n")),
     script), file_script)
   lib <- weft_test_lib()
