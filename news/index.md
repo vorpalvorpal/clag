@@ -29,9 +29,18 @@
   to a markdown formatter is a value error. The formatters that print
   words, emphasis or a list refuse `"tex"`, and so does any other value
   of `target`. A project formatter that lists `tex` in its new
-  `targets:` key is called with `target`, after any options. Named
-  values in math, on the Lua filter route, are not resolved yet. See
-  [`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md).
+  `targets:` key is called with `target`, after any options. A named
+  value, `` $`depth`{.num}$ ``, works in math and raw LaTeX too: the Lua
+  filter finds it in the text of the `Math`, `RawInline` or `RawBlock`
+  element and writes the same TeX (in raw LaTeX inside `\ensuremath{}`),
+  with the same errors, a failure marker inside the formula, a ledger
+  entry of context `math` or `tex`, and a row from the scanner with
+  `tex` set so that the lints and the gate see it. `weft-check` reports
+  one the filter left as a leftover (“math holds a named value the
+  filter did not resolve”). Math with no backtick is not read. See
+  [`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md)
+  and
+  [`vignette("named-values")`](https://vorpalvorpal.github.io/weft/articles/named-values.md).
 - A project formatter can now declare typed `options:` in `_weft.yml`
   (`number`, `integer`, `string` or `logical`, as a mapping from name to
   type or a list of names). An option written on a construct reaches the

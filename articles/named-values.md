@@ -712,6 +712,42 @@ title: "Turbidity at `n`{.word} sites"
 ---
 ```
 
+## A named value in math and raw LaTeX
+
+A named value works inside a formula and inside raw LaTeX. Pandoc keeps
+the backticks in the text of a `$...$` or `$$...$$` formula, so the
+filter finds the named value there, and writes the TeX that a class
+block writes in math (see
+[`vignette("values")`](https://vorpalvorpal.github.io/weft/articles/values.md),
+“Values in math and raw LaTeX”), not markdown:
+
+````` markdown
+````{.weft-values}
+{"weft":1,"values":{"share":{"t":"float","v":"0.123"},"volume":{"t":"float","v":"1234567"}}}
+````
+
+The share was $s = `share`{.pct}$ of the flow, and the volume
+
+$$ V = `volume`{.sci} $$
+`````
+
+gives the formulas `s = 12.3\%` and `V = 1.2 \times 10^{6}`. The same
+holds in a math environment such as `align` and in raw LaTeX (a
+`{=latex}` fence, another `\begin{...}` environment, a code span
+followed by `{=latex}`), where the output is wrapped in
+`\ensuremath{...}`.
+
+The checks are those of math written with inline R: the classes that
+print words, emphasis or a list are a construct error, and so is a class
+or key that is not weft’s. `.val` is allowed, and prints `\text{...}`
+for anything but a plain number. A failure is the marker
+`\text{<<weft: no value, line 7>>}` inside the formula, which is not
+split. The name counts in the ledger and the stamp (context `math`, or
+`tex` in raw LaTeX), and a use above the publication follows the rule of
+the section above. With the filter not installed, or not run before
+`weft-check.lua`, a named value left in a formula is a finding of
+`weft-check`: “math holds a named value the filter did not resolve”.
+
 ## Freeze, kept kernels and `verify()`
 
 A value published in an earlier render can reach a later one: a document

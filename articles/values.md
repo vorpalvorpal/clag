@@ -583,6 +583,11 @@ Share & `r share`{.pct} \\
 writes `\ensuremath{12.3\%}` into the cell. A failure marker is written
 inside `\text{}`, and in raw LaTeX inside the wrapper too.
 
+A **named value** works in these places too: the Lua filter finds it
+inside the formula and writes the same TeX. See
+[`vignette("named-values")`](https://vorpalvorpal.github.io/weft/articles/named-values.md),
+“A named value in math and raw LaTeX”.
+
 A **bare value**, inline R with no class block, is left as it is
 everywhere. In math it prints as knitr prints it. In raw LaTeX it is not
 wrapped, so a string in a `tabular` cell stays text. Writing

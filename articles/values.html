@@ -751,6 +751,10 @@ in a math mode:</p>
 <p>writes <code>\ensuremath{12.3\%}</code> into the cell. A failure
 marker is written inside <code>\text{}</code>, and in raw LaTeX inside
 the wrapper too.</p>
+<p>A <strong>named value</strong> works in these places too: the Lua
+filter finds it inside the formula and writes the same TeX. See
+<code><a href="../articles/named-values.html">vignette("named-values")</a></code>, “A named value in math and raw
+LaTeX”.</p>
 <p>A <strong>bare value</strong>, inline R with no class block, is left
 as it is everywhere. In math it prints as knitr prints it. In raw LaTeX
 it is not wrapped, so a string in a <code>tabular</code> cell stays

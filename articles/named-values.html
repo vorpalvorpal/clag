@@ -692,6 +692,41 @@ name.</p>
 <span id="cb36-3"><a href="#cb36-3" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
 </div>
 <div class="section level2">
+<h2 id="a-named-value-in-math-and-raw-latex">A named value in math and raw LaTeX<a class="anchor" aria-label="anchor" href="#a-named-value-in-math-and-raw-latex"></a>
+</h2>
+<p>A named value works inside a formula and inside raw LaTeX. Pandoc
+keeps the backticks in the text of a <code>$...$</code> or
+<code>$$...$$</code> formula, so the filter finds the named value there,
+and writes the TeX that a class block writes in math (see
+<code><a href="../articles/values.html">vignette("values")</a></code>, “Values in math and raw LaTeX”), not
+markdown:</p>
+<div class="sourceCode" id="cb37"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb37-1"><a href="#cb37-1" tabindex="-1"></a><span class="in">````{.weft-values}</span></span>
+<span id="cb37-2"><a href="#cb37-2" tabindex="-1"></a><span class="in">{"weft":1,"values":{"share":{"t":"float","v":"0.123"},"volume":{"t":"float","v":"1234567"}}}</span></span>
+<span id="cb37-3"><a href="#cb37-3" tabindex="-1"></a><span class="in">````</span></span>
+<span id="cb37-4"><a href="#cb37-4" tabindex="-1"></a></span>
+<span id="cb37-5"><a href="#cb37-5" tabindex="-1"></a>The share was $s = <span class="in">`share`</span>{.pct}$ of the flow, and the volume</span>
+<span id="cb37-6"><a href="#cb37-6" tabindex="-1"></a></span>
+<span id="cb37-7"><a href="#cb37-7" tabindex="-1"></a>$$ V = <span class="in">`volume`</span>{.sci} $$</span></code></pre></div>
+<p>gives the formulas <code>s = 12.3\%</code> and
+<code>V = 1.2 \times 10^{6}</code>. The same holds in a math environment
+such as <code>align</code> and in raw LaTeX (a <code>{=latex}</code>
+fence, another <code>\begin{...}</code> environment, a code span
+followed by <code>{=latex}</code>), where the output is wrapped in
+<code>\ensuremath{...}</code>.</p>
+<p>The checks are those of math written with inline R: the classes that
+print words, emphasis or a list are a construct error, and so is a class
+or key that is not weft’s. <code>.val</code> is allowed, and prints
+<code>\text{...}</code> for anything but a plain number. A failure is
+the marker <code>\text{&lt;&lt;weft: no value, line 7&gt;&gt;}</code>
+inside the formula, which is not split. The name counts in the ledger
+and the stamp (context <code>math</code>, or <code>tex</code> in raw
+LaTeX), and a use above the publication follows the rule of the section
+above. With the filter not installed, or not run before
+<code>weft-check.lua</code>, a named value left in a formula is a
+finding of <code>weft-check</code>: “math holds a named value the filter
+did not resolve”.</p>
+</div>
+<div class="section level2">
 <h2 id="freeze-kept-kernels-and-verify">Freeze, kept kernels and <code>verify()</code><a class="anchor" aria-label="anchor" href="#freeze-kept-kernels-and-verify"></a>
 </h2>
 <p>A value published in an earlier render can reach a later one: a
