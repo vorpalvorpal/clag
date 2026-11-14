@@ -285,8 +285,10 @@ document, gets one ledger entry holding a digest of its visible text, so
   so they are among the rows saved with a cached chunk and replayed when it
   is served from the cache (design-2 D22). A document served from freeze is
   not knitted and keeps its ledger (7.2.4), as for every entry.
-- **N37.** A chunk with `error: true` that stops part-way records the
-  elements it printed before the error. Draft mode records as usual.
+- **N37.** A chunk with `error: true` that meets an error records every
+  element that reached the document: knitr goes on after the error, so that
+  is the elements before it and those after it (settled when 7c was built;
+  the first wording had only those before). Draft mode records as usual.
 - **N38. Schema.** `LEDGER_VERSION` stays 1: `table` is a new value of
   `kind`, and every field is one a v1 reader knows. Ledgers written before
   this package read unchanged.

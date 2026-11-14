@@ -188,12 +188,14 @@ test_that("N33: a change of style or markup is not a change; a change of a visib
 
 # ---- N37: error and cache ------------------------------------------------------------------------------------
 
-test_that("N37: a chunk with error=TRUE that stops part-way records the elements it printed before the error", {
+# knitr goes on after an error under error=TRUE, so the element after it reaches the document too
+test_that("N37: a chunk with error=TRUE records every element that reached the document", {
   res <- t7c_knit(t7c_chunk("tbl-err", c("cat('Before the error\\n\\n')", "stop('boom')", "cat('After\\n\\n')"),
                             opts = "echo=FALSE, error=TRUE, results='asis'"))
   t <- t7c_tables(res)
-  expect_length(t, 1L)
+  expect_length(t, 2L)
   expect_identical(t[[1]]$text, t7c_hash("Before the error"))
+  expect_identical(t[[2]]$text, t7c_hash("After"))
 })
 
 test_that("N37: draft mode records tables as usual", {
