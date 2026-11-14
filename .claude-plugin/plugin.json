@@ -1,0 +1,12 @@
+{
+  "name": "weft",
+  "version": "0.1.0",
+  "description": "Rules and reference for coding agents that edit documents of a weft project (R package weft).",
+  "author": {
+    "name": "vorpalvorpal"
+  },
+  "homepage": "https://vorpalvorpal.github.io/weft/",
+  "repository": "https://github.com/vorpalvorpal/weft",
+  "license": "MIT",
+  "keywords": ["weft", "r", "quarto", "reproducible-reports"]
+}

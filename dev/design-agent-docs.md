@@ -91,7 +91,22 @@ the meaning of `overwrite`; an existing project that holds only
 `.claude/skills/weft/SKILL.md` gains the `.agents/skills` copy at the
 next `use_agent_docs()`.
 
-## Not in this package of work
+## Marketplace folder (built 14 Nov)
 
-The marketplace folder (a generated `skills/weft/` at the repository
-root and a Claude Code plugin manifest): waiting on the owner.
+Built: a generated `skills/weft/` at the repository root (`SKILL.md`,
+`references/syntax.md`, `references/reports.md`: the shipped documents
+with `@VERSION@` filled and no `weft-file` marker, as the copy is not one
+`use_agent_docs()` wrote); `.claude-plugin/plugin.json` and
+`.claude-plugin/marketplace.json`; the internal `agent_repo_skill(dir)`
+in `R/use-agent-docs.R`; `dev/make-skill-folder.R`, run at each release,
+which also sets the version in both manifests. `^skills$` and
+`^\.claude-plugin$` are in `.Rbuildignore`. A test fails when the
+committed folder or the manifest versions differ from the generator.
+
+Layout: the repository root is the plugin, and the marketplace's one
+entry has `"source": "./"`. The Claude Code documentation supports a
+plugin at the marketplace root ("`./`" in the marketplace reference), and
+a plugin's default `skills/` directory is `skills/<name>/SKILL.md`, so the
+same `skills/weft/` serves the Agent Skills installers and the plugin,
+with no second copy to drift. Install id: `weft@weft`. Cost: Claude Code
+copies the whole repository into its plugin cache.

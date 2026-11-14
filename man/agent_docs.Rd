@@ -21,6 +21,6 @@ a project can be older than the package; this prints the version that
 matches the installed code. Nothing is written.
 }
 \details{
-The \code{skill} text carries a \verb{@VERSION@} placeholder in its \code{metadata} that
-\code{\link[=use_agent_docs]{use_agent_docs()}} fills when it writes a copy.
+The text has the installed package's version in the \code{skill} front matter,
+where \code{\link[=use_agent_docs]{use_agent_docs()}} writes the same version into a copy.
 }

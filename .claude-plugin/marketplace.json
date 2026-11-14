@@ -1,0 +1,15 @@
+{
+  "name": "weft",
+  "description": "The weft skill for coding agents that edit a weft project.",
+  "owner": {
+    "name": "vorpalvorpal"
+  },
+  "plugins": [
+    {
+      "name": "weft",
+      "source": "./",
+      "description": "Rules and reference for coding agents that edit documents of a weft project (R package weft).",
+      "version": "0.1.0"
+    }
+  ]
+}

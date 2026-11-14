@@ -44,7 +44,7 @@ weft::use_weft()
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          .github/workflows/weft.yml (new)
-#>   use_agent_docs  AGENTS.md (new), .claude/skills/weft/SKILL.md (new)
+#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)
 #> Wrote: .Rprofile, _weft.yml, index.qmd, _extensions/weft-check/_extension.yml, ...
 ```
 
@@ -308,7 +308,7 @@ left its base. It needs `origin` to be on github.com.
 
 `use_agent_docs()` tells a coding agent the rules of a weft project. It
 appends a block to `AGENTS.md`, creating the file if needed, and writes a
-skill to `.claude/skills/weft/SKILL.md`. If the project has a `CLAUDE.md`
+skill to `.agents/skills/weft/` and `.claude/skills/weft/`. If the project has a `CLAUDE.md`
 that does not include `AGENTS.md`, it says so:
 
 ```text
@@ -336,8 +336,13 @@ tell three cases apart:
 weft::use_agent_docs()
 #> weft will write, under creek-site:
 #>   AGENTS.md  (keep: the weft rules for coding agents)
+#>   .agents/skills/weft/SKILL.md  (keep: the weft skill for coding agents)
+#>   .agents/skills/weft/references/reports.md  (keep: the weft skill for coding agents)
+#>   .agents/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)
 #>   .claude/skills/weft/SKILL.md  (edited: edited since weft wrote it; left as it is (use overwrite = TRUE to replace it))
-#> Nothing to change: the agent documents is already set up.
+#>   .claude/skills/weft/references/reports.md  (keep: the weft skill for coding agents)
+#>   .claude/skills/weft/references/syntax.md  (keep: the weft skill for coding agents)
+#> Nothing to change: the agent documents are already set up.
 ```
 
 `use_hooks()`, `use_ci()` and `use_agent_docs()` take `overwrite`.

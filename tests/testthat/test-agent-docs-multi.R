@@ -396,6 +396,7 @@ test_that("AD5: agent_docs(topic) prints the document without the marker line an
 test_that("AD5: agent_docs('syntax') is the installed reference text, less its marker", {
   src <- readLines(system.file("agent", "references", "syntax.md", package = "weft"))
   src <- src[!grepl("weft-file:", src, fixed = TRUE)]
+  src <- gsub("@VERSION@", as.character(utils::packageVersion("weft")), src, fixed = TRUE)
   s <- h4_say(weft::agent_docs("syntax"))
   expect_identical(gsub("\\s+", " ", trimws(paste(s$value, collapse = "\n"))),
                    gsub("\\s+", " ", trimws(paste(src, collapse = "\n"))))
@@ -404,9 +405,17 @@ test_that("AD5: agent_docs('syntax') is the installed reference text, less its m
 test_that("AD5: agent_docs('skill') is the installed SKILL.md, less its marker", {
   src <- readLines(system.file("agent", "SKILL.md", package = "weft"))
   src <- src[!grepl("weft-file:", src, fixed = TRUE)]
+  src <- gsub("@VERSION@", as.character(utils::packageVersion("weft")), src, fixed = TRUE)
   s <- h4_say(weft::agent_docs("skill"))
   expect_identical(gsub("\\s+", " ", trimws(paste(s$value, collapse = "\n"))),
                    gsub("\\s+", " ", trimws(paste(src, collapse = "\n"))))
+})
+
+test_that("AD5: no topic prints a @VERSION@ or @HASH@ placeholder", {
+  for (t in c("syntax", "reports", "skill")) {
+    s <- h4_say(weft::agent_docs(t))
+    expect_false(grepl("@VERSION@|@HASH@", paste(s$text, paste(s$value, collapse = "\n")), perl = TRUE), label = t)
+  }
 })
 
 test_that("AD5: an unknown topic is an error listing the topics", {

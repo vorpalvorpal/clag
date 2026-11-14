@@ -67,8 +67,8 @@ use_agent_docs <- function(path = ".", overwrite = FALSE, skills = c("agents", "
 #' a project can be older than the package; this prints the version that
 #' matches the installed code. Nothing is written.
 #'
-#' The `skill` text carries a `@VERSION@` placeholder in its `metadata` that
-#' [use_agent_docs()] fills when it writes a copy.
+#' The text has the installed package's version in the `skill` front matter,
+#' where [use_agent_docs()] writes the same version into a copy.
 #'
 #' @param topic `NULL`, or one of `"skill"`, `"syntax"`, `"reports"`.
 #' @return The text as a character vector of lines, invisibly (the topics when
@@ -86,10 +86,33 @@ agent_docs <- function(topic = NULL) {
     tool_abort(sprintf("agent_docs(): unknown topic %s. The topics are: %s.",
                        paste(format(topic), collapse = " "), paste(names(topics), collapse = ", ")))
   }
-  lines <- read_source_lines(agent_topic_file(topic))
-  lines <- lines[!grepl("weft-file:", lines, fixed = TRUE)]
+  lines <- agent_plain_lines(agent_topic_file(topic))
   cat(lines, sep = "\n")
   invisible(lines)
+}
+
+# a shipped document's lines with the marker line dropped and `@VERSION@` filled: what agent_docs()
+# prints and what the repository's skills/ folder holds
+agent_plain_lines <- function(file) {
+  x <- read_source_lines(file)
+  x <- x[!grepl("weft-file:", x, fixed = TRUE)]
+  unname(subst_fixed(x, "@VERSION@", weft_version_string()))
+}
+
+# Write the skill as the repository's `skills/weft/` folder (SKILL.md and references/*.md) under `dir`,
+# for the Agent Skills layout and the Claude Code plugin. Not use_agent_docs(): no marker line, as the
+# copy is not one a project holds. Returns the paths written, relative to `dir`.
+agent_repo_skill <- function(dir) {
+  src <- skill_sources()
+  out <- file.path("skills", "weft", names(src))
+  for (i in seq_along(src)) {
+    f <- file.path(dir, out[[i]])
+    dir.create(dirname(f), recursive = TRUE, showWarnings = FALSE)
+    con <- file(f, open = "wb")
+    writeBin(charToRaw(paste0(paste(agent_plain_lines(src[[i]]), collapse = "\n"), "\n")), con)
+    close(con)
+  }
+  out
 }
 
 AGENT_TOPICS <- c(skill = "the rules and the workflow (SKILL.md)",

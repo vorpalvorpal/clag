@@ -91,6 +91,33 @@ The copies in a project can be older than the installed package.
 `weft::agent_docs()` lists the documents and `weft::agent_docs("syntax")`
 prints the installed version of one.
 
+## Installing the skill without a project
+
+To give the skill to Claude Code for yourself, in every project, install the
+plugin from the GitHub repository. In a Claude Code session:
+
+```text
+/plugin marketplace add vorpalvorpal/weft
+/plugin install weft@weft
+```
+
+or in one step, on Claude Code 2.1.275 or later:
+
+```text
+/plugin install weft --marketplace vorpalvorpal/weft
+```
+
+From a shell, `claude plugin marketplace add vorpalvorpal/weft` then
+`claude plugin install weft@weft` do the same. Cross-tool installers that
+read a `skills/<name>/SKILL.md` folder from a repository can read
+`skills/weft/` from `vorpalvorpal/weft`.
+
+A copy installed this way belongs to you, not to a project. It is not
+updated with the R package, so it can fall behind the installed weft; update
+it from Claude Code, or run `weft::agent_docs()` to read the current text.
+The copy that `use_agent_docs()` writes into the project is the one
+`status()` checks.
+
 ## The four rules
 
 ### A failed claim is a finding, not an error

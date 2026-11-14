@@ -11,3 +11,5 @@
 ^pkgdown$
 ^\.github$
 ^inst/python/__pycache__$
+^skills$
+^\.claude-plugin$
