@@ -120,6 +120,8 @@ jle_cases <- function(codes, env = character()) {
   vars <- c(JULIA_LOAD_PATH = jle_load_path(), WEFT_RUN = NA, QUARTO_DOCUMENT_PATH = NA,
             QUARTO_DOCUMENT_FILE = NA, WEFT_DRAFT = NA, WEFT_COLLECT = NA)
   for (n in names(env)) vars[[n]] <- env[[n]]
+  # Julia started by R must not get the system libunwind (finding 22)
+  vars <- c(vars, weft:::julia_child_env())
   withr::local_envvar(vars)
   errf <- file.path(dir, "stderr.txt")
   st <- suppressWarnings(system2(Sys.which("julia"),

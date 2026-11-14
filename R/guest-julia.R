@@ -94,6 +94,20 @@ jl_unwind_path <- function(home = NULL) {
   find(out[length(out)])
 }
 
+# A child process that may start Julia (`quarto render` of a project on the julia engine) inherits R's
+# LD_LIBRARY_PATH, so a plain `julia` there loads the system libunwind too and segfaults the same way
+# (finding 22). The variables to set for such a child: on Linux, LD_LIBRARY_PATH without the system's
+# own library folders (/usr/lib/<triplet>, /lib, /usr/lib64 and the like), which the loader searches
+# anyway, after the RUNPATH of Julia's libraries; elsewhere, or when there is nothing to take out,
+# none (a named character vector for withr::with_envvar()).
+julia_child_env <- function(x = Sys.getenv("LD_LIBRARY_PATH")) {
+  if (!identical(Sys.info()[["sysname"]], "Linux") || !nzchar(x)) return(character())
+  parts <- strsplit(x, ":", fixed = TRUE)[[1L]]
+  sys <- grepl("^(/usr)?/lib(64|32)?(/[A-Za-z0-9_]+-linux-[A-Za-z0-9_]+)?/*$", parts)
+  if (!any(sys)) return(character())
+  c(LD_LIBRARY_PATH = paste(parts[nzchar(parts) & !sys], collapse = ":"))
+}
+
 # Define `WeftGuest` unless a Julia of this process has it already.
 jl_register <- function() {
   have <- isTRUE(JuliaCall::julia_eval("isdefined(Main, :WeftGuest)"))

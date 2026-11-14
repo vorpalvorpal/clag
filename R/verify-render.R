@@ -169,8 +169,9 @@ verify_run <- function(cmd, args, root, run, log, output_log = NULL) {
   old_run <- if (had) tryCatch(readLines(f, warn = FALSE), error = function(e) character()) else character()
   write_lines_atomic(c(run, old_run[-1L]), f)
   if (!had) on.exit(unlink(f), add = TRUE)
-  # set here, not through system2()'s `env =`, which Windows ignores for most commands
-  ev <- c(WEFT_RUN = run)
+  # set here, not through system2()'s `env =`, which Windows ignores for most commands; a render on the
+  # julia engine starts Julia, which must not get the system libunwind (julia_child_env(), finding 22)
+  ev <- c(WEFT_RUN = run, julia_child_env())
   if (!is.null(output_log)) ev[["WEFT_OUTPUT_LOG"]] <- output_log
   st <- withr::with_envvar(ev,
                            suppressWarnings(system2(cmd, shQuote(args), stdout = log, stderr = log)))

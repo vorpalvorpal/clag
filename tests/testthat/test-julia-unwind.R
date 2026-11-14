@@ -20,3 +20,14 @@ test_that("finding 22: with a Julia folder that does not exist, nothing is found
   expect_no_error(weft:::jl_preload_unwind("/no/such/julia/bin"))
   expect_null(weft:::jl_unwind_path("/no/such/julia/bin"))
 })
+
+test_that("finding 22: a child that may start Julia gets LD_LIBRARY_PATH without the system's library folders, on Linux", {
+  skip_on_os(c("windows", "mac", "solaris"))
+  x <- "/opt/R/4.6.2/lib/R/lib:/usr/local/lib:/usr/lib/x86_64-linux-gnu:/usr/lib/jvm/jdk/lib/server"
+  expect_identical(weft:::julia_child_env(x),
+                   c(LD_LIBRARY_PATH = "/opt/R/4.6.2/lib/R/lib:/usr/local/lib:/usr/lib/jvm/jdk/lib/server"))
+  expect_identical(weft:::julia_child_env("/lib:/usr/lib64:/lib/aarch64-linux-gnu/:/opt/x/lib"),
+                   c(LD_LIBRARY_PATH = "/opt/x/lib"))
+  expect_identical(weft:::julia_child_env("/opt/R/lib"), character())
+  expect_identical(weft:::julia_child_env(""), character())
+})

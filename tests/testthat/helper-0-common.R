@@ -19,6 +19,8 @@ quarto_render_env <- function(dir, args, vars, env) {
   lib <- weft_test_lib()
   if (nzchar(lib)) vars[["R_LIBS"]] <- paste(c(lib, .libPaths()), collapse = .Platform$path.sep)
   for (n in names(env)) vars[[n]] <- env[[n]]
+  # a render on the julia engine starts Julia, which must not get the system libunwind (finding 22)
+  vars <- c(vars, weft:::julia_child_env())
   withr::local_envvar(vars)
   withr::local_dir(dir)
   errf <- tempfile("q-err-")
