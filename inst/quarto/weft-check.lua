@@ -31,7 +31,7 @@ local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, t
                         unit = true }
 local TEXT_CLASSES = { a = true, cap = true, strong = true, em = true }
 local FORMATTER_CLASSES = {}
-for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl]]):gmatch("[^ \t\r\n]+") do
+for c in ([[num pct sci p date no word count ord and or pairs range ul ol dl plus]]):gmatch("[^ \t\r\n]+") do
   FORMATTER_CLASSES[c] = true
 end
 

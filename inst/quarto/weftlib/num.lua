@@ -390,13 +390,39 @@ end
 
 -- a p-value: "p < 0.001", "p > 0.99", three decimals below 0.1, two from there. A value outside 0 to 1
 -- calls error() with R's text.
-function M.format_p(record, config)
+function M.format_p(record, config, keys)
   local v = scalar_double(record, "the .p printer")
   local cfg = read_config(config)
+  keys = keys or {}
+  config = config or {}
   if v < 0 or v > 1 then fail("`.p` needs a value from 0 to 1; got %s.", string.format("%.15g", v)) end
+  local label = keys.label
+  if label == nil then label = config.p_label end
+  if label == nil then label = "p" end
   local function mk(str, rel, number)
     local s = str:gsub("%.", function() return cfg.decimal_mark end, 1)
-    return "p " .. rel .. " " .. s, { number = number, decimals = true, relation = rel }
+    local lead
+    if label ~= "" then lead = label .. " " .. rel .. " "
+    elseif rel == "=" then lead = ""
+    else lead = rel .. " " end
+    return lead .. s, { number = number, decimals = true, relation = rel }
+  end
+  local d = keys.digits
+  if d == nil then d = config.p_digits end
+  if d ~= nil then
+    d = math.tointeger(tonumber(d))
+    if d == nil or d < 1 or d > 6 then fail("`digits` on `.p` must be a whole number from 1 to 6.") end
+    local unit = 10.0 ^ -d
+    if v < unit * (1 - 1e-9) then
+      local s = "0." .. string.rep("0", d - 1) .. "1"
+      return mk(s, "<", tonumber(s))
+    end
+    if round_half_away(v, d) >= 1 then
+      local s = "0." .. string.rep("9", d)
+      return mk(s, ">", tonumber(s))
+    end
+    local s = string.format("%." .. d .. "f", round_half_away(v, d))
+    return mk(s, "=", tonumber(s))
   end
   if v < 0.001 then return mk("0.001", "<", 0.001) end
   if v > 0.99 then return mk("0.99", ">", 0.99) end
@@ -419,8 +445,8 @@ function M.format(record, class, keys, config)
   for k in pairs(keys) do names[#names + 1] = tostring(k) end
   table.sort(names)
   for _, k in ipairs(names) do
-    if k ~= "digits" and k ~= "sigfig" then
-      fail("key %s is not implemented by the number printer (only digits and sigfig)", k)
+    if k ~= "digits" and k ~= "sigfig" and k ~= "plus" then
+      fail("key %s is not implemented by the number printer (only digits, sigfig and plus)", k)
     end
   end
   local digits, sigfig = key_number(keys, "digits"), key_number(keys, "sigfig")
@@ -452,6 +478,8 @@ function M.format(record, class, keys, config)
   else
     text, number, decimals, ip = print_exact(v, class, digits, sigfig, cfg)
   end
+  -- `.plus` (N2 to N4): a number printed above zero takes "+" where the minus would stand
+  if keys.plus == true and number > 0 then text = "+" .. text end
   -- `ip` is the whole part as printed, digits only, ungrouped and unsigned: for a suffix or a word that must
   -- not come from a double
   return text, {

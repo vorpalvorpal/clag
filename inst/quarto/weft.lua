@@ -60,6 +60,7 @@ for _, c in ipairs({ "word", "count", "ord" }) do CLASSES[c] = { group = "wordin
 CLASSES["no"] = { group = "no" }
 for _, c in ipairs({ "and", "or", "pairs", "range", "ul", "ol", "dl" }) do CLASSES[c] = { group = "collapse" } end
 for _, c in ipairs({ "uname", "usym", "nounit" }) do CLASSES[c] = { group = "unit" } end
+CLASSES["plus"] = { group = "plus" }
 CLASSES["a"] = { group = "a" }
 CLASSES["cap"] = { group = "cap" }
 CLASSES["strong"] = { group = "emphasis" }
@@ -69,7 +70,7 @@ CLASSES["em"] = { group = "emphasis" }
 local GOVERNORS = { ["if"] = true, n = true, sign = true, list = true, cite = true }
 -- `unit` is a renderer key (N5, 6d): the filter has no units, so a named value with it fails (E20)
 local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true,
-                        unit = true }
+                        unit = true, label = true }
 local OWNED_KEYS = { unit = true, level = true, ["weft-at"] = true, ["weft-cap"] = true }
 for k in pairs(GOVERNORS) do OWNED_KEYS[k] = true end
 for k in pairs(RENDERER_KEYS) do OWNED_KEYS[k] = true end
@@ -80,7 +81,8 @@ local WORDING_WITH_VAL = { no = true, word = true, count = true, ord = true }
 -- the classes this filter implements (6c): the printers for a named value
 local IMPLEMENTED = {}
 for cl in pairs(CLASSES) do IMPLEMENTED[cl] = true end
-local IMPLEMENTED_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true }
+local IMPLEMENTED_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true,
+                           label = true }
 
 -- ---- state --------------------------------------------------------------------------------------
 
@@ -519,7 +521,8 @@ local function code_candidate(el)
   local has_class, has_key = false, false
   for _, c in ipairs(el.classes) do if is_weft_class(c) then has_class = true end end
   for k in pairs(el.attributes) do
-    if RENDERER_KEYS[k:lower()] then has_key = true end
+    -- `label` alone is no renderer key: it does not make a code span a named value (N24)
+    if RENDERER_KEYS[k:lower()] and k:lower() ~= "label" then has_key = true end
   end
   if not (has_class or has_key) then return false end
   if cond.is_name(el.text) then return true end
@@ -593,6 +596,8 @@ local function md_inlines(text, data)
     end
     return out
   end
+  -- a leading ">" (a p-value with no label) would be read as a block quote
+  if text:sub(1, 1) == ">" then text = "\\" .. text end
   local doc = pandoc.read(text, "markdown")
   return pandoc.Inlines(pandoc.utils.blocks_to_inlines(doc.blocks))
 end
@@ -662,6 +667,9 @@ end
 -- ---- the construct's classes and keys --------------------------------------------------------------------
 
 -- the construct's own classes and keys; returns a failure (kind, detail) or nil
+local PLUS_CLASH = { sci = true, p = true, date = true, no = true, word = true, count = true, ord = true,
+                     val = true }
+
 local function check_construct(c)
   local by_group = {}
   for _, cl in ipairs(c.classes) do
@@ -669,6 +677,22 @@ local function check_construct(c)
     if g then by_group[g] = by_group[g] or {}; table.insert(by_group[g], cl) end
   end
   local has = c.has
+  if has.plus then
+    for _, cl in ipairs(c.classes) do
+      if PLUS_CLASH[cl] then
+        return "construct error", string.format(
+          "`.plus` cannot go with `.%s`: it signs a number that `.num` or `.pct` prints (rule 1.4.21).", cl)
+      end
+    end
+    for _, k in ipairs({ "if", "n", "sign", "list", "cite" }) do
+      if c.keys[k] ~= nil then
+        return "construct error", string.format("`.plus` does not apply to a span with `%s=` (rule 1.4.21).", k)
+      end
+    end
+  end
+  if c.keys.label ~= nil and not has.p then
+    return "construct error", "`label` applies to `.p` only (rule 1.4.17)."
+  end
   if has.val then
     for _, cl in ipairs(c.classes) do
       if WORDING_WITH_VAL[cl] then
@@ -694,7 +718,7 @@ local function check_construct(c)
   -- renderer keys
   for _, key in ipairs({ "digits", "sigfig" }) do
     local v = c.keys[key]
-    if v ~= nil then
+    if v ~= nil and not (has.p and key == "digits") then
       local n = whole_number(v)
       if n == nil or n < 0 then
         return "construct error", string.format("`%s` must be a whole number, not negative (got `%s`).", key, v)
@@ -710,8 +734,21 @@ local function check_construct(c)
   if c.keys.digits ~= nil and c.keys.sigfig ~= nil then
     return "construct error", "`digits` and `sigfig` together are an error (rule 1.4.7)."
   end
-  if (has.p or has.date) and (c.keys.digits ~= nil or c.keys.sigfig ~= nil) then
-    return "construct error", string.format("`digits` and `sigfig` do not apply to `.%s`.", has.p and "p" or "date")
+  if has.date and (c.keys.digits ~= nil or c.keys.sigfig ~= nil) then
+    return "construct error", "`digits` and `sigfig` do not apply to `.date`."
+  end
+  if has.p then
+    if c.keys.sigfig ~= nil then
+      return "construct error", "`sigfig` does not apply to `.p`; use `digits` (rule 1.4.17)."
+    end
+    local dv = c.keys.digits
+    if dv ~= nil then
+      local n = tonumber(dv)
+      if n == nil or n ~= math.floor(n) or n < 1 or n > 6 or dv:match("[^%d%-%+eE%.]") then
+        return "construct error", string.format(
+          "`digits` on `.p` must be a whole number from 1 to 6 (got `%s`) (rule 1.4.17).", dv)
+      end
+    end
   end
   if c.keys.trunc ~= nil then
     local n = whole_number(c.keys.trunc)
@@ -824,13 +861,14 @@ end
 local function config_for_num()
   local cfg = S.cfg
   return { digits = cfg.digits, decimal_mark = cfg.decimal_mark, big_mark = cfg.big_mark,
-           thousands_from = cfg.thousands_from, minus = cfg.minus }
+           thousands_from = cfg.thousands_from, minus = cfg.minus, p_digits = cfg.p_digits, p_label = cfg.p_label }
 end
 
 local function number_keys(c)
   local keys = {}
   if c.keys.digits ~= nil then keys.digits = tonumber(c.keys.digits) end
   if c.keys.sigfig ~= nil then keys.sigfig = tonumber(c.keys.sigfig) end
+  if c.has.plus then keys.plus = true end
   return keys
 end
 
@@ -928,7 +966,8 @@ local function format_vector(name, rec, c, o)
   local given = keys.digits ~= nil or keys.sigfig ~= nil
   local default_class = (cfg.governor_class == "pct") and "pct" or "num"
   if governor and not (ncl or has.no or wording or collapse or given) then ncl = default_class end
-  if not ncl and given then ncl = default_class end
+  if not ncl and has.plus then ncl = "num"
+  elseif not ncl and given then ncl = default_class end
   local trunc = keys.trunc ~= nil and math.tointeger(tonumber(keys.trunc)) or nil
   local explicit_collapse = collapse
   if not collapse and not governor then
@@ -976,7 +1015,11 @@ local function format_vector(name, rec, c, o)
       if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
       local ok, text, info
       if ncl == "sci" then ok, text, info = pcall(num.format_sci, e, number_keys(c), config_for_num())
-      else ok, text, info = pcall(num.format_p, e, config_for_num()) end
+      else
+        local pk = { label = keys.label }
+        if keys.digits ~= nil then pk.digits = math.tointeger(tonumber(keys.digits)) end
+        ok, text, info = pcall(num.format_p, e, config_for_num(), pk)
+      end
       if not ok then vfail(tostring(text)) end
       it = { text = text, number = info.number, decimals = info.decimals, relation = info.relation }
     elseif ncl == "val" then
@@ -1052,7 +1095,7 @@ local function format_vector(name, rec, c, o)
     if n == 2 and is_numeric(elems[1]) and is_numeric(elems[2]) then
       exact_gt = cond.num_cmp(elems[1].v, elems[2].v) > 0
     end
-    local t, msg = words.collapse_range(texts, number, raw, cfg.minus, exact_gt)
+    local t, msg = words.collapse_range(texts, number, raw, cfg.minus, exact_gt, has.plus)
     if not t then vfail(msg) end
     text = t
     local one_printed = n == 2 and texts[1] == texts[2] and items[1].number == 1 and not items[1].decimals
@@ -1371,6 +1414,9 @@ local function resolve_if(el, value, ctx, shown, info, c)
     local msg = cond.message(err)
     return { fail("construct error", info, msg) }
   end
+  if c.has.plus then
+    return { fail("construct error", info, "`.plus` does not apply to a span with `if=` (rule 1.4.21).") }
+  end
   if formatter_class_of(c) then
     return { fail("construct error", info, "A formatter on an `if` span is an error (rule 1.5.7).") }
   end
@@ -1443,7 +1489,7 @@ local function has_own_format(c)
   for _, g in ipairs({ NUMBER_STAGE, WORDING_STAGE, COLLAPSE_STAGE }) do
     for _, cl in ipairs(g) do if has[cl] then return true end end
   end
-  return has.no or c.keys.digits ~= nil or c.keys.sigfig ~= nil
+  return has.no or has.plus or c.keys.digits ~= nil or c.keys.sigfig ~= nil
 end
 
 local function id_value_ok(value) return value:match("^#[%w_][%w_.:%-]*$") ~= nil end
@@ -1666,6 +1712,9 @@ local CITE_KEY = "^[%w_][%w_:%.#%$%%&%-%+%?<>~/]*$"
 local function resolve_cite(el, value, ctx, shown, info, c)
   if c.id ~= "" then
     return { fail("construct error", info, "A `cite` span takes no `#id` (rule 1.7.5).") }
+  end
+  if c.has.plus then
+    return { fail("construct error", info, "`.plus` does not apply to a span with `cite=` (rule 1.4.21).") }
   end
   local formatter = formatter_class_of(c)
   if formatter then

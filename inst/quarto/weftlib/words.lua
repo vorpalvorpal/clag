@@ -120,7 +120,7 @@ function M.vowel_sound(text, minus, decimal_mark, big_mark)
   big_mark = big_mark or ","
   local orig = text
   text = text:gsub("^[*_~]+", "")
-  for _, mk in ipairs({ minus, "-" }) do
+  for _, mk in ipairs({ minus, "-", "+" }) do
     if mk ~= "" and text:sub(1, #mk) == mk and text:sub(#mk + 1, #mk + 1):match("^[0-9]") then return false end
   end
   local bm = {}
@@ -234,7 +234,7 @@ end
 -- `.range`: text is {a, b}, number the printed numbers (or nil), raw the numbers as given (or nil), exact_gt
 -- the order of the ends judged on their text (or nil).
 -- Returns the text, or nil and a message.
-function M.collapse_range(text, number, raw, minus, exact_gt)
+function M.collapse_range(text, number, raw, minus, exact_gt, plus)
   if #text ~= 2 then
     return nil, string.format("`.range` needs a value of length 2; this has %d (rule 5.3.2).", #text)
   end
@@ -249,7 +249,8 @@ function M.collapse_range(text, number, raw, minus, exact_gt)
   if text[1] == text[2] then return text[1] end
   local neg = false
   for i = 1, 2 do
-    if (number and number[i] and number[i] < 0) or (minus ~= "" and text[i]:sub(1, #minus) == minus) then neg = true end
+    if (number and number[i] and number[i] < 0) or (minus ~= "" and text[i]:sub(1, #minus) == minus)
+       or (plus and text[i]:sub(1, 1) == "+") then neg = true end
   end
   return text[1] .. (neg and " to " or "\u{2013}") .. text[2]
 end
