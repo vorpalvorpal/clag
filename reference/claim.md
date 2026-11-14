@@ -10,7 +10,7 @@ failure quotes the check as written (rule 3.1.4).
 ## Usage
 
 ``` r
-claim(x, ..., level = c("fail", "warn"))
+claim(x, ..., level = c("fail", "warn"), decision = NULL)
 ```
 
 ## Arguments
@@ -26,6 +26,15 @@ claim(x, ..., level = c("fail", "warn"))
 - level:
 
   `"fail"` (the default) or `"warn"`. It must be given by name.
+
+- decision:
+
+  `NULL` (the default), one string that is not blank, or one whole
+  number from 1: the decision the check rests on. It must be given by
+  name. A failure's message ends with `; decision <value>`, and
+  [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+  checks that the pointer resolves (rule 1.8.12). Anything else is an
+  error of class `weft_claim_decision`.
 
 ## Value
 

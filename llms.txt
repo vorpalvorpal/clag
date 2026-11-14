@@ -217,6 +217,8 @@ Publish values under names, for prose that refers to them by name.
   [`pm()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
   [`clamp()`](https://vorpalvorpal.github.io/weft/reference/phrases.md)
   : Phrase functions
+- [`in_range()`](https://vorpalvorpal.github.io/weft/reference/in_range.md)
+  : Is a value inside a range?
 - [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) :
   Check a value in place
 

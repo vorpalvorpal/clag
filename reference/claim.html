@@ -73,7 +73,7 @@ failure quotes the check as written (rule 3.1.4).</p>
 
     <div class="section level2">
     <h2 id="ref-usage">Usage<a class="anchor" aria-label="anchor" href="#ref-usage"></a></h2>
-    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">claim</span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span>, level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fail"</span>, <span class="st">"warn"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
+    <div class="sourceCode"><pre class="sourceCode r"><code><span><span class="fu">claim</span><span class="op">(</span><span class="va">x</span>, <span class="va">...</span>, level <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"fail"</span>, <span class="st">"warn"</span><span class="op">)</span>, decision <span class="op">=</span> <span class="cn">NULL</span><span class="op">)</span></span></code></pre></div>
     </div>
 
     <div class="section level2">
@@ -91,6 +91,14 @@ variables.</p></dd>
 
 <dt id="arg-level">level<a class="anchor" aria-label="anchor" href="#arg-level"></a></dt>
 <dd><p><code>"fail"</code> (the default) or <code>"warn"</code>. It must be given by name.</p></dd>
+
+
+<dt id="arg-decision">decision<a class="anchor" aria-label="anchor" href="#arg-decision"></a></dt>
+<dd><p><code>NULL</code> (the default), one string that is not blank, or one
+whole number from 1: the decision the check rests on. It must be given by
+name. A failure's message ends with <code>; decision &lt;value&gt;</code>, and <code><a href="verify.html">verify()</a></code>
+checks that the pointer resolves (rule 1.8.12). Anything else is an error
+of class <code>weft_claim_decision</code>.</p></dd>
 
 </dl></div>
     <div class="section level2">

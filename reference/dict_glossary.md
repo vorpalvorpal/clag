@@ -43,9 +43,9 @@ It writes nothing. It is attached in a weft document as
 
 An entry is two lines: a heading and `: <definition>`. The heading is
 the entry's `term` as written (markdown), else the key in code; then,
-when `values` is `TRUE` and the entry is a `number`, `quantity`, `year`,
-`date` or `string`, its value in parentheses: numbers and quantities
-through
+when `values` is `TRUE` and the entry is a `number`, `quantity`,
+`range`, `year`, `date` or `string`, its value in parentheses: numbers
+and quantities through
 [`fmt_num()`](https://vorpalvorpal.github.io/weft/reference/fmt.md) with
 the decimals written in the file (`0.50` prints `0.50`; a quantity
 converted by `display:` prints as

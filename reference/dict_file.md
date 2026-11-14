@@ -14,21 +14,21 @@ in any of them. All the problems in a file are reported together.
 - `value` (required): by `type`, see below.
 
 - `type` (required): one of `number`, `quantity`, `year`, `date`,
-  `string`, `labels`, `breaks`.
+  `string`, `labels`, `breaks`, `range`.
 
 - `definition` (required): a string that is not blank; it is the text
   the glossary shows.
 
-- `unit`: a string, for a `quantity` only.
+- `unit`: a string, for a `quantity` (required) or a `range` (optional).
 
 An empty field (`term:` with nothing after it) is read as absent. A
 one-item list where a string or number is wanted (`unit: [m]`) is read
 as its item.
 
-- `display`: one unit, for a `quantity` only (rule 4.2.7): the unit to
-  show the value in. The value is read in `unit` and converted to
-  `display` when the file is read, so `dict$key` is already in
-  `display`, and arithmetic, checks, `#` and
+- `display`: one unit, for a `quantity`, or a `range` that has a `unit`
+  (rule 4.2.7): the unit to show the value in. The value is read in
+  `unit` and converted to `display` when the file is read, so `dict$key`
+  is already in `display`, and arithmetic, checks, `#` and
   [`units::drop_units()`](https://r-quantities.github.io/units/reference/drop_units.html)
   see it. A `display` that does not parse, or that `unit` does not
   convert to, is a problem; `unit =` at the use converts back. A ladder
@@ -88,6 +88,7 @@ since knitr and Quarto read the front matter before weft does.
 | `string` | a string (quote a number) | a character string |
 | `labels` | a non-empty mapping of label to phrase | a [`lookup()`](https://vorpalvorpal.github.io/weft/reference/lookup.md) function |
 | `breaks` | a non-empty list of items | a [`brk()`](https://vorpalvorpal.github.io/weft/reference/lookup.md) function |
+| `range` | two finite numbers, lower then upper, lower below upper | a vector named `lower` and `upper`, a `units` vector when `unit` is given |
 
 A `breaks` item is a mapping with a `phrase` and at most one of `below`
 (the value is less than the bound) or `at_most` (less than or equal to
