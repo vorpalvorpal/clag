@@ -50,14 +50,14 @@ test_that("3b L20: claim words and no value give the other message", {
 })
 
 test_that("3b L20: tier 2 is off by default, but a rule named in rules runs (ruling 9)", {
-  root <- lint_proj(list("a.qmd" = "All sites rose."))
+  root <- lint_proj(list("a.qmd" = "The largest sites rose."))
   expect_identical(nrow(lints(root)), 0L)
-  expect_identical(lints(root, rules = "claim-word")$text, "all, rose")
+  expect_identical(lints(root, rules = "claim-word")$text, "largest, rose")
   x <- lints(root, rules = "claim-word", tier = 1)
   expect_identical(nrow(x), 0L)
   expect_match(paste(attr(x, "notes"), collapse = " "), "claim-word", fixed = TRUE)
-  expect_identical(lints(root, rules = "claim-word", tier = 2)$text, "all, rose")
-  expect_identical(lints(root, rules = "claim-word", tier = 1:2)$text, "all, rose")
+  expect_identical(lints(root, rules = "claim-word", tier = 2)$text, "largest, rose")
+  expect_identical(lints(root, rules = "claim-word", tier = 1:2)$text, "largest, rose")
 })
 
 test_that("3b L20: a sentence with no claim word gives nothing", {
@@ -68,7 +68,7 @@ test_that("3b L20: a sentence with no claim word gives nothing", {
 # ---- the lexicon -------------------------------------------------------------------------------
 
 claim_paras <- function(words) {
-  unlist(lapply(words, function(w) c(paste("Blue", w, "items."), "")))[-(2 * length(words))]
+  unlist(lapply(words, function(w) c(paste("Blue", w, "items at 3 sites."), "")))[-(2 * length(words))]
 }
 
 test_that("3b L20/L8a: number words are not claim words by default (decision 66)", {
@@ -82,11 +82,11 @@ test_that("3b L20/L8a: a project can restore a dropped word through claim_words 
 })
 
 test_that("3b L20/L8a: quantifier, extremum and direction words are claim words; dropped words are not", {
-  words <- c("all", "none", "only", "most", "always", "never", "whole", "entire",
+  words <- c("all", "none", "only", "most", "always", "never", "entire",
              "sole", "solely", "largest", "fewest", "rose", "exceed", "exceeding",
              "surpassed", "decline", "declines", "declining", "grow", "grows", "growing", "drop",
              "drops", "dropping", "reduced", "significant", "significantly", "higher", "unchanged")
-  dropped <- c("more", "above", "many", "record")
+  dropped <- c("more", "above", "many", "record", "each", "both", "either", "whole")
   for (e in c("qmd", "Rmd")) {
     x <- cw(claim_paras(words), e)
     expect_identical(x$text, words)
@@ -94,11 +94,11 @@ test_that("3b L20/L8a: quantifier, extremum and direction words are claim words;
   }
 })
 
-test_that("3b L20: claim words are matched as lower-cased letter runs, so case and hyphens do not matter", {
-  expect_identical(cw("ALL sites were wet.")$text, "all")
-  expect_identical(cw("All-weather sites were wet.")$text, "all")
+test_that("3b L20: claim words are matched as lower-cased letter runs, so case does not matter; a hyphen beside the word makes no hit (CW4)", {
+  expect_identical(cw("ALL 3 sites were wet.")$text, "all")
+  expect_identical(nrow(cw("All-weather sites were wet.")), 0L)
   expect_identical(cw("The (largest) site, well-known.")$text, "largest")
-  expect_identical(cw("Wet sites, wet sites, all wet, all sites.")$text, "all")
+  expect_identical(cw("Wet sites, wet sites, all wet, all 3 sites.")$text, "all")
 })
 
 test_that("3b L20: a claim word is a whole letter run, not part of one", {
@@ -107,7 +107,7 @@ test_that("3b L20: a claim word is a whole letter run, not part of one", {
 })
 
 test_that("3b L20: words in the order of the sentence, each once", {
-  x <- cw("Only the largest site rose, and only the largest rose again.")
+  x <- cw("Only the largest of 3 sites rose, and only the largest rose again.")
   expect_identical(x$text, "only, largest, rose")
 })
 
@@ -157,11 +157,11 @@ test_that("3b L20: a value, a bare value, an n, a sign or a list in the sentence
 })
 
 test_that("3b L20: a value in another sentence does not count", {
-  x <- cw("`r n` sites were visited. All were wet.")
+  x <- cw("`r n` sites were visited. The largest were wet.")
   expect_identical(nrow(x), 1L)
-  expect_identical(x$text, "all")
+  expect_identical(x$text, "largest")
   expect_match(x$message, "with no value", fixed = TRUE)
-  expect_identical(x$sentence, "All were wet.")
+  expect_identical(x$sentence, "The largest were wet.")
 })
 
 # ---- what is read ------------------------------------------------------------------------------
@@ -175,23 +175,23 @@ test_that("3b L20: a claim word in a code span, math, a link target, an attribut
 })
 
 test_that("3b L20: link text, image alt text, headings, list items, quotes and table cells are read", {
-  expect_identical(cw("See [all sites](u.html) now.")$text, "all")
-  expect_identical(cw("![All sites](m.png)")$text, "all")
+  expect_identical(cw("See [largest sites](u.html) now.")$text, "largest")
+  expect_identical(cw("![Largest sites](m.png)")$text, "largest")
   expect_identical(cw("## Largest sites {#sec-l}")$text, "largest")
-  expect_identical(cw(c("Intro words.", "", "- All wet"))$text, "all")
-  expect_identical(cw(c("Intro words.", "", "> Only wet"))$text, "only")
-  expect_identical(cw(c("| Site | Note |", "|---|---|", "| A | all wet |"))$text, "all")
+  expect_identical(cw(c("Intro words.", "", "- Largest wet"))$text, "largest")
+  expect_identical(cw(c("Intro words.", "", "> Largest wet"))$text, "largest")
+  expect_identical(cw(c("| Site | Note |", "|---|---|", "| A | largest wet |"))$text, "largest")
 })
 
 test_that("3b L20: a .weft-literal span exempts numerals only, so its claim words are still read", {
-  x <- cw("[All sites rose]{.weft-literal why=\"quoted\"} yesterday.")
-  expect_identical(x$text, "all, rose")
+  x <- cw("[Largest sites rose]{.weft-literal why=\"quoted\"} yesterday.")
+  expect_identical(x$text, "largest, rose")
 })
 
 test_that("3b L20: captions, alt text, front matter and weft_str() strings are read; phrases are not", {
   chunk <- function(...) c("```{r}", ..., "plot(1)", "```")
-  x <- cw(chunk("#| fig-cap: \"All sites rose\""))
-  expect_identical(x$text, "all, rose")
+  x <- cw(chunk("#| fig-cap: \"Largest sites rose\""))
+  expect_identical(x$text, "largest, rose")
   expect_identical(x$context, "caption")
   expect_identical(x$line, 2L)
   x <- cw(chunk("#| fig-alt: The largest site"))
@@ -201,8 +201,8 @@ test_that("3b L20: captions, alt text, front matter and weft_str() strings are r
   expect_identical(x$text, "largest")
   expect_identical(x$context, "front-matter")
   expect_identical(x$line, 2L)
-  x <- cw(c("---", "title: T", "abstract: |", "  Over the", "  years all rose.", "---", "", "Plain."))
-  expect_identical(x$text, "all, rose")
+  x <- cw(c("---", "title: T", "abstract: |", "  Over the", "  years the largest rose.", "---", "", "Plain."))
+  expect_identical(x$text, "largest, rose")
   expect_identical(x$context, "front-matter")
   expect_identical(x$line, 5L)
   x <- cw(c("```{r}", "x <- weft_str(\"all sites rose: `r x`{.num}\")", "```"))
@@ -214,24 +214,24 @@ test_that("3b L20: captions, alt text, front matter and weft_str() strings are r
 })
 
 test_that("3b L20: strings and captions of an eval: false chunk follow reading 14 of the design", {
-  doc <- c("```{r}", "#| eval: false", "#| fig-cap: \"All sites rose\"",
+  doc <- c("```{r}", "#| eval: false", "#| fig-cap: \"Largest sites rose\"",
            "x <- weft_str(\"the largest dropped\")", "```")
   x <- cw(doc)
-  expect_identical(x$text, "all, rose")
+  expect_identical(x$text, "largest, rose")
   expect_identical(x$context, "caption")
 })
 
 # ---- sentences and positions -------------------------------------------------------------------
 
 test_that("3b L20: one finding per sentence, at its first claim word", {
-  lines <- c("Sites were counted. All sites rose. The water was clear. Each site fell.")
+  lines <- c("Sites were counted. The largest site rose. The water was clear. The smallest site fell.")
   for (e in c("qmd", "Rmd")) {
     x <- cw(lines, e)
-    expect_identical(x$text, c("all, rose", "each, fell"))
-    expect_identical(x$sentence, c("All sites rose.", "Each site fell."))
+    expect_identical(x$text, c("largest, rose", "smallest, fell"))
+    expect_identical(x$sentence, c("The largest site rose.", "The smallest site fell."))
     expect_identical(x$line, c(1L, 1L))
-    expect_identical(x$col, c(as.integer(f3_pos(lines, "All")[["col"]]),
-                              as.integer(f3_pos(lines, "Each")[["col"]])))
+    expect_identical(x$col, c(as.integer(f3_pos(lines, "largest")[["col"]]),
+                              as.integer(f3_pos(lines, "smallest")[["col"]])))
   }
 })
 
@@ -272,21 +272,21 @@ test_that("3b L20: CRLF and a BOM do not move a finding", {
 test_that("3b L20: the shipped lexicon is English: lang de gives no finding", {
   for (e in c("qmd", "Rmd")) {
     expect_identical(nrow(cw(c("---", "title: T", "lang: de", "---", "", "The ratio rose."), e)), 0L)
-    expect_identical(nrow(cw(c("---", "title: T", "lang: fr", "---", "", "All sites rose."), e)), 0L)
-    expect_identical(cw(c("---", "title: T", "lang: en-AU", "---", "", "All sites rose."), e)$text, "all, rose")
-    expect_identical(cw(c("---", "title: T", "lang: EN", "---", "", "All sites rose."), e)$text, "all, rose")
-    expect_identical(cw(c("---", "title: T", "lang: en", "---", "", "All sites rose."), e)$text, "all, rose")
-    expect_identical(cw(c("---", "title: T", "---", "", "All sites rose."), e)$text, "all, rose")
+    expect_identical(nrow(cw(c("---", "title: T", "lang: fr", "---", "", "All 3 sites rose."), e)), 0L)
+    expect_identical(cw(c("---", "title: T", "lang: en-AU", "---", "", "All 3 sites rose."), e)$text, "all, rose")
+    expect_identical(cw(c("---", "title: T", "lang: EN", "---", "", "All 3 sites rose."), e)$text, "all, rose")
+    expect_identical(cw(c("---", "title: T", "lang: en", "---", "", "All 3 sites rose."), e)$text, "all, rose")
+    expect_identical(cw(c("---", "title: T", "---", "", "All 3 sites rose."), e)$text, "all, rose")
   }
   expect_identical(cw("The ratio rose.")$text, "rose")
 })
 
 test_that("3b L20: lang comes from _quarto.yml when the document has none", {
   x <- lint_fixture(list("_quarto.yml" = c("project:", "  type: default", "lang: de"),
-                         "a.qmd" = "All sites rose."), rules = "claim-word")
+                         "a.qmd" = "All 3 sites rose."), rules = "claim-word")
   expect_identical(nrow(x), 0L)
   y <- lint_fixture(list("_quarto.yml" = c("project:", "  type: default", "lang: de"),
-                         "a.qmd" = c("---", "title: T", "lang: en", "---", "", "All sites rose.")),
+                         "a.qmd" = c("---", "title: T", "lang: en", "---", "", "All 3 sites rose.")),
                     rules = "claim-word")
   expect_identical(y$text, "all, rose")
 })
@@ -304,7 +304,7 @@ test_that("3b L20: claim_words add makes a word a claim word", {
 
 test_that("3b L20: claim_words drop removes a word from the lexicon", {
   yml <- c("claim_words:", "  drop: [rose]")
-  x <- cw("All sites rose.", weft_yml = yml)
+  x <- cw("All 3 sites rose.", weft_yml = yml)
   expect_identical(x$text, "all")
   expect_identical(nrow(cw("The sites rose.", weft_yml = yml)), 0L)
 })

@@ -141,7 +141,7 @@ for (nm in names(rcc_quoted_names)) local({
     ok <- tryCatch(file.create(file.path(tmp, enc2utf8(fname))), warning = function(w) FALSE, error = function(e) FALSE)
     skip_if(!isTRUE(ok) || !file.exists(file.path(tmp, enc2utf8(fname))), "the file system refuses this name")
     base <- c("# A {#sec-a}", "", "Opening text here.", "")
-    sentence <- "Rain was always heavy."
+    sentence <- "Rain was highest again."
     before <- stats::setNames(list(base, base), c("plain.qmd", fname))
     after <- stats::setNames(list(c(base, sentence), c(base, sentence)), c("plain.qmd", fname))
     dir <- f3d_scenario(before, after)

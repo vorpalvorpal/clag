@@ -14,7 +14,7 @@ r3_table <- c("| a | b |", "|---|---|", "| 1 | 2 |")
 
 test_that("review-3 #1: a footnote then a second sentence does not crash claim-word", {
   lines <- "Note^[All sites are listed.] that x is never listed. Every site is here."
-  x <- expect_no_error(lint_one(lines, rules = "claim-word", tier = 2))
+  x <- expect_no_error(lint_one(lines, rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any"))
   w <- strsplit(tolower(x$text), ", ", fixed = TRUE)
   expect_true(any(vapply(w, function(v) "all" %in% v, NA)))
   expect_true(any(vapply(w, function(v) "never" %in% v, NA)))
@@ -30,7 +30,7 @@ test_that("review-3 #1: the whole project lints at tier 1:2 and recall_check() r
 })
 
 test_that("review-3 #1: with one sentence the outer sentence keeps its claim word beside the note's", {
-  x <- lint_one("Note^[All sites are listed.] that x is never listed.", rules = "claim-word", tier = 2)
+  x <- lint_one("Note^[All sites are listed.] that x is never listed.", rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any")
   expect_identical(nrow(x), 2L)
   expect_setequal(tolower(x$text), c("all", "never"))
   expect_identical(x$col[tolower(x$text) == "never"],
@@ -38,16 +38,16 @@ test_that("review-3 #1: with one sentence the outer sentence keeps its claim wor
 })
 
 test_that("review-3 #1: neighbours: no footnote, a footnote without a claim word, a footnote with one", {
-  x <- lint_one("Rain was never heavy. Every site was wet.", rules = "claim-word", tier = 2)
+  x <- lint_one("Rain was never heavy. Every site was wet.", rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any")
   expect_identical(nrow(x), 2L)
-  x <- lint_one("Note^[Sites are listed.] that x is never listed.", rules = "claim-word", tier = 2)
+  x <- lint_one("Note^[Sites are listed.] that x is never listed.", rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any")
   expect_identical(tolower(x$text), "never")
   x <- lint_one(c("Every site is here.", "", "Note^[Sites are listed.] that x is never listed."),
-                rules = "claim-word", tier = 2)
+                rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any")
   expect_identical(nrow(x), 2L)
   expect_identical(x$line, c(1L, 3L))
   x <- lint_one("Note^[All sites are listed.] that x is listed. Sites are listed.",
-                rules = "claim-word", tier = 2)
+                rules = "claim-word", tier = 2, weft_yml = "claim_quantifiers: any")
   expect_identical(tolower(x$text), "all")
 })
 
@@ -263,7 +263,7 @@ test_that("review-3 #8: the citation inside the span is still a citation, and a 
 # ---- #9: a named tier-2 rule without tier ----------------------------------------------------------------------------
 
 test_that("review-3 #9: a rule named in rules runs whatever its tier when tier is not given", {
-  root <- lint_proj(list("a.qmd" = "All sites are listed."))
+  root <- lint_proj(list("a.qmd" = "The largest sites are listed."))
   x <- lints(root, rules = "claim-word")
   expect_identical(x$rule, "claim-word")
   x <- lints(root, rules = c("numeral", "claim-word"))
@@ -271,13 +271,13 @@ test_that("review-3 #9: a rule named in rules runs whatever its tier when tier i
 })
 
 test_that("review-3 #9: without rules the default tier still holds, and tier = 1:2 still gives it", {
-  root <- lint_proj(list("a.qmd" = "All sites are listed."))
+  root <- lint_proj(list("a.qmd" = "The largest sites are listed."))
   expect_false("claim-word" %in% lints(root)$rule)
   expect_true("claim-word" %in% lints(root, tier = 1:2)$rule)
 })
 
 test_that("review-3 #9: with tier given and a named rule outside it, a note says so", {
-  root <- lint_proj(list("a.qmd" = "All sites are listed."))
+  root <- lint_proj(list("a.qmd" = "The largest sites are listed."))
   x <- lints(root, rules = "claim-word", tier = 1)
   expect_identical(nrow(x), 0L)
   expect_true(any(grepl("claim-word", attr(x, "notes"), fixed = TRUE)))

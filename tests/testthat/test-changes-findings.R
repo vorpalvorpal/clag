@@ -160,11 +160,11 @@ test_that("3d L41: an empty findings table has the four columns", {
 
 test_that("3d L41: a claim-word message ends with the sentence in quotes, white space collapsed", {
   skip_if_no_git()
-  after <- list("a.qmd" = c(base_doc, "Rain was", "always   heavy."))
+  after <- list("a.qmd" = c(base_doc, "Rain was", "highest   again."))
   f <- findings_of(f3d_scenario(list("a.qmd" = base_doc), after))
   r <- f[f$rule == "claim-word", , drop = FALSE]
   expect_identical(nrow(r), 1L)
-  expect_match(r$message, "\"Rain was always heavy.\"$")
+  expect_match(r$message, "\"Rain was highest again.\"$")
   # The finding sits on the claim word, which is on the second line.
   expect_identical(r$line, 6L)
 })
@@ -222,7 +222,7 @@ test_that("3d L41: the cap is per file, and other rules are not capped", {
 test_that("3d L41: the default claim_cap is 20", {
   skip_if_no_git()
   many <- base_doc
-  for (i in 1:21) many <- c(many, "Rain was always heavy.", "")
+  for (i in 1:21) many <- c(many, "Rain was highest again.", "")
   dir <- f3d_scenario(list("a.qmd" = base_doc), list("a.qmd" = many))
   f <- findings_of(dir)
   r <- f[f$rule == "claim-word", , drop = FALSE]

@@ -118,7 +118,7 @@ f3d_scenario <- function(before, after = before, env = parent.frame()) {
 # the printed lines of a weft_changes
 f3d_print <- function(x, ...) capture.output(print(x, ...))
 
-# the sentences that give a claim-word finding with no value in them (lexicon words of L8a: always, entire,
+# the sentences that give a claim-word finding with no value in them (lexicon words of L8a: highest, entire,
 # grows, sole, declines, top, drops) -- one per paragraph so that each is its own sentence
-F3D_CLAIMS <- c("Rain was always heavy.", "The entire reach grows.", "Only the sole site declines.",
+F3D_CLAIMS <- c("Rain was highest again.", "The entire reach grows.", "Only the sole site declines.",
                 "The top site drops.")
