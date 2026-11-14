@@ -669,6 +669,38 @@ error on a whole number of 2^31 or more and on `missing`, hands R a
 `UInt8` as a raw byte, which `fmt_num()` refuses too. An R error reaches
 Julia with an empty message. Format in prose with `jl_value()` instead.
 
+## Tables in a Jupyter or Julia document
+
+In a document on the Jupyter or Julia engine the filter records the tables
+that a cell shows, so that `changes()` can say that a table changed. This
+works for a pandas data frame, an `IPython.display.HTML` or `Markdown`
+table, a Julia `HTML` or `Markdown` table, and a Markdown table written in
+the document, wherever it sits in a cell. Each table gets one entry in the
+ledger, of kind `table`, keyed by the label of its cell (`#| label: tbl-sites`
+gives `tbl-sites`; a cell with no label gives an empty key, numbered in
+order). The entry holds a digest of the cells' text, so a change of style,
+class name or element id is not a change, and a changed number or word is.
+Its sentence is the table's caption, then the cell's `tbl-cap`, then the
+start of its text. Label the cells that show tables, so that each keeps its
+name when a cell is added above it.
+
+The digest is made the same way for a table that arrived as Markdown, as
+HTML or as a table that Quarto built, and does not depend on the library
+that wrote it. It does not compare with the digest of the same table in an
+R document. A document is recorded by one route, so the two never meet.
+A library update that changes what a table prints shows as a change, once.
+
+These tables are not recorded:
+
+- a table whose rows a script fills in after the page loads (itables, for
+  one): weft records the HTML the page holds, in practice the header row;
+- a data frame that pandas prints as text, as it does in PDF output;
+- a raw LaTeX table;
+- a table outside a cell, a table inside another table, and printed code
+  output.
+
+A cell from an included file is recorded under the main source file.
+
 ## Observable JS
 
 An `{ojs}` chunk runs in the reader's browser, after the render and after
@@ -713,7 +745,9 @@ reactive can be marked `[...]{.weft-literal why="..."}`.
   not supported.
 - A Python or Julia `claim()` stops its chunk at once even under
   `chunk_claims: collect`, and takes no `decision` pointer.
-- Tables that a Python or Julia chunk prints are not recorded in the
-  ledger, nor are tables in a document on the Jupyter or Julia engine.
+- Tables that a Python or Julia chunk prints in a knitr document are not
+  recorded in the ledger. In a document on the Jupyter or Julia engine the
+  filter records them, with the limits listed under "Tables in a Jupyter or
+  Julia document" above.
 - `checks()` and the gate's check lines do not read Python or Julia
   checks; they list them as not read.

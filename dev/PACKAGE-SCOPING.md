@@ -2163,6 +2163,33 @@ check does not count named values, and a failure is reported by the resolver
 that owns its construct. When the hooks stop a render, Pandoc does not run, and
 the failures of named values show at the next render.
 
+**2.13.15** The filter records the tables of a document it resolves (the jupyter
+engine, the julia engine, and Markdown run through the filter), when the project
+is set up and the ledger is on. A table is a Pandoc `Table`, or a raw HTML block
+that holds `<table` (read with `pandoc.read`, one table each), inside a `.cell`
+Div at any depth. A table outside a cell, printed code output, raw LaTeX and a
+table inside another table's cell are not recorded. Under Quarto a labelled
+`tbl-` cell reaches the filter without its id, which has moved to the float node
+that wraps its output, so the filter reads the label from that node. One entry, of
+kind `table`, is made per table, in document order, after the captions are
+resolved. Its `text` is the xxh3 digest (16 hex digits, equal to
+`cli::hash_raw_xxhash64`) of the cells' text: the head rows, then each body's
+rows, then the foot rows, a cell being its stringified contents with U+00A0 and
+runs of white space made one space and the ends trimmed, cells joined by a tab
+and rows by a line feed. Spans and the caption are not in it, and a table whose
+cells are all empty is not recorded. The key is 7.1.4: the expression and the id
+are the cell's label (without `cell-`), or `""` and `null` for an unlabelled
+cell; the file is the main source. The sentence is the table's caption, else the
+cell's `tbl-cap`, else the first 80 characters of the text. Tables count in
+neither `checks` nor `named` of the stamp. These digests are not comparable with
+the R route's, which hash text with N33's rules; a document is resolved by one
+route, so no key is shared. They have these limits: a table whose rows a script
+fills (itables) is recorded by the HTML it holds, in practice its headers;
+pandas in PDF output prints text, so no table is recorded; raw LaTeX tables are
+not recorded; a cell of an included file is recorded under the main source; and
+a library update that changes what a table prints shows as a change, once.
+Tables printed by Python or Julia under knitr are not recorded.
+
 ---
 
 ## 3. Functions
@@ -5074,9 +5101,10 @@ else the first 80 characters of the visible text, then "..." when cut. The
 context is `chunk`; the arm, relation, raw value, unit and failure are `null`,
 and the dictionary entries none. The entries are recorded in the evaluate hook,
 so a cached chunk replays them, and a chunk with `error: true` records every
-element that reached the document, before the error and after it. Python and
-Julia documents, tables printed by a Python chunk under knitr, and tables
-inside a figure are not recorded. The ledger's version is unchanged: `table` is
+element that reached the document, before the error and after it. Tables
+printed by a Python chunk under knitr, and tables inside a figure under knitr,
+are not recorded. The filter records the tables of a document it resolves
+(2.13.15). The ledger's version is unchanged: `table` is
 a new value of the kind, and a ledger written before reads as before. A table
 is not a construct: the gate does not count it (6.3.1), and its removal needs
 no trailer.
@@ -5116,7 +5144,8 @@ the entries in that file and section with the same kind and expression. A
 table's id is its chunk's label, and its expression is that label, or `""` for
 a chunk with no label of its own (a label knitr generated), which has no id;
 its occurrence follows the same rule, so the second table of chunk `tbl-two`
-has occurrence 2.
+has occurrence 2. In a jupyter or julia document the filter keys a table the same
+way, by the label of the cell it is in (2.13.15).
 The expression of a value is its inline R, parsed, so spacing and line
 breaks do not count. That of a governed span is the value of its key,
 parsed. That of a `cite` span is its keys and its bracket text, written
@@ -7346,7 +7375,9 @@ changes.
 into their HTML on every render, so a digest of the raw text would show every
 such table as changed every time; the visible text is stable, and a change of
 style is not a change of numbers. One entry per table, not per cell, says which
-table changed without multiplying the ledger's churn.
+table changed without multiplying the ledger's churn. The filter applies the same
+principle to a jupyter or julia document by digesting the cell text of the Pandoc
+`Table`, however the table arrived (2.13.15).
 
 ### `verify()` and activation
 

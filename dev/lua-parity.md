@@ -71,6 +71,7 @@ regular expressions into three parsers. Add nothing that computes a number.
 | Source lines | text search with masking and includes | partly | limit: text a chunk printed; a span whose attribute holds `\|` gets no line (found below) |
 | Draft mode, collection file, book report | same | present | N86, N111 |
 | Ledger, `changes()` | the filter writes `writer: "filter"` entries | present | N112, N148 |
+| Table digests (R chunks print a table: one `table` entry, N33 text hashed) | the filter records the tables of a jupyter or julia cell, hashing the cell text of the Pandoc `Table` | partly | G2, GT12: the two routes' digests do not compare, and no document is resolved by both, so no key is shared. Python and Julia tables under knitr are not recorded |
 | Stamp, `verify()`, freshness | same, plus `fresh` | present | N110, N120 |
 | Gate counts | a named value counts as a value, a filter span as a span, guest `claim(`/`@claim` as calls | present | N147, N59 |
 | Lints | structure, numerals, claim words and the rest apply; R-expression lints do not; two new ones | partly | N142 to N145 |
