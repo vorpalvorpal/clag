@@ -364,3 +364,48 @@ brk <- function(...) {
     }, "")
   }
 }
+
+# ---- in_range() (N112) ---------------------------------------------------------------
+
+#' Is a value inside a range?
+#'
+#' `in_range(x, range)` is `TRUE` where `range[1] <= x` and `x <= range[2]`,
+#' element by element, and `NA` where `x` is `NA`. The bounds are inside the
+#' range. `range` is a `range` entry of the dictionary, as in
+#' `in_range(do_mean, dict$do_band)`, or any two numbers in order.
+#'
+#' A quantity `x` is converted to the unit of the range. Units that do not
+#' convert, a number against a range with a unit (or the reverse), and a
+#' `range` that is not two numbers with the lower below the upper are a
+#' `weft_value_error`. It is an R function: the filter has no dictionary, so
+#' it is written in a governor's `if` where R evaluates it.
+#'
+#' @param x A number or a quantity (a `units` value, see [u()]).
+#' @param range Two numbers, lower first; a `units` pair for a quantity.
+#' @return A logical vector the length of `x`.
+#' @examples
+#' in_range(c(6, 7, 9), c(6.5, 8.5))
+#' @export
+in_range <- function(x, range) {
+  bad <- function() value_error("in_range(): `range` must be two numbers, the lower first (rule 4.2.8).")
+  r_units <- inherits(range, "units")
+  if (!(is.numeric(range) || r_units) || length(range) != 2L) bad()
+  rb <- as.numeric(range)
+  if (anyNA(rb) || !all(is.finite(rb)) || !(rb[1L] < rb[2L])) bad()
+  unit_name <- function(v) if (inherits(v, "units")) as.character(attr(v, "units")) else "no unit"
+  cannot <- function() {
+    value_error(sprintf("in_range(): `x` in %s cannot be compared with a range in %s (rule 4.2.8).",
+                        unit_name(x), unit_name(range)))
+  }
+  x_units <- inherits(x, "units")
+  if (x_units != r_units) cannot()
+  if (!(is.numeric(x) || x_units)) cannot()
+  if (x_units) {
+    conv <- tryCatch(units::set_units(x, units::deparse_unit(range), mode = "standard"), error = function(e) NULL)
+    if (is.null(conv)) cannot()
+    x <- conv
+  }
+  xv <- as.numeric(x)
+  r <- xv >= rb[1L] & xv <= rb[2L]
+  r
+}

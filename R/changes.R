@@ -290,7 +290,8 @@ sentence_groups <- function(x) {
   lapply(split(x$dict[ok], g[ok]), function(l) unique(dict_keys_of(l)))
 }
 
-# key -> number for the dictionary entries that are numbers, quantities or years
+# key -> number for the dictionary entries that are numbers, quantities or years; a range gives its
+# lower bound here and its upper bound in the attribute `upper` (N113)
 dict_numbers <- function(lines = NULL, file = NULL) {
   tmp <- NULL
   if (is.null(file)) {
@@ -308,8 +309,18 @@ dict_numbers <- function(lines = NULL, file = NULL) {
   nm <- names(d)
   out <- stats::setNames(rep(NA_real_, length(nm)), nm)
   un <- rep(NA_character_, length(nm))
+  up <- stats::setNames(rep(NA_real_, length(nm)), nm)
   for (i in seq_along(nm)) {
-    if (!is.na(ty[i]) && ty[i] %in% c("number", "quantity", "year")) {
+    if (!is.na(ty[i]) && ty[i] == "range") {
+      bd <- tryCatch(suppressWarnings(as.numeric(d[[nm[i]]])), error = function(e) NA_real_)
+      if (length(bd) == 2L) {
+        out[i] <- bd[1L]
+        up[i] <- bd[2L]
+      }
+      if (inherits(d[[nm[i]]], "units")) {
+        un[i] <- tryCatch(units::deparse_unit(d[[nm[i]]])[1L], error = function(e) NA_character_)
+      }
+    } else if (!is.na(ty[i]) && ty[i] %in% c("number", "quantity", "year")) {
       out[i] <- tryCatch(suppressWarnings(as.numeric(d[[nm[i]]]))[1L], error = function(e) NA_real_)
       if (inherits(d[[nm[i]]], "units")) {
         un[i] <- tryCatch(units::deparse_unit(d[[nm[i]]])[1L], error = function(e) NA_character_)
@@ -317,6 +328,7 @@ dict_numbers <- function(lines = NULL, file = NULL) {
     }
   }
   attr(out, "unit") <- un
+  attr(out, "upper") <- up
   out
 }
 
@@ -350,7 +362,9 @@ structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_c
       if (is.null(t)) return(list(v = NA_real_, u = NA_character_))
       v <- unname(t[k])
       u <- attr(t, "unit")
-      list(v = v, u = if (is.null(u) || is.na(v)) NA_character_ else unname(u[match(k, names(t))]))
+      v2 <- attr(t, "upper")
+      list(v = v, u = if (is.null(u) || is.na(v)) NA_character_ else unname(u[match(k, names(t))]),
+           v2 = if (is.null(v2)) NA_real_ else unname(v2[k]))
     }
     for (k in sort(unique(keys), method = "radix")) {
       pb <- thr(tb, k)
@@ -358,7 +372,14 @@ structural_reasons <- function(kind, arm_b, arm_a, b, a, keys, tb, ta, ub = NA_c
       if (length(pb$v) != 1L || length(pa$v) != 1L || is.na(pb$v) || is.na(pa$v)) next
       cb <- raw_in_unit(b, ub, pb$u)
       ca <- raw_in_unit(a, ua, pa$u)
-      if (!is.na(cb) && !is.na(ca) && sgn(cb - pb$v) != sgn(ca - pa$v)) add(sprintf("crosses dict$%s", k), 5L)
+      crossed <- !is.na(cb) && !is.na(ca) && sgn(cb - pb$v) != sgn(ca - pa$v)
+      # the upper bound of a range is a threshold too; a crossing is reported once per key (N113)
+      if (!crossed && length(pb$v2) == 1L && length(pa$v2) == 1L && !is.na(pb$v2) && !is.na(pa$v2)) {
+        cb2 <- raw_in_unit(b, ub, pb$u)
+        ca2 <- raw_in_unit(a, ua, pa$u)
+        crossed <- !is.na(cb2) && !is.na(ca2) && sgn(cb2 - pb$v2) != sgn(ca2 - pa$v2)
+      }
+      if (crossed) add(sprintf("crosses dict$%s", k), 5L)
     }
     if (b != 0 && a != 0 && abs(log10(abs(a / b))) >= 1 - 1e-9) add("order of magnitude", 6L)
   }

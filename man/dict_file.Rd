@@ -16,16 +16,16 @@ any of them. All the problems in a file are reported together.
 \itemize{
 \item \code{value} (required): by \code{type}, see below.
 \item \code{type} (required): one of \code{number}, \code{quantity}, \code{year}, \code{date},
-\code{string}, \code{labels}, \code{breaks}.
+\code{string}, \code{labels}, \code{breaks}, \code{range}.
 \item \code{definition} (required): a string that is not blank; it is the text the
 glossary shows.
-\item \code{unit}: a string, for a \code{quantity} only.
+\item \code{unit}: a string, for a \code{quantity} (required) or a \code{range} (optional).
 }
 
 An empty field (\verb{term:} with nothing after it) is read as absent. A one-item
 list where a string or number is wanted (\verb{unit: [m]}) is read as its item.
 \itemize{
-\item \code{display}: one unit, for a \code{quantity} only (rule 4.2.7): the unit to show
+\item \code{display}: one unit, for a \code{quantity}, or a \code{range} that has a \code{unit} (rule 4.2.7): the unit to show
 the value in. The value is read in \code{unit} and converted to \code{display} when
 the file is read, so \code{dict$key} is already in \code{display}, and arithmetic,
 checks, \verb{#} and \code{units::drop_units()} see it. A \code{display} that does not
@@ -76,6 +76,7 @@ Quarto read the front matter before weft does.\tabular{lll}{
    \code{string} \tab a string (quote a number) \tab a character string \cr
    \code{labels} \tab a non-empty mapping of label to phrase \tab a \code{\link[=lookup]{lookup()}} function \cr
    \code{breaks} \tab a non-empty list of items \tab a \code{\link[=brk]{brk()}} function \cr
+   \code{range} \tab two finite numbers, lower then upper, lower below upper \tab a vector named \code{lower} and \code{upper}, a \code{units} vector when \code{unit} is given \cr
 }
 
 

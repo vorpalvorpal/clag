@@ -2,7 +2,7 @@
 # `weft_dict` class and its methods, `dict_local` from front matter.
 # Contract: dev/design-2.md section 2.
 
-DICT_TYPES <- c("number", "quantity", "year", "date", "string", "labels", "breaks")
+DICT_TYPES <- c("number", "quantity", "year", "date", "string", "labels", "breaks", "range")
 DICT_FIELDS <- c("value", "type", "definition", "unit", "display", "decision", "why",
                  "term", "avoid")
 
@@ -305,18 +305,26 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       p("`definition` is missing", "4.2.1")
     } else if (!str1(e[["definition"]])) p("`definition` must be a string that is not blank", "4.2.1")
     unit <- NA_character_
-    if (type_ok && type == "quantity") {
+    if (type_ok && type == "range") {
+      # a range's unit is optional (N110)
+      if (!is.null(e[["unit"]])) {
+        if (!str1(e[["unit"]])) p("`unit` must be a string that is not blank", "4.2.1")
+        else unit <- e[["unit"]]
+      }
+    } else if (type_ok && type == "quantity") {
       if (is.null(e[["unit"]])) p("`unit` is missing; a quantity needs one", "4.2.1")
       else if (!str1(e[["unit"]])) p("`unit` must be a string that is not blank", "4.2.1")
       else unit <- e[["unit"]]
     } else if (!is.null(e[["unit"]]) && type_ok) {
-      p(sprintf("`unit` is only for a quantity, and this is a %s", type), "4.2.1")
+      p(sprintf("`unit` is only for a quantity or a range, and this is a %s", type), "4.2.1")
     }
     disp <- NA_character_
     if (!is.null(e[["display"]])) {
       dv <- e[["display"]]
-      if (type_ok && type != "quantity") {
-        p(sprintf("`display` is only for a quantity, and this is a %s", type), "4.2.7")
+      if (type_ok && type == "range" && is.na(unit) && is.null(e[["unit"]])) {
+        p("`display` is only for a range with a `unit`", "4.2.1")
+      } else if (type_ok && !type %in% c("quantity", "range")) {
+        p(sprintf("`display` is only for a quantity or a range, and this is a %s", type), "4.2.7")
       } else if (is.character(dv) && length(dv) >= 1L && (length(dv) > 1L || any(grepl("|", dv, fixed = TRUE)))) {
         # `display:` takes one unit; a ladder (4.4.23) is written in a `unit` key at the use (decision 53)
         lad <- ladder_split(dv)
@@ -432,7 +440,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
         }
       }
     }
-    if (type_ok && type == "quantity" && !is.na(unit) && length(problems) == n0) {
+    if (type_ok && type %in% c("quantity", "range") && !is.na(unit) && length(problems) == n0) {
       reg <- dict_register_unit(unit)
       installed <- c(installed, reg$installed)
       if (!is.null(reg$refusal)) {
@@ -442,6 +450,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       } else {
         registered <- c(registered, reg$needed)
         values[i] <- list(u_set(values[[i]], unit))
+        if (type == "range") names(values[[i]]) <- c("lower", "upper")
         # the value is read in `unit` and converted to `display` (4.2.7)
         if (!anyNA(disp)) {
           dj <- disp
@@ -464,7 +473,10 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
             } else if (converts_by_inversion(values[[i]], conv)) {
               p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
                                "by inverting the value; write the reciprocal in the expression"), dj, unit), "4.2.7")
-            } else values[i] <- list(conv)
+            } else {
+              values[i] <- list(conv)
+              if (type == "range") names(values[[i]]) <- c("lower", "upper")
+            }
           }
         }
       }
@@ -610,7 +622,34 @@ dict_value <- function(v, type, unit) {
         list(value = f)
       }
     },
-    breaks = dict_breaks(v))
+    breaks = dict_breaks(v),
+    range = dict_range(v))
+}
+
+# A `range` entry's `value` (N110): two finite decimal numbers, lower strictly below upper, read
+# as c(lower =, upper =).
+dict_range <- function(v) {
+  bad <- function(msg) list(error = msg)
+  seq_msg <- "must be a sequence of two numbers, lower then upper"
+  if (is.null(names(v)) && (is.list(v) || (is.atomic(v) && length(v) > 1L))) {
+    items <- as.list(v)
+  } else return(bad(seq_msg))
+  if (length(items) != 2L) return(bad(seq_msg))
+  if (any(vapply(items, nondecimal, NA))) return(bad(NONDECIMAL))
+  one <- function(x) {
+    if (is.numeric(x) && length(x) == 1L && !is.na(x)) return(as.numeric(x))
+    if (is.character(x) && length(x) == 1L &&
+        grepl("^[+-]?([0-9]+\\.?[0-9]*|\\.[0-9]+)([eE][+-]?[0-9]+)?$", trimws(x))) return(as.numeric(x))
+    NULL
+  }
+  n <- lapply(items, one)
+  if (any(vapply(n, is.null, NA))) return(bad(seq_msg))
+  n <- c(n[[1L]], n[[2L]])
+  if (!all(is.finite(n))) {
+    return(bad("a bound must be finite; a limit on one side is a `number` or `quantity` entry"))
+  }
+  if (!(n[1L] < n[2L])) return(bad("the lower bound must be below the upper bound"))
+  list(value = c(lower = n[1L], upper = n[2L]))
 }
 
 dict_breaks <- function(v) {
@@ -854,6 +893,10 @@ dict_short <- function(x, key, type, unit) {
   v <- unclass(x)[[key]]
   switch(type,
     quantity = paste(format(as.numeric(units::drop_units(v))), unit),
+    range = {
+      b <- as.numeric(if (inherits(v, "units")) units::drop_units(v) else v)
+      paste0("range ", format(b[1L]), " to ", format(b[2L]), if (!is.na(unit) && nzchar(unit)) paste0(" ", unit) else "")
+    },
     year = format(as.integer(v)),
     date = format(v),
     labels = sprintf("%d labels", attr(v, "weft_n") %||% NA_integer_),
@@ -894,14 +937,14 @@ print.weft_dict <- function(x, ...) {
 #'
 #' * `value` (required): by `type`, see below.
 #' * `type` (required): one of `number`, `quantity`, `year`, `date`,
-#'   `string`, `labels`, `breaks`.
+#'   `string`, `labels`, `breaks`, `range`.
 #' * `definition` (required): a string that is not blank; it is the text the
 #'   glossary shows.
-#' * `unit`: a string, for a `quantity` only.
+#' * `unit`: a string, for a `quantity` (required) or a `range` (optional).
 #'
 #' An empty field (`term:` with nothing after it) is read as absent. A one-item
 #' list where a string or number is wanted (`unit: [m]`) is read as its item.
-#' * `display`: one unit, for a `quantity` only (rule 4.2.7): the unit to show
+#' * `display`: one unit, for a `quantity`, or a `range` that has a `unit` (rule 4.2.7): the unit to show
 #'   the value in. The value is read in `unit` and converted to `display` when
 #'   the file is read, so `dict$key` is already in `display`, and arithmetic,
 #'   checks, `#` and `units::drop_units()` see it. A `display` that does not
@@ -953,6 +996,7 @@ print.weft_dict <- function(x, ...) {
 #' | `string` | a string (quote a number) | a character string |
 #' | `labels` | a non-empty mapping of label to phrase | a [lookup()] function |
 #' | `breaks` | a non-empty list of items | a [brk()] function |
+#' | `range` | two finite numbers, lower then upper, lower below upper | a vector named `lower` and `upper`, a `units` vector when `unit` is given |
 #'
 #' A `breaks` item is a mapping with a `phrase` and at most one of `below`
 #' (the value is less than the bound) or `at_most` (less than or equal to

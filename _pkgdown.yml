@@ -57,6 +57,7 @@ reference:
       - plural
       - lookup
       - phrases
+      - in_range
       - claim
 
   - title: Checking wording

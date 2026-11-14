@@ -34,7 +34,7 @@ are.
 
 An entry is two lines: a heading and \verb{:   <definition>}. The heading is the
 entry's \code{term} as written (markdown), else the key in code; then, when
-\code{values} is \code{TRUE} and the entry is a \code{number}, \code{quantity}, \code{year}, \code{date} or
+\code{values} is \code{TRUE} and the entry is a \code{number}, \code{quantity}, \code{range}, \code{year}, \code{date} or
 \code{string}, its value in parentheses: numbers and quantities through
 \code{\link[=fmt_num]{fmt_num()}} with the decimals written in the file (\code{0.50} prints \code{0.50}; a
 quantity converted by \verb{display:} prints as \code{\link[=fmt_num]{fmt_num()}} prints it), dates

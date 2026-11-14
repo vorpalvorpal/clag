@@ -201,7 +201,7 @@ tool_dict <- function(dict, fn, knit = FALSE) {
 #'
 #' An entry is two lines: a heading and `:   <definition>`. The heading is the
 #' entry's `term` as written (markdown), else the key in code; then, when
-#' `values` is `TRUE` and the entry is a `number`, `quantity`, `year`, `date` or
+#' `values` is `TRUE` and the entry is a `number`, `quantity`, `range`, `year`, `date` or
 #' `string`, its value in parentheses: numbers and quantities through
 #' [fmt_num()] with the decimals written in the file (`0.50` prints `0.50`; a
 #' quantity converted by `display:` prints as [fmt_num()] prints it), dates
@@ -260,7 +260,7 @@ dict_glossary <- function(dict = NULL, values = TRUE, sort = TRUE) {
   head_text <- ifelse(is.na(e$term), e$key, e$term)
   heads <- ifelse(is.na(e$term), paste0("`", e$key, "`"), e$term)
   for (i in seq_len(n)) {
-    if (values && e$type[i] %in% c("number", "quantity", "year", "date", "string")) {
+    if (values && e$type[i] %in% c("number", "quantity", "year", "date", "string", "range")) {
       dec <- if (is.null(decs)) NA_integer_ else unname(decs[e$key[i]])
       heads[i] <- paste0(heads[i], " (", glossary_value(vals[[e$key[i]]], e$type[i], one_line, dec,
                                                          converted = !is.na(e$display[i]),
@@ -292,6 +292,10 @@ knit_print.weft_glossary <- function(x, ...) {
 # written with, or, when `display:` converted it, as fmt_num() prints it.
 glossary_value <- function(v, type, one_line, dec = NA_integer_, converted = FALSE, unit = NA_character_) {
   if (type == "string") return(one_line(v))
+  if (type == "range") {
+    # as `.range` prints it: both ends, the unit once (N114)
+    return(one_line(as.character(fmt_range(v))))
+  }
   if (type == "date") return(as.character(fmt_date(v)))
   if (converted) {
     # a display unit that prints the value as zero: the entry's own unit, with no warning (4.7.1)
