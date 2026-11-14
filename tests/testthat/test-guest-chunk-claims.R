@@ -14,8 +14,13 @@
 #  - the value a collected claim returns is seen through what the chunk prints afterwards;
 #  - the E31 text is the one of design-7 (E31), with "claim" or "claims" by the count.
 
-GN_E31_1 <- paste0("weft: the knit stopped on an error after 1 failed claim in chunk code. ",
-                   "The claims are listed first: the error may follow from a value that failed its claim.")
+# The E31 sentence for a count of n, with white space collapsed as msg5() collapses the message.
+gn_e31 <- function(n) {
+  x <- paste0("weft: the knit stopped on an error after ", n, " failed claim", if (n == 1L) "" else "s",
+              " in chunk code. ",
+              "The claims are listed first: the error may follow from a value that failed its claim.")
+  trimws(gsub("[[:space:]]+", " ", x))
+}
 
 GN_COLLECT <- c("draft: false", "chunk_claims: collect")
 GN_STOP <- c("draft: false", "chunk_claims: stop")
@@ -25,19 +30,32 @@ GN_JLPRE <- c("using Weft", "t_8j_n = 3;")
 gn_py <- function(lines, yml = GN_COLLECT, ...) k5(lines, py = GN_PYPRE, weft_yml = yml, ...)
 gn_jl <- function(lines, yml = GN_COLLECT, ...) k5j(lines, jl = GN_JLPRE, weft_yml = yml, ...)
 
-gn_first_line <- function(res) strsplit(res$message, "\n", fixed = TRUE)[[1]][1]
+# res$message has its white space collapsed (msg5()), so it has no first line: it STARTS with the sentence.
+expect_e31 <- function(res, n) {
+  expect_true(startsWith(res$message, gn_e31(n)), label = substr(res$message, 1L, 200L))
+}
+
+# a marker file in dir that a chunk writes: its content is read back after the knit
+gn_read <- function(dir, name) {
+  f <- file.path(dir, name)
+  if (file.exists(f)) paste(readLines(f, warn = FALSE), collapse = "\n") else NA_character_
+}
 
 # ---- Python ----------------------------------------------------------------------------------------------
 
 test_that("GN3, GN2a: two failing Python claims in two chunks are collected; the knit reaches the end and the value is returned", {
-  res <- gn_py(c(pc6k("pa", "t_8p_a = claim(3, '> 10') + 1", "print('value a', t_8p_a)", opts = "error=FALSE"),
-                 pc6k("pb", "t_8p_b = claim(2, '> 10') + 1", "print('value b', t_8p_b)", opts = "error=FALSE"),
-                 pc6k("pc", "print('reached the end')", opts = "error=FALSE")))
+  td <- normalizePath(withr::local_tempdir(), winslash = "/")
+  wr <- function(name, v) sprintf("open('%s/%s', 'w').write(str(%s))", td, name, v)
+  res <- gn_py(c(pc6k("pa", "t_8p_a = claim(3, '> 10') + 1", wr("a.txt", "t_8p_a"), opts = "error=FALSE"),
+                 pc6k("pb", "t_8p_b = claim(2, '> 10') + 1", wr("b.txt", "t_8p_b"), opts = "error=FALSE"),
+                 pc6k("pc", wr("end.txt", "'reached'"), opts = "error=FALSE")))
   expect_true(res$failed)
   expect_s3_class(res$error, "weft_failures")
-  expect_match(res$md, "value a 4", fixed = TRUE)
-  expect_match(res$md, "value b 3", fixed = TRUE)
-  expect_match(res$md, "reached the end", fixed = TRUE)
+  # a knit that ends with collected failures aborts before knitr writes its output, so the chunks' work
+  # is read from marker files
+  expect_identical(gn_read(td, "a.txt"), "4")
+  expect_identical(gn_read(td, "b.txt"), "3")
+  expect_identical(gn_read(td, "end.txt"), "reached")
   f <- res$failures
   expect_identical(nrow(f), 2L)
   expect_identical(as.character(f$kind), c("failed claim", "failed claim"))
@@ -77,13 +95,15 @@ test_that("control GN10: level warn is never collected and never stops", {
 })
 
 test_that("GN11: a failing Python claim in a chunk with error: true raises nothing: no traceback, the rest of the chunk runs, the render fails at the end", {
-  res <- gn_py(c(pc6k("pe", "claim(3, '> 10')", "print('after the claim')", opts = "error=TRUE"),
-                 pc6k("pt", "print('tail')", opts = "error=FALSE")))
+  td <- normalizePath(withr::local_tempdir(), winslash = "/")
+  wr <- function(name, v) sprintf("open('%s/%s', 'w').write(str(%s))", td, name, v)
+  res <- gn_py(c(pc6k("pe", "v = claim(3, '> 10')", wr("after.txt", "v"), opts = "error=TRUE"),
+                 pc6k("pt", wr("tail.txt", "'tail'"), opts = "error=FALSE")))
   expect_true(res$failed)
   expect_s3_class(res$error, "weft_failures")
-  expect_false(grepl("ClaimFailed", res$md, fixed = TRUE))
-  expect_match(res$md, "after the claim", fixed = TRUE)
-  expect_match(res$md, "tail", fixed = TRUE)
+  expect_false(grepl("ClaimFailed", res$message, fixed = TRUE))
+  expect_identical(gn_read(td, "after.txt"), "3")
+  expect_identical(gn_read(td, "tail.txt"), "tail")
   expect_identical(as.character(res$failures$chunk), "pe")
 })
 
@@ -114,7 +134,7 @@ test_that("GN8a, GN7, E31: a collected Python claim, then a ValueError in a late
   expect_s3_class(e, "weft_error")
   expect_s3_class(e$parent, "error")
   expect_match(conditionMessage(e$parent), "boom", fixed = TRUE)
-  expect_identical(gn_first_line(res), GN_E31_1)
+  expect_e31(res, 1L)
   expect_match(res$message, "The error that stopped the knit:", fixed = TRUE)
   expect_match(res$message, "pa", fixed = TRUE)
   expect_match(res$message, "boom", fixed = TRUE)
@@ -125,7 +145,7 @@ test_that("GN7, E31: two collected Python claims are counted in the plural", {
                  pc6k("pb", "claim(2, '> 10')", opts = "error=FALSE"),
                  pc6k("pboom", "raise ValueError('boom')", opts = "error=FALSE")))
   expect_s3_class(res$error, "weft_claims_collected")
-  expect_match(gn_first_line(res), "after 2 failed claims in chunk code.", fixed = TRUE)
+  expect_e31(res, 2L)
 })
 
 test_that("GN8c, GN7: a collected Python claim, then an R stop(), is E31 with a count that includes the guest claim", {
@@ -134,7 +154,7 @@ test_that("GN8c, GN7: a collected Python claim, then an R stop(), is E31 with a 
                  "End."))
   expect_true(res$failed)
   expect_s3_class(res$error, "weft_claims_collected")
-  expect_identical(gn_first_line(res), GN_E31_1)
+  expect_e31(res, 1L)
   expect_match(conditionMessage(res$error$parent), "boom", fixed = TRUE)
 })
 
@@ -229,7 +249,7 @@ test_that("GN8b, GN7, E31: a collected Julia claim, then error() in a later Juli
   expect_s3_class(e, "weft_error")
   expect_s3_class(e$parent, "error")
   expect_match(conditionMessage(e$parent), "boom", fixed = TRUE)
-  expect_identical(gn_first_line(res), GN_E31_1)
+  expect_e31(res, 1L)
   expect_match(res$message, "ja", fixed = TRUE)
 })
 
@@ -237,7 +257,7 @@ test_that("GN8b: a claim collected and an error() in the same Julia chunk: the c
   res <- gn_jl(c(jc6k("jsame", "@claim t_8j_n > 10", "error(\"boom\")", opts = "error=FALSE")))
   expect_true(res$failed)
   expect_s3_class(res$error, "weft_claims_collected")
-  expect_identical(gn_first_line(res), GN_E31_1)
+  expect_e31(res, 1L)
   expect_match(res$message, "jsame", fixed = TRUE)
   expect_match(res$message, "t_8j_n > 10 was false (value 3)", fixed = TRUE)
   expect_identical(nrow(res$failures), 1L)

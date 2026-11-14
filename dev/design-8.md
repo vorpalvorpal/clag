@@ -119,6 +119,8 @@ Rule, message and decision numbers carry on from `dev/design-7.md`: rules are GN
   - E31's text and class (`weft_claims_collected`, with the error as parent) are unchanged. With no collected claim, the error and its class are unchanged.
 
 - **GN9. A later error on the jupyter engine** (step G1c; cut it if the spike fails).
+
+  Not built (14 Nov). The spike found that IPython 9 discards the value a custom exception handler returns; printing an altered traceback needs the private `_showtraceback`. E94 is unused. On Jupyter a later error shows IPython's own traceback, and the collected claims are reported at the end as usual.
   - When a kernel collects its first claim, and `ip.custom_exceptions` is empty, weft calls `ip.set_custom_exc((Exception,), handler)`.
   - Each collected claim is kept with the run id that `run_id()` gave when it was collected.
   - When a cell raises and at least one kept claim has the current run id (`None` matches `None`), the handler returns:

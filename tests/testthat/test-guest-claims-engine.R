@@ -10,17 +10,11 @@
 # Made-up values only. ASCII only (the ellipsis of a claim's expr is written as backslash-u-2026).
 #
 # READINGS of the design (see the report):
-#  - the E94 lines are the elements of the traceback the kernel sends: element 1 is E94, then one element
-#    per claim ("  <expr>: <detail>"), then "The error that stopped the cell:", then IPython's own
-#    traceback (the text of E94 for 1 and for 2 claims is written out below);
+#  - E94 (GN9, step G1c) is NOT BUILT: IPython discards the value a custom exception handler returns. On
+#    Jupyter a later error shows IPython's own traceback, and the collected claims are reported at the end;
 #  - a claim is kept with the run id of run_id() (the first line of .weft/run found upward from
-#    QUARTO_DOCUMENT_PATH), and E94 lists the claims whose run id is the current one;
-#  - when a custom exception handler is already installed (custom_exceptions is not empty), weft leaves it.
+#    QUARTO_DOCUMENT_PATH).
 
-E94_1 <- paste0("weft: this cell raised an error after 1 failed claim collected in this run. ",
-                "The claims are listed first: the error may follow from a value that failed its claim.")
-E94_2 <- paste0("weft: this cell raised an error after 2 failed claims collected in this run. ",
-                "The claims are listed first: the error may follow from a value that failed its claim.")
 EXPR_GT10E <- "claim(\u2026, '> 10')"
 EXPR_LT3E <- "claim(\u2026, '< 3')"
 
@@ -101,32 +95,19 @@ test_that("GN10: level warn under collect is displayed and returned, as under st
   expect_identical(r[[2]]$blocks[[1]]$checks[[1]]$level, "warn")
 })
 
-test_that("GN9, E94: a cell that raises after collected claims has a traceback that starts with E94, lists each claim, then says `The error that stopped the cell:`, then IPython's own traceback", {
+test_that("GN9 (not built): a cell that raises after a collected claim shows IPython's own traceback, and the claim's block was displayed by its own cell", {
   dir <- ce_project("chunk_claims: collect")
-  r <- jup_session(list("from weft import claim\nn = 7",
-                        "claim(n, '> 10')",
-                        "1/0",
-                        "claim(n, '< 3')",
-                        "1/0",
-                        "get_ipython().custom_exceptions"), env = ce_env(dir))
+  r <- jup_session(list("from weft import claim\nn = 7", "claim(n, '> 10')", "1/0"), env = ce_env(dir))
   expect_identical(r[[2]]$status, "ok")
+  expect_length(r[[2]]$blocks, 1L)
+  expect_identical(r[[2]]$blocks[[1]]$checks[[1]]$ok, FALSE)
   x <- r[[3]]
   expect_identical(x$status, "error")
   expect_identical(x$ename, "ZeroDivisionError")
   tb <- ce_nocol(x$traceback)
-  expect_identical(tb[1], E94_1)
-  expect_match(tb[2], paste0("^  ", gsub("([.()])", "\\\\\\1", EXPR_GT10E), ": (_ )?> 10 was false \\(value 7\\)$"))
-  expect_identical(tb[3], "The error that stopped the cell:")
-  expect_true(any(grepl("ZeroDivisionError", tb[-(1:3)], fixed = TRUE)), label = "IPython's traceback follows")
-  # a second claim: the plural, and both claims in the order collected
-  expect_identical(r[[4]]$status, "ok")
-  tb2 <- ce_nocol(r[[5]]$traceback)
-  expect_identical(tb2[1], E94_2)
-  expect_match(tb2[2], "> 10 was false (value 7)", fixed = TRUE)
-  expect_match(tb2[3], "< 3 was false (value 7)", fixed = TRUE)
-  expect_identical(tb2[4], "The error that stopped the cell:")
-  # the handler was installed once, when the first claim was collected
-  expect_match(r[[6]]$result, "Exception", fixed = TRUE)
+  expect_false(any(grepl("^weft:", tb)))
+  expect_false(any(grepl("The error that stopped the cell", tb, fixed = TRUE)))
+  expect_true(any(grepl("ZeroDivisionError", tb, fixed = TRUE)), label = "IPython's own traceback")
 })
 
 test_that("control GN9: with no claim collected an error's traceback is IPython's own, and no handler is installed", {
@@ -143,30 +124,6 @@ test_that("control GN9: with no claim collected an error's traceback is IPython'
 test_that("control GN9: a claim that raised (stop) leaves a later error's traceback untouched", {
   dir <- ce_project("chunk_claims: stop")
   r <- jup_session(list("from weft import claim\nn = 7", "claim(n, '> 10')", "1/0"), env = ce_env(dir))
-  expect_false(any(grepl("weft:", ce_nocol(r[[3]]$traceback), fixed = TRUE)))
-})
-
-test_that("GN9: a custom exception handler that is already installed is left alone", {
-  dir <- ce_project("chunk_claims: collect")
-  r <- jup_session(list(
-    paste("from weft import claim",
-          "n = 7",
-          "def mine(self, etype, value, tb, tb_offset=None):",
-          "    return ['USER HANDLER']",
-          "get_ipython().set_custom_exc((ZeroDivisionError,), mine)", sep = "\n"),
-    "claim(n, '> 10')", "1/0"), env = ce_env(dir))
-  expect_identical(r[[2]]$status, "ok")
-  expect_identical(ce_nocol(r[[3]]$traceback), "USER HANDLER")
-})
-
-test_that("GN9: a claim collected under another run id is not listed", {
-  dir <- ce_project("chunk_claims: collect", run = "run-one")
-  r <- jup_session(list("from weft import claim\nn = 7", "claim(n, '> 10')",
-                        list(code = "1/0", before = list(list(op = "write", path = file.path(dir, ".weft", "run"),
-                                                               text = "run-two\n")))),
-                   env = ce_env(dir))
-  expect_identical(r[[2]]$status, "ok")
-  expect_identical(r[[3]]$ename, "ZeroDivisionError")
   expect_false(any(grepl("weft:", ce_nocol(r[[3]]$traceback), fixed = TRUE)))
 })
 
