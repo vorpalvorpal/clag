@@ -884,10 +884,12 @@ local function without(c, drop)
   return { has = has, keys = c.keys, classes = c.classes, id = c.id }
 end
 
-local function config_for_num()
+-- `target` is nil or "markdown" (today's text) or "tex" (design 9, rule 2.13.16)
+local function config_for_num(target)
   local cfg = S.cfg
   return { digits = cfg.digits, decimal_mark = cfg.decimal_mark, big_mark = cfg.big_mark,
-           thousands_from = cfg.thousands_from, minus = cfg.minus, p_digits = cfg.p_digits, p_label = cfg.p_label }
+           thousands_from = cfg.thousands_from, minus = cfg.minus, p_digits = cfg.p_digits, p_label = cfg.p_label,
+           target = target }
 end
 
 local function number_keys(c)
@@ -946,11 +948,11 @@ local function e17(cl, needs, name, kind)
 end
 
 -- one number element printed as .num or .pct; `warn` asks for the printed-as-zero note (2.6.11)
-local function print_elem(e, class, keys, warn)
+local function print_elem(e, class, keys, warn, target)
   if S.cfg.pct_proportion == false and class == "pct" then
     vfail("`pct_proportion: false` is not available in this version of weft.lua (rule 2.13.3).")
   end
-  local ok, text, info = pcall(num.format, e, class, keys, config_for_num())
+  local ok, text, info = pcall(num.format, e, class, keys, config_for_num(target))
   if not ok then vfail(tostring(text)) end
   local p = { text = text, number = info.number, decimals = info.decimals, relation = "=", ip = info.ip }
   if warn and info.zero and e.t ~= "int" then
@@ -978,6 +980,7 @@ end
 --   o.join      what joins a vector that no collapse class joined
 --   o.collapse  the collapse class to use when the construct names none
 --   o.bare      numbers with no number class print as the record holds them (1.5.19)
+--   o.target    "tex" writes the TeX of design 9 (TX4 to TX6); nil or "markdown" is markdown
 -- Returns {text, block, number, decimals, relation, zero}; text is markdown.
 local function format_vector(name, rec, c, o)
   o = o or {}
@@ -1015,6 +1018,17 @@ local function format_vector(name, rec, c, o)
     nofail(string.format("`%s` is missing (it holds no elements) (rule 1.4.14).", name))
   end
 
+  -- `.val` under TeX (TL4): a number whose text is plain digits as it is, anything else through tex_text()
+  if o.target == "tex" and ncl == "val" then
+    local parts = {}
+    for i, e in ipairs(elems) do parts[i] = scalar_text(e) end
+    local text = table.concat(parts, o.join or ", ")
+    if not (n == 1 and is_numeric(elems[1]) and (text:match("^%-?%d+$") or text:match("^%-?%d+%.%d+$"))) then
+      text = num.tex_text(text)
+    end
+    return { text = text, relation = "=", decimals = false }
+  end
+
   -- stage i: number
   local range_digits
   if has.range and (ncl == nil or ncl == "num") and not given then
@@ -1040,11 +1054,11 @@ local function format_vector(name, rec, c, o)
     elseif ncl == "sci" or ncl == "p" then
       if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
       local ok, text, info
-      if ncl == "sci" then ok, text, info = pcall(num.format_sci, e, number_keys(c), config_for_num())
+      if ncl == "sci" then ok, text, info = pcall(num.format_sci, e, number_keys(c), config_for_num(o.target))
       else
         local pk = { label = keys.label }
         if keys.digits ~= nil then pk.digits = math.tointeger(tonumber(keys.digits)) end
-        ok, text, info = pcall(num.format_p, e, config_for_num(), pk)
+        ok, text, info = pcall(num.format_p, e, config_for_num(o.target), pk)
       end
       if not ok then vfail(tostring(text)) end
       it = { text = text, number = info.number, decimals = info.decimals, relation = info.relation }
@@ -1055,7 +1069,7 @@ local function format_vector(name, rec, c, o)
       if not is_numeric(e) then vfail(e17(ncl, "number", name, e.t)) end
       local keys_n = number_keys(c)
       if range_digits then keys_n.digits = range_digits end
-      it = print_elem(e, ncl or "num", keys_n, want_zero)
+      it = print_elem(e, ncl or "num", keys_n, want_zero, o.target)
     elseif is_numeric(e) then
       it = { text = scalar_text(e), decimals = false, relation = "=" }
     elseif e.t == "bool" then
@@ -1121,7 +1135,7 @@ local function format_vector(name, rec, c, o)
     if n == 2 and is_numeric(elems[1]) and is_numeric(elems[2]) then
       exact_gt = cond.num_cmp(elems[1].v, elems[2].v) > 0
     end
-    local t, msg = words.collapse_range(texts, number, raw, cfg.minus, exact_gt, has.plus)
+    local t, msg = words.collapse_range(texts, number, raw, cfg.minus, exact_gt, has.plus, o.target)
     if not t then vfail(msg) end
     text = t
     local one_printed = n == 2 and texts[1] == texts[2] and items[1].number == 1 and not items[1].decimals
@@ -1223,7 +1237,7 @@ local function entered(kind, expr, id, inner)
   for i = nfail + 1, #S.fails do
     if frame.info ~= nil and S.fails[i]._info == frame.info then e.failed = S.fails[i].kind; break end
   end
-  e.printed = stringified(r, extra == true)
+  e.printed = type(r) == "string" and r or stringified(r, extra == true)
   if e.failed then e.arm, e.rel, e.raw = nil, nil, nil end
   for i = first, #S.entries do
     if S.entries[i].top == nil then S.entries[i].top = e end
@@ -1298,6 +1312,57 @@ local function decision_blank(el)
 end
 local DECISION_ON = { n = "an `n` span", ["if"] = "an `if` span", sign = "a `sign` span", list = "a `list` span" }
 
+-- Rule 5.2.6 (TX2, E95 to E99): the classes and keys a named value may hold inside math or raw LaTeX, in the
+-- scanner's words (R/scan.R: tex_block_errors). `place` is "math" or "raw LaTeX". One message per offending
+-- class or key, the classes first, then the keys, in the order written; nil when there is none. A project
+-- formatter is the value error of check_implemented(), as outside math.
+local TEX_OK_CLASSES = { num = true, pct = true, sci = true, p = true, plus = true, range = true, uname = true,
+                         usym = true, nounit = true, val = true }
+local TEX_WORDS = { word = true, count = true, ord = true, no = true, date = true, a = true, cap = true }
+local TEX_EMPH = { em = true, strong = true }
+local TEX_LISTS = { ["and"] = true, ["or"] = true, pairs = true, ul = true, ol = true, dl = true }
+local TEX_LIST_KEYS = { sep = true, last = true, trunc = true, none = true }
+local TEX_OK_KEYS = { digits = true, sigfig = true, unit = true, label = true, why = true, claim = true,
+                      level = true, ["if"] = true, n = true, sign = true, cite = true, list = true }
+
+local function tex_refusals(c, place)
+  local out, seen = {}, {}
+  local function e99(x)
+    return string.format("`%s` cannot be used inside %s: it is not weft's, so weft would put the value in a "
+      .. "Pandoc span, and %s has none. Drop it, or move the value out of the %s (rule 5.2.6).", x, place, place, place)
+  end
+  local function e97(x)
+    return string.format("`%s` cannot be used inside %s: it joins items into a phrase or a list. "
+      .. "Use `.range` for two ends, or move the value out of the %s (rule 5.2.6).", x, place, place)
+  end
+  for _, cl in ipairs(c.classes) do
+    if not seen[cl] then
+      seen[cl] = true
+      local x = "." .. cl
+      if TEX_OK_CLASSES[cl] or S.cfg.formatters[cl] then
+        -- allowed
+      elseif TEX_WORDS[cl] then
+        out[#out + 1] = string.format("`%s` cannot be used inside %s: it prints words, and a formula holds numbers. "
+          .. "Move the value out of the %s, or use a number class such as `.num` (rule 5.2.6).", x, place, place)
+      elseif TEX_EMPH[cl] then
+        out[#out + 1] = string.format("`%s` cannot be used inside %s: it is markdown emphasis, and %s is TeX. "
+          .. "Put \\mathbf{} or \\mathit{} around the value in the formula (rule 5.2.6).", x, place, place)
+      elseif TEX_LISTS[cl] then
+        out[#out + 1] = e97(x)
+      else
+        out[#out + 1] = e99(x)
+      end
+    end
+  end
+  for _, k in ipairs(c.key_list) do
+    if not TEX_OK_KEYS[k.k] then
+      out[#out + 1] = TEX_LIST_KEYS[k.k] and e97(k.raw) or e99(k.raw)
+    end
+  end
+  if #out == 0 then return nil end
+  return table.concat(out, "\n")
+end
+
 local function resolve_code_inner(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
@@ -1307,6 +1372,11 @@ local function resolve_code_inner(el, ctx, as_block)
     return { fail("construct error", info, string.format(
       "`%s` is not a name, so it cannot carry a weft class: a named value holds one name. Bind the value to a name in code (rule 1.12.3).",
       el.text)) }
+  end
+  local target = ctx.target
+  if target == "tex" then
+    local refused = tex_refusals(c, ctx.tex == "math" and "math" or "raw LaTeX")
+    if refused then return { fail("construct error", info, refused) } end
   end
   for _, k in ipairs(c.key_list) do
     if GOVERNORS[k.k] then
@@ -1333,7 +1403,7 @@ local function resolve_code_inner(el, ctx, as_block)
     id_claim(c)
     local has = c.has
     local rec = need(el.text)
-    local P = format_vector(el.text, rec, c, { join = ", " })
+    local P = format_vector(el.text, rec, c, { join = ", ", target = target })
     if raw_of(rec) ~= nil then
       S.frame.raw = raw_of(rec)
       S.frame.rel = P.relation
@@ -1346,7 +1416,10 @@ local function resolve_code_inner(el, ctx, as_block)
       id_set(c, {})
     end
     local out
-    if P.block then
+    if target == "tex" then
+      -- the TeX text goes in as one string, which is not markdown (rule 2.13.16)
+      out = pandoc.Inlines({ pandoc.Str(P.text) })
+    elseif P.block then
       if P.parts then return val_blocks(P.parts), true end
       return md_blocks(P.text), true
     elseif has.val and not P.none then
@@ -1355,7 +1428,7 @@ local function resolve_code_inner(el, ctx, as_block)
     else
       out = md_inlines(P.text, P.data)
     end
-    out = wrap_pass(c, out)
+    if target ~= "tex" then out = wrap_pass(c, out) end
     if P.zero then warn("printed as zero", info, zero_message(P.zero)) end
     for _, m in ipairs(run_checks(rec, info)) do out:insert(m) end
     return out
@@ -1365,6 +1438,141 @@ end
 local function resolve_code(el, ctx, as_block)
   local id = (el.identifier or "") ~= "" and el.identifier or nil
   return entered("value", el.text, id, function() return resolve_code_inner(el, ctx, as_block) end)
+end
+
+-- ---- named values in math and raw LaTeX (design 9, phase 2: D81 to D85, TL1 to TL6) -----------------------
+
+local TEX_MATH_ENVS = {}
+for _, n in ipairs({ "equation", "align", "alignat", "gather", "multline", "flalign", "eqnarray", "math",
+                     "displaymath", "aligned", "alignedat", "gathered", "split", "cases", "array", "matrix",
+                     "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix", "smallmatrix", "subarray", "CD" }) do
+  TEX_MATH_ENVS[n] = true
+end
+
+-- "math" for a Math element and a raw TeX text that is a math environment; "raw" for any other raw TeX (TL1)
+local function tex_kind_of(el)
+  if el.t == "Math" then return "math" end
+  local name = el.text:match("^%s*\\begin{([%a]+)%*?}")
+  if name and TEX_MATH_ENVS[name] then return "math" end
+  return "raw"
+end
+
+local function is_tex_raw(el)
+  return (el.t == "RawInline" or el.t == "RawBlock") and (el.format == "tex" or el.format == "latex")
+end
+
+-- the end of an attribute block that opens with `{` at `s`: the position of its `}`, quoted values respected
+local function block_end(text, s)
+  local i, n, quote = s + 1, #text, nil
+  while i <= n do
+    local ch = text:sub(i, i)
+    if quote then
+      if ch == "\\" then i = i + 1
+      elseif ch == quote then quote = nil end
+    elseif (ch == '"' or ch == "'") and text:sub(i - 1, i - 1) == "=" then
+      quote = ch
+    elseif ch == "}" then
+      return i
+    end
+    i = i + 1
+  end
+  return nil
+end
+
+-- TL2: the constructs in a TeX text, left to right: {s =, e =, code =} for each backtick run that is not
+-- preceded by a backslash and closes on a run of the same length, is followed directly by an attribute block,
+-- and reads (as markdown) as exactly one code span that is a weft construct. Nothing is read when there is no
+-- backtick.
+local function tex_candidates(text)
+  local out = {}
+  if not text:find("`", 1, true) then return out end
+  local pos, n = 1, #text
+  while pos <= n do
+    local s, e = text:find("`+", pos)
+    if not s then break end
+    local k = e - s + 1
+    local nxt = e + 1
+    if not (s > 1 and text:sub(s - 1, s - 1) == "\\") then
+      -- the closing run: the next run of exactly k backticks
+      local from, cs, ce = e + 1, nil, nil
+      while true do
+        local a, b = text:find("`+", from)
+        if not a then break end
+        if b - a + 1 == k then cs, ce = a, b; break end
+        from = b + 1
+      end
+      if cs then
+        nxt = ce + 1
+        if text:sub(ce + 1, ce + 1) == "{" then
+          local be = block_end(text, ce + 1)
+          if be then
+            local ok, doc = pcall(pandoc.read, text:sub(s, be), "markdown")
+            if ok and #doc.blocks == 1 and (doc.blocks[1].t == "Para" or doc.blocks[1].t == "Plain")
+               and #doc.blocks[1].content == 1 and doc.blocks[1].content[1].t == "Code"
+               and code_candidate(doc.blocks[1].content[1]) then
+              out[#out + 1] = { s = s, e = be, code = doc.blocks[1].content[1] }
+              nxt = be + 1
+            end
+          end
+        end
+      end
+    end
+    pos = nxt
+  end
+  return out
+end
+
+-- one construct of a TeX text resolved: its TeX as a string (a failure is the marker as text). It goes through
+-- resolve_code_inner() with target "tex", so the checks, the value and the ledger are those of prose.
+local function tex_marker_text(r)
+  local parts = {}
+  for _, el in ipairs(r) do
+    if el.t == "Span" and el.classes[1] == "weft-marker" then
+      parts[#parts + 1] = "\\text{" .. pandoc.utils.stringify(el) .. "}"
+    else
+      parts[#parts + 1] = pandoc.utils.stringify(el)
+    end
+  end
+  return table.concat(parts)
+end
+
+local function resolve_tex_code(el, ctx)
+  local id = (el.identifier or "") ~= "" and el.identifier or nil
+  return entered("value", el.text, id, function()
+    local r = resolve_code_inner(el, ctx, false)
+    local text = tex_marker_text(r)
+    if ctx.tex == "raw" then text = "\\ensuremath{" .. text .. "}" end
+    return text
+  end)
+end
+
+-- the text with each construct replaced; `ats` is the weft-at attribute of the wrapper ("i:l,i:l" in order)
+local function resolve_tex_text(text, kind, ats, ctx)
+  local cands = tex_candidates(text)
+  if #cands == 0 then return text end
+  local places = {}
+  if ats then for a in (ats .. ","):gmatch("([^,]*),") do places[#places + 1] = a end end
+  local c2 = with(with(ctx, "target", "tex"), "tex", kind)
+  local saved = S.context
+  if saved == "prose" then S.context = (kind == "math") and "math" or "tex" end
+  local pieces, last = {}, 1
+  for i, cand in ipairs(cands) do
+    local code = cand.code
+    if places[i] and places[i] ~= "-" and #cands == #places then code.attributes["weft-at"] = places[i] end
+    pieces[#pieces + 1] = text:sub(last, cand.s - 1)
+    pieces[#pieces + 1] = resolve_tex_code(code, c2)
+    last = cand.e + 1
+  end
+  S.context = saved
+  pieces[#pieces + 1] = text:sub(last)
+  return table.concat(pieces)
+end
+
+-- the Math, RawInline or RawBlock a `weft-math` wrapper holds, resolved
+local function resolve_math_el(el, ats, ctx)
+  local copy = el:clone()
+  copy.text = resolve_tex_text(el.text, tex_kind_of(el), ats, ctx)
+  return copy
 end
 
 -- ---- spans ---------------------------------------------------------------------------------------------
@@ -1927,6 +2135,14 @@ resolve_inlines = function(inlines, ctx)
     if t == "Code" then
       if code_candidate(el) then out:extend(resolve_code(el, ctx)) else out:insert(el) end
       i = i + 1
+    elseif t == "Span" and el.classes[1] == "weft-math" then
+      local inner = el.content[1]
+      if inner ~= nil and (inner.t == "Math" or is_tex_raw(inner)) then
+        out:insert(resolve_math_el(inner, el.attributes["weft-at"], ctx))
+      else
+        out:extend(el.content)
+      end
+      i = i + 1
     elseif t == "Span" and is_text_span(el) then
       out:extend(resolve_text_span(el, ctx))
       i = i + 1
@@ -2071,6 +2287,16 @@ resolve_blocks = function(blocks, ctx)
     OrderedList = function(el) return mark_nested(el, ctx) end,
     DefinitionList = function(el) return mark_nested(el, ctx) end,
     Div = function(el)
+      if el.classes[1] == "weft-math" then
+        local inner = el.content[1]
+        if inner ~= nil and is_tex_raw(inner) then
+          local first = #S.entries + 1
+          local out = resolve_math_el(inner, el.attributes["weft-at"], ctx)
+          finish_block(first, pandoc.Inlines({ pandoc.Str(out.text) }))
+          return out, false
+        end
+        return el.content, false
+      end
       if el.classes:includes("weft-literal") then
         if decision_blank(el) then
           local info = info_of(el, ctx, "::: {.weft-literal}")
@@ -2244,7 +2470,36 @@ local function prev_not_backtick(text, s)
   return s == 1 or text:sub(s - 1, s - 1) ~= "`"
 end
 
+-- D82: a Math, a raw TeX inline or a raw TeX block that holds constructs is wrapped, in a Span (a Div for a
+-- block) with class `weft-math` and `weft-at="i:l,i:l"`, one entry for each construct in document order ("-"
+-- where the source has none). The wrapper is taken off when the text is resolved. With no backtick in the
+-- text, nothing is read and the element is left as it is.
+local function tag_tex(el)
+  if el.t ~= "Math" and not is_tex_raw(el) then return nil end
+  local cands = tex_candidates(el.text)
+  if #cands == 0 then return nil end
+  local ats = {}
+  for i, cand in ipairs(cands) do
+    local idx, line
+    if S.src ~= nil then
+      -- the occurrence that reads as this very construct first; failing that, the next one of the name
+      local needle = "`" .. cand.code.text .. "`{"
+      local tail = el.text:sub(cand.s, cand.e):match("`+(%{.*)$") or "{"
+      idx, line = S.src:find(needle, function(text, st)
+        local from = st + #needle - 1
+        return prev_not_backtick(text, st) and text:sub(from, from + #tail - 1) == tail
+      end)
+      if not idx then idx, line = S.src:find(needle, prev_not_backtick) end
+    end
+    ats[i] = idx and (idx .. ":" .. line) or "-"
+  end
+  local attr = pandoc.Attr("", { "weft-math" }, { ["weft-at"] = table.concat(ats, ",") })
+  if el.t == "RawBlock" then return pandoc.Div({ el }, attr), false end
+  return pandoc.Span({ el }, attr), false
+end
+
 local function tag(el)
+  if el.t == "Math" or el.t == "RawInline" then return tag_tex(el) end
   if S.src == nil then return nil end
   local needle, ok
   if el.t == "Code" then
@@ -2280,7 +2535,7 @@ end
 local META_FIELDS = { "title", "subtitle", "abstract", "description" }
 
 local function tag_all(doc)
-  local f = { traverse = "topdown", Inline = tag,
+  local f = { traverse = "topdown", Inline = tag, RawBlock = tag_tex,
     Div = function(el)
       if S.src == nil or not el.classes:includes("weft-literal") or not decision_blank(el) then return nil end
       local idx, line = S.src:find(string.format('decision="%s"', el.attributes["decision"]))

@@ -13,6 +13,7 @@
 --   * in a document weft.lua resolved: text that shows `]{KEY=` for a weft key, which is a span Pandoc
 --     did not read (its value starts with a space), so that nothing resolved it
 --   * a named value in a front-matter field weft.lua does not resolve (rule 2.13.2)
+--   * a named value in math or in raw TeX or LaTeX that weft.lua did not resolve (E106, rule 2.13.16)
 --
 -- Self-contained: it reads only Pandoc's tree, so it works when the weft
 -- package was never loaded and when the file was never knit (9.2.8).
@@ -188,6 +189,74 @@ local function check_code(el, field)
         "`" .. excerpt(text) .. "`")
   end
 end
+
+-- E106 (design 9, TL6): a Math, or a raw TeX or LaTeX element, whose text holds a backticked NAME followed directly
+-- by an attribute block that carries a weft class or key. weft.lua replaces these; one left says it did not run.
+-- The reading is that of weft.lua's tex_candidates(), without Pandoc's markdown reader.
+local E106 = "math holds a named value the filter did not resolve"
+
+local function block_end(text, s)
+  local i, n, quote = s + 1, #text, nil
+  while i <= n do
+    local ch = text:sub(i, i)
+    if quote then
+      if ch == "\\" then i = i + 1
+      elseif ch == quote then quote = nil end
+    elseif (ch == '"' or ch == "'") and text:sub(i - 1, i - 1) == "=" then
+      quote = ch
+    elseif ch == "}" then
+      return i
+    end
+    i = i + 1
+  end
+  return nil
+end
+
+local function carries_weft(block)
+  local bare = block:gsub('"[^"]*"', '""'):gsub("'[^']*'", "''")
+  for c in bare:gmatch("%.([%w_]+)") do
+    if FORMATTER_CLASSES[c] or TEXT_CLASSES[c] or c == "val" then return true end
+  end
+  for k in bare:gmatch("([%w_]+)%s*=") do
+    local l = k:lower()
+    if KEYS[l] == nil and RENDERER_KEYS[l] then return true end
+  end
+  return false
+end
+
+local function check_tex(text)
+  if not text:find("`", 1, true) then return end
+  local pos, n = 1, #text
+  while pos <= n do
+    local s, e = text:find("`+", pos)
+    if not s then break end
+    local k = e - s + 1
+    local nxt = e + 1
+    if not (s > 1 and text:sub(s - 1, s - 1) == "\\") then
+      local from, cs, ce = e + 1, nil, nil
+      while true do
+        local a, b = text:find("`+", from)
+        if not a then break end
+        if b - a + 1 == k then cs, ce = a, b; break end
+        from = b + 1
+      end
+      if cs then
+        nxt = ce + 1
+        if text:sub(ce + 1, ce + 1) == "{" then
+          local be = block_end(text, ce + 1)
+          local name = text:sub(e + 1, cs - 1):gsub("^[ \t\r\n]+", ""):gsub("[ \t\r\n]+$", "")
+          if be and is_name(name) and carries_weft(text:sub(ce + 2, be - 1)) then
+            add("leftover code", E106, excerpt(text:sub(s, be)))
+            nxt = be + 1
+          end
+        end
+      end
+    end
+    pos = nxt
+  end
+end
+
+local function is_tex_format(f) return f == "tex" or f == "latex" end
 
 -- the text of a list of inlines: its direct text only (nested elements are
 -- visited on their own), in two forms. `plain` leaves out code, math and raw
@@ -404,6 +473,9 @@ function Pandoc(full)
     Inlines = function(inlines) check_inlines(inlines) end,
     Span = function(el) check_span(el) end,
     Code = function(el) check_code(el) end,
+    Math = function(el) check_tex(el.text) end,
+    RawInline = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
+    RawBlock = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
     CodeBlock = function(el) check_codeblock(el) end,
   })
   -- the metadata (title and the rest) carries inlines too
@@ -416,6 +488,8 @@ function Pandoc(full)
         Inlines = function(inlines) check_inlines(inlines) end,
         Span = function(el) check_span(el) end,
         Code = function(el) check_code(el, key) end,
+        Math = function(el) check_tex(el.text) end,
+        RawInline = function(el) if is_tex_format(el.format) then check_tex(el.text) end end,
       })
     end
   end)

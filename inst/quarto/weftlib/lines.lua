@@ -7,7 +7,7 @@
 --
 -- The searchable text is the source with each `{{< include F >}}` line replaced by F's searchable
 -- text (relative to the including file, recursively, at most 8 deep), with fenced code blocks
--- blanked except their lines that start `#|`, and HTML comments blanked, line structure kept.
+-- blanked except their lines that start `#|` (and the body of a {=latex} or {=tex} fence), and HTML comments blanked, line structure kept.
 -- No side effect on load.
 
 local M = {}
@@ -38,7 +38,7 @@ end
 local function masked_lines(text)
   text = text:gsub("<!%-%-.-%-%->", function(m) return (m:gsub("[^\n]", "")) end)
   local out, n = {}, 0
-  local fence_char, fence_len
+  local fence_char, fence_len, fence_raw
   for line in (text .. "\n"):gmatch("(.-)\r?\n") do
     n = n + 1
     local keep = line
@@ -46,12 +46,15 @@ local function masked_lines(text)
     if fence_char then
       local close = line:match("^[ \t\r\n>]*(" .. fence_char .. "+)[ \t\r\n]*$")
       if close and #close >= fence_len then fence_char = nil
-      elseif not line:match("^[ \t\r\n]*#|") then keep = "" end
+      elseif not (fence_raw or line:match("^[ \t\r\n]*#|")) then keep = "" end
       if fence_char == nil then keep = "" end
     elseif marks and #marks >= 3 then
       fence_char = marks:sub(1, 1)
       if fence_char == "`" then fence_char = "`" else fence_char = "~" end
       fence_len = #marks
+      -- the body of a raw TeX fence is searched: a named value in it has a line (design 9, D82)
+      local info = line:match("^[ \t\r\n>]*[`~]+[ \t]*{=(%a+)}[ \t\r\n]*$")
+      fence_raw = info == "latex" or info == "tex"
       keep = ""
     end
     out[n] = keep

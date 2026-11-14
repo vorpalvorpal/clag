@@ -278,6 +278,43 @@ scan_region <- function(S, p, m, parent, tex) {
   m + 1L
 }
 
+# Named values (backtick text followed by a class block) inside raw LaTeX from `from` to `to`: a {=latex} fence
+# body or a raw span's text. Inline R there is read by the knitr pass; only named values are read here (D84).
+raw_named <- function(S, from, to, parent) {
+  i <- from
+  while (i <= to) {
+    q <- next_special(S, i)
+    if (q > to) break
+    if (S$chars[q] != "`") {
+      i <- q + 1L
+      next
+    }
+    cs <- code_span(S, q)
+    if (!cs$ok) {
+      i <- cs$open_end + 1L
+      next
+    }
+    cstart <- cs$open_end + 1L
+    cend <- cs$close_start - 1L
+    content <- if (cend >= cstart) paste(S$chars[cstart:cend], collapse = "") else ""
+    i <- if (grepl("^(r|\\{r\\})[ #\t\r\n]", content)) cs$close_end + 1L else
+      handle_named(S, q, cs, content, parent, FALSE, "raw")
+  }
+  invisible()
+}
+
+# The body of a fenced block that opens at `p` and ends at `fe`: first and last position, or NULL when empty.
+fence_body <- function(S, p, fe) {
+  nls <- S$nl[S$nl >= p & S$nl <= fe]
+  if (!length(nls)) return(NULL)
+  from <- nls[1L] + 1L
+  last <- nls[length(nls)]
+  closed <- length(nls) > 1L &&
+    grepl("^[ \t>]*(`{3,}|~{3,})[ \t\r]*$", substr(S$text, last + 1L, fe))
+  to <- if (closed) last - 1L else fe
+  if (to < from) NULL else c(from, to)
+}
+
 # The classes and keys with no TeX form inside a TeX region (TX2, E95 to E99): one message per class or key,
 # the classes first, then the keys, in the order written. `.val` is an R value's here.
 TEX_WORDS <- c(".word", ".count", ".ord", ".no", ".date", ".a", ".cap", ".val")
@@ -287,14 +324,14 @@ TEX_OK_CLASSES <- c(".num", ".pct", ".sci", ".p", ".plus", ".range", ".uname", "
 TEX_OK_KEYS <- c("digits", "sigfig", "unit", "label", "why", "claim", "level")
 TEX_LIST_KEYS <- c("sep", "last", "trunc", "none")
 
-tex_block_errors <- function(S, blk, tex) {
+tex_block_errors <- function(S, blk, tex, named = FALSE) {
   if (!isTRUE(blk$ok)) return(character())
   place <- if (identical(tex, "math")) "math" else "raw LaTeX"
   out <- character()
   tex_proj <- function(c1) "tex" %in% S$reg[[c1]][["targets"]]
   popts <- character()
   for (c1 in unique(blk$classes)) {
-    out <- c(out, if (c1 %in% TEX_OK_CLASSES) {
+    out <- c(out, if (c1 %in% TEX_OK_CLASSES || (named && identical(c1, ".val"))) {
       character()
     } else if (c1 %in% TEX_WORDS) {
       sprintf(paste0("`%s` cannot be used inside %s: it prints words, and a formula holds numbers. ",
@@ -1218,6 +1255,10 @@ scan_seq <- function(S, from, to, parent) {
     fi <- fence_index(S, p)
     if (!is.na(fi)) {
       # a chunk is knitr's code; any other fenced block is text to knitr, which evaluates its inline R
+      if (!S$f_chunk[fi] && S$f_raw[fi]) {
+        bd <- fence_body(S, p, S$f_end[fi])
+        if (!is.null(bd)) raw_named(S, bd[1L], bd[2L], parent)
+      }
       i <- if (!S$f_chunk[fi] && length(S$kn_s)) {
         fence_inline(S, p, S$f_end[fi], parent, if (S$f_raw[fi]) "raw" else "")
       } else S$f_end[fi] + 1L
@@ -1377,7 +1418,7 @@ block_container <- function(S, p) {
 
 # A code span that is not inline R: a named value when its text is followed by an attribute block that holds
 # a weft class or a renderer key (N5). Its text must then be a NAME (N7). `R x` is an R value, not a name.
-handle_named <- function(S, p, cs, content, parent, skip) {
+handle_named <- function(S, p, cs, content, parent, skip, tex = "") {
   after <- cs$close_end + 1L
   if (skip || grepl("^R[ \t\r\n]", content)) return(after)
   blk <- parse_block(S, after)
@@ -1395,6 +1436,8 @@ handle_named <- function(S, p, cs, content, parent, skip) {
     errs <- c(errs, sprintf(paste0("`%s` is not a name, so it cannot carry a weft class: a named value holds ",
                                    "one name. Bind the value to a name in code (rule 1.12.3)."), name))
   }
+  # in math or raw LaTeX the classes with no TeX form come first (TX2, rule 5.2.6); `.val` is allowed on a name
+  if (nzchar(tex)) errs <- c(errs, tex_block_errors(S, blk, tex, named = TRUE))
   errs <- c(errs, block_errors(S, blk, "named"))
   classes <- character()
   keys <- named_chr(character(), character())
@@ -1418,7 +1461,7 @@ handle_named <- function(S, p, cs, content, parent, skip) {
       }
     }
   }
-  add_row(S, "named", p, blk$end, after, name, classes, keys, id, NULL, integer(), parent, errs)
+  add_row(S, "named", p, blk$end, after, name, classes, keys, id, NULL, integer(), parent, errs, tex = tex)
   blk$end + 1L
 }
 
@@ -1433,17 +1476,18 @@ handle_code <- function(S, p, parent, tex = "", in_target = FALSE) {
   mm <- regmatches(content, regexec("^(r|\\{r\\})([ #\t\r\n])", content))[[1]]
   if (!length(mm)) {
     # inline R that knitr finds inside this span (it pairs backticks by its own pattern, not the markdown's)
+    # a code span followed by {=latex} or {=tex} is raw TeX (TX1); the named values in it are read too (D84)
+    tx <- tex
+    if (!nzchar(tx) && S$tex_raw_span && identical(S$chars[cs$close_end + 1L], "{") &&
+        grepl("^\\{=(latex|tex)\\}", paste(S$chars[(cs$close_end + 1L):min(S$n, cs$close_end + 8L)], collapse = ""))) {
+      tx <- "raw"
+      if (!in_target && cend >= cstart) raw_named(S, cstart, cend, parent)
+    }
     if (length(S$kn_s)) {
-      # a code span followed by {=latex} or {=tex} is raw TeX (TX1)
-      tx <- tex
-      if (!nzchar(tx) && S$tex_raw_span && identical(S$chars[cs$close_end + 1L], "{") &&
-          grepl("^\\{=(latex|tex)\\}", paste(S$chars[(cs$close_end + 1L):min(S$n, cs$close_end + 8L)], collapse = ""))) {
-        tx <- "raw"
-      }
       nx <- span_inline(S, p, cs$close_end, parent, tx, in_target)
       if (!is.na(nx)) return(nx)
     }
-    return(handle_named(S, p, cs, content, parent, nzchar(tex) || in_target))
+    return(handle_named(S, p, cs, content, parent, in_target, tex))
   }
   if (!(mm[3] %in% c("\r", "\n") ||
         (mm[2] == "r" && mm[3] %in% c(" ", "#")) ||
