@@ -1,3 +1,7 @@
+# weft (development version)
+
+- The hint for a name published nowhere no longer says "above": it now reads "Publish it in code in this document", since a named value may be published below its use.
+
 # weft 0.1.0
 
 First release.

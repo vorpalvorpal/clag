@@ -121,7 +121,7 @@ lint_named_unpublished <- function(src, ctx) {
   finding_at(src, r$fstart[row], r$fend[row], "named-unpublished", nm,
              sprintf(paste0("`%s` is used by name but no chunk of this document mentions it; publish it with ",
                             "put(), weft_put() or @put (rule 5.12.1)."), nm),
-             paste0("Publish it in code above: weft_put(name = ...) in R, put(name=...) in Python, @put name in Julia.",
+             paste0("Publish it in code in this document: weft_put(name = ...) in R, put(name=...) in Python, @put name in Julia.",
                     # 6b publishes by itself only in a document that holds a named value (open finding, stage 6, 5)
                     if (!any(r$kind == "named")) {
                       paste0(" Under knitr, automatic publishing applies only to a document with a named value ",

@@ -591,7 +591,7 @@ A name published nowhere in the document:
 
 ```text
 no value is published under the name `depth` in this document (rule 1.12.7).
-Publish it in code above: weft_put(depth = ...) in R, put(depth=...) in
+Publish it in code in this document: weft_put(depth = ...) in R, put(depth=...) in
 Python, @put depth in Julia. A cell with include: false or output: false
 publishes nothing on the jupyter and julia engines.
 ```
