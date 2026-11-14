@@ -49,8 +49,8 @@ use_weft <- function(path = ".") {
   # use_setup(), and the version line
   vline <- version_line_update(root, setup)
   setup_what <- c(
-    vapply(Filter(function(w) !is.null(w$new), setup$writes),
-           function(w) sprintf("%s (%s)", w$rel, w$state), ""),
+    vapply(Filter(function(w) !is.null(w$new), setup$items),
+           function(w) sprintf("%s (%s)", w$label, w$state), ""),
     if (!is.null(vline)) {
       if (record_is_newer(recorded_version(root))) "_weft.yml (edit, downgrade)" else "_weft.yml (edit)"
     })
@@ -124,7 +124,7 @@ use_weft <- function(path = ".") {
   # a step that fails undoes what the earlier ones wrote (review 4, #10): every file a step can touch is
   # copied first, and put back (or removed, when it was new) if any step stops
   cand <- unique(c(
-    vapply(setup$writes, `[[`, "", "path"), file.path(root, "_weft.yml"),
+    vapply(setup$items, `[[`, "", "path"), file.path(root, "_weft.yml"),
     if (!is.null(find_quarto_root(root))) {
       qr <- find_quarto_root(root)
       c(file.path(qr, names(quarto_copies())), file.path(qr, QUARTO_MARKERS))

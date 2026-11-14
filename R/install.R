@@ -43,10 +43,7 @@ subst_fixed <- function(x, key, value) {
 
 sh_quote <- function(x) gsub("'", "'\\\\''", x)
 
-rel_label <- function(path, root) {
-  pre <- paste0(root, "/")
-  ifelse(startsWith(path, pre), substring(path, nchar(pre) + 1L), path)
-}
+rel_label <- function(path, root) rel_to(path, root)
 
 # ---- the weft-file marker (G40) ------------------------------------------------
 
@@ -130,11 +127,12 @@ place_check <- function(path, root = NULL) {
 
 # ---- plan items, messages and writing -----------------------------------------------
 
-# one planned file: `new` (the lines to write) is NULL when nothing is written
-plan_item <- function(path, root, state, purpose, new = NULL, mode = NULL, eol = "\n") {
+# one planned file: `new` (the lines to write) is NULL when nothing is written; `copy_from`, when set, is a
+# file to copy to `path` instead of writing `new`
+plan_item <- function(path, root, state, purpose, new = NULL, mode = NULL, eol = "\n", copy_from = NULL) {
   text <- switch(state, edited = EDITED_TEXT, foreign = FOREIGN_TEXT, purpose)
   list(path = path, label = rel_label(path, root), state = state, text = text,
-       new = new, mode = mode, eol = eol)
+       new = new, mode = mode, eol = eol, copy_from = copy_from)
 }
 
 # the item for a whole file: writes when new or replace, or when edited and
@@ -157,8 +155,14 @@ write_items <- function(items) {
   for (w in items) {
     if (is.null(w$new)) next
     dir.create(dirname(w$path), showWarnings = FALSE, recursive = TRUE)
-    ok <- tryCatch({ write_lines_atomic(w$new, w$path, w$eol %||% "\n"); TRUE },
-                   error = function(e) FALSE, warning = function(e) FALSE)
+    ok <- tryCatch({
+      if (!is.null(w$copy_from)) {
+        copy_atomic(w$copy_from, w$path)
+      } else {
+        write_lines_atomic(w$new, w$path, w$eol %||% "\n")
+        TRUE
+      }
+    }, error = function(e) FALSE, warning = function(e) FALSE)
     if (!ok || !file.exists(w$path)) {
       tool_abort(sprintf("weft could not write %s. %s", w$path,
                          if (length(done)) paste0("Written before it failed: ",

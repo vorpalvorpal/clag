@@ -97,37 +97,11 @@ use_setup <- function(path = ".", route = c("auto", "rprofile", "front-matter"))
   route <- match.arg(route)
   plan <- setup_plan(path, route)
 
-  changed <- Filter(function(w) !is.null(w$new), plan$writes)
-  if (!length(changed)) {
-    message("Nothing to change: the project is already set up.")
-    return(invisible(character()))
-  }
-  message("weft will write, under ", plan$root, ":")
-  for (w in changed) {
-    message(sprintf("  %s  (%s: %s)", w$rel, w$state, w$purpose))
-  }
-
-  written <- character()
-  for (w in changed) {
-    dir.create(dirname(w$path), showWarnings = FALSE, recursive = TRUE)
-    ok <- tryCatch({
-      if (!is.null(w$copy_from)) {
-        copy_atomic(w$copy_from, w$path)
-      } else {
-        write_lines_atomic(w$new, w$path, w$eol)
-        TRUE
-      }
-    }, error = function(e) FALSE, warning = function(w) FALSE)
-    if (!ok) {
-      tool_abort(sprintf("weft could not write %s. %s", w$path,
-                         if (length(written)) paste0("Written before it failed: ",
-                                                     paste(written, collapse = ", "), ".")
-                         else "Nothing was written."))
-    }
-    written <- c(written, w$rel)
-  }
-  message("Wrote: ", paste(written, collapse = ", "))
-  invisible(written)
+  items <- Filter(function(w) !is.null(w$new), plan$items)
+  if (length(items)) announce_items(plan$root, items)
+  done <- write_items(items)
+  finish_install(done, "the project")
+  invisible(vapply(done, `[[`, "", "label"))
 }
 
 # ---- planning: everything is worked out before anything is written -----------
@@ -161,28 +135,15 @@ setup_plan <- function(path, route) {
   docs <- if (single) path else {
     file.path(path, project_doc_paths(path, "setup"))
   }
-  rel <- function(p) {
-    pre <- paste0(root, "/")
-    if (startsWith(p, pre)) substring(p, nchar(pre) + 1L) else p
-  }
-
-  writes <- list()
+  items <- list()
   add <- function(path, new, state, purpose, copy_from = NULL) {
-    writes[[length(writes) + 1L]] <<- list(path = path, rel = rel(path), new = new,
-                                           state = state, purpose = purpose,
-                                           copy_from = copy_from,
-                                           eol = if (state == "new") "\n" else file_eol(path))
+    items[[length(items) + 1L]] <<- plan_item(path, root, state, purpose, new = new,
+                                              eol = if (state == "new") "\n" else file_eol(path),
+                                              copy_from = copy_from)
   }
-  # a folder or a link where a file should be: refuse before anything is written
-  check_place <- function(p) {
-    if (dir.exists(p)) {
-      tool_abort(sprintf("%s is a folder, and weft needs a file there. Nothing was written.", p))
-    }
-    if (is_link(p)) {
-      tool_abort(sprintf(paste0("%s is a symbolic link, and weft does not write through links. ",
-                                "Nothing was written."), p))
-    }
-  }
+  # a folder or a link where a file should be, or a file where a folder should be: refuse before anything is
+  # written
+  check_place <- function(p) place_check(p, root)
   read <- read_source_lines
 
   # .Rprofile
@@ -231,7 +192,7 @@ setup_plan <- function(path, route) {
     res <- tryCatch(fm_plan_doc(old, want),
                     weft_fm_unsafe = function(e) e)
     if (inherits(res, "weft_fm_unsafe")) {
-      problems[[length(problems) + 1L]] <- list(file = rel(d), reason = conditionMessage(res),
+      problems[[length(problems) + 1L]] <- list(file = rel_to(d, root), reason = conditionMessage(res),
                                                 hand = res$hand)
       next
     }
@@ -282,7 +243,7 @@ setup_plan <- function(path, route) {
   }
 
   # report order: .Rprofile, _weft.yml, documents, filters (as planned)
-  list(root = root, route = route, writes = writes)
+  list(root = root, route = route, items = items)
 }
 
 # ---- editing a document's front matter, as text -----------------------------
