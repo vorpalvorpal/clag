@@ -85,6 +85,7 @@ reference:
   - title: Static lints
     contents:
       - lints
+      - checks
       - lint_rules
       - label_seed
       - recall_check

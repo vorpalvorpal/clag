@@ -134,20 +134,25 @@ store_dirs <- function(top, ent) {
   unique(s)
 }
 
-# Added lines of a document (G16): the lines `base` -> `new` added, or TRUE for every line.
+# Added lines of a document (G16): the lines `base` -> `new` added, or TRUE for every line. The attribute
+# `deleted` holds the lines of the `-` side the diff deleted or changed (F9, N134), or TRUE when the diff
+# could not say.
 git_added_lines <- function(top, base_blob, new_blob) {
   if (is.na(base_blob) || !nzchar(base_blob)) return(TRUE)
   r <- git_raw(top, c("diff", "-U0", "--no-color", "--no-ext-diff", base_blob, new_blob))
-  if (!identical(r$status, 0L) && !identical(r$status, 1L)) return(TRUE)
+  if (!identical(r$status, 0L) && !identical(r$status, 1L)) return(structure(TRUE, deleted = TRUE))
   ln <- raw_lines(r$out)
-  h <- regmatches(ln, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", ln, perl = TRUE))
+  h <- regmatches(ln, regexec("^@@ -([0-9]+)(?:,([0-9]+))? \\+([0-9]+)(?:,([0-9]+))? @@", ln, perl = TRUE))
   h <- Filter(length, h)
-  if (!length(h)) return(integer())
-  unlist(lapply(h, function(m) {
-    c0 <- as.integer(m[2L])
-    d <- if (nzchar(m[3L])) as.integer(m[3L]) else 1L
+  if (!length(h)) return(structure(integer(), deleted = integer()))
+  span <- function(first, count) {
+    c0 <- as.integer(first)
+    d <- if (nzchar(count)) as.integer(count) else 1L
     if (d == 0L) integer() else seq.int(c0, c0 + d - 1L)
-  }))
+  }
+  added <- unlist(lapply(h, function(m) span(m[4L], m[5L])))
+  deleted <- unlist(lapply(h, function(m) span(m[2L], m[3L])))
+  structure(if (is.null(added)) integer() else added, deleted = if (is.null(deleted)) integer() else deleted)
 }
 
 # ---- trailers (G13) -----------------------------------------------------------------------------------

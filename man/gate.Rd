@@ -23,7 +23,9 @@ none, the message has no trailer.}
 A \code{weft_gate}, invisibly: a list with \code{ok}, \code{errors} and \code{added} (a
 \code{weft_findings} each), \code{excess} (a data frame of \code{project}, \code{rule}, \code{text},
 \code{base}, \code{new}), \code{removed} (\code{project}, \code{file}, \code{line}, \code{kind}, \code{text}, from
-\code{HEAD}), \code{n_removed}, \code{trailer}, \code{changed}, \code{notes} and \code{seconds}. The
+\code{HEAD}), \code{n_removed}, \code{trailer}, \code{changed}, \code{notes}, \code{seconds} and \code{checks} (the checks of one value
+that are gone since \code{HEAD}, each with what still checks it: information only, rule 6.3.7; columns
+\code{project}, \code{file}, \code{line}, \code{cond}, \code{level}, \code{verdict}, \code{by}, \code{by_line} and \code{remains}). The
 report is printed to stderr with \code{\link[=message]{message()}}.
 }
 \description{
