@@ -1252,9 +1252,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     cur_tex <<- if (it$type == "row") R$tex[it$k] else ""
     out <- render_item0(it)
     cur_tex <<- old_tex
-    # in raw LaTeX the whole output, a marker included, is wrapped (TX3)
-    if (it$type == "row" && identical(R$tex[it$k], "raw") && R$kind[it$k] %in% c("value", "bare") &&
-        nzchar(out)) {
+    # in raw LaTeX a construct's output, a marker included, is wrapped (TX3); a bare value that
+    # printed is not, but its marker is
+    if (it$type == "row" && identical(R$tex[it$k], "raw") && nzchar(out) &&
+        (R$kind[it$k] == "value" || (R$kind[it$k] == "bare" && grepl("\\text{<<weft:", out, fixed = TRUE)))) {
       out <- paste0("\\ensuremath{", out, "}")
     }
     e <- make_entry(it, out)
