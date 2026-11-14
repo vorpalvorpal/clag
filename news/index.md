@@ -2,6 +2,22 @@
 
 ## weft (development version)
 
+- `chunk_claims: collect` now covers Python
+  [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
+  and Julia `@claim`. In a knitr document a failed guest claim is
+  recorded under its chunk’s label, returns its value, and the chunk
+  goes on; the render fails at the end with every failure listed. On the
+  Jupyter and julia engines the guest package reads the setting from the
+  document’s front matter and the nearest `_weft.yml`, displays the
+  failed claim’s block, and goes on, and the filter reports it as
+  before. A Python or Julia chunk error after a collected claim in a
+  knitr document is now reported with the claims listed first, as for R.
+  Under `stop` (the default) nothing changes. A bad `chunk_claims` value
+  in a document on the Jupyter or julia engine is now reported as an
+  error. A collected claim in a hidden cell on the engines is lost, a
+  daemon kernel may read a stale front matter (set the key in
+  `_weft.yml`), and the julia engine and Jupyter engine add no note for
+  a later error.
 - The ledger now records the tables of a document on the Jupyter or
   Julia engine, and of Markdown run through the filter. The filter
   writes one `table` entry for each Pandoc table or HTML table in a

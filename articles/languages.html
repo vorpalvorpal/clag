@@ -906,6 +906,47 @@ with <code><a href="../reference/jl_value.html">jl_value()</a></code> instead.</
 </div>
 </div>
 <div class="section level2">
+<h2 id="collecting-failed-claims">Collecting failed claims<a class="anchor" aria-label="anchor" href="#collecting-failed-claims"></a>
+</h2>
+<p>By default a failed <code><a href="../reference/claim.html">claim()</a></code> in Python or
+<code>@claim</code> in Julia raises at once and stops its chunk. With
+<code>chunk_claims: collect</code> in <code>_weft.yml</code> or in the
+document’s <code>weft:</code> key (see
+<code><a href="../articles/wording.html">vignette("wording", package = "weft")</a></code>), the claim is
+recorded instead, returns its value, and the chunk goes on. The render
+fails at the end with every failure listed, each under its chunk’s
+label, as for a claim in R chunk code. In draft mode the list is printed
+and the render does not fail.</p>
+<p>This holds in a knitr document, where R decides, and on the Jupyter
+and Julia engines, where the guest package reads the setting itself,
+from the document’s front matter first and then from the nearest
+<code>_weft.yml</code>, each time a claim fails. A claim at level
+<code>warn</code>, a chunk with <code>eval: false</code>, plain Python
+or Julia outside a render, and an interactive Jupyter session are not
+changed: they raise, or record nothing, as before.</p>
+<p>In a knitr document, a chunk error after a collected claim stops the
+knit with the same note that R chunk code gets: the claims are listed
+first, then the error. This covers a Python or Julia error as well as an
+R one.</p>
+<p>Some limits:</p>
+<ul>
+<li>On the Jupyter and Julia engines, a claim collected in a cell with
+<code>include: false</code> or <code>output: false</code> is lost,
+because the block it displays is dropped with the cell. A claim at level
+<code>warn</code> has the same gap.</li>
+<li>On the Julia engine, a cell that raises under
+<code>error: true</code> after a collected claim loses the block that
+the claim displayed.</li>
+<li>The Julia engine adds no note listing the collected claims when a
+later cell raises. On the Jupyter engine such a note is not built yet
+either; the error stops the render as it does without weft.</li>
+<li>A Jupyter daemon kernel keeps the environment of the first render it
+served, so it can read another document’s front matter. Set
+<code>chunk_claims</code> in <code>_weft.yml</code> rather than in a
+document’s front matter when you render with a daemon.</li>
+</ul>
+</div>
+<div class="section level2">
 <h2 id="tables-in-a-jupyter-or-julia-document">Tables in a Jupyter or Julia document<a class="anchor" aria-label="anchor" href="#tables-in-a-jupyter-or-julia-document"></a>
 </h2>
 <p>In a document on the Jupyter or Julia engine the filter records the
@@ -989,9 +1030,11 @@ that an earlier document imported. That can mark a value as not
 re-rendered when it need not be, never the reverse.</li>
 <li>Python chunks need reticulate’s engine;
 <code>python.reticulate = FALSE</code> is not supported.</li>
-<li>A Python or Julia <code><a href="../reference/claim.html">claim()</a></code> stops its chunk at once even
-under <code>chunk_claims: collect</code>, and takes no
-<code>decision</code> pointer.</li>
+<li>A Python or Julia <code><a href="../reference/claim.html">claim()</a></code> takes no
+<code>decision</code> pointer. It stops its chunk at once unless
+<code>chunk_claims: collect</code> is set (see “Collecting failed
+claims”). Under plain Python or Julia, and in an interactive Jupyter
+session, it always stops.</li>
 <li>Tables that a Python or Julia chunk prints in a knitr document are
 not recorded in the ledger. In a document on the Jupyter or Julia engine
 the filter records them, with the limits listed under “Tables in a

@@ -412,8 +412,11 @@ never run. To see them all in one render, set in <code>_weft.yml</code>
 <div class="sourceCode" id="cb31"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb31-1"><a href="#cb31-1" tabindex="-1"></a><span class="fu">chunk_claims</span><span class="kw">:</span><span class="at"> collect</span></span></code></pre></div>
 <p>A claim in chunk code that fails is then recorded,
 <code><a href="../reference/claim.html">claim()</a></code> returns its value as if the check had passed, and
-the knit goes on. The render fails at the end with every failure listed.
-Here is a chunk, <code>data</code>, with two claims that fail:</p>
+the knit goes on. A Python <code><a href="../reference/claim.html">claim()</a></code> or Julia
+<code>@claim</code> is collected the same way (see
+<code><a href="../articles/languages.html">vignette("languages", package = "weft")</a></code>). The render fails
+at the end with every failure listed. Here is a chunk,
+<code>data</code>, with two claims that fail:</p>
 <div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">up</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">up</span><span class="op">)</span></span>

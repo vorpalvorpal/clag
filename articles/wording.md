@@ -357,8 +357,12 @@ chunk_claims: collect
 
 A claim in chunk code that fails is then recorded,
 [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md)
-returns its value as if the check had passed, and the knit goes on. The
-render fails at the end with every failure listed. Here is a chunk,
+returns its value as if the check had passed, and the knit goes on. A
+Python
+[`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) or
+Julia `@claim` is collected the same way (see
+[`vignette("languages", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/languages.md)).
+The render fails at the end with every failure listed. Here is a chunk,
 `data`, with two claims that fail:
 
 ``` r
