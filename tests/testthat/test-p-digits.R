@@ -12,7 +12,8 @@ E7 <- "`label` applies to `.p` only (rule 1.4.17)."
 
 test_that("N26: fmt_p(x, digits = NULL, label = NULL)", {
   fm <- formals(fmt_p)
-  expect_identical(names(fm), c("x", "digits", "label"))
+  # `target` (TX3) is the last formal of every formatter
+  expect_identical(names(fm), c("x", "digits", "label", "target"))
   expect_null(fm$digits)
   expect_null(fm$label)
 })
