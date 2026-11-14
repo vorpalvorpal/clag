@@ -25,8 +25,10 @@ U4_RPROFILE <- c(
 )
 U4_ACTIVATE <- U4_RPROFILE[4]
 U4_OPTS_KNIT <- c("knitr:", "  opts_knit:", "    weft: !expr weft::weft_setup()")
-U4_FILTER_ARGS <- "pandoc_args: [\"--lua-filter\", \"weft.lua\", \"--lua-filter\", \"weft-check.lua\"]"
-U4_LUA_ARGS <- c("--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua")
+# design-7 N50 (7d): weft-output.lua is the last --lua-filter, after weft.lua and weft-check.lua
+U4_FILTER_ARGS <- paste0("pandoc_args: [\"--lua-filter\", \"weft.lua\", \"--lua-filter\", \"weft-check.lua\", ",
+                         "\"--lua-filter\", \"weft-output.lua\"]")
+U4_LUA_ARGS <- c("--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua")
 U4_QUARTO_YML <-c("project:", "  type: default", "format: html")
 
 u4_version <- function() as.character(utils::packageVersion("weft"))

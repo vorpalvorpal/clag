@@ -153,6 +153,8 @@ test_that("N50: status() quarto row is ok after use_quarto()", {
 test_that("N50: status() reports the missing entry (a project set up before this stage), naming it", {
   dir <- uo_project()
   uo_use(dir)
+  # activation in place, so that next names the first part that is missing: the quarto entry
+  u4_use(dir)
   lines <- uo_yml(dir)
   writeLines(lines[!(lines %in% OUT_ENTRY)], file.path(dir, "_quarto.yml"))
   st <- h4_status(dir)

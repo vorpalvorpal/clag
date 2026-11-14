@@ -80,10 +80,14 @@ test_that("review C #1: use_quarto() keeps a realistic _quarto.yml as text, and 
   expect_true("early.lua" %in% unlist(Filter(is.character, f)))
   expect_true("weft-check" %in% unlist(Filter(is.character, f)))
   at <- Filter(is.list, f)
-  expect_length(at, 1L)
+  # design-7 N50 (7d): exactly two mapping items: the author's, then weft-output.lua after it
+  expect_length(at, 2L)
   at1 <- if (length(at)) at[[1]] else list()
   expect_identical(at1$at, "post-render")
   expect_identical(at1$path, "late.lua")
+  at2 <- if (length(at) > 1L) at[[2]] else list()
+  expect_identical(at2$at, "post-render")
+  expect_identical(at2$path, "_extensions/weft-check/weft-output.lua")
   pre <- unlist(y$project$`pre-render`)
   expect_true("scripts/mine.R" %in% pre)
   expect_true(any(grepl("pre-render\\.R$", pre)))
@@ -545,8 +549,9 @@ test_that("review C #13: the book report keeps every leftover finding of a docum
   post <- rc_post(r$r$log)
   # the control: the failed claim of act.qmd is reported, at its line
   expect_match(post, sprintf("act\\.qmd:%d\\b", r$actline))
-  # raw.qmd has three different leftovers: three entries, not one per kind
-  expect_identical(n_matches("\\[leftover", post), 3L, info = post)
+  # raw.qmd has three different leftovers from weft-check.lua, and weft-output.lua lists
+  # the `12.5{.num}` one again (design-7 N59: both are listed): four entries
+  expect_identical(n_matches("\\[leftover", post), 4L, info = post)
   expect_match(post, "if=", fixed = TRUE)
   expect_match(post, "n=", fixed = TRUE)
   expect_match(post, "12.5{.num}", fixed = TRUE)
@@ -559,8 +564,9 @@ test_that("review C ruling D: a filter finding for a <<weft: marker that a knit 
   expect_identical(n_matches("act\\.qmd", post), 1L, info = post)
   expect_no_match(post, "<<weft:", fixed = TRUE)
   expect_no_match(post, "the marker", fixed = TRUE)
-  # filter findings of different texts are never merged: the three of raw.qmd
-  expect_identical(n_matches("raw\\.qmd", post), 3L, info = post)
+  # filter findings of different texts are never merged: the three of raw.qmd, plus the
+  # output filter's double listing of `12.5{.num}` (design-7 N59)
+  expect_identical(n_matches("raw\\.qmd", post), 4L, info = post)
 })
 
 # ---- 14. a rule followed by text is not a metadata block ---------------------------

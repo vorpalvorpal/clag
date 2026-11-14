@@ -165,7 +165,8 @@ test_that("N74: status() does not flag a Python document of named values, and do
 # ---- use_setup() under rmarkdown: weft.lua and weftlib/ beside the document -------------------------------------------
 
 rmd_with <- function(front) c("---", front, "---", "", "Some text.")
-LUA_ARGS <- c("--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua")
+# design-7 N50 (7d): weft-output.lua is named last, after weft.lua and weft-check.lua
+LUA_ARGS <- c("--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua")
 quarto_dir <- function(...) system.file("quarto", ..., package = "weft")
 weftlib_files <- function() sort(list.files(quarto_dir("weftlib"), recursive = TRUE))
 

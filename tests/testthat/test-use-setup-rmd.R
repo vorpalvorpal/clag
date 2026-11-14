@@ -93,9 +93,9 @@ test_that("4d G35: a folder of two .Rmd documents sets up both, with one filter 
     expect_identical(y$output$html_document$pandoc_args, U4_LUA_ARGS, label = f)
     expect_identical(y$knitr$opts_knit$weft, "!expr weft::weft_setup()", label = f)
   }
-  # 6d: weft.lua and the folder weftlib/ go beside the document with weft-check.lua
+  # 6d: weft.lua and the folder weftlib/ go beside the document with weft-check.lua; 7d (N50) adds weft-output.lua
   libs <- file.path("weftlib", list.files(system.file("quarto", "weftlib", package = "weft"), recursive = TRUE))
-  expect_identical(sort(tree(d)), sort(c("_weft.yml", "a.Rmd", "b.Rmd", "weft-check.lua", "weft.lua", libs)))
+  expect_identical(sort(tree(d)), sort(c("_weft.yml", "a.Rmd", "b.Rmd", "weft-check.lua", "weft-output.lua", "weft.lua", libs)))
 })
 
 test_that("4d G35: a mixed folder: the .qmd gets its engine line but no filter line, the .Rmd the filter", {

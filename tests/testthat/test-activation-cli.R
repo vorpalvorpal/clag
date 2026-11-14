@@ -34,11 +34,11 @@ rmd_rprofile_only <- function(body = U4_BODY, profile = U4_RPROFILE) {
   d
 }
 
-# 6d: the filters beside a document: weft-check.lua, and the resolver weft.lua with its weftlib/ (as use_setup()
+# 6d: the filters beside a document: weft-check.lua, weft-output.lua (7d, N50), and the resolver weft.lua with its weftlib/ (as use_setup()
 # copies them; a file the package does not ship yet is not copied)
 copy_filters <- function(d) {
   src <- dirname(weft_filter_path())
-  for (f in c("weft-check.lua", "weft.lua")) {
+  for (f in c("weft-check.lua", "weft-output.lua", "weft.lua")) {
     if (file.exists(file.path(src, f))) file.copy(file.path(src, f), file.path(d, f), overwrite = TRUE)
   }
   if (dir.exists(file.path(src, "weftlib"))) file.copy(file.path(src, "weftlib"), d, recursive = TRUE)
