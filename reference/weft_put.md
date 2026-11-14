@@ -58,10 +58,10 @@ nothing is stored: the text of the block is returned.
 depth <- c(1.5, 2.5, 6)
 weft_put(depth_mean = mean(depth), n = length(depth))
 #> ````{.weft-values}
-#> {"weft":1,"lang":"r","run":null,"at":1794635793,"values":{"depth_mean":{"t":"float","v":"3.3333333333333335"},"n":{"t":"int","v":"3"}}}
+#> {"weft":1,"lang":"r","run":null,"at":1794642378,"values":{"depth_mean":{"t":"float","v":"3.3333333333333335"},"n":{"t":"int","v":"3"}}}
 #> ````
 weft_put(depth_mean = claim(mean(depth), . > 1, . < 10))
 #> ````{.weft-values}
-#> {"weft":1,"lang":"r","run":null,"at":1794635793,"values":{"depth_mean":{"t":"float","v":"3.3333333333333335","checks":[{"text":". > 1","ok":true,"level":"fail","why":null},{"text":". < 10","ok":true,"level":"fail","why":null}]}}}
+#> {"weft":1,"lang":"r","run":null,"at":1794642378,"values":{"depth_mean":{"t":"float","v":"3.3333333333333335","checks":[{"text":". > 1","ok":true,"level":"fail","why":null},{"text":". < 10","ok":true,"level":"fail","why":null}]}}}
 #> ````
 ```
