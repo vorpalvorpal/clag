@@ -139,6 +139,12 @@ conf_numbers_rows <- function() {
   d <- rbind(d, conf_frame(plus_vals, "num plus", "", ""),
              conf_frame("0.999", "num plus", "digits=2", ""),
              conf_frame(c("0.12", "-0.12", plus_vals), "pct plus", "", ""))
+  # exactly 15 significant digits are all kept (stage 6 finding 1)
+  d <- rbind(d,
+             conf_frame(c("99999999999999.9", "-99999999999999.9"), "num", "", ""),
+             conf_frame("9999999999999.99", "num", "digits=2", ""),
+             conf_frame("999999999999.999", "num", "digits=3", ""),
+             conf_frame(c("999999999999999", "-999999999999999"), "pct", "", ""))
   d <- conf_unique(d)
   fs <- list(num = fmt_num, pct = fmt_pct,
              `num plus` = function(x, ...) fmt_num(x, ..., plus = TRUE),

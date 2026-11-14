@@ -125,6 +125,15 @@ is_whole_q <- function(v) v == 0 | (round(v) != 0 & abs(v - round(v)) < 1e-9)
 
 # Round half away from zero on the decimal number as written (the double is
 # first read to 15 significant digits, so 0.15 is 0.15 and not 0.1499...).
+# signif(y, 15) for finite y > 0. signif() takes the decade from log10(), which
+# rounds up just below a power of ten (99999999999999900 reads as 1e17) and then
+# rounds one digit early; the decade is taken here from the exact decimal
+# expansion, and the digit count is shifted so signif() lands on 15 digits.
+signif15 <- function(y) {
+  e_true <- as.integer(sub("^.*e", "", sprintf("%.25e", y)))
+  signif(y, 15L + (floor(log10(y)) - e_true))
+}
+
 round_half_away <- function(x, nd) {
   if (x == 0) return(0)
   sgn <- sign(x)
@@ -135,10 +144,10 @@ round_half_away <- function(x, nd) {
   if (nd >= 0) {
     y <- a * 10^nd
     if (!is.finite(y)) return(x)
-    r <- floor(signif(y, 15) + 0.5) / 10^nd
+    r <- floor(signif15(y) + 0.5) / 10^nd
   } else {
     p <- 10^(-nd)
-    r <- floor(signif(a / p, 15) + 0.5) * p
+    r <- floor(signif15(a / p) + 0.5) * p
   }
   sgn * r
 }
@@ -332,13 +341,19 @@ zero_prefix_advice <- function(z, un, ladder = NULL, all_zero = TRUE) {
 }
 
 sci_one <- function(v, digits, sigfig, cfg) {
-  e <- if (v == 0) 0 else floor(log10(abs(v)))
+  if (v == 0) {
+    # zero has no exponent; its mantissa is printed by the usual rule (negative zero is zero)
+    p <- print_one(0, digits, sigfig, cfg)
+    return(list(text = p$text, number = 0, decimals = p$decimals))
+  }
+  e <- floor(log10(abs(v)))
   # 10^e is split in two so that a denormal number does not underflow
   m <- if (v == 0) 0 else (v / 10^(e %/% 2)) / 10^(e - e %/% 2)
   p <- print_one(m, digits, sigfig, cfg)
   if (abs(p$number) >= 10) {
+    # a rounding carry: the mantissa is an exact 1, printed like a typed power of ten
     e <- e + 1
-    p <- print_one(m / 10, digits, sigfig, cfg)
+    p <- print_one(sign(m), digits, sigfig, cfg)
   }
   exp_txt <- if (e < 0) paste0(cfg$minus, abs(e)) else as.character(e)
   list(

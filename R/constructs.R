@@ -101,8 +101,8 @@ construct_rows <- function(src) {
     for (j in seq_len(nrow(ch))) {
       eng <- tolower(ch$engine[j])
       if (!eng %in% c("r", "python", "julia")) next
-      # a guest chunk counts only when it runs; an R chunk counts under eval: false (G35, N59)
-      if (!identical(eng, "r") && isTRUE(isFALSE(ch$eval[j]))) next
+      # a chunk counts only when it runs: R and guest alike (G35, N59)
+      if (isTRUE(isFALSE(ch$eval[j]))) next
       cc <- claim_calls(ch$code[[j]], eng)
       if (nrow(cc)) {
         parts[[length(parts) + 1L]] <- data.frame(

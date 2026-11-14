@@ -118,6 +118,12 @@ end
 
 local TWO53 = 2.0 ^ 53
 
+-- signif(y, 15) with the decade taken from the exact decimal expansion (see signif15 in R/format.R)
+local function signif15(y)
+  local e_true = math.tointeger(tonumber(string.format("%.25e", y):match("e(.*)$")))
+  return signif(y, math.tointeger(15 + (math.floor(math.log(y, 10)) - e_true)))
+end
+
 local function round_half_away(x, nd)
   if x == 0 then return 0.0 end
   local sgn = (x < 0) and -1.0 or 1.0
@@ -127,10 +133,10 @@ local function round_half_away(x, nd)
   if nd >= 0 then
     local y = a * 10.0 ^ nd
     if y == math.huge then return x end
-    r = math.floor(signif(y, 15) + 0.5) / 10.0 ^ nd
+    r = math.floor(signif15(y) + 0.5) / 10.0 ^ nd
   else
     local p = 10.0 ^ (-nd)
-    r = math.floor(signif(a / p, 15) + 0.5) * p
+    r = math.floor(signif15(a / p) + 0.5) * p
   end
   return sgn * r
 end
@@ -371,14 +377,20 @@ function M.format_sci(record, keys, config)
   local v = scalar_double(record, "the .sci printer")
   local digits, sigfig = key_count(keys)
   local cfg = read_config(config)
-  local e = (v == 0) and 0.0 or math.floor(math.log(math.abs(v), 10))
+  if v == 0 then
+    -- zero has no exponent; its mantissa is printed by the usual rule (negative zero is zero)
+    local z = print_one(0.0, digits, sigfig, cfg)
+    return z.text, { number = 0.0, decimals = z.decimals, relation = "=" }
+  end
+  local e = math.floor(math.log(math.abs(v), 10))
   -- 10^e is split in two so that a denormal number does not underflow
   local h = e // 2
   local m = (v == 0) and 0.0 or (v / 10.0 ^ h) / 10.0 ^ (e - h)
   local p = print_one(m, digits, sigfig, cfg)
   if math.abs(p.number) >= 10 then
+    -- a rounding carry: the mantissa is an exact 1, printed like a typed power of ten
     e = e + 1
-    p = print_one(m / 10, digits, sigfig, cfg)
+    p = print_one((m < 0) and -1.0 or 1.0, digits, sigfig, cfg)
   end
   local ei = math.tointeger(e) or math.floor(e)
   local exp_txt = (ei < 0) and (cfg.minus .. string.format("%d", -ei)) or string.format("%d", ei)

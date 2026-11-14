@@ -5,8 +5,8 @@
 #
 # READINGS of the note (see the report):
 #  - "an executed chunk" is read as G35 reads it: engine python or julia and `eval` not false. So a
-#    guest chunk with `#| eval: false` counts nothing (unlike an R chunk, whose claim counts under
-#    eval: false), and turning eval off on a chunk that holds a guest claim is a removal.
+#    guest chunk with `#| eval: false` counts nothing (an R chunk is read the same way), and
+#    turning eval off on a chunk that holds a guest claim is a removal.
 #  - the pattern is applied to every match on a line: `x = claim(a, ">1")  # claim(` is two.
 #  - a count's `text` is not pinned; its `line` is the file line of the line the match is on.
 

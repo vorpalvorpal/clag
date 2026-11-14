@@ -58,14 +58,16 @@ test_that("4a G11: constructs count in every context: caption, front matter, wef
   expect_identical(sort(x$line), c(4L, 9L, 10L))
 })
 
-test_that("4a G11: claim() and weft::claim() calls in an R chunk count, also under eval: false", {
-  doc <- c("```{r chk-a}", "#| eval: false", "claim(n_sites, . > 10)", "weft::claim(depth, . < 3)", "```")
+test_that("4a G11: claim() and weft::claim() calls in an R chunk count, but not under eval: false", {
+  doc <- c("```{r chk-a}", "claim(n_sites, . > 10)", "weft::claim(depth, . < 3)", "```")
   x <- cc(doc)
   expect_identical(nrow(x), 2L)
   expect_identical(x$kind, c("claim", "claim"))
-  expect_identical(x$line, c(3L, 4L))
+  expect_identical(x$line, c(2L, 3L))
   expect_match(x$text[[1]], "claim(n_sites, . > 10)", fixed = TRUE)
   expect_match(x$text[[2]], "claim(depth, . < 3)", fixed = TRUE)
+  off <- c("```{r chk-a}", "#| eval: false", "claim(n_sites, . > 10)", "weft::claim(depth, . < 3)", "```")
+  expect_identical(nrow(cc(off)), 0L)
 })
 
 test_that("4a G11: a value whose expression holds claim() gives two rows", {
@@ -163,7 +165,7 @@ test_that("4a G12: a deleted claim() call in a chunk is a removal; setting eval:
   base <- c("```{r chk-a}", "claim(n_sites, . > 10)", "```")
   d <- g_scenario(list("ch1.qmd" = base),
                   list("ch1.qmd" = c("```{r chk-a}", "#| eval: false", "claim(n_sites, . > 10)", "```")))
-  expect_identical(removed_n(g_gate(d)), 0)
+  expect_identical(removed_n(g_gate(d)), 1)
   d2 <- g_scenario(list("ch1.qmd" = base), list("ch1.qmd" = c("```{r chk-a}", "x <- 1", "```")))
   res <- g_gate(d2)
   expect_identical(res$n_removed, 1L)
