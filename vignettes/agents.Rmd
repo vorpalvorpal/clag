@@ -35,7 +35,7 @@ ways, and say what to do instead.
 
 ## What `use_agent_docs()` writes
 
-`use_agent_docs()` writes two files. `use_weft()` runs it, or you can run
+`use_agent_docs()` writes an `AGENTS.md` block and a skill. `use_weft()` runs it, or you can run
 it alone (see `vignette("setup", package = "weft")`).
 
 The first is a block in `AGENTS.md`, the file many coding agents read when
@@ -50,16 +50,46 @@ a `<!-- weft:end -->` line. weft replaces only what lies between them.
 Claude Code reads `CLAUDE.md`, not `AGENTS.md`. If the project has a
 `CLAUDE.md`, add the line `@AGENTS.md` to it so that it includes the block.
 
-The second is a skill, `.claude/skills/weft/SKILL.md`, which Claude Code
-loads when a task touches a weft document or a weft report:
+The second is a skill, `weft/SKILL.md`, which a coding agent loads when a
+task touches a weft document or a weft report. It sits in each skills folder
+(see the next section), with two files in `references/`, `syntax.md` and
+`reports.md`:
 
 ```{r, comment = ""}
 cat(readLines(system.file("agent", "SKILL.md", package = "weft")), sep = "\n")
 ```
 
-In the project, the placeholders in the last line hold the weft version and
-a hash, so that `use_agent_docs()` can tell whether you have edited the
+In the project, the placeholders (the version in `metadata` and the last
+line, and the hash) hold the weft version and a hash, so that `use_agent_docs()` can tell whether you have edited the
 file.
+
+## Which tools read which folder: `skills`
+
+The skill format is the same for every tool; the tools differ in the folder
+they scan. `use_agent_docs(skills = )` takes preset names or folders relative
+to the project root, and writes the same files into each:
+
+| preset | folder | read by |
+|---|---|---|
+| `agents` | `.agents/skills` | Gemini CLI; reported for Codex, opencode and Cursor |
+| `claude` | `.claude/skills` | Claude Code |
+| `codex` | `.agents/skills` | reported for Codex |
+| `gemini` | `.gemini/skills` | Gemini CLI |
+| `opencode` | `.opencode/skills` | reported for opencode |
+| `kimi` | `.kimi-code/skills` | Kimi Code |
+| `cursor` | `.cursor/skills` | reported for Cursor |
+
+The default is `c("agents", "claude")`. That Codex, opencode and Cursor read
+`.agents/skills` is reported by secondary sources; it was not checked against
+the vendors' documents. A folder of your own is a path such as
+`"tools/skills"`; an absolute path or one with `..` is an error.
+`skills = character()` writes only the `AGENTS.md` block. Gemini CLI reads
+`GEMINI.md`, so if the project has one, add the line `@AGENTS.md` to it; the
+call says so.
+
+The copies in a project can be older than the installed package.
+`weft::agent_docs()` lists the documents and `weft::agent_docs("syntax")`
+prints the installed version of one.
 
 ## The four rules
 

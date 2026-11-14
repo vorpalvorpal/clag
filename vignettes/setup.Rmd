@@ -32,7 +32,7 @@ is what it printed. Paths have been shortened.
 | `use_dictionary()` | always | `dict.yml` and its schema |
 | `use_hooks()` | in a git work tree | the `commit-msg` hook |
 | `use_ci()` | when `origin` is on github.com | a GitHub Actions workflow |
-| `use_agent_docs()` | always | a block in `AGENTS.md` and a Claude skill |
+| `use_agent_docs()` | always | a block in `AGENTS.md` and the weft skill, in `.agents/skills` and `.claude/skills` |
 
 It prints the plan, then writes. In a Quarto website with a GitHub remote:
 

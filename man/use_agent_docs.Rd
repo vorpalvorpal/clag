@@ -2,33 +2,55 @@
 % Please edit documentation in R/use-agent-docs.R
 \name{use_agent_docs}
 \alias{use_agent_docs}
-\title{Write the agent documents: an AGENTS.md block and a Claude skill}
+\title{Write the agent documents: an AGENTS.md block and a skill}
 \usage{
-use_agent_docs(path = ".", overwrite = FALSE)
+use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
 }
 \arguments{
 \item{path}{A directory in the project.}
 
-\item{overwrite}{Replace a block or skill weft wrote that has since been edited.}
+\item{overwrite}{Replace a block or skill file weft wrote that has since
+been edited.}
+
+\item{skills}{The skills folders to write into: a character vector of
+preset names or folders relative to the project root. The presets are
+\code{agents} (\code{.agents/skills}), \code{claude} (\code{.claude/skills}), \code{codex}
+(\code{.agents/skills}), \code{gemini} (\code{.gemini/skills}), \code{opencode}
+(\code{.opencode/skills}), \code{kimi} (\code{.kimi-code/skills}) and \code{cursor}
+(\code{.cursor/skills}). An item with a \code{/} or starting with \code{.} is a folder; an
+absolute path or one with a \code{..} part is an error. Folders that come to the
+same place are written once. \code{character()} writes the \code{AGENTS.md} block
+only.}
 }
 \value{
-The paths written, invisibly (\code{character()} when nothing changed).
+The paths written, invisibly (\code{character()} when nothing changed):
+\code{AGENTS.md} first, then the skill files folder by folder in the order
+given.
 }
 \description{
-Writes, under the project root, \code{.claude/skills/weft/SKILL.md} and a block
-in \code{AGENTS.md} (created when absent) that tell a coding agent the rules of a
-weft project: a failed claim is a finding to report, a check is never
-changed to make a render pass, a commit that removes constructs carries the
+Writes, under the project root, a block in \code{AGENTS.md} (created when
+absent) and the weft skill, that tell a coding agent the rules of a weft
+project: a failed claim is a finding to report, a check is never changed to
+make a render pass, a commit that removes constructs carries the
 \code{Weft-Removed} trailer, and values for one chapter go in \code{dict_local}.
 }
 \details{
-The block sits between \verb{<!-- weft:start ... -->} and \verb{<!-- weft:end -->}
-lines, appended after the file's last line with one blank line before it;
-the rest of the file is never touched. The start line and the skill's last
-line carry the weft version and a hash. A block or skill weft wrote and
-nobody edited is replaced when its text would differ; an edited one is left
-as it is unless \code{overwrite = TRUE}; a \code{SKILL.md} with no weft line is
-another author's and is never replaced. When \code{CLAUDE.md} exists and does not
-hold \verb{@AGENTS.md}, the call says to add that line. It says what it will
-write first. \code{suppressMessages()} silences it.
+The skill is \verb{<folder>/weft/SKILL.md} with \code{references/syntax.md} and
+\code{references/reports.md} beside it, written into each skills folder named by
+\code{skills}. The same texts go into every folder. \code{\link[=agent_docs]{agent_docs()}} prints the
+installed package's version of each.
+
+The \code{AGENTS.md} block sits between \verb{<!-- weft:start ... -->} and
+\verb{<!-- weft:end -->} lines, appended after the file's last line with one
+blank line before it; the rest of the file is never touched. The start line
+and the last line of each skill file carry the weft version and a hash.
+Each file is judged alone: one weft wrote and nobody edited is replaced when
+its text would differ; an edited one is left as it is unless
+\code{overwrite = TRUE}; a file with no weft line is another author's and is never
+replaced. One copy being edited does not stop the others being written.
+
+When \code{CLAUDE.md} exists and does not hold \verb{@AGENTS.md}, or \code{GEMINI.md}
+exists and holds neither \verb{@AGENTS.md} nor \verb{@./AGENTS.md}, the call says to
+add that line; neither file is written. It says what it will write first.
+\code{suppressMessages()} silences it.
 }

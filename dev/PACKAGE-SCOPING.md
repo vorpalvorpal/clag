@@ -5945,7 +5945,7 @@ says what it will write before it writes it.
 | `use_ci()` | the CI workflow, at the top of the repository (8.4.1) |
 | `use_dictionary()` | `dict.yml` when absent (a starter that reads as no keys, with two examples commented out) and `_weft/dict.schema.json` |
 | `dict_vale()` | one Vale rule file, `styles/Weft/Terms.yml` unless `path` says otherwise (4.7.2) |
-| `use_agent_docs()` | an `AGENTS.md` block of agent-facing conventions, and the Claude skill (9.3.5) |
+| `use_agent_docs()` | an `AGENTS.md` block of agent-facing conventions, and the weft skill with its two references in each skills folder named by `skills` (9.3.8) |
 
 **9.3.2** The hooks alone write nothing. The condition log, the ledger, the
 freeze stamps (2.9.2) and the failure files are written only in a project
@@ -6058,20 +6058,40 @@ and the call prints the line to add to the hook the setup runs,
 `use_hooks(remove = TRUE)` deletes the hook when it is weft's, edited or not, and
 `<git common dir>/weft/` with it.
 
-**9.3.8** `use_agent_docs()` writes `.claude/skills/weft/SKILL.md` and a block in
-`AGENTS.md` at the project root, between `<!-- weft:start use_agent_docs <version>
-<hash> -->` and `<!-- weft:end -->`. `AGENTS.md` is created when absent, and
-the block is appended after its last line with one blank line before it;
+**9.3.8** `use_agent_docs(path, overwrite, skills = c("agents", "claude"))` writes
+a block in `AGENTS.md` at the project root, between `<!-- weft:start use_agent_docs
+<version> <hash> -->` and `<!-- weft:end -->`, and, for each folder `skills`
+names, `<folder>/weft/SKILL.md`, `<folder>/weft/references/syntax.md` and
+`<folder>/weft/references/reports.md`. An item of `skills` is a preset (`agents`
+and `codex` are `.agents/skills`, `claude` is `.claude/skills`, `gemini` is
+`.gemini/skills`, `opencode` is `.opencode/skills`, `kimi` is `.kimi-code/skills`,
+`cursor` is `.cursor/skills`) or a folder relative to the project root (a `/` in
+it, or a leading dot); an absolute path, a `..` part, `NA`, an empty string or
+a non-character value is an error, and a folder named twice is written once.
+`character()` writes the block only. The texts are the same in every folder. Each
+file is judged alone: one weft wrote and nobody edited is replaced when its text
+would differ, an edited one is left unless `overwrite = TRUE`, a file with no
+weft line is never replaced, and one copy being edited does not stop the others.
+The last line of each file is the weft marker. `AGENTS.md` is created when absent,
+and the block is appended after its last line with one blank line before it;
 the rest of the file is never touched, and a block with a start line and no end
-line is left alone. When `CLAUDE.md` exists and does not hold `@AGENTS.md`, the
-call says to add that line. The block names the weft package in two sentences,
-then gives the four rules of 9.3.3, and points to the skill. The skill's name is
-`weft`; it adds how to read a failed-claim report (say which of the sentence, the
-check and the value is wrong, and leave the decision), the trailer with
+line is left alone. When `CLAUDE.md` exists and does not hold `@AGENTS.md`, or
+`GEMINI.md` exists and holds neither `@AGENTS.md` nor `@./AGENTS.md`, the call
+says to add that line; neither file is written. The block names the weft package
+in two sentences, gives the four rules of 9.3.3, and says the skill is in the
+project's skills folders and that `weft::agent_docs()` prints it. The skill's
+name is `weft`; its front matter holds `name`, `description` and `metadata`
+with `weft-version`, and no field one tool alone reads. It keeps the four rules
+and the workflow (how to read a failed-claim report, the trailer with
 `git commit --trailer "Weft-Removed: N"`, how each finding added at commit is
-fixed (a value, the dictionary, `.weft-literal` with a real `why`), `dict_local`,
-that draft mode passes nothing and `verify()` refuses it, and to run `lints()`
-before a commit and `verify()` before handing back. `use_ci()` is under 8.4.1.
+fixed, `dict_local`, that draft mode is ignored by the commit gate and
+`verify()` refuses it, `lints()` before a commit and `verify()` before handing
+back) and names the references. `agent_docs(topic = NULL)` prints the topics
+(`skill`, `reports`, `syntax`), or the installed package's text of one without
+its marker line, and writes nothing; the installed version wins over an older
+copy in a project. `status()` looks at every preset folder and reports the agent
+documents current only when the block and every copy found are current.
+`use_ci()` is under 8.4.1.
 
 **9.3.9** `use_weft(path = ".")` runs, in order, `use_setup()`, `use_quarto()`
 (a Quarto project only), `use_dictionary()`, `use_hooks()` (in a git work tree;

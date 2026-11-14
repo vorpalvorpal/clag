@@ -107,3 +107,4 @@ reference:
       - use_hooks
       - use_ci
       - use_agent_docs
+      - agent_docs
