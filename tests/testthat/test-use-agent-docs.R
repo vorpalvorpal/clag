@@ -13,7 +13,7 @@
 
 ad_proj <- function(files = list()) u4_dir(c(list(`_weft.yml` = "draft: false"), files))
 agents <- function(d) file.path(d, "AGENTS.md")
-skill <- function(d) file.path(d, ".claude", "skills", "weft", "SKILL.md")
+skill <- function(d) file.path(d, ".agents", "skills", "weft", "SKILL.md")
 EDITED_MSG_AD <- "edited since weft wrote it; left as it is (use overwrite = TRUE to replace it)"
 CLAUDE_ADVICE <- "Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there."
 
@@ -21,7 +21,7 @@ test_that("4b G34: a project with neither file gets exactly AGENTS.md and the sk
   d <- ad_proj()
   before <- tree(d)
   res <- h4_agent(d)
-  want <- c("AGENTS.md", file.path(rep(c(".agents", ".claude"), each = 3), "skills/weft",
+  want <- c("AGENTS.md", file.path(rep(".agents", 3), "skills/weft",
                                   c("SKILL.md", "references/reports.md", "references/syntax.md")))
   expect_setequal(setdiff(tree(d), before), want)
   expect_identical(u4_rel(res, d)[1], "AGENTS.md")
@@ -243,7 +243,7 @@ test_that("4b G41: it says what it will write before it writes, lists both files
   expect_false(early)
   expect_match(s$text, "weft will write", fixed = TRUE)
   expect_match(s$text, "AGENTS.md", fixed = TRUE)
-  expect_match(s$text, ".claude/skills/weft/SKILL.md  (new: ", fixed = TRUE)
+  expect_match(s$text, ".agents/skills/weft/SKILL.md  (new: ", fixed = TRUE)
   expect_match(s$text, "Wrote: ", fixed = TRUE)
 })
 
@@ -274,7 +274,7 @@ test_that("4b G41: a symbolic link in AGENTS.md's place is a weft_tool_error, it
 })
 
 test_that("4b G41: a folder in the skill's place is a weft_tool_error, and AGENTS.md is not written either", {
-  d <- ad_proj(list(`.claude/skills/weft/SKILL.md/keep.txt` = "x"))
+  d <- ad_proj(list(`.agents/skills/weft/SKILL.md/keep.txt` = "x"))
   err <- tryCatch(suppressMessages(weft::use_agent_docs(d)), error = function(e) e)
   expect_s3_class(err, "weft_tool_error")
   expect_false(file.exists(agents(d)))

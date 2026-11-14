@@ -27,7 +27,7 @@ st_full <- function(files = list(`index.qmd` = u4_qmd()), env = parent.frame()) 
 }
 st_next <- function(st) attr(st, "next", exact = TRUE)
 st_wf <- function(dir) file.path(dir, ".github", "workflows", "weft.yml")
-st_skill <- function(dir) file.path(dir, ".claude", "skills", "weft", "SKILL.md")
+st_skill <- function(dir) file.path(dir, ".agents", "skills", "weft", "SKILL.md")
 st_set_yml <- function(dir, lines) writeLines(lines, file.path(dir, "_weft.yml"))
 
 test_that("4b G39: status() returns a weft_status: a data frame part, state, detail with a `next` attribute", {
