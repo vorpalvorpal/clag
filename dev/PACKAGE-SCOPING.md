@@ -1333,9 +1333,10 @@ a pipeline target, in plain R, and in a document in which the hooks never
 installed. These stop under `collect` as well: a claim outside a knit; a claim
 in a running `targets` target (judged by `targets::tar_active()` when
 `targets` is installed), so that a target never stores a value that failed its
-claim; a claim in another process (a `callr`, `future` or `mirai` worker has no
-knit, and its error reaches the chunk as an ordinary error); and a Python or
-Julia `claim()` (3.9.3).
+claim; and a claim in another process (a `callr`, `future` or `mirai` worker has
+no knit, and its error reaches the chunk as an ordinary error). A Python or
+Julia `claim()` stops under `stop` and outside a knit or render, and collects as
+3.9.3 says.
 
 **2.4.3** `claim()` does not depend on knitr.
 
@@ -1351,7 +1352,8 @@ not `TRUE`, at level `"fail"`, evaluated during a knit outside inline R, is
 recorded as a failed claim located by its chunk's label, with the detail of
 2.6.2 (". >= 10 was FALSE (value 7)"), and `claim()` returns its value,
 visibly. The knit goes on. This covers chunk code, the functions it calls, the
-files it `source()`s, and the chunk options knitr evaluates. The render fails
+files it `source()`s, and the chunk options knitr evaluates; and a Python
+`claim()` or Julia `@claim` (3.9.3). The render fails
 at the end with every failure listed in the order collected, as for any
 collected failure, and draft mode reports and does not fail (9.4.3).
 `last_knit()` holds the failures, and `rehearse()` knits each case with the
@@ -1359,6 +1361,14 @@ project's setting and lists its chunk claims as it lists any failure.
 `level = "warn"`, `error: true` and a claim inside `try()` behave as without
 the setting. The gate counts `claim()` calls the same under either setting
 (6.3.1).
+
+A Python `claim()` and a Julia `@claim` (3.9) are collected the same way, in a
+knit, when the setting is `collect`: R decides, with the rule above, and the
+failure is recorded under the chunk's label with the detail of 3.9.1 (the
+guest hands R the claim's text and detail). The guest returns the checked value
+and raises nothing, and the rest of the chunk runs. A failure that R did not
+record is not collected: the guest raises as under `stop`. On the Jupyter and
+julia engines the guest packages read the setting themselves (3.9.3).
 
 ```yaml
 # _weft.yml
@@ -1390,6 +1400,13 @@ The error that stopped the knit:
 
 Without such a claim nothing changes, and the error keeps its class. A case of
 `rehearse()` that stops this way is reported with this text.
+
+A claim that a Python or Julia chunk collected (2.4.4) counts, and so does an
+error that comes out of the Python or Julia engine itself: weft wraps knitr's
+`python` engine, and its `julia` engine, once, and re-signals such an error
+with the same condition. The claims a Julia chunk noted before its own error
+are listed first. An R error after a guest claim was collected is wrapped as
+before, and its count includes the guest claims.
 
 **2.4.6** A check given `level = "warn"` (3.1.11) neither collects a failure
 nor stops, in any context. In a knit, in prose, a caption, a `weft_str()`
@@ -2666,9 +2683,22 @@ or "gave a X, not True or False", else null. The error message names the
 first.
 
 **3.9.3** Under knitr, the failure joins the knit's report with the chunk's
-label, and a failed claim stops the knit, as R chunk code does; `error: true`
-is the author's way to go on. On the jupyter and julia engines it is carried in
-a block to the filter (2.13.4). Calling it through reticulate's `r` object is
+label. With `chunk_claims: stop` (the default), a failed claim stops the chunk,
+as R chunk code does, and `error: true` is the author's way to go on. With
+`chunk_claims: collect` it is collected as 2.4.4 says: R decides, the claim
+returns its value and raises nothing, and a later error is wrapped as 2.4.5 says.
+On the jupyter and julia engines the failure is carried in a block to the
+filter (2.13.4), which reports it at the end of the render. There the guest
+reads the setting at each failed claim, from the document's front matter, then
+the nearest `_weft.yml` (the folder of the document or up to 8 parents), and
+collects when the value that applies is `collect`. On Jupyter that needs
+`QUARTO_DOCUMENT_PATH` to be set, so that an interactive session still raises.
+A collected claim on the julia engine displays its block, as a `warn` claim
+does, instead of printing it and throwing. Limits: a claim collected in a hidden
+cell (`include: false` or `output: false`) is lost, the julia engine has no
+counterpart of E31's note for a later error, and a Jupyter daemon kernel may
+read another document's front matter, so `chunk_claims` belongs in `_weft.yml`
+there. Calling it through reticulate's `r` object is
 refused by a lint (5.11.2), since reticulate converts its argument unchecked.
 
 ### 3.10 Checks compared
@@ -5641,7 +5671,7 @@ about_tolerance: 0.05  # 3.5.3: the default tolerance of about(); from 0 to 1
 output_refs: fail      # 2.5.5: fail, warn or off
 output_missing: warn   # 2.5.5: fail, warn or off
 output_markup: fail    # 2.5.5: fail, warn or off
-chunk_claims: stop     # 2.4.4: stop or collect
+chunk_claims: stop     # 2.4.4, 3.9.3: stop or collect
 sentence_start_fail: false   # 5.10.1: true makes the sentence-start list fail the render
 unit_form: auto        # auto, symbol or name (4.4.15)
 unit_defaults: weft    # weft or si (4.4.21)
@@ -5680,8 +5710,12 @@ configuration is read: "The setting `p_digits` must be a whole number from 1
 to 6, or null."; "The setting `p_label` must be a single string." (an empty
 string is one); "The setting `%s` must be fail, warn or off." for the three
 `output_` settings; and "The setting `chunk_claims` must be stop or collect."
-The filter reads `p_digits`, `p_label` and the `output_` settings as well
-(2.13.7), and uses the default for a wrong value.
+The filter reads `p_digits`, `p_label`, the `output_` settings and
+`chunk_claims` as well (2.13.7), and uses the default for a wrong value: a
+`chunk_claims` that is not `stop` or `collect` is a problem (E33) that fails the
+render of a document on the Jupyter or julia engine. The Python and Julia guest
+packages read `chunk_claims` too (3.9.3), and read any value but `collect` as
+`stop`.
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
 `false`, and so are `ledger` and `bare_missing`. An `anchor_calls` entry
