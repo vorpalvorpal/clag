@@ -292,7 +292,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     for (f in unk) {
       p(sprintf("unknown field `%s`; the fields are %s", f, paste(DICT_FIELDS, collapse = ", ")), "4.2.1")
     }
-    str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
+    str1 <- dict_str1
     type <- e[["type"]]
     type_ok <- FALSE
     if (is.null(type)) {
@@ -318,41 +318,8 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
     } else if (!is.null(e[["unit"]]) && type_ok) {
       p(sprintf("`unit` is only for a quantity or a range, and this is a %s", type), "4.2.1")
     }
-    disp <- NA_character_
-    if (!is.null(e[["display"]])) {
-      dv <- e[["display"]]
-      if (type_ok && type == "range" && is.na(unit) && is.null(e[["unit"]])) {
-        p("`display` is only for a range with a `unit`", "4.2.1")
-      } else if (type_ok && !type %in% c("quantity", "range")) {
-        p(sprintf("`display` is only for a quantity or a range, and this is a %s", type), "4.2.7")
-      } else if (is.character(dv) && length(dv) >= 1L && (length(dv) > 1L || any(grepl("|", dv, fixed = TRUE)))) {
-        # `display:` takes one unit; a ladder (4.4.23) is written in a `unit` key at the use (decision 53)
-        lad <- ladder_split(dv)
-        if (is.null(lad$problem) && length(lad$rungs) > 1L) {
-          p(sprintf(paste0("`display` `%s`: `display` takes one unit, and this is a ladder; write the ladder in a ",
-                           "`unit` key where the value is printed, such as `unit=\"%s\"`"),
-                    lad$written, paste(lad$rungs, collapse = "|")), "4.2.7")
-        } else {
-          p(sprintf("`display` `%s` is not a unit: `display` takes one unit (a ladder is written in a `unit` key where the value is printed)",
-                    lad$written), "4.2.7")
-        }
-      } else if (is.character(dv) && length(dv) == 1L && str1(dv)) {
-        disp <- trimws(dv)
-      } else {
-        p("`display` must be a string that is not blank", "4.2.7")
-      }
-    }
-    dec <- NA_character_
-    if (!is.null(e[["decision"]])) {
-      d <- e[["decision"]]
-      if (is.numeric(d) && length(d) == 1L && !is.na(d) && is.finite(d) && d >= 1 && d == round(d)) {
-        # never through as.integer(): a number past its range is kept, not dropped
-        dec <- format(d, scientific = FALSE, trim = TRUE)
-      } else if (str1(d)) {
-        # `#12` is the issue number 12; any other text is kept as written (ruling 7)
-        dec <- if (grepl("^#[1-9][0-9]*$", d)) substring(d, 2L) else d
-      } else p("`decision` must be a whole number from 1, or a string that is not blank", "4.2.1")
-    }
+    disp <- dict_display(e, type, type_ok, unit, p)
+    dec <- dict_decision(e, p)
     why <- NA_character_
     if (scope == "project") {
       if (!is.null(e[["why"]])) p("`why` is for a chapter's own entries; it is not allowed in dict.yml", "4.3.3")
@@ -362,59 +329,12 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       p("`why` must be a string that is not blank", "4.3.3")
     } else why <- e[["why"]]
     # `term` and `avoid` (rules 4.7.3, 4.7.4)
-    trm <- NA_character_
-    if (!is.null(e[["term"]])) {
-      tv <- e[["term"]]
-      if (!str1(tv)) {
-        p("`term` must be a string that is not blank", "4.7.3"); tprob[i] <- TRUE
-      } else if (grepl("[\r\n]", trimws(tv))) {
-        p("`term` must be written on one line", "4.7.3"); tprob[i] <- TRUE
-      } else if (grepl(TERM_BLOCK_RX, trimws(tv), perl = TRUE)) {
-        p(sprintf("`term` `%s` starts with a character that markdown reads as the start of a block (a heading, list, quote or fence)",
-                  trimws(tv)), "4.7.3")
-        tprob[i] <- TRUE
-      } else trm <- trimws(tv)
-    }
-    avd <- character()
-    if (!is.null(e[["avoid"]])) {
-      a <- avoid_raw(i) %||% e[["avoid"]]
-      if (scope != "project") {
-        p("`avoid` is for dict.yml; a chapter's own entries write no Vale rules", "4.7.4")
-        tprob[i] <- TRUE
-      } else {
-        avd <- avoid_items(a)
-        if (!is.null(avd)) avd <- trimws(avd)
-        if (any(!nzchar(avd))) avd <- NULL
-      }
-      if (is.null(avd)) {
-        p("`avoid` must be a string, or a list of strings, none blank", "4.7.4")
-        tprob[i] <- TRUE
-        avd <- character()
-      } else if (scope == "project") {
-        if (is.na(trm) && !(type_ok && type == "string")) {
-          p("`avoid` needs a `term`: the spelling the avoided ones are replaced by", "4.7.4")
-          tprob[i] <- TRUE
-        } else {
-          for (v in unique(avd[!(grepl("^[\\p{L}\\p{N}]", avd, perl = TRUE) &
-                                 grepl("[\\p{L}\\p{N}]$", avd, perl = TRUE))])) {
-            p(sprintf(paste0("`avoid` lists `%s`, which starts or ends with a character that is not a letter or digit; ",
-                             "Vale matches a spelling at word boundaries and could never match it"), v), "4.7.4")
-            tprob[i] <- TRUE
-          }
-          cn <- if (!is.na(trm)) trm else e[["value"]]
-          if (is.character(cn) && length(cn) == 1L && !is.na(cn)) {
-            for (v in unique(avd[avd == cn])) {
-              p(sprintf("`avoid` lists `%s`, which is the entry's own spelling", v), "4.7.4")
-              tprob[i] <- TRUE
-            }
-          }
-          for (v in unique(avd[duplicated(avd)])) {
-            p(sprintf("`avoid` lists `%s` twice", v), "4.7.4")
-            tprob[i] <- TRUE
-          }
-        }
-      }
-    }
+    tm <- dict_term(e, p)
+    trm <- tm$term
+    tprob[i] <- tm$bad
+    av <- dict_avoid(e, scope, function() avoid_raw(i), trm, type_ok && type == "string", p)
+    avd <- av$avoid
+    tprob[i] <- tprob[i] || av$bad
     if (!tprob[i]) {
       canon[i] <- if (!is.na(trm)) trm else
         if (type_ok && type == "string" && is.character(e[["value"]]) && length(e[["value"]]) == 1L)
@@ -441,45 +361,10 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
       }
     }
     if (type_ok && type %in% c("quantity", "range") && !is.na(unit) && length(problems) == n0) {
-      reg <- dict_register_unit(unit)
-      installed <- c(installed, reg$installed)
-      if (!is.null(reg$refusal)) {
-        p(sprintf("`unit` `%s`: %s", unit, reg$refusal), "4.4.20")
-      } else if (!is.null(reg$error)) {
-        p(sprintf("`unit` `%s` is not a unit the units package can read: %s", unit, strip_rule(reg$error)), "4.4.7")
-      } else {
-        registered <- c(registered, reg$needed)
-        values[i] <- list(u_set(values[[i]], unit))
-        if (type == "range") names(values[[i]]) <- c("lower", "upper")
-        # the value is read in `unit` and converted to `display` (4.2.7)
-        if (!anyNA(disp)) {
-          dj <- disp
-          dreg <- dict_register_unit(dj)
-          installed <- c(installed, dreg$installed)
-          if (!is.null(dreg$refusal)) {
-            p(sprintf("`display` `%s`: %s", dj, dreg$refusal), "4.4.20")
-          } else if (!is.null(dreg$error)) {
-            p(sprintf("`display` `%s` is not a unit the units package can read: %s", dj, strip_rule(dreg$error)), "4.2.7")
-          } else {
-            registered <- c(registered, dreg$needed)
-            to <- tryCatch(unit_symbolic(dj), error = function(e) NULL)
-            twin <- if (!is.null(to)) unit_twin_problem(attr(values[[i]], "units"), to, dj)
-            conv <- if (is.null(to) || !is.null(twin)) NULL else
-              tryCatch(units::set_units(values[[i]], to, mode = "standard"), error = function(e) NULL)
-            if (!is.null(twin)) {
-              p(twin, "4.4.14")
-            } else if (is.null(conv)) {
-              p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", dj, unit), "4.2.7")
-            } else if (converts_by_inversion(values[[i]], conv)) {
-              p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
-                               "by inverting the value; write the reciprocal in the expression"), dj, unit), "4.2.7")
-            } else {
-              values[i] <- list(conv)
-              if (type == "range") names(values[[i]]) <- c("lower", "upper")
-            }
-          }
-        }
-      }
+      u <- dict_in_unit(values[[i]], type, unit, disp, p)
+      installed <- c(installed, u$installed)
+      registered <- c(registered, u$registered)
+      values[i] <- list(u$value)
     }
     str_or_na <- function(x) if (str1(x)) x else NA_character_
     rows[[i]] <- list(key = key, type = if (type_ok) type else NA_character_,
@@ -487,31 +372,7 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
                       display = if (anyNA(disp)) NA_character_ else disp, decision = dec, why = why, line = as.integer(line),
                       term = trm, avoid = avd)
   }
-  # the spellings against each other (rule 4.7.4); only entries whose own
-  # `term` and `avoid` had no problem take part
-  if (scope == "project") {
-    ok <- vapply(rows, function(r) !is.null(r), NA) & !tprob
-    seen <- list()
-    for (i in which(ok)) {
-      for (v in rows[[i]]$avoid) {
-        earlier <- names(seen)[vapply(seen, function(k) v %in% k, NA)]
-        if (length(earlier) && !identical(earlier[1L], keys[i])) {
-          prob(sprintf("`avoid` lists `%s`, which `%s` also lists", v, earlier[1L]), "4.7.4",
-               keys[i], key_line[i])
-          next
-        }
-        for (j in which(ok & !is.na(canon))) {
-          if (identical(v, canon[j]) && j == i) next
-          if (word_in(v, canon[j])) {
-            prob(sprintf("`avoid` lists `%s`, which is part of the spelling `%s` of `%s`; Vale would flag that spelling",
-                         v, canon[j], keys[j]), "4.7.4", keys[i], key_line[i])
-            break
-          }
-        }
-      }
-      seen[[keys[i]]] <- rows[[i]]$avoid
-    }
-  }
+  if (scope == "project") dict_spellings(rows, tprob, canon, keys, key_line, prob)
   if (length(problems)) {
     # a read that reports problems installs no unit (ruling 6)
     for (tok in unique(installed)) try(units::remove_unit(tok, tok), silent = TRUE)
@@ -533,6 +394,197 @@ build_dict <- function(raw, file, scope, lines = character(), first = 1L, offset
   structure(values, class = "weft_dict", file = file, scope = scope,
             entries = entries, registered = unique(registered),
             local_keys = character(), decimals = stats::setNames(decs, keys))
+}
+
+# ---- the checks build_dict() runs on one entry -------------------------------------
+# Each takes the entry `e` and `p(what, rule)`, which records a problem against its key.
+
+dict_str1 <- function(x) is.character(x) && length(x) == 1L && !is.na(x) && nzchar(trimws(x))
+
+# The `display` unit (4.2.7), or NA.
+dict_display <- function(e, type, type_ok, unit, p) {
+  disp <- NA_character_
+  str1 <- dict_str1
+  if (!is.null(e[["display"]])) {
+    dv <- e[["display"]]
+    if (type_ok && type == "range" && is.na(unit) && is.null(e[["unit"]])) {
+      p("`display` is only for a range with a `unit`", "4.2.1")
+    } else if (type_ok && !type %in% c("quantity", "range")) {
+      p(sprintf("`display` is only for a quantity or a range, and this is a %s", type), "4.2.7")
+    } else if (is.character(dv) && length(dv) >= 1L && (length(dv) > 1L || any(grepl("|", dv, fixed = TRUE)))) {
+      # `display:` takes one unit; a ladder (4.4.23) is written in a `unit` key at the use (decision 53)
+      lad <- ladder_split(dv)
+      if (is.null(lad$problem) && length(lad$rungs) > 1L) {
+        p(sprintf(paste0("`display` `%s`: `display` takes one unit, and this is a ladder; write the ladder in a ",
+                         "`unit` key where the value is printed, such as `unit=\"%s\"`"),
+                  lad$written, paste(lad$rungs, collapse = "|")), "4.2.7")
+      } else {
+        p(sprintf("`display` `%s` is not a unit: `display` takes one unit (a ladder is written in a `unit` key where the value is printed)",
+                  lad$written), "4.2.7")
+      }
+    } else if (is.character(dv) && length(dv) == 1L && str1(dv)) {
+      disp <- trimws(dv)
+    } else {
+      p("`display` must be a string that is not blank", "4.2.7")
+    }
+  }
+  disp
+}
+
+# The `decision` text (4.2.1), or NA.
+dict_decision <- function(e, p) {
+  dec <- NA_character_
+  str1 <- dict_str1
+  if (!is.null(e[["decision"]])) {
+    d <- e[["decision"]]
+    if (is.numeric(d) && length(d) == 1L && !is.na(d) && is.finite(d) && d >= 1 && d == round(d)) {
+      # never through as.integer(): a number past its range is kept, not dropped
+      dec <- format(d, scientific = FALSE, trim = TRUE)
+    } else if (str1(d)) {
+      # `#12` is the issue number 12; any other text is kept as written (ruling 7)
+      dec <- if (grepl("^#[1-9][0-9]*$", d)) substring(d, 2L) else d
+    } else p("`decision` must be a whole number from 1, or a string that is not blank", "4.2.1")
+  }
+  dec
+}
+
+# The `term` (4.7.3): the entry's spelling, or NA, and whether it is a problem.
+dict_term <- function(e, p) {
+  trm <- NA_character_
+  bad <- FALSE
+  if (!is.null(e[["term"]])) {
+    tv <- e[["term"]]
+    if (!dict_str1(tv)) {
+      p("`term` must be a string that is not blank", "4.7.3"); bad <- TRUE
+    } else if (grepl("[\r\n]", trimws(tv))) {
+      p("`term` must be written on one line", "4.7.3"); bad <- TRUE
+    } else if (grepl(TERM_BLOCK_RX, trimws(tv), perl = TRUE)) {
+      p(sprintf("`term` `%s` starts with a character that markdown reads as the start of a block (a heading, list, quote or fence)",
+                trimws(tv)), "4.7.3")
+      bad <- TRUE
+    } else trm <- trimws(tv)
+  }
+  list(term = trm, bad = bad)
+}
+
+# The `avoid` spellings (4.7.4) and whether any is a problem. `raw_avoid()` reads
+# the value with `true` and `false` marked; it is called only when `avoid` is written.
+dict_avoid <- function(e, scope, raw_avoid, trm, is_string, p) {
+  avd <- character()
+  bad <- FALSE
+  if (!is.null(e[["avoid"]])) {
+    a <- raw_avoid() %||% e[["avoid"]]
+    if (scope != "project") {
+      p("`avoid` is for dict.yml; a chapter's own entries write no Vale rules", "4.7.4")
+      bad <- TRUE
+    } else {
+      avd <- avoid_items(a)
+      if (!is.null(avd)) avd <- trimws(avd)
+      if (any(!nzchar(avd))) avd <- NULL
+    }
+    if (is.null(avd)) {
+      p("`avoid` must be a string, or a list of strings, none blank", "4.7.4")
+      bad <- TRUE
+      avd <- character()
+    } else if (scope == "project") {
+      if (is.na(trm) && !is_string) {
+        p("`avoid` needs a `term`: the spelling the avoided ones are replaced by", "4.7.4")
+        bad <- TRUE
+      } else {
+        for (v in unique(avd[!(grepl("^[\\p{L}\\p{N}]", avd, perl = TRUE) &
+                               grepl("[\\p{L}\\p{N}]$", avd, perl = TRUE))])) {
+          p(sprintf(paste0("`avoid` lists `%s`, which starts or ends with a character that is not a letter or digit; ",
+                           "Vale matches a spelling at word boundaries and could never match it"), v), "4.7.4")
+          bad <- TRUE
+        }
+        cn <- if (!is.na(trm)) trm else e[["value"]]
+        if (is.character(cn) && length(cn) == 1L && !is.na(cn)) {
+          for (v in unique(avd[avd == cn])) {
+            p(sprintf("`avoid` lists `%s`, which is the entry's own spelling", v), "4.7.4")
+            bad <- TRUE
+          }
+        }
+        for (v in unique(avd[duplicated(avd)])) {
+          p(sprintf("`avoid` lists `%s` twice", v), "4.7.4")
+          bad <- TRUE
+        }
+      }
+    }
+  }
+  list(avoid = avd, bad = bad)
+}
+
+# A quantity's or range's value in its `unit`, converted to `display`: the value, the
+# units the read installed and those it registered.
+dict_in_unit <- function(value, type, unit, disp, p) {
+  installed <- character()
+  registered <- character()
+  reg <- dict_register_unit(unit)
+  installed <- c(installed, reg$installed)
+  if (!is.null(reg$refusal)) {
+    p(sprintf("`unit` `%s`: %s", unit, reg$refusal), "4.4.20")
+  } else if (!is.null(reg$error)) {
+    p(sprintf("`unit` `%s` is not a unit the units package can read: %s", unit, strip_rule(reg$error)), "4.4.7")
+  } else {
+    registered <- c(registered, reg$needed)
+    value <- u_set(value, unit)
+    if (type == "range") names(value) <- c("lower", "upper")
+    # the value is read in `unit` and converted to `display` (4.2.7)
+    if (!anyNA(disp)) {
+      dj <- disp
+      dreg <- dict_register_unit(dj)
+      installed <- c(installed, dreg$installed)
+      if (!is.null(dreg$refusal)) {
+        p(sprintf("`display` `%s`: %s", dj, dreg$refusal), "4.4.20")
+      } else if (!is.null(dreg$error)) {
+        p(sprintf("`display` `%s` is not a unit the units package can read: %s", dj, strip_rule(dreg$error)), "4.2.7")
+      } else {
+        registered <- c(registered, dreg$needed)
+        to <- tryCatch(unit_symbolic(dj), error = function(e) NULL)
+        twin <- if (!is.null(to)) unit_twin_problem(attr(value, "units"), to, dj)
+        conv <- if (is.null(to) || !is.null(twin)) NULL else
+          tryCatch(units::set_units(value, to, mode = "standard"), error = function(e) NULL)
+        if (!is.null(twin)) {
+          p(twin, "4.4.14")
+        } else if (is.null(conv)) {
+          p(sprintf("`display` `%s` is not a unit `unit` (`%s`) converts to", dj, unit), "4.2.7")
+        } else if (converts_by_inversion(value, conv)) {
+          p(sprintf(paste0("`display` `%s` is of another dimension than `unit` (`%s`), which units reaches ",
+                           "by inverting the value; write the reciprocal in the expression"), dj, unit), "4.2.7")
+        } else {
+          value <- conv
+          if (type == "range") names(value) <- c("lower", "upper")
+        }
+      }
+    }
+  }
+  list(value = value, installed = installed, registered = registered)
+}
+
+# The spellings against each other (rule 4.7.4); only entries whose own `term` and
+# `avoid` had no problem take part.
+dict_spellings <- function(rows, tprob, canon, keys, key_line, prob) {
+  ok <- vapply(rows, function(r) !is.null(r), NA) & !tprob
+  seen <- list()
+  for (i in which(ok)) {
+    for (v in rows[[i]]$avoid) {
+      earlier <- names(seen)[vapply(seen, function(k) v %in% k, NA)]
+      if (length(earlier) && !identical(earlier[1L], keys[i])) {
+        prob(sprintf("`avoid` lists `%s`, which `%s` also lists", v, earlier[1L]), "4.7.4",
+             keys[i], key_line[i])
+        next
+      }
+      for (j in which(ok & !is.na(canon))) {
+        if (identical(v, canon[j]) && j == i) next
+        if (word_in(v, canon[j])) {
+          prob(sprintf("`avoid` lists `%s`, which is part of the spelling `%s` of `%s`; Vale would flag that spelling",
+                       v, canon[j], keys[j]), "4.7.4", keys[i], key_line[i])
+          break
+        }
+      }
+    }
+    seen[[keys[i]]] <- rows[[i]]$avoid
+  }
 }
 
 # What markdown would read as the start of a block, at the start of a `term`.
