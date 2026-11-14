@@ -44,6 +44,7 @@ Passing a weft_text to another formatter carries the record forward
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -152,11 +153,13 @@ accepted.</p></dd>
 
 
 <dt id="arg-digits">digits<a class="anchor" aria-label="anchor" href="#arg-digits"></a></dt>
-<dd><p>Decimal places. Not together with <code>sigfig</code>.</p></dd>
+<dd><p>Decimal places. Not together with <code>sigfig</code>. For <code>fmt_p()</code>
+and <code>.p</code>, a whole number from 1 to 6 (rule 1.4.21).</p></dd>
 
 
 <dt id="arg-sigfig">sigfig<a class="anchor" aria-label="anchor" href="#arg-sigfig"></a></dt>
-<dd><p>Significant figures. Not together with <code>digits</code>.</p></dd>
+<dd><p>Significant figures. Not together with <code>digits</code>. Not for
+<code>fmt_p()</code> or <code>.p</code>.</p></dd>
 
 
 <dt id="arg-unit">unit<a class="anchor" aria-label="anchor" href="#arg-unit"></a></dt>

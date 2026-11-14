@@ -239,6 +239,8 @@ claim(61, . < 50)
   the dictionary in a targets pipeline.
 - [`vignette("languages", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/languages.md):
   Python and Julia values in prose.
+- [`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md):
+  values by name, for documents whose prose cannot call R.
 - [`vignette("lints", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/lints.md):
   the static checks.
 - [`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md):
@@ -248,5 +250,8 @@ claim(61, . < 50)
   [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md).
 - [`vignette("setup", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/setup.md):
   setting up a project.
+- [`vignette("adopting", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/adopting.md):
+  bringing an existing long report across, step by step, and choosing
+  how hard each check fails.
 - [`vignette("agents", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/agents.md):
   what an AI coding agent needs to know.

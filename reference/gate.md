@@ -42,6 +42,9 @@ print(x, ...)
 A `weft_gate`, invisibly: a list with `ok`, `errors` and `added` (a
 `weft_findings` each), `excess` (a data frame of `project`, `rule`,
 `text`, `base`, `new`), `removed` (`project`, `file`, `line`, `kind`,
-`text`, from `HEAD`), `n_removed`, `trailer`, `changed`, `notes` and
-`seconds`. The report is printed to stderr with
+`text`, from `HEAD`), `n_removed`, `trailer`, `changed`, `notes`,
+`seconds` and `checks` (the checks of one value that are gone since
+`HEAD`, each with what still checks it: information only, rule 6.3.7;
+columns `project`, `file`, `line`, `cond`, `level`, `verdict`, `by`,
+`by_line` and `remains`). The report is printed to stderr with
 [`message()`](https://rdrr.io/r/base/message.html).

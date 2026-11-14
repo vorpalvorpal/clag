@@ -87,11 +87,13 @@ fmt_em(x)
 
 - digits:
 
-  Decimal places. Not together with `sigfig`.
+  Decimal places. Not together with `sigfig`. For `fmt_p()` and `.p`, a
+  whole number from 1 to 6 (rule 1.4.21).
 
 - sigfig:
 
-  Significant figures. Not together with `digits`.
+  Significant figures. Not together with `digits`. Not for `fmt_p()` or
+  `.p`.
 
 - unit:
 

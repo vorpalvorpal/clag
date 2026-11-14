@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -163,7 +164,7 @@ git:</p>
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/use_weft.html">use_weft</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft will set up creek-report:</span></span>
 <span><span class="co">#&gt;   use_setup       .Rprofile (new), _weft.yml (new), report.qmd (edit)</span></span>
-<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
+<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _extensions/weft-check/weft-output.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
 <span><span class="co">#&gt;   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)</span></span>
 <span><span class="co">#&gt;   use_hooks       .git/hooks/commit-msg (new)</span></span>
 <span><span class="co">#&gt;   use_ci          skipped: origin is not on GitHub</span></span>
@@ -252,6 +253,20 @@ with a hash. Each later line is one entry:</p>
 <p>An entry is keyed by its file, its section anchor and its expression.
 That is why the lints ask for a <code>{#id}</code> on each heading: the
 key stays the same when the heading’s words change.</p>
+<p>A <strong>table</strong> gets one entry too: a table that an R chunk
+prints, such as <code><a href="https://rdrr.io/pkg/knitr/man/kable.html" class="external-link">knitr::kable()</a></code>, gt, flextable or tinytable,
+and text that a chunk with <code>results: asis</code> prints. The entry
+holds no cells. It holds a digest of the table’s visible text, with the
+markup taken out, so a change of style, class name or element id is not
+a change, and a change of any number or word is. It is keyed by the
+chunk’s label, and by its place in the chunk when a chunk prints
+two:</p>
+<pre class="text"><code>{"file":"report.qmd","section":"sec-sites","kind":"table","expr":"tbl-sites","occ":1,"id":"tbl-sites","context":"chunk","text":"5c1d0e2f9a7b3c48","arm":null,"rel":null,"raw":null,"unit":null,"failed":null,"dict":[],"sentence":"Turbidity at each site."}</code></pre>
+<p>The <code>sentence</code> is the table’s caption, or the start of its
+text. A table printed as plain code output (<code>print(df)</code>
+without <code>results: asis</code>), a figure, and a table from a Python
+or Julia document are not recorded. Label the chunks that print tables,
+so that each keeps its name when a chunk is added above it.</p>
 <p>The <strong>condition log</strong>,
 <code>report.conditions.jsonl</code>, records each warning and error
 that a chunk or an inline expression raised during the render, and, for
@@ -264,13 +279,13 @@ same.</p>
 </h2>
 <p>New data arrive. The Lower reading was 9.6, not 12.6, and the author
 adds a nitrate column whose values came from a laboratory as text:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">turbidity</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">4.2</span>, Middle <span class="op">=</span> <span class="fl">7.9</span>, Lower <span class="op">=</span> <span class="fl">9.6</span><span class="op">)</span>, <span class="va">NTU</span><span class="op">)</span></span>
 <span><span class="va">n_high</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">turbidity</span> <span class="op">&gt;</span> <span class="va">dict</span><span class="op">$</span><span class="va">trigger</span><span class="op">)</span></span>
 <span><span class="va">nitrate</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/numeric.html" class="external-link">as.numeric</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"0.8"</span>, <span class="st">"&lt;0.5"</span>, <span class="st">"1.1"</span><span class="op">)</span><span class="op">)</span></span></code></pre></div>
 <p>After a render, <code><a href="../reference/changes.html">changes()</a></code> compares the ledgers in the
 working tree with those in <code>HEAD</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/changes.html">changes</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft changes since HEAD (9e34dd7): 1 ledger compared; 2 changed, 0 added, 0 removed; 1 new condition</span></span>
 <span><span class="co">#&gt;</span></span>
@@ -310,10 +325,22 @@ render. Their values are stale.</li>
 <p>A different value with the same printed text is not a change.
 <code><a href="../reference/changes.html">changes()</a></code> also lists tier-2 lint findings on lines added
 since the commit.</p>
+<p>Tables come last, under <strong>Tables</strong>: a changed table by
+its label, with its caption under it, and added and removed tables one
+line per ledger:</p>
+<pre class="text"><code>Tables
+  ~ table `tbl-sites` changed
+      Turbidity at each site.
+  report.qmd: 1 table added: tbl-flow</code></pre>
+<p><code><a href="../reference/changes.html">changes()</a></code> says that a table changed, not which cells;
+render the two versions to compare them. The first render after you
+upgrade to a weft that records tables lists every table of an existing
+ledger as added, once. Commit that ledger, and the next comparison is
+quiet.</p>
 <p><code>changes(since = )</code> compares with any commit, and
 <code>print(x, brief = TRUE)</code> prints only the header, the
 structural changes, the stale ledgers and the new conditions:</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/print.html" class="external-link">print</a></span><span class="op">(</span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/changes.html">changes</a></span><span class="op">(</span>since <span class="op">=</span> <span class="st">"9e34dd7"</span><span class="op">)</span>, brief <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft changes since 9e34dd7 (9e34dd7): 1 ledger compared; 1 changed, 0 added, 1 removed; 1 new condition</span></span>
 <span><span class="co">#&gt;</span></span>
@@ -346,16 +373,94 @@ commit-msg: 2 weft constructs removed, and the message does not say so
 
   or commit with: git commit --trailer "Weft-Removed: 2"
 
+commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6.3.7)
+  report.qmd, as in HEAD
+       17  max(turbidity) &lt; u(50, NTU)
+           looser: no check of max(turbidity) against a quantity in NTU remains in report.qmd
+
 commit-msg: 0.2 s</code></pre>
 <p>The value and its claim count as two constructs. The removal is
 intended, so the author says so:</p>
 <pre class="text"><code>$ git commit -m "Drop the sentence on the highest reading" --trailer "Weft-Removed: 2"
+commit-msg: note: report.qmd:17 in HEAD, `max(turbidity) &lt; u(50, NTU)`, is gone and nothing that remains covers it (rule 6.3.7)
 commit-msg: weft passed (1 changed file, 0.2 s)
 [main c2ba829] Drop the sentence on the highest reading</code></pre>
+<p>The note says that nothing else in the document checks the highest
+reading now (see “What still checks a removed check” below). It decides
+nothing.</p>
 <p>The trailer stays in the history, so a reviewer can find every commit
 that removed checks with <code>git log --grep "Weft-Removed"</code>. The
 number must match: a trailer that says 1 when 2 were removed is
 refused.</p>
+<div class="section level3">
+<h3 id="what-still-checks-a-removed-check">What still checks a removed check<a class="anchor" aria-label="anchor" href="#what-still-checks-a-removed-check"></a>
+</h3>
+<p>The gate also says, for each check that a commit removes, whether a
+check that remains still covers it. A document guards
+<code>turb_max &gt;= trigger</code> in nine sentences and
+<code>turb_max &gt; trigger</code> in one, at line 64. Deleting the
+sentence at line 64 leaves the document looser than it was, and the
+gate’s report says so after the constructs removed:</p>
+<pre class="text"><code>commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6.3.7)
+  report.qmd, as in HEAD
+       64  turb_max &gt; trigger
+           looser: nothing that remains implies it; remaining on turb_max against trigger: `turb_max &gt;= trigger` (9 places)</code></pre>
+<p>These lines are information. They decide nothing: the commit passes
+or fails on the constructs removed and the trailer, exactly as above.
+Each check that is gone gets one verdict:</p>
+<table class="table">
+<colgroup>
+<col width="50%">
+<col width="50%">
+</colgroup>
+<thead><tr class="header">
+<th>Verdict</th>
+<th>Means</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>covered</td>
+<td>the same check remains, or a remaining check implies it:
+<code>x &gt; 5</code> implies <code>x &gt;= 5</code>,
+<code>x &gt; 3</code> and <code>x != 5</code>
+</td>
+</tr>
+<tr class="even">
+<td>looser</td>
+<td>no remaining check implies it: checks of the same value against the
+same thing remain but are weaker, or only a warned check implies it (a
+warned check fails nothing), or nothing checks that value against that
+thing any more</td>
+</tr>
+<tr class="odd">
+<td>not judged</td>
+<td>a name the check reads is assigned in more than one place in the
+document, so no other check is taken to cover it</td>
+</tr>
+<tr class="even">
+<td>not read</td>
+<td>the check is not a comparison weft reads (see <code><a href="../reference/checks.html">checks()</a></code>
+in <code><a href="../articles/wording.html">vignette("wording", package = "weft")</a></code>)</td>
+</tr>
+<tr class="odd">
+<td>the document is gone</td>
+<td>the file was deleted or renamed, and its checks with it</td>
+</tr>
+</tbody>
+</table>
+<p>One remaining check must cover the removed one alone:
+<code>x &gt;= 5</code> and <code>x != 5</code> together do not cover
+<code>x &gt; 5</code>. A check that does not always run, in an arm of a
+span or in a claim under an R <code>if</code> or loop, covers
+nothing.</p>
+<p>A changed bound removes no construct, so it needs no trailer. When it
+loosens the document, a passing commit prints a note before its
+line:</p>
+<pre class="text"><code>commit-msg: note: report.qmd:44 in HEAD, `n_up &gt;= 10`, is gone and nothing that remains covers it (rule 6.3.7)</code></pre>
+<p><code><a href="../reference/gate.html">gate()</a></code> returns the rows in <code>checks</code>. The way
+to keep these lines short is the advice of the wording article: check a
+value once, where it is made, and use its name after.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="construct-errors">Construct errors<a class="anchor" aria-label="anchor" href="#construct-errors"></a>
@@ -374,7 +479,7 @@ commit-msg: 0.2 s</code></pre>
 </h2>
 <p><code><a href="../reference/gate.html">gate()</a></code> is the function the hook runs. Call it to judge
 what is staged without committing:</p>
-<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/gate.html">gate</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; commit-msg: 1 finding added that HEAD did not hold</span></span>
 <span><span class="co">#&gt;   report.qmd</span></span>
@@ -394,11 +499,11 @@ whole repository, including every subfolder that holds a
 </h2>
 <p><code><a href="../reference/use_hooks.html">use_hooks()</a></code> writes <code>.git/hooks/commit-msg</code>.
 The script is POSIX <code>sh</code> and starts:</p>
-<div class="sourceCode" id="cb21"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb21-1"><a href="#cb21-1" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
-<span id="cb21-2"><a href="#cb21-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.0.0.9001 063f9359c3c3c3c91daa6def625f32d8</span></span>
-<span id="cb21-3"><a href="#cb21-3" tabindex="-1"></a><span class="co"># The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().</span></span>
-<span id="cb21-4"><a href="#cb21-4" tabindex="-1"></a><span class="co"># Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit</span></span>
-<span id="cb21-5"><a href="#cb21-5" tabindex="-1"></a><span class="co"># with: git commit --no-verify</span></span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode sh"><code class="sourceCode bash"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="co">#!/bin/sh</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="co"># weft-file: use_hooks 0.0.0.9001 063f9359c3c3c3c91daa6def625f32d8</span></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="co"># The weft commit gate (rules 6.1 to 6.3), written by weft::use_hooks().</span></span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="co"># Remove it with weft::use_hooks(remove = TRUE). Skip it for one commit</span></span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="co"># with: git commit --no-verify</span></span></code></pre></div>
 <p>It records the <code>Rscript</code> and the library paths of the R
 session that ran <code><a href="../reference/use_hooks.html">use_hooks()</a></code>, and runs R without the
 project’s <code>.Rprofile</code> or <code>.Renviron</code>. If you
@@ -414,6 +519,104 @@ hook you already run.</p>
 It is there for emergencies, such as R being broken. It is not a way
 past a finding: answer the finding instead.
 <code>use_hooks(remove = TRUE)</code> removes the hook.</p>
+</div>
+<div class="section level2">
+<h2 id="what-the-reader-sees-the-rendered-output-check">What the reader sees: the rendered-output check<a class="anchor" aria-label="anchor" href="#what-the-reader-sees-the-rendered-output-check"></a>
+</h2>
+<p>Some mistakes show only after Quarto has done its work. A
+cross-reference to a label that does not exist prints “?<span class="citation">@sec-missing</span>”. A value that was missing prints
+“NA”. A fence Pandoc did not read prints “:::” in the text. A third
+filter, <code>weft-output.lua</code>, reads the finished document after
+Quarto’s own filters, in every output format, and looks for three
+things:</p>
+<table class="table">
+<colgroup>
+<col width="25%">
+<col width="25%">
+<col width="25%">
+<col width="25%">
+</colgroup>
+<thead><tr class="header">
+<th>Kind</th>
+<th>Finds</th>
+<th>Setting</th>
+<th>Default</th>
+</tr></thead>
+<tbody>
+<tr class="odd">
+<td>unresolved reference</td>
+<td>under Quarto, “?<span class="citation">@sec-missing</span>” for a
+cross-reference, and “?meta:key” or “?var:key” for a shortcode, where
+Quarto found nothing</td>
+<td><code>output_refs</code></td>
+<td><code>fail</code></td>
+</tr>
+<tr class="even">
+<td>missing value in output</td>
+<td>
+<code>NA</code>, <code>NaN</code>, <code>Inf</code> or
+<code>-Inf</code> (also <code>nan</code>, <code>inf</code>,
+<code>-inf</code>) as a word in prose, headings, lists, footnotes and
+captions</td>
+<td><code>output_missing</code></td>
+<td><code>warn</code></td>
+</tr>
+<tr class="odd">
+<td>leftover markup</td>
+<td>text that starts with <code>:::</code>, an attribute block stuck to
+a word, such as <code>m{.num}</code>, and under Quarto bookdown’s
+<code>\@ref(</code>
+</td>
+<td><code>output_markup</code></td>
+<td><code>fail</code></td>
+</tr>
+</tbody>
+</table>
+<p>Each setting is <code>fail</code>, <code>warn</code> or
+<code>off</code>, in <code>_weft.yml</code> or under a document’s
+<code>weft:</code> key. A Quarto project collects the findings with the
+other failures and reports them once, after the render, naming each
+format in which a finding occurred:</p>
+<pre class="text"><code>weft: 1 failure
+  ch2.qmd #sec-methods (html)  [unresolved reference] ?@sec-missing
+      As shown in ?@sec-missing, the flow was low.
+    Quarto could not resolve the reference `@sec-missing`, and printed "?@sec-missing" (rule 2.5.5).
+weft: 1 warned check(s)
+  ch2.qmd #sec-results (html)  [missing value in output] NA
+      The mean was NA across the sites.
+    "NA" in the rendered prose: a value printed as missing. Mark a deliberate one [NA]{.weft-literal why="..."} (rule 2.5.5).</code></pre>
+<p>An “NA” that is meant, such as an abbreviation, is marked
+<code>[NA]{.weft-literal why="not applicable"}</code>. Table cells, code
+and raw content are not searched for missing values, so “NA” in a table
+is never reported. “N/A”, “NULL” and “None” are not matched.</p>
+<p>What it cannot check:</p>
+<ul>
+<li>citations: a filter sees a citation before the citation processor
+runs, so an unknown key cannot be told from a known one. The
+<code>cite-key</code> lint checks keys against the bibliography;</li>
+<li>what a writer or a later program adds: bookdown’s
+<code>\@ref()</code> under R Markdown, LaTeX’s “??”, Typst’s own
+references.</li>
+</ul>
+<p>Two filters can name the same text. <code>bare_missing</code> warns
+at knit time about a bare value that prints <code>NA</code>, naming its
+expression, and the output check warns about the same “NA” in the
+output, naming its sentence. The <code>weft-check</code> filter fails on
+a weft attribute block it could not read, before Quarto’s filters, and
+the output check may list the same text again as leftover markup.
+Neither pair is merged.</p>
+<p>The filter must run after Quarto’s, which an extension cannot
+arrange, so <code><a href="../reference/use_quarto.html">use_quarto()</a></code> adds an entry of its own to
+<code>_quarto.yml</code> (see
+<code><a href="../articles/setup.html">vignette("setup", package = "weft")</a></code>). <strong>A project set
+up before this check gets it only when you run <code><a href="../reference/use_quarto.html">use_quarto()</a></code>
+again</strong> (or <code><a href="../reference/use_setup.html">use_setup()</a></code> again for an R Markdown
+document outside Quarto). Until then <code><a href="../reference/status.html">status()</a></code> says what is
+missing:</p>
+<pre class="text"><code>  quarto       missing   missing: _extensions/weft-check/weft-output.lua; _quarto.yml lacks the weft entries (the weft-output.lua filter entry, `at: post-render`)</code></pre>
+<p><code><a href="../reference/verify.html">verify()</a></code> collects the findings in its render part: each
+<code>fail</code> finding fails it, and <code>warn</code> findings are
+listed. Its result holds them in <code>output</code>.</p>
 </div>
 <div class="section level2">
 <h2 id="before-release-verify">Before release: <code>verify()</code><a class="anchor" aria-label="anchor" href="#before-release-verify"></a>
@@ -436,15 +639,18 @@ a commit</td>
 </tr>
 <tr class="even">
 <td><code>decisions</code></td>
-<td>checks the <code>decision</code> pointers in
-<code>dict.yml</code>
+<td>checks the <code>decision</code> pointers in <code>dict.yml</code>
+and in the documents: on <code>.weft-literal</code> and
+<code>cite</code> spans, and in <code><a href="../reference/claim.html">claim()</a></code> calls that give a
+literal <code>decision</code>
 </td>
 </tr>
 <tr class="odd">
 <td><code>render</code></td>
 <td>renders every document with Quarto (or knits it, under R Markdown),
 backing up and restoring <code>_freeze</code>, and reads the record each
-render leaves to see that every check ran and passed</td>
+render leaves to see that every check ran and passed; it also collects
+the findings of the rendered-output check, below</td>
 </tr>
 <tr class="even">
 <td><code>ledger</code></td>
@@ -452,7 +658,7 @@ render leaves to see that every check ran and passed</td>
 </tr>
 </tbody>
 </table>
-<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: passed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -471,7 +677,7 @@ is a measure of how far adoption has come. When a rule’s count reaches
 <code><a href="../reference/verify.html">verify()</a></code> if they changed.</p>
 <p>When something is wrong, <code><a href="../reference/verify.html">verify()</a></code> says what and fails.
 Here the Lower reading was mistyped as 79:</p>
-<div class="sourceCode" id="cb23"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: failed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -508,7 +714,7 @@ documents only.</li>
 <code>verify(since = "v1.0")</code> compares the lints with another
 commit.</li>
 </ul>
-<div class="sourceCode" id="cb24"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span>static <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft verify: passed</span></span>
 <span><span class="co">#&gt;   lints      1 tolerated finding</span></span>
@@ -550,7 +756,7 @@ in place of the value. See
 <p>Draft mode does not change the commit gate, which still runs.
 <code><a href="../reference/verify.html">verify()</a></code> refuses to run in draft mode, because a draft
 render fails nothing:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/verify.html">verify</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Error: verify() does not run in draft mode (rule 8.1.5): draft is on in _weft.yml. A draft render fails nothing, so it can verify nothing.</span></span></code></pre></div>
 <p>Turn draft mode off before release. <code><a href="../reference/status.html">status()</a></code> shows it as
@@ -561,7 +767,7 @@ render fails nothing:</p>
 </h2>
 <p><code><a href="../reference/status.html">status()</a></code> reports what weft has installed, and what is
 missing or out of date:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/status.html">status</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft status: creek-report</span></span>
 <span><span class="co">#&gt;   setup        ok        _weft.yml records weft 0.0.0.9001 (installed: 0.0.0.9001)</span></span>

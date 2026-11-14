@@ -69,7 +69,7 @@ Then the author sets weft up:
 weft::use_weft()
 #> weft will set up creek-report:
 #>   use_setup       .Rprofile (new), _weft.yml (new), report.qmd (edit)
-#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
+#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _extensions/weft-check/weft-output.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          skipped: origin is not on GitHub
@@ -200,6 +200,25 @@ An entry is keyed by its file, its section anchor and its expression.
 That is why the lints ask for a `{#id}` on each heading: the key stays
 the same when the heading’s words change.
 
+A **table** gets one entry too: a table that an R chunk prints, such as
+[`knitr::kable()`](https://rdrr.io/pkg/knitr/man/kable.html), gt,
+flextable or tinytable, and text that a chunk with `results: asis`
+prints. The entry holds no cells. It holds a digest of the table’s
+visible text, with the markup taken out, so a change of style, class
+name or element id is not a change, and a change of any number or word
+is. It is keyed by the chunk’s label, and by its place in the chunk when
+a chunk prints two:
+
+``` text
+{"file":"report.qmd","section":"sec-sites","kind":"table","expr":"tbl-sites","occ":1,"id":"tbl-sites","context":"chunk","text":"5c1d0e2f9a7b3c48","arm":null,"rel":null,"raw":null,"unit":null,"failed":null,"dict":[],"sentence":"Turbidity at each site."}
+```
+
+The `sentence` is the table’s caption, or the start of its text. A table
+printed as plain code output (`print(df)` without `results: asis`), a
+figure, and a table from a Python or Julia document are not recorded.
+Label the chunks that print tables, so that each keeps its name when a
+chunk is added above it.
+
 The **condition log**, `report.conditions.jsonl`, records each warning
 and error that a chunk or an inline expression raised during the render,
 and, for a document that reads targets, the ones recorded in the targets
@@ -262,6 +281,22 @@ A different value with the same printed text is not a change.
 [`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
 also lists tier-2 lint findings on lines added since the commit.
 
+Tables come last, under **Tables**: a changed table by its label, with
+its caption under it, and added and removed tables one line per ledger:
+
+``` text
+Tables
+  ~ table `tbl-sites` changed
+      Turbidity at each site.
+  report.qmd: 1 table added: tbl-flow
+```
+
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+says that a table changed, not which cells; render the two versions to
+compare them. The first render after you upgrade to a weft that records
+tables lists every table of an existing ledger as added, once. Commit
+that ledger, and the next comparison is quiet.
+
 `changes(since = )` compares with any commit, and
 `print(x, brief = TRUE)` prints only the header, the structural changes,
 the stale ledgers and the new conditions:
@@ -304,6 +339,11 @@ commit-msg: 2 weft constructs removed, and the message does not say so
 
   or commit with: git commit --trailer "Weft-Removed: 2"
 
+commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6.3.7)
+  report.qmd, as in HEAD
+       17  max(turbidity) < u(50, NTU)
+           looser: no check of max(turbidity) against a quantity in NTU remains in report.qmd
+
 commit-msg: 0.2 s
 ```
 
@@ -312,13 +352,62 @@ intended, so the author says so:
 
 ``` text
 $ git commit -m "Drop the sentence on the highest reading" --trailer "Weft-Removed: 2"
+commit-msg: note: report.qmd:17 in HEAD, `max(turbidity) < u(50, NTU)`, is gone and nothing that remains covers it (rule 6.3.7)
 commit-msg: weft passed (1 changed file, 0.2 s)
 [main c2ba829] Drop the sentence on the highest reading
 ```
 
+The note says that nothing else in the document checks the highest
+reading now (see “What still checks a removed check” below). It decides
+nothing.
+
 The trailer stays in the history, so a reviewer can find every commit
 that removed checks with `git log --grep "Weft-Removed"`. The number
 must match: a trailer that says 1 when 2 were removed is refused.
+
+### What still checks a removed check
+
+The gate also says, for each check that a commit removes, whether a
+check that remains still covers it. A document guards
+`turb_max >= trigger` in nine sentences and `turb_max > trigger` in one,
+at line 64. Deleting the sentence at line 64 leaves the document looser
+than it was, and the gate’s report says so after the constructs removed:
+
+``` text
+commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6.3.7)
+  report.qmd, as in HEAD
+       64  turb_max > trigger
+           looser: nothing that remains implies it; remaining on turb_max against trigger: `turb_max >= trigger` (9 places)
+```
+
+These lines are information. They decide nothing: the commit passes or
+fails on the constructs removed and the trailer, exactly as above. Each
+check that is gone gets one verdict:
+
+| Verdict | Means |
+|----|----|
+| covered | the same check remains, or a remaining check implies it: `x > 5` implies `x >= 5`, `x > 3` and `x != 5` |
+| looser | no remaining check implies it: checks of the same value against the same thing remain but are weaker, or only a warned check implies it (a warned check fails nothing), or nothing checks that value against that thing any more |
+| not judged | a name the check reads is assigned in more than one place in the document, so no other check is taken to cover it |
+| not read | the check is not a comparison weft reads (see [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md) in [`vignette("wording", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/wording.md)) |
+| the document is gone | the file was deleted or renamed, and its checks with it |
+
+One remaining check must cover the removed one alone: `x >= 5` and
+`x != 5` together do not cover `x > 5`. A check that does not always
+run, in an arm of a span or in a claim under an R `if` or loop, covers
+nothing.
+
+A changed bound removes no construct, so it needs no trailer. When it
+loosens the document, a passing commit prints a note before its line:
+
+``` text
+commit-msg: note: report.qmd:44 in HEAD, `n_up >= 10`, is gone and nothing that remains covers it (rule 6.3.7)
+```
+
+[`gate()`](https://vorpalvorpal.github.io/weft/reference/gate.md)
+returns the rows in `checks`. The way to keep these lines short is the
+advice of the wording article: check a value once, where it is made, and
+use its name after.
 
 ## Construct errors
 
@@ -389,6 +478,78 @@ the line to add to the hook you already run.
 for emergencies, such as R being broken. It is not a way past a finding:
 answer the finding instead. `use_hooks(remove = TRUE)` removes the hook.
 
+## What the reader sees: the rendered-output check
+
+Some mistakes show only after Quarto has done its work. A
+cross-reference to a label that does not exist prints “?@sec-missing”. A
+value that was missing prints “NA”. A fence Pandoc did not read prints
+“:::” in the text. A third filter, `weft-output.lua`, reads the finished
+document after Quarto’s own filters, in every output format, and looks
+for three things:
+
+| Kind | Finds | Setting | Default |
+|----|----|----|----|
+| unresolved reference | under Quarto, “?@sec-missing” for a cross-reference, and “?meta:key” or “?var:key” for a shortcode, where Quarto found nothing | `output_refs` | `fail` |
+| missing value in output | `NA`, `NaN`, `Inf` or `-Inf` (also `nan`, `inf`, `-inf`) as a word in prose, headings, lists, footnotes and captions | `output_missing` | `warn` |
+| leftover markup | text that starts with `:::`, an attribute block stuck to a word, such as `m{.num}`, and under Quarto bookdown’s `\@ref(` | `output_markup` | `fail` |
+
+Each setting is `fail`, `warn` or `off`, in `_weft.yml` or under a
+document’s `weft:` key. A Quarto project collects the findings with the
+other failures and reports them once, after the render, naming each
+format in which a finding occurred:
+
+``` text
+weft: 1 failure
+  ch2.qmd #sec-methods (html)  [unresolved reference] ?@sec-missing
+      As shown in ?@sec-missing, the flow was low.
+    Quarto could not resolve the reference `@sec-missing`, and printed "?@sec-missing" (rule 2.5.5).
+weft: 1 warned check(s)
+  ch2.qmd #sec-results (html)  [missing value in output] NA
+      The mean was NA across the sites.
+    "NA" in the rendered prose: a value printed as missing. Mark a deliberate one [NA]{.weft-literal why="..."} (rule 2.5.5).
+```
+
+An “NA” that is meant, such as an abbreviation, is marked
+`[NA]{.weft-literal why="not applicable"}`. Table cells, code and raw
+content are not searched for missing values, so “NA” in a table is never
+reported. “N/A”, “NULL” and “None” are not matched.
+
+What it cannot check:
+
+- citations: a filter sees a citation before the citation processor
+  runs, so an unknown key cannot be told from a known one. The
+  `cite-key` lint checks keys against the bibliography;
+- what a writer or a later program adds: bookdown’s `\@ref()` under R
+  Markdown, LaTeX’s “??”, Typst’s own references.
+
+Two filters can name the same text. `bare_missing` warns at knit time
+about a bare value that prints `NA`, naming its expression, and the
+output check warns about the same “NA” in the output, naming its
+sentence. The `weft-check` filter fails on a weft attribute block it
+could not read, before Quarto’s filters, and the output check may list
+the same text again as leftover markup. Neither pair is merged.
+
+The filter must run after Quarto’s, which an extension cannot arrange,
+so
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+adds an entry of its own to `_quarto.yml` (see
+[`vignette("setup", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/setup.md)).
+**A project set up before this check gets it only when you run
+[`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+again** (or
+[`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md)
+again for an R Markdown document outside Quarto). Until then
+[`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+says what is missing:
+
+``` text
+  quarto       missing   missing: _extensions/weft-check/weft-output.lua; _quarto.yml lacks the weft entries (the weft-output.lua filter entry, `at: post-render`)
+```
+
+[`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
+collects the findings in its render part: each `fail` finding fails it,
+and `warn` findings are listed. Its result holds them in `output`.
+
 ## Before release: `verify()`
 
 [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) is
@@ -397,8 +558,8 @@ the full check. It has four parts:
 | Part | What it does |
 |----|----|
 | `lints` | runs the tier-1 lints over the whole project and compares them with a commit |
-| `decisions` | checks the `decision` pointers in `dict.yml` |
-| `render` | renders every document with Quarto (or knits it, under R Markdown), backing up and restoring `_freeze`, and reads the record each render leaves to see that every check ran and passed |
+| `decisions` | checks the `decision` pointers in `dict.yml` and in the documents: on `.weft-literal` and `cite` spans, and in [`claim()`](https://vorpalvorpal.github.io/weft/reference/claim.md) calls that give a literal `decision` |
+| `render` | renders every document with Quarto (or knits it, under R Markdown), backing up and restoring `_freeze`, and reads the record each render leaves to see that every check ran and passed; it also collects the findings of the rendered-output check, below |
 | `ledger` | checks that no ledger is stale |
 
 ``` r

@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -373,8 +374,9 @@ and in a governor:
 <code><a href="../reference/weft_str.html">weft_str()</a></code> string), the failure is collected and the render
 fails at the end with the full report.</li>
 <li>Everywhere else (chunk code, a targets pipeline, the console), it
-stops at once with an error of class
-<code>weft_claim_failed</code>.</li>
+stops at once with an error of class <code>weft_claim_failed</code>. A
+project can collect failures in chunk code too: see “Collecting failures
+in chunk code” below.</li>
 </ul>
 <div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_exceed</span> <span class="op">&lt;-</span> <span class="fl">7</span></span>
@@ -400,6 +402,147 @@ with no variable in it, such as <code>claim(x, TRUE)</code>: the lint
 <p>When a check fails, the report asks you to read the sentence. Either
 the sentence, the check or the data is wrong. Loosening the check until
 it passes hides a sentence that is no longer true.</p>
+<div class="section level3">
+<h3 id="collecting-failures-in-chunk-code">Collecting failures in chunk code<a class="anchor" aria-label="anchor" href="#collecting-failures-in-chunk-code"></a>
+</h3>
+<p>A long report makes most of its values in chunks. By default the
+first claim that fails there stops the knit, and the claims after it
+never run. To see them all in one render, set in <code>_weft.yml</code>
+(or under a document’s <code>weft:</code> key):</p>
+<div class="sourceCode" id="cb31"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb31-1"><a href="#cb31-1" tabindex="-1"></a><span class="fu">chunk_claims</span><span class="kw">:</span><span class="at"> collect</span></span></code></pre></div>
+<p>A claim in chunk code that fails is then recorded,
+<code><a href="../reference/claim.html">claim()</a></code> returns its value as if the check had passed, and
+the knit goes on. The render fails at the end with every failure listed.
+Here is a chunk, <code>data</code>, with two claims that fail:</p>
+<div class="sourceCode" id="cb32"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">up</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">TRUE</span>, <span class="cn">FALSE</span>, <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/length.html" class="external-link">length</a></span><span class="op">(</span><span class="va">up</span><span class="op">)</span></span>
+<span><span class="va">n_up</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">up</span><span class="op">)</span>, <span class="va">.</span> <span class="op">&gt;=</span> <span class="fl">10</span><span class="op">)</span></span>
+<span><span class="va">share</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="va">n_up</span> <span class="op">/</span> <span class="va">n_sites</span>, <span class="va">.</span> <span class="op">&gt;</span> <span class="fl">0.8</span><span class="op">)</span></span></code></pre></div>
+<pre class="text"><code>weft: 2 claims failed
+  a.Rmd chunk data
+      . &gt;= 10 was FALSE (value 7L)
+  a.Rmd chunk data
+      . &gt; 0.8 was FALSE (value 0.7)
+Read each sentence. If FALSE is right, rewrite the sentence.
+Do not loosen a claim to clear this.</code></pre>
+<p>This covers chunk code, the functions it calls, the files it
+<code><a href="https://rdrr.io/r/base/source.html" class="external-link">source()</a></code>s and the chunk options knitr evaluates. In draft
+mode the failures are reported and the render does not fail.</p>
+<p>A value that failed its claim can make a later chunk fail with an
+ordinary error. When the knit stops on such an error, weft lists the
+claims first, because the error may follow from them:</p>
+<pre class="text"><code>weft: the knit stopped on an error after 2 failed claims in chunk code. The claims are listed first: the error may follow from a value that failed its claim.
+weft: 2 claims failed
+  b.Rmd chunk data
+      . &gt;= 10 was FALSE (value 7L)
+  b.Rmd chunk data
+      . &gt; 0.8 was FALSE (value 0.7)
+Read each sentence. If FALSE is right, rewrite the sentence.
+Do not loosen a claim to clear this.
+The error that stopped the knit:
+  the model did not fit</code></pre>
+<p>Some claims still stop at once, whatever the setting:</p>
+<ul>
+<li>a claim outside a knit, at the console or in a script;</li>
+<li>a claim in a running <code>targets</code> target, so that a value
+that failed its claim is never stored as good;</li>
+<li>a claim in another process, such as a <code>callr</code>,
+<code>future</code> or <code>mirai</code> worker; its error reaches the
+chunk as an ordinary error;</li>
+<li>a <code><a href="../reference/claim.html">claim()</a></code> in a Python or Julia chunk.</li>
+</ul>
+<p>The setting changes nothing in the commit gate: a claim counts there
+as before.</p>
+</div>
+<div class="section level3">
+<h3 id="check-a-value-once-where-it-is-made">Check a value once, where it is made<a class="anchor" aria-label="anchor" href="#check-a-value-once-where-it-is-made"></a>
+</h3>
+<p>A value that several sentences rely on tends to be checked in each of
+them: a guard here, a claim there. The checks drift. One sentence guards
+<code>turb_max &gt; trigger</code>, a later one
+<code>turb_max &gt;= trigger</code>, and when the stricter one is
+deleted with its sentence, the document checks less than it did and
+nobody sees it.</p>
+<p>Check the value once, in the chunk that makes it, and use the name
+after:</p>
+<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">n_up</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/claim.html">claim</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/sum.html" class="external-link">sum</a></span><span class="op">(</span><span class="va">trend</span><span class="op">$</span><span class="va">up</span><span class="op">)</span>, <span class="va">.</span> <span class="op">&gt;=</span> <span class="fl">10</span><span class="op">)</span></span></code></pre></div>
+<div class="sourceCode" id="cb36"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb36-1"><a href="#cb36-1" tabindex="-1"></a>Turbidity rose at <span class="in">`r n_up`</span> sites. Of the <span class="in">`r n_up`</span> sites that rose, ...</span></code></pre></div>
+<p><code><a href="../reference/claim.html">claim()</a></code> returns its value, so <code>n_up</code> is the
+checked value, and every sentence that prints it rests on that one
+check. Combined with <code>chunk_claims: collect</code>, a failure there
+is listed at the end of the render with the rest.</p>
+</div>
+<div class="section level3">
+<h3 id="seeing-every-check-checks">Seeing every check: <code>checks()</code><a class="anchor" aria-label="anchor" href="#seeing-every-check-checks"></a>
+</h3>
+<p><code><a href="../reference/checks.html">checks()</a></code> reads the documents of a project, runs nothing,
+and lists each check by the value it checks: one-arm guards,
+<code><a href="../reference/claim.html">claim()</a></code> checks, and the conditions of two-arm
+<code>if</code> spans, which choose wording and fail nothing. Here a
+document checks <code>n_up</code> in three places, and
+<code>turb_max</code> against the trigger with two operators:</p>
+<pre class="text"><code>weft checks: 15 checks of 3 values in 1 document; 1 value flagged
+
+report.qmd
+  n_up
+    n_up &gt;= 10              3  lines 8, 44, 90
+      checked in 3 places with the same condition: check it once where the value is made
+  turb_max  [operators]
+    turb_max &gt;= trigger     9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
+    turb_max &gt; trigger      1  line 64
+  max(turb)
+    max(turb) &lt; u(50, NTU)  1  line 120
+  not read
+    claim(diffs, all(. &gt; 0))  1  line 126</code></pre>
+<ul>
+<li>
+<code>[operators]</code> marks a value checked against the same
+thing with <code>&gt;</code> in one place and <code>&gt;=</code> in
+another (or <code>&lt;</code> and <code>&lt;=</code>).
+<code>[literals]</code> marks a value checked against two different
+numbers in one direction, such as <code>x &gt; 5</code> and
+<code>x &gt; 3</code>. A lower and an upper bound, <code>x &gt; 0</code>
+and <code>x &lt; 10</code>, are not flagged.</li>
+<li>A check repeated with the same condition in three or more places
+gets the advice to check it once; <code>repeats</code> sets the
+count.</li>
+<li>A value assigned in more than one place is marked, because its
+checks may be of different values.</li>
+</ul>
+<p><code><a href="../reference/checks.html">checks()</a></code> returns a data frame, one row per check, so you
+can filter it.</p>
+<p>What it reads. A check is read when it is a comparison with one of
+<code>&lt;</code>, <code>&lt;=</code>, <code>&gt;</code>,
+<code>&gt;=</code>, <code>==</code> and <code>!=</code>, each side a
+name, a dictionary read such as <code>dict$trigger</code>, a number, a
+quoted string or date, <code>TRUE</code> or <code>FALSE</code>, a
+quantity such as <code>u(50, NTU)</code>, or a value expression such as
+<code>max(turbidity)</code> or <code>x[1]</code>; or when it is a bare
+name or <code>!name</code>. In a claim, <code>.</code> stands for the
+value: the name claimed, the value piped in, or the name the result is
+assigned to, so <code>n_up &lt;- claim(sum(trend$up), . &gt;= 10)</code>
+reads as <code>n_up &gt;= 10</code>. Two expressions are one value only
+when they are written alike once spacing, line breaks, comments, quote
+marks and the native pipe are set aside: <code>max(t)</code> and
+<code>base::max(t)</code> are two values, and
+<code>x &lt; 2 * lim</code> says nothing about
+<code>x &lt; lim</code>.</p>
+<p>Not read, and listed under “not read”: a check that is itself a call
+(<code>all(. &gt; 0)</code>, <code>is.na(.)</code>,
+<code>in_range(., r)</code>), a check with <code>&amp;&amp;</code>,
+<code>||</code> or <code>%in%</code> at its top, a <code>.</code> inside
+an expression (<code>mean(.) &gt; 3</code>), and an expression that
+reads no name, assigns, defines a function, calls a method, or calls
+something whose value changes between two calls (<code><a href="https://rdrr.io/r/stats/Uniform.html" class="external-link">runif()</a></code>,
+<code><a href="https://rdrr.io/r/base/Sys.time.html" class="external-link">Sys.time()</a></code>, <code><a href="https://rdrr.io/r/base/get.html" class="external-link">get()</a></code>). Python and Julia checks
+are not read. Binding a name, as above, is the way to have every check
+on a value grouped under it.</p>
+<p>The commit gate uses the same reading to say, when a check is
+removed, whether one that remains still covers it. See
+<code><a href="../articles/gate.html">vignette("gate", package = "weft")</a></code>.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="phrases-chosen-by-key-or-by-range">Phrases chosen by key or by range<a class="anchor" aria-label="anchor" href="#phrases-chosen-by-key-or-by-range"></a>
@@ -407,7 +550,7 @@ it passes hides a sentence that is no longer true.</p>
 <p><code><a href="../reference/lookup.html">lookup()</a></code> builds a function that turns a key into a
 phrase. <code><a href="../reference/lookup.html">brk()</a></code> builds one that turns a number into a phrase
 by ranges, tried in order:</p>
-<div class="sourceCode" id="cb31"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb38"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">tier_lab</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/lookup.html">lookup</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>ref <span class="op">=</span> <span class="st">"Reference"</span>, mod <span class="op">=</span> <span class="st">"Moderately disturbed"</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="fu">tier_lab</span><span class="op">(</span><span class="st">"mod"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Moderately disturbed"</span></span>
@@ -416,12 +559,12 @@ by ranges, tried in order:</p>
 <span><span class="fu">trend</span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.9</span>, <span class="fl">1</span>, <span class="fl">1.12</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "a fall in"    "no change in" "a rise in"</span></span></code></pre></div>
 <p>In prose the call is an ordinary value:</p>
-<div class="sourceCode" id="cb32"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb32-1"><a href="#cb32-1" tabindex="-1"></a>The index showed <span class="in">`r trend(ratio)`</span> abundance.</span></code></pre></div>
+<div class="sourceCode" id="cb39"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb39-1"><a href="#cb39-1" tabindex="-1"></a>The index showed <span class="in">`r trend(ratio)`</span> abundance.</span></code></pre></div>
 <pre class="text"><code>The index showed a rise in abundance.</code></pre>
 <p>Both functions stop on a key or a value they cannot place, and an
 <code>NA</code> is a “no value” failure: it never falls through to a
 default phrase.</p>
-<div class="sourceCode" id="cb34"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb41"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">tier_lab</span><span class="op">(</span><span class="st">"high"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> lookup(): "high" is not a key; the keys are "ref", "mod" (rule 3.3.2).</span></span>
@@ -437,7 +580,7 @@ or <code>breaks</code> entry (see
 <h2 id="phrase-functions">Phrase functions<a class="anchor" aria-label="anchor" href="#phrase-functions"></a>
 </h2>
 <p>Some wording is fixed by arithmetic. These functions print it:</p>
-<div class="sourceCode" id="cb35"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/phrases.html">of_n</a></span><span class="op">(</span><span class="fl">3</span>, <span class="fl">7</span>, <span class="st">"site"</span>, <span class="st">"sites"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "3 of the 7 sites"</span></span>
@@ -474,7 +617,7 @@ or <code>breaks</code> entry (see
 <p><code><a href="../reference/phrases.html">about()</a></code> refuses a value that is further than its
 tolerance from the target, because “nearly half” would then be
 false:</p>
-<div class="sourceCode" id="cb36"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb43"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/phrases.html">about</a></span><span class="op">(</span><span class="fl">0.3</span><span class="op">)</span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
 <span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> about(0.3, to = 0.5): the value is further than the tolerance (0.05) from the target, so "half" would not be true.</span></span></code></pre></div>
@@ -484,13 +627,37 @@ path. In a document, write <code><a href="../reference/phrases.html">weft::of_n(
 <p>The tolerance of <code><a href="../reference/phrases.html">about()</a></code> and the level of
 <code><a href="../reference/phrases.html">ci()</a></code> come from the settings <code>about_tolerance</code>
 (0.05) and <code>ci_level</code> (0.95).</p>
+<p><code><a href="../reference/phrases.html">ci()</a></code> has three switches. <code>short = TRUE</code> drops
+the level text, <code>pct = TRUE</code> prints each number as
+<code>.pct</code> does, and <code>plus = TRUE</code> signs each number
+as <code>.plus</code> does:</p>
+<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/phrases.html">ci</a></span><span class="op">(</span><span class="fl">2.1</span>, <span class="fl">1.3</span>, <span class="fl">2.9</span>, short <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "2.1 (1.3 to 2.9)"</span></span>
+<span><span class="fu"><a href="../reference/phrases.html">ci</a></span><span class="op">(</span><span class="fl">0.12</span>, <span class="fl">0.08</span>, <span class="fl">0.16</span>, pct <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "12% (95% CI 8% to 16%)"</span></span>
+<span><span class="fu"><a href="../reference/phrases.html">ci</a></span><span class="op">(</span><span class="op">-</span><span class="fl">0.4</span>, <span class="op">-</span><span class="fl">1.2</span>, <span class="fl">0.4</span>, plus <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "−0.4 (95% CI −1.2 to +0.4)"</span></span>
+<span><span class="fu"><a href="../reference/phrases.html">ci</a></span><span class="op">(</span><span class="fl">0.031</span>, <span class="fl">0.012</span>, <span class="fl">0.052</span>, pct <span class="op">=</span> <span class="cn">TRUE</span>, plus <span class="op">=</span> <span class="cn">TRUE</span>, short <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "+3.1% (+1.2% to +5.2%)"</span></span></code></pre></div>
+<p>The setting <code>ci_short: true</code> makes the short form the
+default for a project. A short interval that names its own level is an
+error, because the reader would take a 90% interval for a 95% one:</p>
+<div class="sourceCode" id="cb45"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/phrases.html">ci</a></span><span class="op">(</span><span class="fl">2.1</span>, <span class="fl">1.3</span>, <span class="fl">2.9</span>, level <span class="op">=</span> <span class="fl">0.9</span>, short <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> ci(): the short form prints no level, and `level = 0.9` was given; give `short = FALSE` to print it, or drop `level` (rule 3.5.3).</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="spans-in-r-code">Spans in R code<a class="anchor" aria-label="anchor" href="#spans-in-r-code"></a>
 </h2>
 <p><code><a href="../reference/plural.html">plural()</a></code> is the function form of an <code>n</code>
 span:</p>
-<div class="sourceCode" id="cb37"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb46"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/plural.html">plural</a></span><span class="op">(</span><span class="fl">1</span>, <span class="st">"a person"</span>, <span class="st">"# people"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "a person"</span></span>
 <span><span class="fu"><a href="../reference/plural.html">plural</a></span><span class="op">(</span><span class="fl">0</span>, <span class="st">"never"</span>, <span class="st">"once"</span>, <span class="st">"twice"</span>, <span class="st">"# times"</span><span class="op">)</span></span>
@@ -505,7 +672,7 @@ written as markup in a <code><a href="../reference/weft_str.html">weft_str()</a>
 <p>A number quoted from another study is not computed, so it goes in a
 <code>cite</code> span. The span prints its words and, with an
 <code>@</code>, the citation:</p>
-<div class="sourceCode" id="cb38"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb38-1"><a href="#cb38-1" tabindex="-1"></a>Earlier work found <span class="co">[</span><span class="ot">0.5 m in the upper reach</span><span class="co">]</span>{cite="@doe2019"}.</span></code></pre></div>
+<div class="sourceCode" id="cb47"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb47-1"><a href="#cb47-1" tabindex="-1"></a>Earlier work found <span class="co">[</span><span class="ot">0.5 m in the upper reach</span><span class="co">]</span>{cite="@doe2019"}.</span></code></pre></div>
 <pre class="text"><code>Earlier work found 0.5 m in the upper reach (Doe 2019).</code></pre>
 <p>With a bare key, <code>cite="doe2019"</code>, the span prints only
 its words, and you write the citation elsewhere in the same paragraph.
@@ -514,12 +681,27 @@ in the lints.</p>
 <p>A fixed number with no source, such as a method’s filter size, is
 marked with the class <code>.weft-literal</code> and a <code>why</code>
 that records the reason:</p>
-<div class="sourceCode" id="cb40"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb40-1"><a href="#cb40-1" tabindex="-1"></a>Samples were filtered through</span>
-<span id="cb40-2"><a href="#cb40-2" tabindex="-1"></a><span class="co">[</span><span class="ot">0.45 µm</span><span class="co">]</span>{.weft-literal why="pore size set by the laboratory method"} membranes.</span></code></pre></div>
+<div class="sourceCode" id="cb49"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb49-1"><a href="#cb49-1" tabindex="-1"></a>Samples were filtered through</span>
+<span id="cb49-2"><a href="#cb49-2" tabindex="-1"></a><span class="co">[</span><span class="ot">0.45 µm</span><span class="co">]</span>{.weft-literal why="pore size set by the laboratory method"} membranes.</span></code></pre></div>
 <pre class="text"><code>Samples were filtered through 0.45 µm membranes.</code></pre>
 <p>The <code>why</code> is removed from the output. Both marks exempt
 the number from the <code>numeral</code> lint (see
 <code><a href="../articles/lints.html">vignette("lints", package = "weft")</a></code>).</p>
+<p>When the number was chosen by a recorded decision, point at it with
+<code>decision</code>, on a <code>.weft-literal</code> span or div, on a
+<code>cite</code> span, or in a <code><a href="../reference/claim.html">claim()</a></code>:</p>
+<div class="sourceCode" id="cb51"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb51-1"><a href="#cb51-1" tabindex="-1"></a>filtered through <span class="co">[</span><span class="ot">0.45 µm</span><span class="co">]</span>{.weft-literal why="method" decision="12"} membranes</span>
+<span id="cb51-2"><a href="#cb51-2" tabindex="-1"></a>reached <span class="co">[</span><span class="ot">10 m</span><span class="co">]</span>{cite="@doe2019" decision="31"} in the upper reach</span>
+<span id="cb51-3"><a href="#cb51-3" tabindex="-1"></a><span class="in">`r claim(n_sites, . &gt;= 10, decision = 31)`</span> sites</span></code></pre></div>
+<p>The pointer prints nothing and is removed from the output. A failed
+claim says which decision set its bound: “. &gt;= 10 was FALSE (value
+7); decision 31”. <code><a href="../reference/verify.html">verify()</a></code> checks that each pointer
+resolves, as it does for the dictionary’s (see
+<code><a href="../articles/units.html">vignette("units", package = "weft")</a></code>); a
+<code>decision</code> in <code><a href="../reference/claim.html">claim()</a></code> is checked when it is
+written as a literal. A blank <code>decision</code>, or one on any other
+construct, is a construct error. Python and Julia <code><a href="../reference/claim.html">claim()</a></code>
+take no <code>decision</code> yet.</p>
 </div>
 <div class="section level2">
 <h2 id="every-wording-a-document-can-produce">Every wording a document can produce<a class="anchor" aria-label="anchor" href="#every-wording-a-document-can-produce"></a>
@@ -528,7 +710,7 @@ the number from the <code>numeral</code> lint (see
 has read yet. weft gives two tools to see them in advance.</p>
 <p><code><a href="../reference/arms.html">arms()</a></code> reads a document, runs no R, and lists every arm
 of every span:</p>
-<div class="sourceCode" id="cb42"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb52"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">f</span> <span class="op">&lt;-</span> <span class="fu"><a href="https://rdrr.io/r/base/file.path.html" class="external-link">file.path</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/tempfile.html" class="external-link">tempdir</a></span><span class="op">(</span><span class="op">)</span>, <span class="st">"daily.Rmd"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span></span>
 <span>  <span class="st">"---"</span>,</span>
@@ -563,7 +745,7 @@ of every span:</p>
 <strong>case</strong>, a named list of <code>params</code>, each in a
 fresh R process, and reports which arm each span chose and which arms no
 case reached. It writes nothing to the project.</p>
-<div class="sourceCode" id="cb44"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb54"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/rehearse.html">rehearse</a></span><span class="op">(</span><span class="st">"daily.Rmd"</span>, cases <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span></span>
 <span>  usual <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span><span class="op">)</span>,</span>
 <span>  calm  <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/list.html" class="external-link">list</a></span><span class="op">(</span>readings <span class="op">=</span> <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">3.1</span>, <span class="fl">3.4</span>, <span class="fl">3.1</span><span class="op">)</span><span class="op">)</span>,</span>

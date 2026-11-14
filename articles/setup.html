@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -149,7 +150,7 @@ remote:</p>
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/use_weft.html">use_weft</a></span><span class="op">(</span><span class="op">)</span></span>
 <span><span class="co">#&gt; weft will set up creek-site:</span></span>
 <span><span class="co">#&gt;   use_setup       .Rprofile (edit), _weft.yml (new), index.qmd (edit)</span></span>
-<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
+<span><span class="co">#&gt;   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _extensions/weft-check/weft-output.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)</span></span>
 <span><span class="co">#&gt;   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)</span></span>
 <span><span class="co">#&gt;   use_hooks       .git/hooks/commit-msg (new)</span></span>
 <span><span class="co">#&gt;   use_ci          .github/workflows/weft.yml (new)</span></span>
@@ -269,16 +270,17 @@ each one:</p>
 <span><span class="co">#&gt;   _weft.yml  (new: settings, and the weft version that set the project up)</span></span>
 <span><span class="co">#&gt;   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)</span></span>
 <span><span class="co">#&gt;   weft-check.lua  (new: the weft-check filter for rmarkdown)</span></span>
+<span><span class="co">#&gt;   weft-output.lua  (new: the rendered-output check for rmarkdown)</span></span>
 <span><span class="co">#&gt;   weft.lua  (new: the weft filter for rmarkdown)</span></span>
 <span><span class="co">#&gt;   weftlib/...  (new: the modules weft.lua loads, one line each)</span></span>
-<span><span class="co">#&gt; Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft.lua, weftlib/...</span></span></code></pre></div>
+<span><span class="co">#&gt; Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft-output.lua, weft.lua, weftlib/...</span></span></code></pre></div>
 <p>The document’s front matter was <code>output: html_document</code>.
 It is now:</p>
 <div class="sourceCode" id="cb7"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a><span class="pp">---</span></span>
 <span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a><span class="fu">title</span><span class="kw">:</span><span class="at"> </span><span class="st">"Survey"</span></span>
 <span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a><span class="fu">output</span><span class="kw">:</span></span>
 <span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a><span class="at">  </span><span class="fu">html_document</span><span class="kw">:</span></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="at">    </span><span class="fu">pandoc_args</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft.lua"</span><span class="kw">,</span><span class="at"> </span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft-check.lua"</span><span class="kw">]</span></span>
+<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a><span class="at">    </span><span class="fu">pandoc_args</span><span class="kw">:</span><span class="at"> </span><span class="kw">[</span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft.lua"</span><span class="kw">,</span><span class="at"> </span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft-check.lua"</span><span class="kw">,</span><span class="at"> </span><span class="st">"--lua-filter"</span><span class="kw">,</span><span class="at"> </span><span class="st">"weft-output.lua"</span><span class="kw">]</span></span>
 <span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="fu">knitr</span><span class="kw">:</span></span>
 <span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a><span class="at">  </span><span class="fu">opts_knit</span><span class="kw">:</span></span>
 <span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a><span class="at">    </span><span class="fu">weft</span><span class="kw">:</span><span class="at"> !expr weft::weft_setup()</span></span>
@@ -287,7 +289,12 @@ It is now:</p>
 after the knit and reports any construct left unresolved, such as a span
 whose key was misspelt. <code>weft.lua</code> resolves named values (see
 <code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>) and runs first;
-it loads its modules from <code>weftlib/</code>. In a Quarto project,
+it loads its modules from <code>weftlib/</code>.
+<code>weft-output.lua</code> runs last and checks the rendered text for
+unresolved references, missing values and leftover markup (see
+<code><a href="../articles/gate.html">vignette("gate", package = "weft")</a></code>). A document set up
+before that check gets <code>weft-output.lua</code> named last when you
+run <code><a href="../reference/use_setup.html">use_setup()</a></code> again. In a Quarto project,
 <code><a href="../reference/use_quarto.html">use_quarto()</a></code> installs the same filters as an extension.</p>
 </div>
 <div class="section level3">
@@ -313,10 +320,12 @@ file is written in a way they cannot edit safely, they change nothing
 and print the lines to add by hand:</p>
 <div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu">weft</span><span class="fu">::</span><span class="fu"><a href="../reference/use_quarto.html">use_quarto</a></span><span class="op">(</span><span class="op">)</span></span>
-<span><span class="co">#&gt; Error: weft cannot edit _quarto.yml as text without risking what is in it, so it has changed nothing. Add these lines by hand, then run use_quarto() again:</span></span>
+<span><span class="co">#&gt; Error: use_quarto(): weft cannot edit _quarto.yml as text without risking what is in it, so it has changed nothing. Add these lines by hand, then run use_quarto() again:</span></span>
 <span><span class="co">#&gt;</span></span>
 <span><span class="co">#&gt; filters:</span></span>
 <span><span class="co">#&gt;   - weft-check</span></span>
+<span><span class="co">#&gt;   - path: _extensions/weft-check/weft-output.lua</span></span>
+<span><span class="co">#&gt;     at: post-render</span></span>
 <span><span class="co">#&gt; project:</span></span>
 <span><span class="co">#&gt;   pre-render: _weft/pre-render.R</span></span>
 <span><span class="co">#&gt;   post-render: _weft/post-render.R</span></span>
@@ -339,12 +348,24 @@ line.</p>
 <span id="cb9-6"><a href="#cb9-6" tabindex="-1"></a><span class="at">    </span><span class="kw">-</span><span class="at"> _weft/post-render.R</span></span>
 <span id="cb9-7"><a href="#cb9-7" tabindex="-1"></a><span class="fu">filters</span><span class="kw">:</span></span>
 <span id="cb9-8"><a href="#cb9-8" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> quarto</span></span>
-<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> weft-check</span></span></code></pre></div>
+<span id="cb9-9"><a href="#cb9-9" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> weft-check</span></span>
+<span id="cb9-10"><a href="#cb9-10" tabindex="-1"></a><span class="at">  </span><span class="kw">-</span><span class="at"> </span><span class="fu">path</span><span class="kw">:</span><span class="at"> _extensions/weft-check/weft-output.lua</span></span>
+<span id="cb9-11"><a href="#cb9-11" tabindex="-1"></a><span class="at">    </span><span class="fu">at</span><span class="kw">:</span><span class="at"> post-render</span></span></code></pre></div>
 <ul>
 <li>
 <code>_extensions/weft-check/</code> holds the filters
 <code>weft.lua</code> and <code>weft-check.lua</code>, and the folder
 <code>weftlib/</code> that <code>weft.lua</code> loads.</li>
+<li>It also holds <code>weft-output.lua</code>, the rendered-output
+check. That filter must run after Quarto’s own filters, and an extension
+cannot place a filter there, so <code><a href="../reference/use_quarto.html">use_quarto()</a></code> names it in
+<code>_quarto.yml</code> by its path, with <code>at: post-render</code>.
+<strong>A project set up before this check gets the entry only when you
+run <code><a href="../reference/use_quarto.html">use_quarto()</a></code> again;</strong> until then
+<code><a href="../reference/status.html">status()</a></code> reports the <code>quarto</code> row as
+<code>missing</code>. See
+<code><a href="../articles/gate.html">vignette("gate", package = "weft")</a></code> for what the check
+finds.</li>
 <li>
 <code>_weft/pre-render.R</code> runs before anything renders. It
 stops the render, naming the file, when a <code>.qmd</code> holds a
@@ -497,16 +518,17 @@ lines in <code>.Rprofile</code>, or the file if weft created it</td>
 <td>R Markdown filter</td>
 <td>
 <code>weft.lua</code>, <code>weft-check.lua</code>,
-<code>weftlib/</code>, and the <code>pandoc_args</code> line that names
-them</td>
+<code>weft-output.lua</code>, <code>weftlib/</code>, and the
+<code>pandoc_args</code> line that names them</td>
 </tr>
 <tr class="odd">
 <td>Quarto</td>
 <td>
 <code>_extensions/weft-check/</code>,
 <code>_weft/pre-render.R</code>, <code>_weft/post-render.R</code>, and
-their three entries in <code>_quarto.yml</code>
-</td>
+their entries in <code>_quarto.yml</code>: <code>weft-check</code> and
+the <code>weft-output.lua</code> item under <code>filters:</code>, and
+the two scripts</td>
 </tr>
 <tr class="even">
 <td>dictionary</td>
@@ -649,9 +671,37 @@ there. A misspelt key is kept, with a warning that names it.</p>
 <td><code>values</code></td>
 </tr>
 <tr class="even">
+<td><code>p_digits</code></td>
+<td><code>null</code></td>
+<td>the decimals of <code>.p</code>, 1 to 6; <code>null</code> keeps the
+default rule</td>
+<td><code>values</code></td>
+</tr>
+<tr class="odd">
+<td><code>p_label</code></td>
+<td><code>"p"</code></td>
+<td>the text before a p-value’s relation; may be <code>""</code>
+</td>
+<td><code>values</code></td>
+</tr>
+<tr class="even">
 <td><code>ci_level</code></td>
 <td><code>0.95</code></td>
 <td>the level <code><a href="../reference/phrases.html">ci()</a></code> reports</td>
+<td><code>wording</code></td>
+</tr>
+<tr class="odd">
+<td><code>ci_short</code></td>
+<td><code>false</code></td>
+<td>whether <code><a href="../reference/phrases.html">ci()</a></code> drops the level text</td>
+<td><code>wording</code></td>
+</tr>
+<tr class="even">
+<td><code>chunk_claims</code></td>
+<td><code>"stop"</code></td>
+<td>
+<code>collect</code> records a failed claim in chunk code and goes
+on; the render fails at the end</td>
 <td><code>wording</code></td>
 </tr>
 <tr class="odd">
@@ -733,24 +783,46 @@ render</td>
 <td>below</td>
 </tr>
 <tr class="even">
+<td><code>output_refs</code></td>
+<td><code>"fail"</code></td>
+<td>unresolved references in the rendered output: <code>fail</code>,
+<code>warn</code> or <code>off</code>
+</td>
+<td><code>gate</code></td>
+</tr>
+<tr class="odd">
+<td><code>output_missing</code></td>
+<td><code>"warn"</code></td>
+<td>
+<code>NA</code>, <code>NaN</code> and <code>Inf</code> printed in
+the rendered prose</td>
+<td><code>gate</code></td>
+</tr>
+<tr class="even">
+<td><code>output_markup</code></td>
+<td><code>"fail"</code></td>
+<td>markup Pandoc did not read, left in the rendered text</td>
+<td><code>gate</code></td>
+</tr>
+<tr class="odd">
 <td><code>ledger</code></td>
 <td><code>true</code></td>
 <td>whether a render writes a ledger</td>
 <td><code>gate</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>draft</code></td>
 <td><code>false</code></td>
 <td>draft mode</td>
 <td><code>gate</code></td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>verify_skip</code></td>
 <td>none</td>
 <td>parts <code><a href="../reference/verify.html">verify()</a></code> skips</td>
 <td><code>gate</code></td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>weft_version</code></td>
 <td></td>
 <td>the version that set the project up; <code><a href="../reference/use_weft.html">use_weft()</a></code>

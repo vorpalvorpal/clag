@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -873,6 +874,22 @@ in an R chunk. A file that a package loads through <code>using</code> is
 not.</p>
 </div>
 <div class="section level3">
+<h3 id="julia-on-linux">Julia on Linux<a class="anchor" aria-label="anchor" href="#julia-on-linux"></a>
+</h3>
+<p>On Linux, R puts the system’s library folders first on the library
+search path. Julia started inside R could then load the system’s
+<code>libunwind</code> instead of its own, and crash with a segmentation
+fault the first time it handled an exception, even one caught at once
+(precompiling a package does this). weft now loads Julia’s own
+<code>libunwind</code> before it starts Julia, and starts any Julia
+child process, such as a render on the Julia engine from
+<code><a href="../reference/verify.html">verify()</a></code>, without those folders on the path. If an R chunk
+calls <code><a href="https://rdrr.io/pkg/JuliaCall/man/julia_setup.html" class="external-link">JuliaCall::julia_setup()</a></code> itself before the first
+Julia chunk or <code><a href="../reference/jl_value.html">jl_value()</a></code> read, weft cannot step in first,
+and with JuliaCall 0.17.6 (the CRAN release) the crash can still happen.
+Leave starting Julia to weft. macOS is not affected.</p>
+</div>
+<div class="section level3">
 <h3 id="calling-weft-from-julia">Calling weft from Julia<a class="anchor" aria-label="anchor" href="#calling-weft-from-julia"></a>
 </h3>
 <p>weft offers no Julia module of function forms. (The Julia package
@@ -934,6 +951,15 @@ that an earlier document imported. That can mark a value as not
 re-rendered when it need not be, never the reverse.</li>
 <li>Python chunks need reticulate’s engine;
 <code>python.reticulate = FALSE</code> is not supported.</li>
+<li>A Python or Julia <code><a href="../reference/claim.html">claim()</a></code> stops its chunk at once even
+under <code>chunk_claims: collect</code>, and takes no
+<code>decision</code> pointer.</li>
+<li>Tables that a Python or Julia chunk prints are not recorded in the
+ledger, nor are tables in a document on the Jupyter or Julia
+engine.</li>
+<li>
+<code><a href="../reference/checks.html">checks()</a></code> and the gate’s check lines do not read Python
+or Julia checks; they list them as not read.</li>
 </ul>
 </div>
   </main><aside class="col-md-3"><nav id="toc" aria-label="Table of contents"><h2>On this page</h2>

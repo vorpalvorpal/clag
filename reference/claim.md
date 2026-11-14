@@ -57,6 +57,11 @@ end of the knit. Outside a knit it is a
 `weft_claim_warning`, and `x` is returned. A check that itself raises an
 error is a failed check at the level given.
 
+With the setting `chunk_claims: collect`, a failing claim in a chunk of
+R code does not stop the knit: it is recorded, the chunk goes on with
+`x`, and the render fails once at its end with every failure listed
+(rule 2.4.4). The default, `stop`, stops at the first.
+
 ## Examples
 
 ``` r

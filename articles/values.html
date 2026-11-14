@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -172,15 +173,85 @@ dictionary as a <code>year</code> entry, which never gets a mark (see
 <span><span class="co">#&gt; [1] "2,024"</span></span></code></pre></div>
 <p>weft rounds half away from zero, on the number as written: 0.15
 prints “0.2”. It prints the minus sign as the true minus (U+2212).</p>
+<div class="section level3">
+<h3 id="a-sign-on-a-difference--plus">A sign on a difference: <code>.plus</code><a class="anchor" aria-label="anchor" href="#a-sign-on-a-difference--plus"></a>
+</h3>
+<p>A difference reads better with its sign. <code>.plus</code> prints
+<code>+</code> before a number above zero:</p>
+<div class="sourceCode" id="cb5"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a>The mean rose by <span class="in">`r d_mean`</span>{.num .plus} mg/L (<span class="in">`r d_pct`</span>{.pct .plus}).</span>
+<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>The change ranged <span class="in">`r d_rng`</span>{.range .plus} across sites.</span></code></pre></div>
+<pre class="text"><code>The mean rose by +1.2 mg/L (+12%).
+The change ranged −0.5 to +1.2 across sites.</code></pre>
+<p>with <code>d_mean &lt;- 1.2</code>, <code>d_pct &lt;- 0.12</code> and
+<code>d_rng &lt;- c(-0.5, 1.2)</code>. A negative number keeps its
+minus. A number that prints as zero has no sign, as it has no minus.
+Under <code>.range</code> the ends are joined by ” to ” when either end
+has a sign, so no dash stands next to a sign:</p>
+<div class="sourceCode" id="cb7"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.25</span>, <span class="fl">0</span>, <span class="op">-</span><span class="fl">1.25</span><span class="op">)</span>, plus <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "+1.3" "0"    "−1.3"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">1.2</span>, <span class="fl">3.4</span><span class="op">)</span>, plus <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "+1.2 to +3.4"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_range</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0</span>, <span class="fl">1.2</span><span class="op">)</span>, plus <span class="op">=</span> <span class="cn">TRUE</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "0.0 to +1.2"</span></span></code></pre></div>
+<p><code>.plus</code> goes with <code>.num</code> or <code>.pct</code>
+(alone, it implies <code>.num</code>), with a list class, and with
+<code>.a</code>: <code>`r 8`{.num .plus .a}</code> prints “a +8”. With
+<code>.sci</code>, <code>.p</code>, <code>.date</code>,
+<code>.no</code>, a wording class or <code>.val</code>, or on an
+<code>n</code>, <code>if</code>, <code>sign</code>, <code>list</code> or
+<code>cite</code> span, it is a construct error. No setting signs every
+number: a sign belongs to a difference, and a project-wide sign would
+print “+12 sites”.</p>
+</div>
+<div class="section level3">
+<h3 id="p-values-digits-and-label">p-values: <code>digits</code> and <code>label</code><a class="anchor" aria-label="anchor" href="#p-values-digits-and-label"></a>
+</h3>
+<p>By default <code>.p</code> prints three decimals below 0.1 and two
+from 0.1 up, with “p &lt; 0.001” and “p &gt; 0.99” at the ends.
+<code>digits</code> fixes the number of decimals, and the ends move with
+it, so “p = 0.000” never prints:</p>
+<div class="sourceCode" id="cb8"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_p</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0004</span>, <span class="fl">0.046</span>, <span class="fl">0.12</span>, <span class="fl">0.995</span><span class="op">)</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "p &lt; 0.001" "p = 0.046" "p = 0.12"  "p &gt; 0.99"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_p</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.0004</span>, <span class="fl">0.046</span>, <span class="fl">0.12</span>, <span class="fl">0.9996</span><span class="op">)</span>, digits <span class="op">=</span> <span class="fl">3</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "p &lt; 0.001" "p = 0.046" "p = 0.120" "p &gt; 0.999"</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_p</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">0.004</span>, <span class="fl">0.046</span>, <span class="fl">0.995</span><span class="op">)</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "p &lt; 0.01" "p = 0.05" "p &gt; 0.99"</span></span></code></pre></div>
+<p>With <code>digits = 3</code>, a value below 0.001 prints “p &lt;
+0.001”, a value that would round to 1 prints “p &gt; 0.999”, and any
+other value prints with exactly three decimals, trailing zeros kept: “p
+= 0.120”. <code>digits</code> on <code>.p</code> is a whole number from
+1 to 6. <code>sigfig</code> on <code>.p</code> is a construct error.</p>
+<p><code>label</code> sets the text before the relation. Use it for an
+adjusted value, or leave it empty to print the number alone:</p>
+<div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a>The trend was weak (<span class="in">`r fit_p`</span>{.p digits="3"}).</span>
+<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a>After correction it held (<span class="in">`r fit_q`</span>{.p label="q"}).</span>
+<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a>Effects were small (<span class="in">`r fit_p`</span>{.p label=""}).</span></code></pre></div>
+<pre class="text"><code>The trend was weak (p = 0.046).
+After correction it held (q = 0.003).
+Effects were small (0.046).</code></pre>
+<p>The label is printed as written, so <code>label="*p*"</code> prints
+an italic p. <code>label</code> on anything but <code>.p</code> is a
+construct error. The settings <code>p_digits</code> and
+<code>p_label</code> set both for a project, and a key on the value wins
+over them.</p>
+</div>
 </div>
 <div class="section level2">
 <h2 id="counts-and-wording">Counts and wording<a class="anchor" aria-label="anchor" href="#counts-and-wording"></a>
 </h2>
-<div class="sourceCode" id="cb5"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb5-1"><a href="#cb5-1" tabindex="-1"></a><span class="in">`r n_dry`</span>{.no .word .cap} sites were dry and <span class="in">`r n_wet`</span>{.count} were wet.</span>
-<span id="cb5-2"><a href="#cb5-2" tabindex="-1"></a>This is the <span class="in">`r survey_no`</span>{.ord} survey.</span>
-<span id="cb5-3"><a href="#cb5-3" tabindex="-1"></a></span>
-<span id="cb5-4"><a href="#cb5-4" tabindex="-1"></a><span class="in">`r n_wet`</span>{.word .cap} sites were wet. The logger gave</span>
-<span id="cb5-5"><a href="#cb5-5" tabindex="-1"></a><span class="in">`r record_years`</span>{.num .a}-year record.</span></code></pre></div>
+<div class="sourceCode" id="cb11"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb11-1"><a href="#cb11-1" tabindex="-1"></a><span class="in">`r n_dry`</span>{.no .word .cap} sites were dry and <span class="in">`r n_wet`</span>{.count} were wet.</span>
+<span id="cb11-2"><a href="#cb11-2" tabindex="-1"></a>This is the <span class="in">`r survey_no`</span>{.ord} survey.</span>
+<span id="cb11-3"><a href="#cb11-3" tabindex="-1"></a></span>
+<span id="cb11-4"><a href="#cb11-4" tabindex="-1"></a><span class="in">`r n_wet`</span>{.word .cap} sites were wet. The logger gave</span>
+<span id="cb11-5"><a href="#cb11-5" tabindex="-1"></a><span class="in">`r record_years`</span>{.num .a}-year record.</span></code></pre></div>
 <pre class="text"><code>No sites were dry and 12 were wet. This is the 3rd survey.
 
 Twelve sites were wet. The logger gave an 11-year record.</code></pre>
@@ -234,14 +305,14 @@ line.</p>
 <div class="section level2">
 <h2 id="lists">Lists<a class="anchor" aria-label="anchor" href="#lists"></a>
 </h2>
-<div class="sourceCode" id="cb7"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb7-1"><a href="#cb7-1" tabindex="-1"></a>We sampled <span class="in">`r sites`</span>{.and trunc="3"}, or <span class="in">`r sites`</span>{.or sep="; "}.</span>
-<span id="cb7-2"><a href="#cb7-2" tabindex="-1"></a></span>
-<span id="cb7-3"><a href="#cb7-3" tabindex="-1"></a>Means were <span class="in">`r means`</span>{.num .pairs}.</span>
-<span id="cb7-4"><a href="#cb7-4" tabindex="-1"></a></span>
-<span id="cb7-5"><a href="#cb7-5" tabindex="-1"></a>Depths ranged over <span class="in">`r depth_range`</span>{.range} m. The first visit was on</span>
-<span id="cb7-6"><a href="#cb7-6" tabindex="-1"></a><span class="in">`r visit`</span>{.date}.</span>
-<span id="cb7-7"><a href="#cb7-7" tabindex="-1"></a></span>
-<span id="cb7-8"><a href="#cb7-8" tabindex="-1"></a>Flagged sites: <span class="in">`r flagged`</span>{.and none="none"}.</span></code></pre></div>
+<div class="sourceCode" id="cb13"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb13-1"><a href="#cb13-1" tabindex="-1"></a>We sampled <span class="in">`r sites`</span>{.and trunc="3"}, or <span class="in">`r sites`</span>{.or sep="; "}.</span>
+<span id="cb13-2"><a href="#cb13-2" tabindex="-1"></a></span>
+<span id="cb13-3"><a href="#cb13-3" tabindex="-1"></a>Means were <span class="in">`r means`</span>{.num .pairs}.</span>
+<span id="cb13-4"><a href="#cb13-4" tabindex="-1"></a></span>
+<span id="cb13-5"><a href="#cb13-5" tabindex="-1"></a>Depths ranged over <span class="in">`r depth_range`</span>{.range} m. The first visit was on</span>
+<span id="cb13-6"><a href="#cb13-6" tabindex="-1"></a><span class="in">`r visit`</span>{.date}.</span>
+<span id="cb13-7"><a href="#cb13-7" tabindex="-1"></a></span>
+<span id="cb13-8"><a href="#cb13-8" tabindex="-1"></a>Flagged sites: <span class="in">`r flagged`</span>{.and none="none"}.</span></code></pre></div>
 <pre class="text"><code>We sampled Upper, Middle, Lower and 2 others, or Upper; Middle; Lower;
 Estuary or Mouth.
 
@@ -273,7 +344,7 @@ Flagged sites: none.</code></pre>
 <tr class="odd">
 <td><code>.range</code></td>
 <td>two numbers as a range (“3–5”), or “−5 to −3” when an end is
-negative</td>
+negative or, with <code>.plus</code>, signed</td>
 </tr>
 <tr class="even">
 <td>
@@ -288,9 +359,9 @@ prints a vector.</p>
 <p><code>.ul</code>, <code>.ol</code> and <code>.dl</code> make a block,
 so the value must be alone in its paragraph, and not inside a list item,
 a block quote or a table cell:</p>
-<div class="sourceCode" id="cb9"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb9-1"><a href="#cb9-1" tabindex="-1"></a><span class="an">The sites were:</span></span>
-<span id="cb9-2"><a href="#cb9-2" tabindex="-1"></a></span>
-<span id="cb9-3"><a href="#cb9-3" tabindex="-1"></a><span class="in">`r sites[1:3]`</span>{.ul}</span></code></pre></div>
+<div class="sourceCode" id="cb15"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb15-1"><a href="#cb15-1" tabindex="-1"></a><span class="an">The sites were:</span></span>
+<span id="cb15-2"><a href="#cb15-2" tabindex="-1"></a></span>
+<span id="cb15-3"><a href="#cb15-3" tabindex="-1"></a><span class="in">`r sites[1:3]`</span>{.ul}</span></code></pre></div>
 <pre class="text"><code>The sites were:
 
 - Upper
@@ -310,29 +381,34 @@ the value in double quotes.</p>
 <tbody>
 <tr class="odd">
 <td><code>digits</code></td>
-<td>decimal places</td>
+<td>decimal places (on <code>.p</code>, a whole number from 1 to 6)</td>
 </tr>
 <tr class="even">
 <td><code>sigfig</code></td>
-<td>significant figures (not with <code>digits</code>)</td>
+<td>significant figures (not with <code>digits</code>, not on
+<code>.p</code>)</td>
 </tr>
 <tr class="odd">
+<td><code>label</code></td>
+<td>the text before a p-value’s relation, <code>.p</code> only</td>
+</tr>
+<tr class="even">
 <td><code>unit</code></td>
 <td>the unit a quantity prints in (see the units article)</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>sep</code></td>
 <td>the text between list items</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>last</code></td>
 <td>the text before the last item</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>trunc</code></td>
 <td>how many items to show before “and N others”</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>none</code></td>
 <td>the text to print for an empty vector, with a list class</td>
 </tr>
@@ -350,7 +426,7 @@ in:</p>
 <li>
 <strong>Number</strong>: at most one of <code>.num</code>,
 <code>.pct</code>, <code>.sci</code>, <code>.p</code>,
-<code>.date</code>.</li>
+<code>.date</code>; and <code>.plus</code>, which is in no group.</li>
 <li>
 <strong>Wording</strong>: <code>.no</code>, then at most one of
 <code>.word</code>, <code>.count</code>, <code>.ord</code>.</li>
@@ -370,7 +446,7 @@ which the lints report without running anything.</p>
 <p>A class or key that weft does not own passes through to a Pandoc span
 around the output. <code><a href="../reference/weft_str.html">weft_str()</a></code>, described below, shows the
 markdown weft writes:</p>
-<div class="sourceCode" id="cb11"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb17"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">mean_ntu</span> <span class="op">&lt;-</span> <span class="fl">8.2333</span></span>
 <span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity was `r mean_ntu`{.num .strong} and `r mean_ntu`{.num .smallcaps}."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Turbidity was **8.2** and [8.2]{.smallcaps}."</span></span></code></pre></div>
@@ -385,7 +461,7 @@ error. The tier-2 lint <code>name</code> lists it (see
 digits is easy to miss. weft prints it, and records a <strong>warned
 check</strong>: the render does not fail, and the warning is printed at
 the end of the knit. Outside a knit it is an R warning:</p>
-<div class="sourceCode" id="cb12"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb18"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">0.04</span><span class="op">)</span></span>
 <span><span class="co">#&gt; Warning: weft: 0.04 printed as 0.0: add sigfig to show it, or digits to confirm</span></span>
 <span><span class="co">#&gt; it</span></span>
@@ -428,7 +504,7 @@ above.</p>
 </h2>
 <p>Every class <code>.x</code> has a function <code>fmt_x()</code>, for
 chunks, plot labels and table cells:</p>
-<div class="sourceCode" id="cb13"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb19"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fl">8.2333</span>, digits <span class="op">=</span> <span class="fl">2</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "8.23"</span></span>
@@ -466,20 +542,20 @@ chunks, plot labels and table cells:</p>
 carries its <strong>printed record</strong>, the number as printed,
 whether decimals show, and whether it is a bound such as “&lt; 0.01”.
 Pass one formatter’s result to another and the record goes with it:</p>
-<div class="sourceCode" id="cb14"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb20"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/fmt.html">fmt_pairs</a></span><span class="op">(</span><span class="fu"><a href="../reference/fmt.html">fmt_num</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span>Upper <span class="op">=</span> <span class="fl">4.2</span>, Middle <span class="op">=</span> <span class="fl">7.9</span>, Lower <span class="op">=</span> <span class="fl">12.6</span><span class="op">)</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "Upper (4.2), Middle (7.9) and Lower (12.6)"</span></span></code></pre></div>
 <p><code><a href="../reference/glue_vec.html">glue_vec()</a></code> is the joining engine behind
 <code>.and</code> and <code>.or</code>:</p>
-<div class="sourceCode" id="cb15"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb21"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/glue_vec.html">glue_vec</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"Upper"</span>, <span class="st">"Middle"</span>, <span class="st">"Lower"</span><span class="op">)</span>, last <span class="op">=</span> <span class="st">" or "</span><span class="op">)</span></span>
 <span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
 <span><span class="co">#&gt; [1] "Upper, Middle or Lower"</span></span></code></pre></div>
 <p><code><a href="../reference/weft_str.html">weft_str()</a></code> resolves weft markup in a string, for text
 that no chunk option reaches: a <code>kable()</code> caption, a plot
 title, text written by a chunk with <code>results: asis</code>.</p>
-<div class="sourceCode" id="cb16"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">n_sites</span> <span class="op">&lt;-</span> <span class="fl">3</span></span>
 <span><span class="fu"><a href="../reference/weft_str.html">weft_str</a></span><span class="op">(</span><span class="st">"Turbidity at `r n_sites`{.word} sites, mean `r mean_ntu`{.num} NTU."</span><span class="op">)</span></span>
 <span><span class="co">#&gt; [1] "Turbidity at three sites, mean 8.2 NTU."</span></span></code></pre></div>
@@ -490,14 +566,14 @@ title, text written by a chunk with <code>results: asis</code>.</p>
 <p>A construct works in a chunk’s caption. Write the caption as a YAML
 block scalar (<code>|</code>), because a construct in any other form of
 scalar is a construct error:</p>
-<div class="sourceCode" id="cb17"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb17-1"><a href="#cb17-1" tabindex="-1"></a><span class="in">```{r}</span></span>
-<span id="cb17-2"><a href="#cb17-2" tabindex="-1"></a><span class="in">#| label: fig-depth</span></span>
-<span id="cb17-3"><a href="#cb17-3" tabindex="-1"></a><span class="in">#| fig-cap: |</span></span>
-<span id="cb17-4"><a href="#cb17-4" tabindex="-1"></a><span class="in">#|   Depth at [a site | # sites]{n="n_sites"}, mean `r mean(d)`{.num} m.</span></span>
-<span id="cb17-5"><a href="#cb17-5" tabindex="-1"></a><span class="in">d &lt;- c(0.4, 0.7, 1.3)</span></span>
-<span id="cb17-6"><a href="#cb17-6" tabindex="-1"></a><span class="in">n_sites &lt;- length(d)</span></span>
-<span id="cb17-7"><a href="#cb17-7" tabindex="-1"></a><span class="in">barplot(d)</span></span>
-<span id="cb17-8"><a href="#cb17-8" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
+<div class="sourceCode" id="cb23"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb23-1"><a href="#cb23-1" tabindex="-1"></a><span class="in">```{r}</span></span>
+<span id="cb23-2"><a href="#cb23-2" tabindex="-1"></a><span class="in">#| label: fig-depth</span></span>
+<span id="cb23-3"><a href="#cb23-3" tabindex="-1"></a><span class="in">#| fig-cap: |</span></span>
+<span id="cb23-4"><a href="#cb23-4" tabindex="-1"></a><span class="in">#|   Depth at [a site | # sites]{n="n_sites"}, mean `r mean(d)`{.num} m.</span></span>
+<span id="cb23-5"><a href="#cb23-5" tabindex="-1"></a><span class="in">d &lt;- c(0.4, 0.7, 1.3)</span></span>
+<span id="cb23-6"><a href="#cb23-6" tabindex="-1"></a><span class="in">n_sites &lt;- length(d)</span></span>
+<span id="cb23-7"><a href="#cb23-7" tabindex="-1"></a><span class="in">barplot(d)</span></span>
+<span id="cb23-8"><a href="#cb23-8" tabindex="-1"></a><span class="in">```</span></span></code></pre></div>
 <p>The caption is resolved after the chunk runs, so it sees objects the
 chunk made. The same works in <code>fig-alt</code>,
 <code>fig-subcap</code> and <code>tbl-cap</code> under Quarto, and in
@@ -510,11 +586,11 @@ figure div instead.</p>
 when written as a block scalar. Front matter is read before any chunk
 runs, so a field that needs a chunk’s values goes in a second metadata
 block at the end of the document:</p>
-<div class="sourceCode" id="cb18"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb18-1"><a href="#cb18-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb18-2"><a href="#cb18-2" tabindex="-1"></a><span class="an">abstract:</span><span class="co"> |</span></span>
-<span id="cb18-3"><a href="#cb18-3" tabindex="-1"></a><span class="co">  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of</span></span>
-<span id="cb18-4"><a href="#cb18-4" tabindex="-1"></a><span class="co">  `r mean(d)`{.num} m.</span></span>
-<span id="cb18-5"><a href="#cb18-5" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
+<div class="sourceCode" id="cb24"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb24-1"><a href="#cb24-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb24-2"><a href="#cb24-2" tabindex="-1"></a><span class="an">abstract:</span><span class="co"> |</span></span>
+<span id="cb24-3"><a href="#cb24-3" tabindex="-1"></a><span class="co">  We sampled [a site | # sites]{n="n_sites"}, to a mean depth of</span></span>
+<span id="cb24-4"><a href="#cb24-4" tabindex="-1"></a><span class="co">  `r mean(d)`{.num} m.</span></span>
+<span id="cb24-5"><a href="#cb24-5" tabindex="-1"></a><span class="co">---</span></span></code></pre></div>
 </div>
 <div class="section level2">
 <h2 id="changing-the-defaults">Changing the defaults<a class="anchor" aria-label="anchor" href="#changing-the-defaults"></a>
@@ -570,6 +646,18 @@ matter. The settings for values are:</p>
 <td>whether <code>.pct</code> reads 0.12 as 12%</td>
 </tr>
 <tr class="even">
+<td><code>p_digits</code></td>
+<td><code>null</code></td>
+<td>the decimals of <code>.p</code>, 1 to 6; <code>null</code> keeps the
+default rule</td>
+</tr>
+<tr class="odd">
+<td><code>p_label</code></td>
+<td><code>"p"</code></td>
+<td>the text before a p-value’s relation; may be <code>""</code>
+</td>
+</tr>
+<tr class="even">
 <td><code>count_threshold</code></td>
 <td><code>10</code></td>
 <td>where <code>.count</code> switches from words to digits</td>
@@ -600,36 +688,36 @@ check</td>
 </tbody>
 </table>
 <p>With this <code>_weft.yml</code>:</p>
-<div class="sourceCode" id="cb19"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb19-1"><a href="#cb19-1" tabindex="-1"></a><span class="fu">digits</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
-<span id="cb19-2"><a href="#cb19-2" tabindex="-1"></a><span class="fu">serial_comma</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
-<span id="cb19-3"><a href="#cb19-3" tabindex="-1"></a><span class="fu">count_threshold</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
-<span id="cb19-4"><a href="#cb19-4" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
-<span id="cb19-5"><a href="#cb19-5" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
-<span id="cb19-6"><a href="#cb19-6" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
-<span id="cb19-7"><a href="#cb19-7" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span></code></pre></div>
+<div class="sourceCode" id="cb25"><pre class="sourceCode yaml"><code class="sourceCode yaml"><span id="cb25-1"><a href="#cb25-1" tabindex="-1"></a><span class="fu">digits</span><span class="kw">:</span><span class="at"> </span><span class="dv">2</span></span>
+<span id="cb25-2"><a href="#cb25-2" tabindex="-1"></a><span class="fu">serial_comma</span><span class="kw">:</span><span class="at"> </span><span class="ch">true</span></span>
+<span id="cb25-3"><a href="#cb25-3" tabindex="-1"></a><span class="fu">count_threshold</span><span class="kw">:</span><span class="at"> </span><span class="dv">20</span></span>
+<span id="cb25-4"><a href="#cb25-4" tabindex="-1"></a><span class="fu">formatters</span><span class="kw">:</span></span>
+<span id="cb25-5"><a href="#cb25-5" tabindex="-1"></a><span class="at">  </span><span class="fu">.millions</span><span class="kw">:</span></span>
+<span id="cb25-6"><a href="#cb25-6" tabindex="-1"></a><span class="at">    </span><span class="fu">function</span><span class="kw">:</span><span class="at"> in_millions</span></span>
+<span id="cb25-7"><a href="#cb25-7" tabindex="-1"></a><span class="at">    </span><span class="fu">stage</span><span class="kw">:</span><span class="at"> number</span></span></code></pre></div>
 <p>and this document:</p>
-<div class="sourceCode" id="cb20"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb20-1"><a href="#cb20-1" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb20-2"><a href="#cb20-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Settings"</span></span>
-<span id="cb20-3"><a href="#cb20-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> html_document</span></span>
-<span id="cb20-4"><a href="#cb20-4" tabindex="-1"></a><span class="an">knitr:</span></span>
-<span id="cb20-5"><a href="#cb20-5" tabindex="-1"></a><span class="co">  opts_knit:</span></span>
-<span id="cb20-6"><a href="#cb20-6" tabindex="-1"></a><span class="co">    weft: !expr weft::weft_setup()</span></span>
-<span id="cb20-7"><a href="#cb20-7" tabindex="-1"></a><span class="an">weft:</span></span>
-<span id="cb20-8"><a href="#cb20-8" tabindex="-1"></a><span class="co">  date_format: "%d/%m/%Y"</span></span>
-<span id="cb20-9"><a href="#cb20-9" tabindex="-1"></a><span class="co">---</span></span>
-<span id="cb20-10"><a href="#cb20-10" tabindex="-1"></a></span>
-<span id="cb20-11"><a href="#cb20-11" tabindex="-1"></a><span class="in">```{r data}</span></span>
-<span id="cb20-12"><a href="#cb20-12" tabindex="-1"></a><span class="in">in_millions &lt;- function(x) paste(format(round(x / 1e6, 1), nsmall = 1), "million")</span></span>
-<span id="cb20-13"><a href="#cb20-13" tabindex="-1"></a><span class="in">mean_ntu &lt;- 8.2333</span></span>
-<span id="cb20-14"><a href="#cb20-14" tabindex="-1"></a><span class="in">n_wet &lt;- 12</span></span>
-<span id="cb20-15"><a href="#cb20-15" tabindex="-1"></a><span class="in">sites &lt;- c("Upper", "Middle", "Lower")</span></span>
-<span id="cb20-16"><a href="#cb20-16" tabindex="-1"></a><span class="in">visit &lt;- as.Date("2024-09-02")</span></span>
-<span id="cb20-17"><a href="#cb20-17" tabindex="-1"></a><span class="in">volume &lt;- 1234567</span></span>
-<span id="cb20-18"><a href="#cb20-18" tabindex="-1"></a><span class="in">```</span></span>
-<span id="cb20-19"><a href="#cb20-19" tabindex="-1"></a></span>
-<span id="cb20-20"><a href="#cb20-20" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}. <span class="in">`r n_wet`</span>{.count .cap} sites were wet:</span>
-<span id="cb20-21"><a href="#cb20-21" tabindex="-1"></a><span class="in">`r sites`</span>{.and}. The first visit was on <span class="in">`r visit`</span>{.date}. The pond holds</span>
-<span id="cb20-22"><a href="#cb20-22" tabindex="-1"></a><span class="in">`r volume`</span>{.millions} litres.</span></code></pre></div>
+<div class="sourceCode" id="cb26"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="an">title:</span><span class="co"> "Settings"</span></span>
+<span id="cb26-3"><a href="#cb26-3" tabindex="-1"></a><span class="an">output:</span><span class="co"> html_document</span></span>
+<span id="cb26-4"><a href="#cb26-4" tabindex="-1"></a><span class="an">knitr:</span></span>
+<span id="cb26-5"><a href="#cb26-5" tabindex="-1"></a><span class="co">  opts_knit:</span></span>
+<span id="cb26-6"><a href="#cb26-6" tabindex="-1"></a><span class="co">    weft: !expr weft::weft_setup()</span></span>
+<span id="cb26-7"><a href="#cb26-7" tabindex="-1"></a><span class="an">weft:</span></span>
+<span id="cb26-8"><a href="#cb26-8" tabindex="-1"></a><span class="co">  date_format: "%d/%m/%Y"</span></span>
+<span id="cb26-9"><a href="#cb26-9" tabindex="-1"></a><span class="co">---</span></span>
+<span id="cb26-10"><a href="#cb26-10" tabindex="-1"></a></span>
+<span id="cb26-11"><a href="#cb26-11" tabindex="-1"></a><span class="in">```{r data}</span></span>
+<span id="cb26-12"><a href="#cb26-12" tabindex="-1"></a><span class="in">in_millions &lt;- function(x) paste(format(round(x / 1e6, 1), nsmall = 1), "million")</span></span>
+<span id="cb26-13"><a href="#cb26-13" tabindex="-1"></a><span class="in">mean_ntu &lt;- 8.2333</span></span>
+<span id="cb26-14"><a href="#cb26-14" tabindex="-1"></a><span class="in">n_wet &lt;- 12</span></span>
+<span id="cb26-15"><a href="#cb26-15" tabindex="-1"></a><span class="in">sites &lt;- c("Upper", "Middle", "Lower")</span></span>
+<span id="cb26-16"><a href="#cb26-16" tabindex="-1"></a><span class="in">visit &lt;- as.Date("2024-09-02")</span></span>
+<span id="cb26-17"><a href="#cb26-17" tabindex="-1"></a><span class="in">volume &lt;- 1234567</span></span>
+<span id="cb26-18"><a href="#cb26-18" tabindex="-1"></a><span class="in">```</span></span>
+<span id="cb26-19"><a href="#cb26-19" tabindex="-1"></a></span>
+<span id="cb26-20"><a href="#cb26-20" tabindex="-1"></a>Mean turbidity was <span class="in">`r mean_ntu`</span>{.num}. <span class="in">`r n_wet`</span>{.count .cap} sites were wet:</span>
+<span id="cb26-21"><a href="#cb26-21" tabindex="-1"></a><span class="in">`r sites`</span>{.and}. The first visit was on <span class="in">`r visit`</span>{.date}. The pond holds</span>
+<span id="cb26-22"><a href="#cb26-22" tabindex="-1"></a><span class="in">`r volume`</span>{.millions} litres.</span></code></pre></div>
 <p>the paragraph renders as:</p>
 <pre class="text"><code>Mean turbidity was 8.23. Twelve sites were wet: Upper, Middle, and Lower.
 The first visit was on 02/09/2024. The pond holds 1.2 million litres.</code></pre>

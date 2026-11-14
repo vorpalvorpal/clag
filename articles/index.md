@@ -26,5 +26,7 @@
 
 - [Setting up a
   project](https://vorpalvorpal.github.io/weft/articles/setup.md):
+- [Adopting weft in an existing
+  report](https://vorpalvorpal.github.io/weft/articles/adopting.md):
 - [Working with coding
   agents](https://vorpalvorpal.github.io/weft/articles/agents.md):

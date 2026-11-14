@@ -140,6 +140,9 @@ See which arms a document can choose, and what the last knit did.
 - [`print(`*`<weft_findings>`*`)`](https://vorpalvorpal.github.io/weft/reference/lints.md)
   [`lints()`](https://vorpalvorpal.github.io/weft/reference/lints.md) :
   Lint a project's documents without running them
+- [`checks()`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  [`print(`*`<weft_checks>`*`)`](https://vorpalvorpal.github.io/weft/reference/checks.md)
+  : Checks of one value, compared
 - [`lint_rules()`](https://vorpalvorpal.github.io/weft/reference/lint_rules.md)
   : The static lints
 - [`label_seed()`](https://vorpalvorpal.github.io/weft/reference/label_seed.md)

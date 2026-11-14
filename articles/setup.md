@@ -32,7 +32,7 @@ remote:
 weft::use_weft()
 #> weft will set up creek-site:
 #>   use_setup       .Rprofile (edit), _weft.yml (new), index.qmd (edit)
-#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
+#>   use_quarto      _extensions/weft-check/_extension.yml (new), _extensions/weft-check/weft.lua (new), _extensions/weft-check/weftlib/ (new), _extensions/weft-check/weft-check.lua (new), _extensions/weft-check/weft-output.lua (new), _weft/pre-render.R (new), _weft/post-render.R (new), _quarto.yml (edit)
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          .github/workflows/weft.yml (new)
@@ -169,9 +169,10 @@ weft::use_setup()
 #>   _weft.yml  (new: settings, and the weft version that set the project up)
 #>   survey.Rmd  (edit: adds the weft setup line and names the weft-check filter)
 #>   weft-check.lua  (new: the weft-check filter for rmarkdown)
+#>   weft-output.lua  (new: the rendered-output check for rmarkdown)
 #>   weft.lua  (new: the weft filter for rmarkdown)
 #>   weftlib/...  (new: the modules weft.lua loads, one line each)
-#> Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft.lua, weftlib/...
+#> Wrote: _weft.yml, survey.Rmd, weft-check.lua, weft-output.lua, weft.lua, weftlib/...
 ```
 
 The document’s front matter was `output: html_document`. It is now:
@@ -181,7 +182,7 @@ The document’s front matter was `output: html_document`. It is now:
 title: "Survey"
 output:
   html_document:
-    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]
+    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]
 knitr:
   opts_knit:
     weft: !expr weft::weft_setup()
@@ -192,8 +193,14 @@ knitr:
 and reports any construct left unresolved, such as a span whose key was
 misspelt. `weft.lua` resolves named values (see
 [`vignette("named-values", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/named-values.md))
-and runs first; it loads its modules from `weftlib/`. In a Quarto
-project,
+and runs first; it loads its modules from `weftlib/`. `weft-output.lua`
+runs last and checks the rendered text for unresolved references,
+missing values and leftover markup (see
+[`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md)).
+A document set up before that check gets `weft-output.lua` named last
+when you run
+[`use_setup()`](https://vorpalvorpal.github.io/weft/reference/use_setup.md)
+again. In a Quarto project,
 [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
 installs the same filters as an extension.
 
@@ -223,10 +230,12 @@ change nothing and print the lines to add by hand:
 ``` r
 
 weft::use_quarto()
-#> Error: weft cannot edit _quarto.yml as text without risking what is in it, so it has changed nothing. Add these lines by hand, then run use_quarto() again:
+#> Error: use_quarto(): weft cannot edit _quarto.yml as text without risking what is in it, so it has changed nothing. Add these lines by hand, then run use_quarto() again:
 #>
 #> filters:
 #>   - weft-check
+#>   - path: _extensions/weft-check/weft-output.lua
+#>     at: post-render
 #> project:
 #>   pre-render: _weft/pre-render.R
 #>   post-render: _weft/post-render.R
@@ -251,10 +260,24 @@ project:
 filters:
   - quarto
   - weft-check
+  - path: _extensions/weft-check/weft-output.lua
+    at: post-render
 ```
 
 - `_extensions/weft-check/` holds the filters `weft.lua` and
   `weft-check.lua`, and the folder `weftlib/` that `weft.lua` loads.
+- It also holds `weft-output.lua`, the rendered-output check. That
+  filter must run after Quarto’s own filters, and an extension cannot
+  place a filter there, so
+  [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+  names it in `_quarto.yml` by its path, with `at: post-render`. **A
+  project set up before this check gets the entry only when you run
+  [`use_quarto()`](https://vorpalvorpal.github.io/weft/reference/use_quarto.md)
+  again;** until then
+  [`status()`](https://vorpalvorpal.github.io/weft/reference/status.md)
+  reports the `quarto` row as `missing`. See
+  [`vignette("gate", package = "weft")`](https://vorpalvorpal.github.io/weft/articles/gate.md)
+  for what the check finds.
 - `_weft/pre-render.R` runs before anything renders. It stops the
   render, naming the file, when a `.qmd` holds a construct and has no
   `engine: knitr`.
@@ -388,8 +411,8 @@ function; the rest are files to delete or lines to remove.
 | hook | `use_hooks(remove = TRUE)`, which also removes `.git/weft/` |
 | activation, `.Rprofile` route | the two `# weft:` and [`weft::weft_setup()`](https://vorpalvorpal.github.io/weft/reference/weft_setup.md) lines in `.Rprofile`, or the file if weft created it |
 | activation, front-matter route | the `knitr: opts_knit: weft:` lines in each document |
-| R Markdown filter | `weft.lua`, `weft-check.lua`, `weftlib/`, and the `pandoc_args` line that names them |
-| Quarto | `_extensions/weft-check/`, `_weft/pre-render.R`, `_weft/post-render.R`, and their three entries in `_quarto.yml` |
+| R Markdown filter | `weft.lua`, `weft-check.lua`, `weft-output.lua`, `weftlib/`, and the `pandoc_args` line that names them |
+| Quarto | `_extensions/weft-check/`, `_weft/pre-render.R`, `_weft/post-render.R`, and their entries in `_quarto.yml`: `weft-check` and the `weft-output.lua` item under `filters:`, and the two scripts |
 | dictionary | `dict.yml` and `_weft/dict.schema.json` |
 | continuous integration | `.github/workflows/weft.yml` |
 | agent documents | the block between `<!-- weft:start` and `<!-- weft:end -->` in `AGENTS.md`, and `.claude/skills/weft/` |
@@ -440,7 +463,11 @@ warning that names it.
 | `date_format` | `"%-d %B %Y"` | the format of `.date` | `values` |
 | `governor_class` | `".num"` | the class that formats the number of an `n` or `sign` span | `values` |
 | `formatters` | none | project formatters | `values` |
+| `p_digits` | `null` | the decimals of `.p`, 1 to 6; `null` keeps the default rule | `values` |
+| `p_label` | `"p"` | the text before a p-value’s relation; may be `""` | `values` |
 | `ci_level` | `0.95` | the level [`ci()`](https://vorpalvorpal.github.io/weft/reference/phrases.md) reports | `wording` |
+| `ci_short` | `false` | whether [`ci()`](https://vorpalvorpal.github.io/weft/reference/phrases.md) drops the level text | `wording` |
+| `chunk_claims` | `"stop"` | `collect` records a failed claim in chunk code and goes on; the render fails at the end | `wording` |
 | `about_tolerance` | `0.05` | how close [`about()`](https://vorpalvorpal.github.io/weft/reference/phrases.md) must be | `wording` |
 | `sentence_start_fail` | `false` | fail on a number printed as a numeral at the start of a sentence | `wording` |
 | `unit_form` | `"auto"` | whether units print as symbols or names (`auto`, `symbol`, `name`) | `units` |
@@ -452,6 +479,9 @@ warning that names it.
 | `bare_missing` | `true` | whether a bare value that prints `NA`, `NaN`, `Inf` or `-Inf` is a warned check | `values` |
 | `anchor_calls` | none | helper calls that define anchors for the cross-reference lints | `lints` |
 | `severity` | two patterns | regular expressions: a warning or message that matches one fails the render | below |
+| `output_refs` | `"fail"` | unresolved references in the rendered output: `fail`, `warn` or `off` | `gate` |
+| `output_missing` | `"warn"` | `NA`, `NaN` and `Inf` printed in the rendered prose | `gate` |
+| `output_markup` | `"fail"` | markup Pandoc did not read, left in the rendered text | `gate` |
 | `ledger` | `true` | whether a render writes a ledger | `gate` |
 | `draft` | `false` | draft mode | `gate` |
 | `verify_skip` | none | parts [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md) skips | `gate` |

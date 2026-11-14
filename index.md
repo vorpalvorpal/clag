@@ -124,7 +124,11 @@ lints](https://vorpalvorpal.github.io/weft/articles/lints.html).
 **The commit gate and
 [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md).**
 A git hook refuses a commit that adds a typed number or a construct
-error, or that removes computed values without saying so.
+error, or that removes computed values without saying so. Each render
+writes a ledger of the values, wording and tables it printed, which
+[`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+compares between commits, and checks the rendered output for references
+Quarto could not resolve and values printed as “NA”.
 [`verify()`](https://vorpalvorpal.github.io/weft/reference/verify.md)
 renders the whole project and checks every claim before a release. See
 [The commit gate, the ledger and
@@ -134,8 +138,10 @@ verify()](https://vorpalvorpal.github.io/weft/articles/gate.html).
 [`use_weft()`](https://vorpalvorpal.github.io/weft/reference/use_weft.md)
 writes everything a project needs, and says what it will write first.
 See [Setting up a
-project](https://vorpalvorpal.github.io/weft/articles/setup.html). If an
-AI coding agent edits your documents, read [Working with coding
+project](https://vorpalvorpal.github.io/weft/articles/setup.html), and,
+to bring a long report across, [Adopting weft in an existing
+report](https://vorpalvorpal.github.io/weft/articles/adopting.html). If
+an AI coding agent edits your documents, read [Working with coding
 agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
 
 Start with [Getting

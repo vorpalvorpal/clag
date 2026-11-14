@@ -48,6 +48,7 @@
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul>
 </li>
@@ -440,6 +441,11 @@ entry of every type:</p>
 <span>  <span class="st">"  value: 5"</span>,</span>
 <span>  <span class="st">"  type: number"</span>,</span>
 <span>  <span class="st">"  definition: \"Fewest samples a site needs in a season.\""</span>,</span>
+<span>  <span class="st">"do_band:"</span>,</span>
+<span>  <span class="st">"  value: [6.5, 8.5]"</span>,</span>
+<span>  <span class="st">"  type: range"</span>,</span>
+<span>  <span class="st">"  unit: mg/L"</span>,</span>
+<span>  <span class="st">"  definition: \"Acceptable band of dissolved oxygen.\""</span>,</span>
 <span>  <span class="st">"first_year:"</span>,</span>
 <span>  <span class="st">"  value: 2014"</span>,</span>
 <span>  <span class="st">"  type: year"</span>,</span>
@@ -489,27 +495,35 @@ entry of every type:</p>
 <td>a quantity, in its <code>display</code> unit when it has one</td>
 </tr>
 <tr class="odd">
+<td><code>range</code></td>
+<td>two numbers, lower then upper, with an optional
+<code>unit</code>
+</td>
+<td>a pair named <code>lower</code> and <code>upper</code>, a quantity
+pair when it has a unit</td>
+</tr>
+<tr class="even">
 <td><code>year</code></td>
 <td>a four-digit year</td>
 <td>a year, which never gets a thousands mark</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>date</code></td>
 <td><code>YYYY-MM-DD</code></td>
 <td>a <code>Date</code>
 </td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>string</code></td>
 <td>text</td>
 <td>a string</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>labels</code></td>
 <td>a map from key to phrase</td>
 <td>a <code><a href="../reference/lookup.html">lookup()</a></code> function</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>breaks</code></td>
 <td>a list of bands, each with <code>below</code> or
 <code>at_most</code> and a <code>phrase</code>
@@ -525,10 +539,11 @@ reads it:</p>
 <div class="sourceCode" id="cb22"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="va">dict</span> <span class="op">&lt;-</span> <span class="fu"><a href="../reference/read_dict.html">read_dict</a></span><span class="op">(</span><span class="st">"dict.yml"</span><span class="op">)</span></span>
 <span><span class="va">dict</span></span>
-<span><span class="co">#&gt; &lt;weft_dict&gt; dict.yml: 8 keys</span></span>
+<span><span class="co">#&gt; &lt;weft_dict&gt; dict.yml: 9 keys</span></span>
 <span><span class="co">#&gt;   trigger  quantity  10 NTU</span></span>
 <span><span class="co">#&gt;   reach_len  quantity  2 km</span></span>
 <span><span class="co">#&gt;   min_samples  number  5</span></span>
+<span><span class="co">#&gt;   do_band  range  range 6.5 to 8.5 mg/L</span></span>
 <span><span class="co">#&gt;   first_year  year  2014</span></span>
 <span><span class="co">#&gt;   survey_start  date  2024-09-02</span></span>
 <span><span class="co">#&gt;   catchment  string  Eastern catchment</span></span>
@@ -569,14 +584,55 @@ in the file at once, each with its line:</p>
 <span><span class="co">#&gt; bad.yml:1: `depth`: `value` is a whole number written with a leading zero, or in hex or octal; write it in decimal (rule 4.2.1)</span></span>
 <span><span class="co">#&gt; bad.yml:5: `spot`: `type` `count` is not one of number, quantity, year, date, string, labels, breaks, range (rule 4.2.1)</span></span></code></pre></div>
 <p>Besides the three required fields, an entry may have
-<code>unit</code> and <code>display</code> (quantities only),
+<code>unit</code> and <code>display</code> (quantities and ranges only;
+<code>display</code> only with <code>unit</code>),
 <code>decision</code>, <code>term</code> and <code>avoid</code>.
 <code>decision</code> points at the record of why the value was chosen,
 such as a GitHub issue number; <code><a href="../reference/verify.html">verify()</a></code> checks that each
 pointer resolves. The setting <code>decisions</code> in
 <code>_weft.yml</code> says where pointers resolve: <code>github</code>
 (the default), <code>github:&lt;owner&gt;/&lt;repo&gt;</code>, a file
-pattern such as <code>decisions/{id}-*.md</code>, or a function.</p>
+pattern such as <code>decisions/{id}-*.md</code>, or a function. A typed
+number in prose, a <code>cite</code> span and a <code><a href="../reference/claim.html">claim()</a></code> can
+carry a pointer too (see
+<code><a href="../articles/wording.html">vignette("wording", package = "weft")</a></code>).</p>
+<div class="section level3">
+<h3 id="bands-the-range-type-and-in_range">Bands: the <code>range</code> type and <code>in_range()</code><a class="anchor" aria-label="anchor" href="#bands-the-range-type-and-in_range"></a>
+</h3>
+<p>A <code>range</code> entry holds an accepted band: two finite
+numbers, the lower strictly below the upper. A limit on one side only is
+a <code>number</code> or <code>quantity</code> entry.
+<code>.range</code> prints the band with the unit once, and
+<code><a href="../reference/in_range.html">in_range()</a></code> tests a value against it, bounds included:</p>
+<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="va">dict</span><span class="op">$</span><span class="va">do_band</span></span>
+<span><span class="co">#&gt; Units: [mg/L]</span></span>
+<span><span class="co">#&gt; lower upper </span></span>
+<span><span class="co">#&gt;   6.5   8.5</span></span>
+<span><span class="fu"><a href="../reference/fmt.html">fmt_range</a></span><span class="op">(</span><span class="va">dict</span><span class="op">$</span><span class="va">do_band</span><span class="op">)</span></span>
+<span><span class="co">#&gt; &lt;weft_text&gt;</span></span>
+<span><span class="co">#&gt; [1] "6.5–8.5 mg/L"</span></span>
+<span><span class="va">dict</span><span class="op">$</span><span class="va">do_band</span><span class="op">[[</span><span class="st">"lower"</span><span class="op">]</span><span class="op">]</span></span>
+<span><span class="co">#&gt; 6.5 [mg/L]</span></span>
+<span><span class="fu"><a href="../reference/in_range.html">in_range</a></span><span class="op">(</span><span class="fu"><a href="../reference/u.html">u</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="fl">6.1</span>, <span class="fl">7.2</span><span class="op">)</span>, <span class="va">mg</span><span class="op">/</span><span class="va">L</span><span class="op">)</span>, <span class="va">dict</span><span class="op">$</span><span class="va">do_band</span><span class="op">)</span></span>
+<span><span class="co">#&gt; [1] FALSE  TRUE</span></span></code></pre></div>
+<p>In a document the test chooses the wording:</p>
+<div class="sourceCode" id="cb26"><pre class="sourceCode markdown"><code class="sourceCode markdown"><span id="cb26-1"><a href="#cb26-1" tabindex="-1"></a>The acceptable band is <span class="in">`r dict$do_band`</span>{.range}, and the mean was</span>
+<span id="cb26-2"><a href="#cb26-2" tabindex="-1"></a><span class="co">[</span><span class="ot">within | outside</span><span class="co">]</span>{if="in_range(do_mean, dict$do_band)"} it.</span></code></pre></div>
+<p>A quantity is converted to the band’s unit first. A plain number
+against a band with a unit, or a unit that does not convert, is a value
+error:</p>
+<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<code class="sourceCode R"><span><span class="fu"><a href="../reference/in_range.html">in_range</a></span><span class="op">(</span><span class="fl">7.2</span>, <span class="va">dict</span><span class="op">$</span><span class="va">do_band</span><span class="op">)</span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00; font-weight: bold;">Error</span><span style="font-weight: bold;">:</span></span></span>
+<span><span class="co">#&gt; <span style="color: #BBBB00;">!</span> in_range(): `x` in no unit cannot be compared with a range in mg/L (rule 4.2.8).</span></span></code></pre></div>
+<p><code><a href="../reference/in_range.html">in_range()</a></code> gives <code>NA</code> where the value is
+<code>NA</code>. It is R only: a document the filter resolves has no
+dictionary, so publish the result as a bool (see
+<code><a href="../articles/named-values.html">vignette("named-values", package = "weft")</a></code>).
+<code><a href="../reference/changes.html">changes()</a></code> treats both bounds of a band as thresholds a
+value can cross.</p>
+</div>
 <div class="section level3">
 <h3 id="a-chapters-own-values">A chapter’s own values<a class="anchor" aria-label="anchor" href="#a-chapters-own-values"></a>
 </h3>
@@ -593,11 +649,14 @@ the source sees at once that the value is local.</p>
 <p><code><a href="../reference/dict_glossary.html">dict_glossary()</a></code> writes the dictionary as a Pandoc
 definition list. A chunk that calls it is the glossary; it needs no
 <code>results: asis</code>:</p>
-<div class="sourceCode" id="cb25"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb28"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="../reference/dict_glossary.html">dict_glossary</a></span><span class="op">(</span><span class="va">dict</span><span class="op">)</span><span class="op">)</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; `catchment` (Eastern catchment)</span></span>
 <span><span class="co">#&gt; :   Name used for the study area.</span></span>
+<span><span class="co">#&gt; </span></span>
+<span><span class="co">#&gt; `do_band` (6.5–8.5 mg/L)</span></span>
+<span><span class="co">#&gt; :   Acceptable band of dissolved oxygen.</span></span>
 <span><span class="co">#&gt; </span></span>
 <span><span class="co">#&gt; `first_year` (2014)</span></span>
 <span><span class="co">#&gt; :   First year of the logger record.</span></span>
@@ -628,11 +687,11 @@ knit’s dictionary.</p>
 <p><code>avoid</code> lists spellings that should be the entry’s
 <code>term</code>, or for a string entry its value.
 <code><a href="../reference/dict_vale.html">dict_vale()</a></code> writes them as a rule for the prose linter <a href="https://vale.sh" class="external-link">Vale</a>. It says what it will write first:</p>
-<div class="sourceCode" id="cb26"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb29"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="../reference/dict_vale.html">dict_vale</a></span><span class="op">(</span><span class="va">dict</span><span class="op">)</span></span>
-<span><span class="co">#&gt; weft will write /tmp/Rtmpozh7NF/units-article/styles/Weft/Terms.yml: a Vale substitution rule with 1 avoided spelling(s) from dict.yml.</span></span>
-<span><span class="co">#&gt; Wrote: /tmp/Rtmpozh7NF/units-article/styles/Weft/Terms.yml</span></span>
-<span><span class="co">#&gt; Vale uses this rule when .vale.ini, at /tmp/Rtmpozh7NF/units-article, sets StylesPath = styles and lists Weft in BasedOnStyles.</span></span>
+<span><span class="co">#&gt; weft will write /tmp/Rtmp1jWLm7/units-article/styles/Weft/Terms.yml: a Vale substitution rule with 1 avoided spelling(s) from dict.yml.</span></span>
+<span><span class="co">#&gt; Wrote: /tmp/Rtmp1jWLm7/units-article/styles/Weft/Terms.yml</span></span>
+<span><span class="co">#&gt; Vale uses this rule when .vale.ini, at /tmp/Rtmp1jWLm7/units-article, sets StylesPath = styles and lists Weft in BasedOnStyles.</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/cat.html" class="external-link">cat</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/readLines.html" class="external-link">readLines</a></span><span class="op">(</span><span class="st">"styles/Weft/Terms.yml"</span><span class="op">)</span>, sep <span class="op">=</span> <span class="st">"\n"</span><span class="op">)</span></span>
 <span><span class="co">#&gt; # Generated by weft::dict_vale() from dict.yml. Do not edit: change the</span></span>
 <span><span class="co">#&gt; # `avoid:` fields in dict.yml and run weft::dict_vale() again.</span></span>
@@ -649,7 +708,7 @@ knit’s dictionary.</p>
 <p><code><a href="../reference/dict_seed.html">dict_seed()</a></code> reads a project’s documents, runs nothing,
 and lists names that two or more documents assign a literal value to, as
 candidates for the dictionary:</p>
-<div class="sourceCode" id="cb27"><pre class="downlit sourceCode r">
+<div class="sourceCode" id="cb30"><pre class="downlit sourceCode r">
 <code class="sourceCode R"><span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"```{r}"</span>, <span class="st">"trigger &lt;- 10"</span>, <span class="st">"n_sites &lt;- 3"</span>, <span class="st">"```"</span><span class="op">)</span>, <span class="st">"spring.Rmd"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="https://rdrr.io/r/base/writeLines.html" class="external-link">writeLines</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"```{r}"</span>, <span class="st">"trigger &lt;- 10"</span>, <span class="st">"n_sites &lt;- 4"</span>, <span class="st">"```"</span><span class="op">)</span>, <span class="st">"autumn.Rmd"</span><span class="op">)</span></span>
 <span><span class="fu"><a href="../reference/dict_seed.html">dict_seed</a></span><span class="op">(</span><span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"spring.Rmd"</span>, <span class="st">"autumn.Rmd"</span><span class="op">)</span><span class="op">)</span><span class="op">[</span>, <span class="fu"><a href="https://rdrr.io/r/base/c.html" class="external-link">c</a></span><span class="op">(</span><span class="st">"name"</span>, <span class="st">"value"</span>, <span class="st">"differs"</span>, <span class="st">"n"</span><span class="op">)</span><span class="op">]</span></span></code></pre></div>

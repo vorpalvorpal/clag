@@ -44,6 +44,7 @@ failure quotes the check as written (rule 3.1.4)."></head><body>
     <li><hr class="dropdown-divider"></li>
     <li><h6 class="dropdown-header" data-toc-skip>Projects</h6></li>
     <li><a class="dropdown-item" href="../articles/setup.html">Setting up a project</a></li>
+    <li><a class="dropdown-item" href="../articles/adopting.html">Adopting weft in an existing report</a></li>
     <li><a class="dropdown-item" href="../articles/agents.html">Working with coding agents</a></li>
   </ul></li>
       </ul><ul class="navbar-nav"><li class="nav-item"><form class="form-inline" role="search">
@@ -118,6 +119,10 @@ is left and the render does not fail; the check is recorded in
 of the knit. Outside a knit it is a <code><a href="https://rdrr.io/r/base/warning.html" class="external-link">warning()</a></code> of class
 <code>weft_claim_warning</code>, and <code>x</code> is returned. A check that itself raises an
 error is a failed check at the level given.</p>
+<p>With the setting <code>chunk_claims: collect</code>, a failing claim in a chunk of
+R code does not stop the knit: it is recorded, the chunk goes on with
+<code>x</code>, and the render fails once at its end with every failure listed
+(rule 2.4.4). The default, <code>stop</code>, stops at the first.</p>
     </div>
 
     <div class="section level2">
