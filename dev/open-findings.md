@@ -422,25 +422,33 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     value whose result lands inside a code span is not a scanner row, so
     the gate and the lints never see it. Reproduce and decide whether it
     should be a row.
-22. CI, Julia (14 Nov). On the ubuntu-latest runner (Ubuntu 26.04, R
-    4.6.2, Julia 1.12, JuliaCall with RCall) the Julia tests segfault R
-    (exit 139) and take the whole check with them, so the workflow sets
-    `WEFT_SKIP_JULIA=1` and does not install Julia. Staged probes
-    showed that `JuliaCall::julia_setup()`, `using Statistics`,
-    sourcing `WeftGuest.jl`, `WeftGuest.install` and `add_load_path`
-    all work, and that the crash is the first `using Weft` made inside
-    the embedded Julia. Tried, all still crashing: R's lib directory on
-    `LD_LIBRARY_PATH` (it did reach the R process, set in `$GITHUB_ENV`);
-    `JULIA_NUM_THREADS=1`; `LD_PRELOAD` of the system libstdc++;
-    `JULIA_COMPILED_MODULES=no`; a plain `julia -e "using Weft"`
-    warm-up from the source tree's folder (the precompile cache is
-    keyed by path, so no help). What worked in isolation: a plain
-    `julia` warm-up from the installed package's folder, then
-    `using Weft` in R. Run inside the whole suite with that warm-up in
-    `skip_if_no_julia()`, R still crashed at the first Julia test
-    (`test-guest-claim-jl.R`, "N60 R6"), so the cause is not settled;
-    it is not in the Julia code that runs before `using Weft`. Next
-    step: a core dump and `gdb -batch -ex bt` of an `Rscript` that
-    runs that test file after the others, or the Julia 1.10 LTS.
-    Users on Linux may hit the same crash on a first `using Weft`
-    under JuliaCall.
+22. CI, Julia (14 Nov). FIXED 14 Nov. On the ubuntu-latest runner R
+    segfaulted (exit 139) at the first `using Weft` inside the Julia
+    that JuliaCall embeds. Cause: R's start-up script (`etc/ldpaths`)
+    puts `/usr/lib/x86_64-linux-gnu` on `LD_LIBRARY_PATH`, which the
+    loader searches before the RUNPATH (`$ORIGIN`) of Julia's
+    `libjulia-internal`. Where the system has a `libunwind.so.8` (the
+    Ubuntu 24.04 and 26.04 runners do), Julia gets that one instead of
+    its own, and it crashes the first time Julia records the backtrace
+    of an exception, even one caught at once. Core dump: `ijl_throw` ->
+    `record_backtrace` -> `jl_unw_stepn` -> `_ULx86_64_step` ->
+    `_ULx86_64_dwarf_search_unwind_table` in the system libunwind.
+    `using Weft` only looked like the cause: precompiling throws (an
+    `rm` of a missing file), and so does `try error("x") catch end`.
+    It is generic: any package precompiled inside embedded Julia, on
+    Julia 1.10, 1.12 and 1.13, on Ubuntu 24.04 and 26.04; macOS is not
+    affected. A plain `julia` started by R (the julia-engine driver,
+    `quarto render` on the julia engine) inherits the same
+    `LD_LIBRARY_PATH` and crashes the same way. JuliaCall knows it
+    (issue 238) and preloads Julia's libunwind in its development
+    version, but not in 0.17.6, the CRAN release. Fix: `julia_ensure()`
+    calls `jl_preload_unwind()`, which `dyn.load`s Julia's own
+    `lib/julia/libunwind.so*` globally before `julia_setup()` (Linux
+    only); `julia_child_env()` takes the system library folders out of
+    `LD_LIBRARY_PATH` for a child that may start Julia (`verify()`'s
+    render); the test helpers do both; `test-julia-unwind.R` checks it.
+    The workflow runs the Julia tests again. Left open: an author who
+    calls `JuliaCall::julia_setup()` in a chunk before any weft read
+    still gets the system libunwind with JuliaCall 0.17.6 (weft cannot
+    step in first); and the precompile workers that embedded Julia
+    spawns inherit R's `LD_LIBRARY_PATH` (no crash seen there).
