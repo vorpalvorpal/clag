@@ -300,7 +300,7 @@ test_that("TL3, E95: a class that prints words, in math, is a construct error wi
 test_that("TL3, E96, E97, E99: emphasis, a phrase or list class, a key that joins items, and a class that is not weft's", {
   cases <- c(em = fm_in("`depth`{.em}"), strong = fm_in("`depth`{.strong}"), and = fm_in("`l123`{.and}"),
              or = fm_in("`l123`{.or}"), ul = fm_in("`l123`{.ul}"), sep = fm_in("`l123`{.num sep=\"-\"}"),
-             py = fm_in("`depth`{.python}"), keyx = fm_in("`depth`{.num colour=\"red\"}"))
+             py = fm_in("`depth`{.num .python}"), keyx = fm_in("`depth`{.num colour=\"red\"}"))
   res <- fm_cases(cases, draft = TRUE)
   want <- stats::setNames(rep(fm_out("\\text{<<weft: construct error, line {L}>>}"), length(cases)), names(cases))
   expect_cases(res, want)
@@ -321,12 +321,12 @@ test_that("TL3: in raw LaTeX the place is `raw LaTeX`, and the marker is inside 
   expect_true(grepl(fm_e95(".word", "raw LaTeX"), res$stderr, fixed = TRUE))
   expect_true(grepl(fm_e96(".em", "raw LaTeX"), res$stderr, fixed = TRUE))
   expect_true(grepl(fm_e97(".and", "raw LaTeX"), res$stderr, fixed = TRUE))
-  expect_match(res$output, "\\textbf{\\ensuremath{\\text{<<weft: construct error, line 7>>}}}", fixed = TRUE)
+  expect_match(res$output, "\\textbf{\\ensuremath{\\text{<<weft: construct error, line 6>>}}}", fixed = TRUE)
 })
 
 test_that("TL3: .val is allowed in math, and a key the scanner allows (why, label, digits, sigfig) is no error", {
   res <- fm_cases(c(a = fm_in("`fv`{.val}"), b = fm_in("`depth`{.num why=\"given\"}"),
-                    c = fm_in("`depth`{.num digits=\"1\" sigfig=\"3\"}")))
+                    c = fm_in("`depth`{.num sigfig=\"3\"}")))
   expect_identical(res$status, 0L)
   expect_false(grepl("cannot be used inside", res$stderr, fixed = TRUE))
   expect_cases(res, c(a = fm_out("3.14159"), b = fm_out("12.5"), c = fm_out("12.5")))
@@ -368,7 +368,7 @@ test_that("D83, TX9: a missing record is the marker too, and the other construct
 test_that("D83: in raw LaTeX the marker is inside \\ensuremath{} too", {
   md <- c(fm_block(), "", "```{=latex}", "\\textbf{`gone`{.num}}", "```")
   res <- filter_md(md, to = "latex", env = c(WEFT_DRAFT = "1"), filters = "weft.lua")
-  expect_match(res$output, "\\textbf{\\ensuremath{\\text{<<weft: no value, line 7>>}}}", fixed = TRUE)
+  expect_match(res$output, "\\textbf{\\ensuremath{\\text{<<weft: no value, line 6>>}}}", fixed = TRUE)
 })
 
 test_that("D82, TL5: the failure is collected with the line of the candidate, also in display math over several lines", {
@@ -380,7 +380,7 @@ test_that("D82, TL5: the failure is collected with the line of the candidate, al
   by_expr <- vapply(recs, function(r) paste(r$kind, r$line), "")
   # READING: the line is that of the candidate itself (D82's `weft-at="i:l"` is one entry per candidate), so
   # for display math over several lines it is the line holding the backticks.
-  expect_setequal(by_expr, c("no value 3", "no value 7"))
+  expect_setequal(by_expr, c("no value 5", "no value 9"))
   expect_true(all(vapply(recs, function(r) identical(r$source, "resolve"), NA)))
   expect_true(any(vapply(recs, function(r) grepl(fm_msg$E10("gone2"), r$detail, fixed = TRUE), NA)))
 })
@@ -449,7 +449,7 @@ test_that("TL5: a failure in math is recorded as a failed entry, as in prose", {
   es <- g6_entries(res)
   e <- g6_pick(es, "value", "gone", 1)
   expect_identical(e$context, "math")
-  expect_identical(e$text, "\\text{<<weft: no value, line 3>>}")
+  expect_null(e$text)
 })
 
 test_that("TL5: the stamp counts a name used in math in its `named` total", {
@@ -578,7 +578,7 @@ test_that("TL3, E96, E97, E99, E98: emphasis, a phrase class, a foreign class, a
   expect_identical(r$error, c(fm_e96(".strong", "math"), fm_e96(".em", "math")))
   r <- mt_sc("Here $`d`{.and}$ and $`d`{.num sep=\"-\"}$.")
   expect_identical(r$error, c(fm_e97(".and", "math"), fm_e97("sep", "math")))
-  r <- mt_sc("Here $`d`{.python}$.")
+  r <- mt_sc("Here $`d`{.num .python}$.")
   expect_identical(r$error, fm_e99(".python", "math"))
   r <- mt_sc("Here $`d`{.plain}$ and $`d`{.mine}$.", config = MT_CFG)
   e98 <- sprintf(paste0("The project formatter `%s` cannot be used inside %s: its entry under `formatters:` ",
@@ -590,7 +590,7 @@ test_that("TL3, E96, E97, E99, E98: emphasis, a phrase class, a foreign class, a
 })
 
 test_that("TL3: .val is allowed on a named value in math, and the keys of TX2 are no error", {
-  for (src in c("$`d`{.val}$", "$`d`{.num digits=\"2\" sigfig=\"3\" why=\"given\"}$", "$`d`{.num label=\"q\" unit=\"m\"}$",
+  for (src in c("$`d`{.val}$", "$`d`{.num digits=\"2\" why=\"given\"}$", "$`d`{.num sigfig=\"3\"}$", "$`d`{.p label=\"q\"}$", "$`d`{.num unit=\"m\"}$",
                 "$`d`{#id1 .num .plus}$", "$`d`{.range}$", "$`d`{.sci}$")) {
     r <- mt_sc(paste("Here", src, "only."))
     expect_true(is.na(r$error), label = src)
