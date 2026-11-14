@@ -568,9 +568,20 @@ These are the accepted, unbuilt items, each still valid. One at a time,
 whole suite after each. Order:
 
 1. A11, A12, A15 and A16: `scan.R`, `format.R`, `resolve.R`.
+   - A11: skipped. One wording for the class and key errors changes
+     messages that `test-lint-named.R` and others pin.
+   - A12, A15, A16: done (`registered_classes()`, `text_classes()`,
+     `unit_affix()`, `range_text()`, `arm_tokens()`).
 2. A13 (first half) and A14: `resolve.R`, `phrases.R`, `arms.R`, `claim.R`.
+   - Done. `check_lines()` keeps the warned style without the `all()`
+     advice, because adding it changes a message.
 3. C1 rest, `new_scan()`'s `gregexpr`: `scan.R:41-57`, the same way as C1.
+   - Skipped: already done in 64d6e26; `new_scan()` calls `gmatch()`.
 4. C6 and C7: the `icode` vector and `project_meta_files()`.
+   - Done as a shared `indented_code_flags()` and `project_meta_files()`.
+     `mask_prose()` treats HTML-comment continuation lines as blank and
+     `indented_code_lines()` does not, so the two results were not merged.
+     `rel_to()` (`io.R`) now serves `lint_rel_path()`.
 5. C13 and C19: `lint_run()`, one findings shape: `lint.R`, `gate.R`.
 6. C3: one added-lines reader: `gate-git.R`, `verify.R`, `lint-doc.R`.
 7. C14: `use_setup()` on `plan_item()`: `setup.R`, `install.R`, `use-weft.R`.

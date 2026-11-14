@@ -156,7 +156,7 @@ with_attrs <- function(r, a) {
 lint_rel_path <- function(path, root) {
   p <- normalizePath(path, winslash = "/", mustWork = FALSE)
   r <- normalizePath(root, winslash = "/", mustWork = FALSE)
-  enc2utf8(if (startsWith(p, paste0(r, "/"))) substring(p, nchar(r) + 2L) else p)
+  enc2utf8(rel_to(p, r))
 }
 
 # All the fenced blocks: open and close lines, and the text after the fence.
@@ -529,6 +529,32 @@ LINK_PATTERN <- paste0(
 
 SPAN_PATTERN <- paste0("(?<![\\\\])\\[(?:(?!\\n[ \\t]*\\n)[^\\[\\]]|\\[[^\\[\\]]*\\])*\\]\\{[^{}\\n]*\\}")
 
+# The lines that are indented code (L11): indented four spaces or a tab, after
+# a blank line or another such line, and outside a list. `blk` marks the lines
+# that are blank or not body (they end a run), `nonbody` the lines of metadata
+# and fences, which neither open nor close a list. `mask_prose()` also counts
+# the continuation lines of an HTML comment as blank; `indented_code_lines()`
+# in lint-code.R does not.
+indented_code_flags <- function(wl, blk, nonbody) {
+  nl <- length(wl)
+  icode <- logical(nl)
+  indent4 <- grepl("^( {4,}|\t)", wl) & !blk
+  if (!any(indent4)) return(icode)
+  marker <- grepl("^[ \t]*([-*+]|[0-9]{1,9}[.)])[ \t]+[^ \t]", wl) & !nonbody
+  col0 <- grepl("^[^ \t]", wl) & !nonbody
+  inlist <- FALSE
+  prevblank <- TRUE
+  for (i in seq_len(nl)) {
+    if (blk[i]) { prevblank <- TRUE; next }
+    if (col0[i] && prevblank) inlist <- FALSE
+    if (marker[i]) inlist <- TRUE
+    if (indent4[i] && prevblank && !inlist) icode[i] <- TRUE
+    else if (indent4[i] && !prevblank && i > 1L && icode[i - 1L]) icode[i] <- TRUE
+    prevblank <- FALSE
+  }
+  icode
+}
+
 # the prose mask and the regions that come with it
 mask_prose <- function(S) {
   text <- S$text
@@ -604,24 +630,9 @@ mask_prose <- function(S) {
       if (lc[2L] > lc[1L]) blk[(lc[1L] + 1L):lc[2L]] <- TRUE
     }
   }
-  indent4 <- grepl("^( {4,}|\t)", wl) & !blk
-  marker <- grepl("^[ \t]*([-*+]|[0-9]{1,9}[.)])[ \t]+[^ \t]", wl) & !nonbody
-  col0 <- grepl("^[^ \t]", wl) & !nonbody
-  if (any(indent4)) {
-    inlist <- FALSE
-    prevblank <- TRUE
-    icode <- logical(nl)
-    for (i in seq_len(nl)) {
-      if (blk[i]) { prevblank <- TRUE; next }
-      if (col0[i] && prevblank) inlist <- FALSE
-      if (marker[i]) inlist <- TRUE
-      if (indent4[i] && prevblank && !inlist) icode[i] <- TRUE
-      else if (indent4[i] && !prevblank && i > 1L && icode[i - 1L]) icode[i] <- TRUE
-      prevblank <- FALSE
-    }
-    # blank lines between two indented-code lines keep the block going
-    il <- which(icode)
-    if (length(il)) blank(ls[il], ls[il] + nchar(S$lines[il]) - 1L)
+  il <- which(indented_code_flags(wl, blk, nonbody))
+  if (length(il)) {
+    blank(ls[il], ls[il] + nchar(S$lines[il]) - 1L)
     work <- cur()
   }
 

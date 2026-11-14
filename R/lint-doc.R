@@ -382,6 +382,27 @@ dl_bib_keys <- function(ctx, path) {
   cache[[key]]
 }
 
+# The project's metadata files that exist, in the order Quarto reads them for a document in the folder
+# `dir` (relative to `root`, `.` for the root): each folder's `_metadata.yml` and `_metadata.yaml` from
+# `dir` up to the root, then `_quarto.yml` and `_quarto.yaml`. `base` is the folder a file sits in.
+project_meta_files <- function(root, dir = ".") {
+  dirs <- character()
+  d <- dir
+  repeat {
+    dirs <- c(dirs, if (d == "") "." else d)
+    if (d %in% c(".", "")) break
+    d <- dirname(d)
+  }
+  cand <- rbind(
+    data.frame(base = rep(dirs, each = length(METADATA_MARKERS)), name = METADATA_MARKERS,
+               kind = "metadata", stringsAsFactors = FALSE),
+    data.frame(base = ".", name = QUARTO_MARKERS, kind = "quarto", stringsAsFactors = FALSE))
+  cand$path <- ifelse(cand$base == ".", file.path(root, cand$name), file.path(root, cand$base, cand$name))
+  cand <- cand[file.exists(cand$path), c("path", "base", "kind"), drop = FALSE]
+  rownames(cand) <- NULL
+  cand
+}
+
 # The keys of a document's bibliography and the bibliography files its own front matter names
 # that do not exist.
 doc_bib <- function(src, ctx) {
@@ -413,30 +434,16 @@ doc_bib <- function(src, ctx) {
     add_files(mb$files, dir_rel, TRUE)
     keys <- c(keys, mb$keys)
   }
-  for (nm in QUARTO_MARKERS) {
-    p <- file.path(root, nm)
-    if (!file.exists(p)) next
-    mb <- metadata_bibliography(dl_yaml_file(ctx, p))
-    add_files(mb$files, ".", FALSE)
+  # the project's `_quarto` file, then the `_metadata` file of each folder from the document's up; of
+  # the two spellings in one place the first counts
+  pm <- project_meta_files(root, dir_rel)
+  q <- pm[pm$kind == "quarto", , drop = FALSE]
+  use <- rbind(q[seq_len(min(1L, nrow(q))), , drop = FALSE],
+               pm[pm$kind == "metadata" & !duplicated(pm$base), , drop = FALSE])
+  for (i in seq_len(nrow(use))) {
+    mb <- metadata_bibliography(dl_yaml_file(ctx, use$path[i]))
+    add_files(mb$files, use$base[i], FALSE)
     keys <- c(keys, mb$keys)
-    break
-  }
-  ds <- character()
-  d <- dir_rel
-  repeat {
-    ds <- c(ds, d)
-    if (d %in% c(".", "")) break
-    d <- dirname(d)
-  }
-  for (d in ds) {
-    for (nm in METADATA_MARKERS) {
-      p <- if (d == ".") file.path(root, nm) else file.path(root, d, nm)
-      if (!file.exists(p)) next
-      mb <- metadata_bibliography(dl_yaml_file(ctx, p))
-      add_files(mb$files, d, FALSE)
-      keys <- c(keys, mb$keys)
-      break
-    }
   }
   add_files(as.character(unlist(src$cfg$bibliography)), ".", FALSE)
   res <- list(keys = unique(as.character(keys)), missing = unique(missing))

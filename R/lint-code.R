@@ -213,28 +213,12 @@ indented_code_lines <- function(src) {
   if (!is.null(src$cache$icode)) return(src$cache$icode)
   wl <- src$lines
   nl <- length(wl)
-  icode <- logical(nl)
   inmeta <- logical(nl)
   for (m in src$meta) inmeta[m$open:m$close] <- TRUE
   fb <- fence_blocks(wl, inmeta)
   nonbody <- inmeta
   for (b in seq_len(nrow(fb))) nonbody[fb$open[b]:fb$close[b]] <- TRUE
-  blk <- !grepl("[^ \t]", wl) | nonbody
-  indent4 <- grepl("^( {4,}|\t)", wl) & !blk
-  if (any(indent4)) {
-    marker <- grepl("^[ \t]*([-*+]|[0-9]{1,9}[.)])[ \t]+[^ \t]", wl) & !nonbody
-    col0 <- grepl("^[^ \t]", wl) & !nonbody
-    inlist <- FALSE
-    prevblank <- TRUE
-    for (i in seq_len(nl)) {
-      if (blk[i]) { prevblank <- TRUE; next }
-      if (col0[i] && prevblank) inlist <- FALSE
-      if (marker[i]) inlist <- TRUE
-      if (indent4[i] && prevblank && !inlist) icode[i] <- TRUE
-      else if (indent4[i] && !prevblank && i > 1L && icode[i - 1L]) icode[i] <- TRUE
-      prevblank <- FALSE
-    }
-  }
+  icode <- indented_code_flags(wl, !grepl("[^ \t]", wl) | nonbody, nonbody)
   src$cache$icode <- icode
   icode
 }
@@ -899,18 +883,7 @@ yaml_cache <- function(y) {
 # the cache a project file sets for a document: `_metadata.yml` of its folder and the
 # folders above it, then `_quarto.yml`
 file_cache <- function(src, ctx) {
-  d <- dirname(src$file)
-  dirs <- character()
-  repeat {
-    dirs <- c(dirs, d)
-    if (d %in% c(".", "")) break
-    d <- dirname(d)
-  }
-  files <- c(as.vector(t(outer(file.path(ctx$root, ifelse(dirs == ".", "", dirs)), METADATA_MARKERS, file.path))),
-             file.path(ctx$root, QUARTO_MARKERS))
-  files <- gsub("//+", "/", files)
-  for (f in files) {
-    if (!file.exists(f)) next
+  for (f in project_meta_files(ctx$root, dirname(src$file))$path) {
     y <- tryCatch(yaml_read_file(f), error = function(e) NULL)
     v <- yaml_cache(y)
     if (!is.na(v)) return(v)
