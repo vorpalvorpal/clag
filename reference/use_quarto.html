@@ -87,10 +87,14 @@ directory into a Quarto project.</p></dd>
     </div>
     <div class="section level2">
     <h2 id="details">Details<a class="anchor" aria-label="anchor" href="#details"></a></h2>
-    <p>It writes:</p><ul><li><p><code>_extensions/weft-check/_extension.yml</code> and <code>weft-check.lua</code></p></li>
+    <p>It writes:</p><ul><li><p><code>_extensions/weft-check/_extension.yml</code>, <code>weft-check.lua</code> and
+<code>weft-output.lua</code> (the rendered-output check, rule 2.5.5)</p></li>
 <li><p><code>_weft/pre-render.R</code> and <code>_weft/post-render.R</code></p></li>
 <li><p><code>_weft.yml</code>, only when there is none (empty but for a comment)</p></li>
-</ul><p>and edits <code>_quarto.yml</code>: <code>weft-check</code> is added under <code>filters:</code>, and the
+</ul><p>and edits <code>_quarto.yml</code>: <code>weft-check</code> is added under <code>filters:</code>, then a
+<code>path: _extensions/weft-check/weft-output.lua</code> entry with <code>at: post-render</code>
+(an extension cannot place a filter after Quarto's own; a project set up
+before this check gets the entry when <code>use_quarto()</code> is run again), and the
 two scripts under <code>project: pre-render:</code> and <code>post-render:</code>. The file is
 edited as text, line by line, and never rewritten from parsed YAML: every
 other line, comments and anchors included, stays as it was. When the edit

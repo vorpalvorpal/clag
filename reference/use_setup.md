@@ -64,13 +64,14 @@ It writes:
   grammar of the filter. A page of named values (`` `depth`{.num} ``)
   and spans of that grammar, or with no construct, stays as it is.
 
-- for an `.Rmd` outside a Quarto project, `weft.lua`, `weft-check.lua`
-  and the folder `weftlib/` beside the document (weft's own files: kept
-  when identical, replaced when they differ) and, under each format of
-  `output:`,
-  `pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]`.
+- for an `.Rmd` outside a Quarto project, `weft.lua`, `weft-check.lua`,
+  `weft-output.lua` and the folder `weftlib/` beside the document
+  (weft's own files: kept when identical, replaced when they differ)
+  and, under each format of `output:`,
+  `pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]`.
   A document set up before named values, which names only
-  `weft-check.lua`, gets `weft.lua` named before it.
+  `weft-check.lua`, gets `weft.lua` named before it; one set up before
+  the rendered-output check gets `weft-output.lua` named last.
 
 Front matter is edited as text and checked by parsing it again. When an
 edit cannot be made safely (flow-style `knitr:` or `pandoc_args`, a YAML

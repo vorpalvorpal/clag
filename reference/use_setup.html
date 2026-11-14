@@ -113,11 +113,13 @@ the line only when it holds an R construct: an R value (<code>`r x`{.num}</code>
 or a span whose governor is outside the grammar of the filter. A page of
 named values (<code>`depth`{.num}</code>) and spans of that grammar, or with no
 construct, stays as it is.</p></li>
-<li><p>for an <code>.Rmd</code> outside a Quarto project, <code>weft.lua</code>, <code>weft-check.lua</code> and
-the folder <code>weftlib/</code> beside the document (weft's own files: kept when
-identical, replaced when they differ) and, under each format of
-<code>output:</code>, <code>pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]</code>. A document set up before named values, which names
-only <code>weft-check.lua</code>, gets <code>weft.lua</code> named before it.</p></li>
+<li><p>for an <code>.Rmd</code> outside a Quarto project, <code>weft.lua</code>, <code>weft-check.lua</code>,
+<code>weft-output.lua</code> and the folder <code>weftlib/</code> beside the document (weft's
+own files: kept when identical, replaced when they differ) and, under
+each format of <code>output:</code>, <code>pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]</code>.
+A document set up before named values, which names only <code>weft-check.lua</code>,
+gets <code>weft.lua</code> named before it; one set up before the rendered-output
+check gets <code>weft-output.lua</code> named last.</p></li>
 </ul><p>Front matter is edited as text and checked by parsing it again. When an
 edit cannot be made safely (flow-style <code>knitr:</code> or <code>pandoc_args</code>, a YAML
 anchor, another <code>weft:</code> value under <code>opts_knit</code>), or a file's place holds a
