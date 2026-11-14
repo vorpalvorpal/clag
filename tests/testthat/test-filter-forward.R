@@ -118,7 +118,8 @@ test_that("N94, E42: a name published nowhere is no value, with E42 as detail an
   expect_identical(e$head, "  doc.md:1  [no value] `depth`{.num}")
   expect_identical(e$detail[[1]], f7_msg$E42("depth"))
   expect_match(res$stderr, fm_msg$E10_hint("depth"), fixed = TRUE)
-  expect_false(grepl(fm_msg$E10("depth"), res$stderr, fixed = TRUE))
+  # the wording forward references replaced
+  expect_false(grepl("above this point", res$stderr, fixed = TRUE))
   expect_identical(filter_md(md, to = "plain")$status, 1L)
 })
 
