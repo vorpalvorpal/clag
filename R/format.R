@@ -11,6 +11,11 @@ COLLAPSE_CLASSES <- c(".and", ".or", ".pairs", ".range", ".ul", ".ol", ".dl")
 TEXT_CLASSES <- c(".a", ".cap", ".strong", ".em")
 RENDERER_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none", "label")
 LIST_CLASSES <- c(".ul", ".ol", ".dl")
+# The environments whose body is math (TX1); any other `\begin{NAME}` in prose is raw LaTeX.
+TEX_MATH_ENVS <- c("equation", "align", "alignat", "gather", "multline", "flalign", "eqnarray",
+                   "math", "displaymath", "aligned", "alignedat", "gathered", "split", "cases", "array",
+                   "matrix", "pmatrix", "bmatrix", "Bmatrix", "vmatrix", "Vmatrix", "smallmatrix",
+                   "subarray", "CD")
 
 # Options a project formatter may declare (rule 1.4.22). The weft keys a class
 # may declare are those of its own stage, each with its own type.

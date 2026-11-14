@@ -18,7 +18,7 @@ trim_ws <- function(x) gsub("^[ \t\r\n]+|[ \t\r\n]+$", "", x, perl = TRUE)
 
 # ---- setup --------------------------------------------------------------
 
-new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
+new_scan <- function(text, file, first_line, config, filter_doc = FALSE, rmd = NA) {
   text <- paste(enc2utf8(as.character(text)), collapse = "\n")
   if (length(text) != 1L || is.na(text)) text <- ""
   chars <- if (nzchar(text)) strsplit(text, "")[[1]] else character()
@@ -49,9 +49,14 @@ new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
 
   S$cend <- as.numeric(if (n) gmatch("-->", text)$s else integer())
 
+  # rmarkdown reads `\(...\)` and `\[...\]` as math, Quarto does not (TX1)
+  S$rmd <- if (is.na(rmd)) isTRUE(grepl("\\.rmd$", as.character(file), ignore.case = TRUE)) else isTRUE(rmd)
+
   find_fences(S)
   find_knitr_inline(S)
   find_tables(S)
+  find_tex_envs(S)
+  S$tex_raw_span <- grepl("{=", S$text, fixed = TRUE)
 
   bl <- if (n) gmatch("\n[ \t\r]*(?=\n)", text)$s else integer()
   S$plim <- as.numeric(sort(unique(c(bl - 1L, S$f_start - 1L, n))))
@@ -74,6 +79,7 @@ cut_lines <- function(text, n) {
 find_fences <- function(S) {
   S$f_start <- integer()
   S$f_end <- integer()
+  S$f_raw <- logical()
   if (S$n == 0L) return(invisible())
   ls <- c(1L, S$nl + 1L)
   le <- c(S$nl - 1L, S$n)
@@ -85,6 +91,7 @@ find_fences <- function(S) {
   starts <- integer()
   ends <- integer()
   chunk <- logical()
+  rawf <- logical()
   while (k <= nl) {
     mm <- m[[k]]
     k0 <- k
@@ -121,6 +128,7 @@ find_fences <- function(S) {
       starts <- c(starts, ls[k0])
       ends <- c(ends, end)
       chunk <- c(chunk, grepl(KNITR_CHUNK_BEGIN, lines[k0], perl = TRUE))
+      rawf <- c(rawf, grepl("^[ \t]*\\{=(latex|tex)\\}[ \t\r]*$", mm[4]))
     } else {
       k <- k + 1L
     }
@@ -128,6 +136,7 @@ find_fences <- function(S) {
   S$f_start <- as.numeric(starts)
   S$f_end <- as.numeric(ends)
   S$f_chunk <- chunk
+  S$f_raw <- rawf
   invisible()
 }
 
@@ -189,6 +198,144 @@ find_tables <- function(S) {
     }
   }
   invisible()
+}
+
+# ---- TeX regions (design 9, TX1) -----------------------------------------
+
+# Where each `\begin{NAME}` ends: the matching `\end{NAME}`, nesting of the same name counted. One regex
+# pass over the text, and one walk over its hits; a text with no `\begin{` (and, in an .Rmd, no `\(` or
+# `\[`) skips both. `S$env_s` and `S$env_e` hold the start of each `\begin{NAME}` that has an end and the
+# last character of that end, `S$env_name` its name.
+find_tex_envs <- function(S) {
+  S$env_s <- numeric()
+  S$env_e <- numeric()
+  S$env_name <- character()
+  S$tex_on <- FALSE
+  if (S$n == 0L) return(invisible())
+  begins <- grepl("\\begin{", S$text, fixed = TRUE)
+  S$tex_on <- begins || (S$rmd && (grepl("\\(", S$text, fixed = TRUE) || grepl("\\[", S$text, fixed = TRUE)))
+  if (!begins) return(invisible())
+  m <- gmatch("\\\\(?:begin|end)\\{[A-Za-z]+\\*?\\}", S$text)
+  if (!length(m$s)) return(invisible())
+  nm <- vapply(seq_along(m$s), function(j) paste(S$chars[m$s[j]:m$e[j]], collapse = ""), "")
+  is_begin <- startsWith(nm, "\\begin{")
+  nm <- sub("^\\\\(?:begin|end)\\{(.*)\\}$", "\\1", nm, perl = TRUE)
+  open <- list()
+  mate <- rep(NA_real_, length(nm))
+  for (j in seq_along(nm)) {
+    if (is_begin[j]) {
+      open[[nm[j]]] <- c(open[[nm[j]]], j)
+    } else {
+      st <- open[[nm[j]]]
+      if (length(st)) {
+        mate[st[length(st)]] <- m$e[j]
+        open[[nm[j]]] <- st[-length(st)]
+      }
+    }
+  }
+  keep <- is_begin & !is.na(mate)
+  S$env_s <- as.numeric(m$s[keep])
+  S$env_e <- mate[keep]
+  S$env_name <- nm[keep]
+  invisible()
+}
+
+# The TeX region that opens with the backslash at `p`: list(end, tex), or NULL. A math environment is
+# "math", any other environment "raw"; in an .Rmd `\(...\)` and `\[...\]` are "math", closed within the
+# paragraph.
+tex_region <- function(S, p) {
+  k <- findInterval(p, S$env_s)
+  if (k > 0L && S$env_s[k] == p) {
+    return(list(end = S$env_e[k], tex = if (sub("\\*$", "", S$env_name[k]) %in% TEX_MATH_ENVS) "math" else "raw"))
+  }
+  nx <- S$chars[p + 1L]
+  if (S$rmd && !is.na(nx) && nx %in% c("(", "[")) {
+    closer <- if (nx == "(") ")" else "]"
+    lim <- para_limit(S, p)
+    i <- p + 2L
+    while (i <= lim) {
+      q <- next_special(S, i)
+      if (q > lim) break
+      if (S$chars[q] == "\\") {
+        if (identical(S$chars[q + 1L], closer)) return(list(end = q + 1L, tex = "math"))
+        i <- q + 2L
+      } else {
+        i <- q + 1L
+      }
+    }
+  }
+  NULL
+}
+
+# Inline R inside a TeX region `p`..`m`: only inline R is read, a bracket is never a span (TX1).
+scan_region <- function(S, p, m, parent, tex) {
+  i <- p + 1L
+  while (i < m) {
+    q <- next_special(S, i)
+    if (q >= m) break
+    i <- if (S$chars[q] == "`") handle_code(S, q, parent, tex) else q + 1L
+  }
+  m + 1L
+}
+
+# The classes and keys with no TeX form inside a TeX region (TX2, E95 to E99): one message per class or key,
+# the classes first, then the keys, in the order written. `.val` is an R value's here.
+TEX_WORDS <- c(".word", ".count", ".ord", ".no", ".date", ".a", ".cap", ".val")
+TEX_EMPH <- c(".em", ".strong")
+TEX_LISTS <- c(".and", ".or", ".pairs", ".ul", ".ol", ".dl")
+TEX_OK_CLASSES <- c(".num", ".pct", ".sci", ".p", ".plus", ".range", ".uname", ".usym", ".nounit")
+TEX_OK_KEYS <- c("digits", "sigfig", "unit", "label", "why", "claim", "level")
+TEX_LIST_KEYS <- c("sep", "last", "trunc", "none")
+
+tex_block_errors <- function(S, blk, tex) {
+  if (!isTRUE(blk$ok)) return(character())
+  place <- if (identical(tex, "math")) "math" else "raw LaTeX"
+  out <- character()
+  tex_proj <- function(c1) "tex" %in% S$reg[[c1]][["targets"]]
+  popts <- character()
+  for (c1 in unique(blk$classes)) {
+    out <- c(out, if (c1 %in% TEX_OK_CLASSES) {
+      character()
+    } else if (c1 %in% TEX_WORDS) {
+      sprintf(paste0("`%s` cannot be used inside %s: it prints words, and a formula holds numbers. ",
+                     "Move the value out of the %s, or use a number class such as `.num` (rule 5.2.6)."),
+              c1, place, place)
+    } else if (c1 %in% TEX_EMPH) {
+      sprintf(paste0("`%s` cannot be used inside %s: it is markdown emphasis, and %s is TeX. ",
+                     "Put \\mathbf{} or \\mathit{} around the value in the formula (rule 5.2.6)."),
+              c1, place, place)
+    } else if (c1 %in% TEX_LISTS) {
+      sprintf(paste0("`%s` cannot be used inside %s: it joins items into a phrase or a list. ",
+                     "Use `.range` for two ends, or move the value out of the %s (rule 5.2.6)."),
+              c1, place, place)
+    } else if (c1 %in% names(S$reg)) {
+      if (tex_proj(c1)) {
+        popts <- c(popts, names(project_options(S$reg, c1)))
+        character()
+      } else {
+        sprintf(paste0("The project formatter `%s` cannot be used inside %s: its entry under `formatters:` ",
+                       "in _weft.yml does not list `tex` in `targets:` (rule 5.2.6)."), c1, place)
+      }
+    } else {
+      sprintf(paste0("`%s` cannot be used inside %s: it is not weft's, so weft would put the value in a ",
+                     "Pandoc span, and %s has none. Drop it, or move the value out of the %s (rule 5.2.6)."),
+              c1, place, place, place)
+    })
+  }
+  for (key in blk$names) {
+    lk <- tolower(key)
+    if (lk %in% c(TEX_OK_KEYS, popts, GOVERNOR_KEYS)) next
+    out <- c(out, if (lk %in% TEX_LIST_KEYS) {
+      sprintf(paste0("`%s` cannot be used inside %s: it joins items into a phrase or a list. ",
+                     "Use `.range` for two ends, or move the value out of the %s (rule 5.2.6)."),
+              lk, place, place)
+    } else {
+      sprintf(paste0("`%s` cannot be used inside %s: it is not weft's, so weft would put the value in a ",
+                     "Pandoc span, and %s has none. Drop it, or move the value out of the %s (rule 5.2.6)."),
+              key, place, place, place)
+    })
+  }
+  out
 }
 
 # ---- character helpers --------------------------------------------------
@@ -1034,12 +1181,12 @@ named_classes <- function(reg) c(formatter_classes(reg), TEXT_CLASSES, ".val")
 # ---- rows ---------------------------------------------------------------
 
 add_row <- function(S, kind, start, end, bstart, expr, classes, keys, id, arms,
-                    seps, parent, error, templates = NULL) {
+                    seps, parent, error, templates = NULL, tex = "") {
   S$nrows <- S$nrows + 1L
   assign(as.character(S$nrows), list(
     kind = kind, start = start, end = end, bstart = bstart, expr = expr,
     classes = classes, keys = keys, id = id, arms = arms, seps = seps,
-    templates = templates, parent = parent, error = if (length(error)) paste(error, collapse = "\n") else NA_character_
+    templates = templates, parent = parent, tex = tex, error = if (length(error)) paste(error, collapse = "\n") else NA_character_
   ), envir = S$rows)
   S$nrows
 }
@@ -1071,18 +1218,23 @@ scan_seq <- function(S, from, to, parent) {
     fi <- fence_index(S, p)
     if (!is.na(fi)) {
       # a chunk is knitr's code; any other fenced block is text to knitr, which evaluates its inline R
-      i <- if (!S$f_chunk[fi] && length(S$kn_s)) fence_inline(S, p, S$f_end[fi], parent) else S$f_end[fi] + 1L
+      i <- if (!S$f_chunk[fi] && length(S$kn_s)) {
+        fence_inline(S, p, S$f_end[fi], parent, if (S$f_raw[fi]) "raw" else "")
+      } else S$f_end[fi] + 1L
       next
     }
     c <- S$chars[p]
     i <- switch(
       c,
-      "\\" = p + 2L,
+      "\\" = {
+        rg <- if (S$tex_on) tex_region(S, p)
+        if (is.null(rg)) p + 2L else scan_region(S, p, rg$end, parent, rg$tex)
+      },
       "<" = {
         ce <- angle_end(S, p)
         if (is.na(ce)) p + 1L else if (length(S$kn_s)) comment_inline(S, p, ce, parent) else ce + 1L
       },
-      "`" = handle_code(S, p, parent, FALSE),
+      "`" = handle_code(S, p, parent, ""),
       "$" = {
         m <- math_end(S, p)
         if (is.na(m)) p + 1L else scan_math(S, p, m, parent)
@@ -1164,7 +1316,7 @@ scan_math <- function(S, p, m, parent) {
     q <- next_special(S, i)
     if (q >= m) break
     if (S$chars[q] == "`") {
-      i <- handle_code(S, q, parent, TRUE)
+      i <- handle_code(S, q, parent, "math")
     } else {
       i <- q + 1L
     }
@@ -1185,7 +1337,7 @@ scan_target <- function(S, from, to, parent) {
       if (!cs$ok || cs$close_end > to + 1L) {
         i <- cs$open_end + 1L
       } else {
-        i <- handle_code(S, p, parent, FALSE, TRUE)
+        i <- handle_code(S, p, parent, "", TRUE)
       }
     } else {
       i <- p + 1L
@@ -1270,7 +1422,7 @@ handle_named <- function(S, p, cs, content, parent, skip) {
   blk$end + 1L
 }
 
-handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
+handle_code <- function(S, p, parent, tex = "", in_target = FALSE) {
   cs <- code_span(S, p)
   if (!cs$ok) return(cs$open_end + 1L)
   cstart <- cs$open_end + 1L
@@ -1282,10 +1434,16 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   if (!length(mm)) {
     # inline R that knitr finds inside this span (it pairs backticks by its own pattern, not the markdown's)
     if (length(S$kn_s)) {
-      nx <- span_inline(S, p, cs$close_end, parent, in_math, in_target)
+      # a code span followed by {=latex} or {=tex} is raw TeX (TX1)
+      tx <- tex
+      if (!nzchar(tx) && S$tex_raw_span && identical(S$chars[cs$close_end + 1L], "{") &&
+          grepl("^\\{=(latex|tex)\\}", paste(S$chars[(cs$close_end + 1L):min(S$n, cs$close_end + 8L)], collapse = ""))) {
+        tx <- "raw"
+      }
+      nx <- span_inline(S, p, cs$close_end, parent, tx, in_target)
       if (!is.na(nx)) return(nx)
     }
-    return(handle_named(S, p, cs, content, parent, in_math || in_target))
+    return(handle_named(S, p, cs, content, parent, nzchar(tex) || in_target))
   }
   if (!(mm[3] %in% c("\r", "\n") ||
         (mm[2] == "r" && mm[3] %in% c(" ", "#")) ||
@@ -1294,12 +1452,12 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   }
   expr <- trim_ws(substring(content, nchar(mm[1]) + 1L))
   newline <- mm[3] %in% c("\r", "\n")
-  inline_row(S, p, cs$close_end, expr, newline, parent, in_math, in_target)
+  inline_row(S, p, cs$close_end, expr, newline, parent, tex, in_target)
 }
 
 # The row of inline R that starts at `p` and whose code ends at `close_end`, with the attribute
 # block after it, if any: the position after the row.
-inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_target) {
+inline_row <- function(S, p, close_end, expr, newline, parent, tex, in_target) {
   cs <- list(close_end = close_end)
   after <- cs$close_end + 1L
   blk <- parse_block(S, after)
@@ -1322,12 +1480,9 @@ inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_targe
     kind <- "value"
     end <- blk$end
     bstart <- after
+    # in math or raw LaTeX the classes with no TeX form are the first errors (TX2, rule 5.2.6)
+    if (nzchar(tex)) errs <- c(errs, tex_block_errors(S, blk, tex))
     errs <- c(errs, block_errors(S, blk, "value"))
-    if (in_math) {
-      errs <- c(errs, paste0(
-        "A class block cannot be used inside math: its output is markdown and math is TeX. ",
-        "Format the value in the expression, for example fmt_num(x, digits = 2) (rule 5.2.6)."))
-    }
     if (in_target) {
       errs <- c(errs, paste0("An attribute block on inline R in a link target is ",
                              "an error; bind the value to a name or move it out of the link."))
@@ -1338,7 +1493,8 @@ inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_targe
       keep <- !lc %in% GOVERNOR_KEYS
       keys <- named_chr(blk$values[keep], lc[keep])
       id <- blk$id
-      if (any(classes %in% LIST_CLASSES)) {
+      # in TeX a list class is E97 already, so its place in the paragraph is not judged too
+      if (!nzchar(tex) && any(classes %in% LIST_CLASSES)) {
         lcls <- intersect(classes, LIST_CLASSES)[1L]
         box <- block_container(S, p)
         if (!is.na(box)) {
@@ -1354,7 +1510,7 @@ inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_targe
     }
   }
   add_row(S, kind, p, end, bstart, expr, classes, keys, id, NULL, integer(),
-          parent, errs)
+          parent, errs, tex = tex)
   end + 1L
 }
 
@@ -1362,7 +1518,7 @@ inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_targe
 # a chunk), each as the row it would be in prose. Returns the position to go on from, or NA when
 # there is none. `r expr` is a row with the same kind and fields as anywhere else, bare unless a
 # class block follows (rule 1.1.10).
-inline_in <- function(S, from, to, parent, in_math = FALSE, in_target = FALSE) {
+inline_in <- function(S, from, to, parent, tex = "", in_target = FALSE) {
   lo <- findInterval(from - 1L, S$kn_s) + 1L
   hi <- findInterval(to, S$kn_s)
   if (lo > hi) return(NA_integer_)
@@ -1374,13 +1530,13 @@ inline_in <- function(S, from, to, parent, in_math = FALSE, in_target = FALSE) {
     content <- paste(S$chars[(q + 1L):(e - 1L)], collapse = "")
     mm <- regmatches(content, regexec("^r([ #])", content))[[1]]
     expr <- trim_ws(substring(content, nchar(mm[1]) + 1L))
-    nxt <- inline_row(S, q, e, expr, FALSE, parent, in_math, in_target)
+    nxt <- inline_row(S, q, e, expr, FALSE, parent, tex, in_target)
   }
   nxt
 }
 
-span_inline <- function(S, p, close_end, parent, in_math, in_target) {
-  nx <- inline_in(S, p + 1L, close_end, parent, in_math, in_target)
+span_inline <- function(S, p, close_end, parent, tex, in_target) {
+  nx <- inline_in(S, p + 1L, close_end, parent, tex, in_target)
   if (is.na(nx)) NA_integer_ else max(nx, close_end + 1L)
 }
 
@@ -1394,8 +1550,8 @@ comment_inline <- function(S, p, ce, parent) {
   if (is.na(nx)) ce + 1L else max(nx, ce + 1L)
 }
 
-fence_inline <- function(S, p, fe, parent) {
-  nx <- inline_in(S, p, fe, parent)
+fence_inline <- function(S, p, fe, parent, tex = "") {
+  nx <- inline_in(S, p, fe, parent, tex)
   if (is.na(nx)) fe + 1L else max(nx, fe + 1L)
 }
 
@@ -1544,7 +1700,8 @@ finish_scan <- function(S) {
     parent = parent,
     arm = arm,
     error = col(function(r) as.character(r$error), ""),
-    block_start = col(function(r) as.integer(r$bstart), 0L)
+    block_start = col(function(r) as.integer(r$bstart), 0L),
+    tex = col(function(r) as.character(r$tex), "")
   )
   # who resolves the row (N140): a named value is the filter's; an R value is the hooks'; a span is the
   # filter's in a document it resolves, else the hooks'
@@ -1629,8 +1786,8 @@ check_ids <- function(rows, lenient = FALSE, known = character()) {
 # Scan one string of markdown. `config` is optional; it only supplies the
 # project's registered formatter classes (1.4.8).
 scan_text <- function(text, file = NA_character_, first_line = 1L, config = NULL,
-                      lenient = FALSE, known = character(), filter_doc = FALSE) {
-  rows <- scan_block(text, file, first_line, config, filter_doc)$rows
+                      lenient = FALSE, known = character(), filter_doc = FALSE, rmd = NA) {
+  rows <- scan_block(text, file, first_line, config, filter_doc, rmd)$rows
   with_id_errors(rows, lenient, known)
 }
 
@@ -1656,8 +1813,9 @@ with_id_errors <- function(rows, lenient = FALSE, known = character()) {
 
 # The same, keeping the scan state `S`, which the knitr resolver uses to read
 # an arm over the same text (arm_template_range()).
-scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE) {
-  S <- new_scan(text, file, first_line, config, filter_doc)
+scan_block <- function(text, file = NA_character_, first_line = 1L, config = NULL, filter_doc = FALSE,
+                       rmd = NA) {
+  S <- new_scan(text, file, first_line, config, filter_doc, rmd)
   if (S$n > 0L) scan_seq(S, 1L, S$n, NA_integer_)
   list(S = S, rows = finish_scan(S))
 }

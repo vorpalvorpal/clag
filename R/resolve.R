@@ -337,7 +337,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   text <- restored$text
   spans <- restored$spans
   sb <- scan_block(if (is_str) text else mask_front_matter(text), file = NA_character_,
-                   first_line = loc$start, config = cfg)
+                   first_line = loc$start, config = cfg,
+                   rmd = !is_str && isTRUE(grepl("\\.rmd$", current_file_name(s), ignore.case = TRUE)))
   S <- sb$S
   R <- sb$rows
   nr <- nrow(R)
@@ -430,6 +431,15 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     R$evaluated[k] <- TRUE
     weft_abort(sprintf("weft: %s: %s", loc_str(k), R$error[k]),
                c("weft_construct_error", "weft_located"))
+  }
+
+  # under TeX every marker is written \text{<<weft: KIND, line N>>} (TX9); `cur_tex` is the `tex` of the
+  # row being rendered
+  cur_tex <- ""
+  plain_marker <- marker
+  marker <- function(kind, line = NA_integer_, chunk = NA_character_) {
+    m <- plain_marker(kind, line, chunk)
+    if (nzchar(cur_tex)) paste0("\\text{", m, "}") else m
   }
 
   construct_fail <- function(k, msg) {
@@ -600,6 +610,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   first_ink <- regexpr("[^ \t\r\n]", text)
   note_sentence <- function(it, out) {
     if (is_str || !nzchar(out)) return("")
+    # a value in math or raw LaTeX is never a sentence start (TX11)
+    if (it$type == "row" && nzchar(R$tex[it$k])) return("")
     body <- sub("^[*_\\[]+", "", out)
     if (!grepl("^[0-9[:lower:]]", body)) return("")
     if (!starts_sentence(it$start, text, nlpos, first_ink)) return("")
@@ -784,9 +796,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     res <- tryCatch({
       if (has_fmt) {
         rr <- apply_formatters(v, own, as.list(cc$keys), cfg, join = ", ",
-                               on_zero = zero_note(k, label), on_pick = pick_note(k))
+                               on_zero = zero_note(k, label), on_pick = pick_note(k),
+                               target = if (nzchar(R$tex[k])) "tex" else "markdown")
         L_rel[k] <<- ledger_rel(rr)
-        if (length(attr(rr, "unit_suffix"))) L_rec[[as.character(k)]] <<- rr
+        if (length(attr(rr, "unit_suffix")) && !nzchar(R$tex[k])) L_rec[[as.character(k)]] <<- rr
         paste(as.character(rr), collapse = "")
       } else {
         apply_text_classes(stock_print(v), setdiff(cc$own, attr(v, "text_classes")), symbol = isTRUE(attr(v, "is_symbol")),
@@ -1221,7 +1234,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     id <- if (kind %in% c("value", "n", "if", "sign", "list") && !is.na(R$id[k]) && nzchar(R$id[k])) R$id[k] else NULL
     list(file = wh$file, section = wh$section, kind = kind, expr = expr, id = id,
-         context = if (wh$front) "front-matter" else R$context[k],
+         context = if (wh$front) "front-matter" else
+           if (identical(R$context[k], "prose") && nzchar(R$tex[k])) c(math = "math", raw = "tex")[[R$tex[k]]] else R$context[k],
          text = if (is.na(fail)) out else NULL,
          arm = if (is.na(arm)) NULL else arm, rel = if (is.na(rel)) NULL else rel,
          raw = if (is.na(raw)) NULL else raw,
@@ -1234,7 +1248,15 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     slot <- length(ents) + 1L
     ents[slot] <<- list(NULL)
     top_i <- cur_top
+    old_tex <- cur_tex
+    cur_tex <<- if (it$type == "row") R$tex[it$k] else ""
     out <- render_item0(it)
+    cur_tex <<- old_tex
+    # in raw LaTeX the whole output, a marker included, is wrapped (TX3)
+    if (it$type == "row" && identical(R$tex[it$k], "raw") && R$kind[it$k] %in% c("value", "bare") &&
+        nzchar(out)) {
+      out <- paste0("\\ensuremath{", out, "}")
+    }
     e <- make_entry(it, out)
     if (!is.null(e)) {
       e$top <- top_i

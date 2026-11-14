@@ -249,12 +249,12 @@ code_pieces <- function(src) {
   if (!is.null(src$cache$code_pieces)) return(src$cache$code_pieces)
   out <- list()
   rows <- src$rows
-  mk <- function(kind, context, text, off, chunk = NA_integer_, two_literals = FALSE) {
+  mk <- function(kind, context, text, off, chunk = NA_integer_, two_literals = FALSE, tex = "") {
     nl <- length(strsplit(text, "\n", fixed = TRUE)[[1L]])
     l0 <- findInterval(off, src$line_start)
     lo <- c(off, if (nl > 1L) src$line_start[l0 + seq_len(nl - 1L)])
     list(kind = kind, context = context, text = text, off = off, line_off = lo, chunk = chunk,
-         two_literals = two_literals, tree = pd_tree(text))
+         two_literals = two_literals, tex = tex, tree = pd_tree(text))
   }
   live <- live_rows(src)
   for (i in seq_len(nrow(rows))) {
@@ -269,7 +269,8 @@ code_pieces <- function(src) {
       if (pre < 0L || is.na(ex) || !nzchar(ex)) next
       off <- s + attr(pre, "match.length")
       if (!identical(src_substr(src, off, off + nchar(ex) - 1), ex)) next
-      out[[length(out) + 1L]] <- mk(kind, rows$context[i], ex, off)
+      out[[length(out) + 1L]] <- mk(kind, rows$context[i], ex, off,
+                                    tex = if (is.null(rows$tex) || is.na(rows$tex[i])) "" else rows$tex[i])
     } else if (kind %in% c("n", "sign", "list", "if")) {
       fb <- rows$fblock[i]
       if (is.na(fb)) next
@@ -427,6 +428,14 @@ lint_value_constant <- function(src, ctx) {
   lc_find_all(src, "value-constant", recs)
 }
 
+# Whether the call `ci` gives `target = "tex"` (TX12).
+tex_target_given <- function(t, ci) {
+  for (a in ci$args) {
+    if (identical(a$name, "target") && identical(str_value(t, a$node), "tex")) return(TRUE)
+  }
+  FALSE
+}
+
 lint_value_format <- function(src, ctx) {
   out <- list()
   for (p in lc_pieces(src, c("value", "bare"))) {
@@ -455,6 +464,14 @@ lint_value_format <- function(src, ctx) {
             src, sp[1L], sp[2L], "value-format", ci$fn,
             sprintf("The value is formatted in code with `%s()` (rule 5.6.4).", ci$fn),
             "Return the raw number and use a class or `digits=` to format it.", p$context)
+        } else if (nzchar(p$tex) && !is.null(ci) && !is.na(ci$fn) && grepl("^fmt_", ci$fn) &&
+                   (is.na(ci$pkg) || identical(ci$pkg, "weft")) && !tex_target_given(t, ci)) {
+          # a bare value in math or raw LaTeX written by a weft formatter that writes markdown (TX12)
+          sp <- piece_span(p, ci$fpos)
+          out[[length(out) + 1L]] <- finding_at(
+            src, sp[1L], sp[2L], "value-format", ci$fn,
+            sprintf("The value in math is formatted with `%s()`, which writes markdown (rule 5.6.4).", ci$fn),
+            "Give it a class block, `` `r x`{.num} ``, which writes TeX in math.", p$context)
         }
         break
       }

@@ -498,6 +498,7 @@ P2_PATTERN <- paste0(
   "(?<com><!--[\\s\\S]*?-->)",
   "|(?<scr><(?:script|style)\\b[\\s\\S]*?</(?:script|style)>)",
   "|(?<cod>(?<![\\\\`])(?<tk>`+)(?!`)", NB, "+?(?<!`)\\k<tk>(?!`))",
+  "|(?<me>\\\\begin\\{(?<men>", paste(TEX_MATH_ENVS, collapse = "|"), ")\\*?\\}[\\s\\S]*?\\\\end\\{\\k<men>\\*?\\})",
   "|(?<md>\\$\\$", NB, "+?\\$\\$)",
   "|(?<m1>(?<![\\\\$])\\$(?![\\s$])[^$\\n]+?(?<![\\s\\\\])\\$(?![0-9]))",
   "|(?<m3>\\\\\\(", NB, "*?\\\\\\))",
@@ -509,7 +510,7 @@ P2_PATTERN <- paste0(
   "|(?<url>(?<![A-Za-z0-9@])(?:https?://|ftp://|www\\.)[^\\s<>]*[^\\s<>.,;:!?)\\]'\"*_])",
   "|(?<doi>(?<![0-9A-Za-z.])10\\.[0-9]{4,9}/[^\\s<>]*[^\\s<>.,;:!?)\\]'\"])",
   "|(?<eml>[A-Za-z0-9._%+-]+@[A-Za-z0-9-]+(?:\\.[A-Za-z0-9-]+)*\\.[A-Za-z]{2,})")
-P2_TYPES <- c("com", "scr", "cod", "md", "m1", "m3", "m4", "ref", "sc", "ent", "tag", "url", "doi", "eml")
+P2_TYPES <- c("com", "scr", "cod", "me", "md", "m1", "m3", "m4", "ref", "sc", "ent", "tag", "url", "doi", "eml")
 
 # a Quarto cross-reference type in any letter case: `@Fig-map` prints as a capitalised "Figure 1"
 XREF_PREFIX <- "(?i:fig|tbl|lst|sec|eq|thm|lem|cor|prp|cnj|def|exm|exr|sol|rem)"
@@ -641,7 +642,7 @@ mask_prose <- function(S) {
   if (length(g$s)) {
     ty <- match_type(g, P2_TYPES)
     cod <- ty == "cod"
-    md <- ty %in% c("md", "m1", "m3", "m4")
+    md <- ty %in% c("me", "md", "m1", "m3", "m4")
     s <- g$s; e <- g$e
     blank(s, e)
     code_attr <- list()
