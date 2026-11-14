@@ -324,7 +324,8 @@ test_that("TX4: the middle dot, and any other mark through tex_text()", {
 
 test_that("TX4: a decimal mark has the same table", {
   tt_dec <- function(yml) tt_run(0.5, ".num", list(digits = 2), tt_cfg(yml))
-  expect_identical(tt_dec("decimal_mark: \",\""), "0{,}50")
+  # big_mark is given because the two marks must differ (config rule)
+  expect_identical(tt_dec("decimal_mark: \",\"\nbig_mark: \"\""), "0{,}50")
   expect_identical(tt_dec("decimal_mark: \"\u00b7\""), "0{\\cdot}50")
   expect_identical(tt_dec("decimal_mark: \".\""), "0.50")
 })

@@ -311,9 +311,9 @@ test_that("2f unit_form: each listed function takes it, last, and prints the for
     expect_true(grepl(f2("5~metres"), out, fixed = TRUE))
   }
   # stage 7 (F1) puts `plus` after `unit_form` on the formatters that take a sign
-  expect_equal(names(formals(fmt_num)), c("x", "digits", "sigfig", "unit", "unit_form", "plus"))
+  expect_equal(names(formals(fmt_num)), c("x", "digits", "sigfig", "unit", "unit_form", "plus", "target"))
   for (f in list(fmt_sci, fmt_range, fmt_no, fmt_word, fmt_count, fmt_ord, fmt_and, fmt_or, fmt_pairs, fmt_ul, fmt_ol, fmt_dl)) {
-    expect_equal(tail(setdiff(names(formals(f)), "plus"), 1), "unit_form")
+    expect_equal(tail(setdiff(names(formals(f)), c("plus", "target")), 1), "unit_form")
   }
 })
 

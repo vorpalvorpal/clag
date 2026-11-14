@@ -214,10 +214,12 @@ test_that("N8: .plus on the result of ci(), pm(), of_n() or about() is a value e
 
 # ---- N9: the function forms -------------------------------------------------
 
-test_that("N9: fmt_num(), fmt_pct() and fmt_range() take plus as their last argument, default FALSE", {
+test_that("N9: fmt_num(), fmt_pct() and fmt_range() take plus as their last argument before target, default FALSE", {
   for (f in list(fmt_num, fmt_pct, fmt_range)) {
     fm <- formals(f)
-    expect_identical(names(fm)[length(fm)], "plus")
+    # `target` (TX3) comes after it, last of all
+    expect_identical(tail(setdiff(names(fm), "target"), 1), "plus")
+    expect_identical(names(fm)[length(fm)], "target")
     expect_identical(fm$plus, FALSE)
   }
 })
