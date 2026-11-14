@@ -499,3 +499,50 @@ is. Open points:
   `weft_str('...')`. Whether to change the examples, or to relax 1.2.3
   for strings that never pass through Pandoc's writer, is undecided:
   Robin is thinking about it.
+
+## Position after TeX mode (15 Nov; read this first)
+
+Built since v0.1.0, all on `main` (designs in `dev/`):
+
+- Package H of the refactor sweep (`dev/refactor-sweep.md`).
+- Quieter `claim-word` (`dev/design-claim-word.md`).
+- Stage 8 (`dev/design-8.md`): guest table digests and `chunk_claims`
+  for Python and Julia.
+- Findings 1, 2, 7 and 21; 21 is "weft reads inline R wherever knitr
+  evaluates it" (code spans, fences, HTML comments, math).
+- Agent documents for several tools, `agent_docs()`, the repository
+  `skills/weft/` folder and the Claude Code plugin manifest
+  (`dev/design-agent-docs.md`).
+- Options for project formatters (`dev/design-formatter-options.md`,
+  rule 1.4.22).
+- TeX mode (`dev/design-9.md`, P1 to P6; its "1.4.22" is rule 1.4.23):
+  `target = "tex"` on the formatters, the scanner's `tex` column,
+  class blocks in math and raw LaTeX, `tex.tsv`, the Lua printers, and
+  named values in math through the filter.
+
+Rulings made under delegation during TeX mode:
+
+- A bare inline value in raw LaTeX is not wrapped in `\ensuremath{}`;
+  only a construct's output and markers are. Alternative: wrap all
+  output, as the design first said. Rejected because a string in a
+  tabular cell would be set in math mode in documents that work today.
+- A named-value block holding only a foreign class is not a construct
+  in math, as in prose; E99 needs a weft class beside it.
+- A failed ledger entry in math has no text, as in prose.
+- Known difference: the filter reads a math environment inside a
+  `{=latex}` fence as math, the R scanner as raw. Only the wrapper and
+  the ledger context differ (rule 2.13.16 says so).
+
+Routine before a push: the whole suite on a fresh export
+(`fresh-suite.sh` in the scratchpad), and a build of every vignette
+with the package installed into a temporary library. The suite does
+not build vignettes: a push on 14 Nov broke CI that way for two runs.
+
+Open, waiting on Robin: the pieces of "weft everywhere" (section
+above); the default `skills` folders of `use_agent_docs()`; whether
+decision pointers follow the `eval: false` rule; one wording for the
+static errors (A11). Deferred by Robin: Windows CI; the untested areas
+(Render and Knit buttons, Windows, a real `renv`); project formatters
+for named values in Jupyter and Julia documents. Paused: the `units`
+switch (upstream issue 451). At the next release: bump the version and
+run `dev/make-skill-folder.R`.
