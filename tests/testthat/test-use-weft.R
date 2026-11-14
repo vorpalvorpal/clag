@@ -63,10 +63,10 @@ test_that("4b G38: a git project with a GitHub origin gets every step: the files
   expect_identical(readLines(h4_hook_path(dir)), h4_hook_expected(lib = .libPaths()))
   expect_identical(readLines(file.path(dir, ".github", "workflows", "weft.yml")), h4_ci_expected("."))
   expect_true(file.exists(file.path(dir, "AGENTS.md")))
-  expect_true(file.exists(file.path(dir, ".claude", "skills", "weft", "SKILL.md")))
+  expect_true(file.exists(file.path(dir, ".agents", "skills", "weft", "SKILL.md")))
   rel <- u4_rel(res, dir)
   expect_true(all(c("_weft.yml", "dict.yml", "AGENTS.md", ".github/workflows/weft.yml",
-                    ".claude/skills/weft/SKILL.md", ".git/hooks/commit-msg") %in% rel))
+                    ".agents/skills/weft/SKILL.md", ".git/hooks/commit-msg") %in% rel))
 })
 
 test_that("4b G38: use_weft() returns the paths written, invisibly", {

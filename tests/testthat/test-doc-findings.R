@@ -81,7 +81,7 @@ test_that("doc-finding #5: the report of an empty two-arm list says to add a fir
 test_that("doc-finding #6: use_agent_docs() when nothing is to change says 'are already set up'", {
   d <- u4_dir(list(`_weft.yml` = "draft: false"))
   h4_agent(d)
-  skill <- file.path(d, ".claude", "skills", "weft", "SKILL.md")
+  skill <- file.path(d, ".agents", "skills", "weft", "SKILL.md")
   orig <- readLines(skill)
   writeLines(append(orig, "My own rule.", after = length(orig) - 1L), skill)
   # the skill is edited and AGENTS.md is current: nothing is written

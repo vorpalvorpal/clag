@@ -28,7 +28,8 @@ and in some git set-ups.
 ## Rules
 
 **AD1. The argument.** `use_agent_docs(path = ".", overwrite = FALSE,
-skills = c("agents", "claude"))`. `skills` is a character vector; each
+skills = "agents")`. The default writes `.agents/skills` alone (ruling of
+15 Nov 2026, below). `skills` is a character vector; each
 item is a preset name or a folder given relative to the project root.
 - Presets: `agents` is `.agents/skills`; `claude` is `.claude/skills`;
   `codex` is `.agents/skills`; `gemini` is `.gemini/skills`; `opencode`
@@ -84,12 +85,27 @@ Neither file is written.
 in every preset folder and reports the agent documents as current only
 when the `AGENTS.md` block and every copy found are current; a stale
 copy is named with its folder. A project with no copy at all is as now.
-`use_weft()` calls `use_agent_docs()` with the default `skills`.
+`use_weft()` calls `use_agent_docs()` with the default `skills`. A weft-written
+copy in a preset folder that the call does not write, and that is older than
+the installed weft, is left as it is, and the closing message says so: "The
+copy in .claude/skills was not updated: it is older than this weft. Run
+`use_agent_docs(skills = c("agents", "claude"))` to update it." An edited or
+foreign copy is not named. Nothing is deleted.
 
 **AD8. Unchanged.** The `AGENTS.md` block's markers and text handling;
 the meaning of `overwrite`; an existing project that holds only
 `.claude/skills/weft/SKILL.md` gains the `.agents/skills` copy at the
-next `use_agent_docs()`.
+next `use_agent_docs()`, and its `.claude` copy is left as it is (AD7).
+Claude Code reads `.claude/skills/` and not `.agents/skills/`, so the
+documentation says plainly that Claude Code users pass
+`skills = c("agents", "claude")` or install the plugin; the note about
+`CLAUDE.md` importing `AGENTS.md` (AD6) stays.
+
+**Ruling, 15 Nov 2026.** The owner ruled that the default is `"agents"`, one
+folder, not `c("agents", "claude")`. Alternative rejected: keep writing
+`.claude/skills` by default so that Claude Code works without an argument,
+at the price of a second copy in every project for the tools that do not
+read it.
 
 ## Marketplace folder (built 14 Nov)
 

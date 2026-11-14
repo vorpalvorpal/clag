@@ -16,6 +16,8 @@ ADM_PRESETS <- c(agents = ".agents/skills", claude = ".claude/skills", codex = "
                  kimi = ".kimi-code/skills", cursor = ".cursor/skills")
 ADM_GH <- "https://github.com/example-org/example-repo.git"
 ADM_EDITED <- "edited since weft wrote it; left as it is (use overwrite = TRUE to replace it)"
+ADM_STALE_NOTE <- paste0("The copy in .claude/skills was not updated: it is older than this weft. ",
+                         "Run use_agent_docs(skills = c(\"agents\", \"claude\")) to update it.")
 ADM_CLAUDE_NOTE <- "Claude Code reads CLAUDE.md: add the line @AGENTS.md to it, or move the block there."
 
 adm_proj <- function(files = list()) u4_dir(c(list(`_weft.yml` = "draft: false"), files))
@@ -45,11 +47,18 @@ adm_front <- function(f) {
 
 # ---- AD1: the argument -------------------------------------------------------------------------
 
-test_that("AD1: the default writes the skill into .agents/skills and .claude/skills", {
+test_that("AD1: the default writes the skill into .agents/skills alone", {
   d <- adm_proj()
   h4_agent(d)
   expect_true(file.exists(adm_path(d, ".agents/skills/weft/SKILL.md")))
-  expect_true(file.exists(adm_path(d, ".claude/skills/weft/SKILL.md")))
+  expect_false(file.exists(adm_path(d, ".claude/skills/weft/SKILL.md")))
+  expect_false(dir.exists(adm_path(d, ".claude")))
+  expect_setequal(grep("SKILL\\.md$", tree(d), value = TRUE), ".agents/skills/weft/SKILL.md")
+})
+
+test_that("AD1: skills = c('agents', 'claude') writes both folders", {
+  d <- adm_proj()
+  h4_agent(d, skills = c("agents", "claude"))
   expect_setequal(grep("SKILL\\.md$", tree(d), value = TRUE),
                   c(".agents/skills/weft/SKILL.md", ".claude/skills/weft/SKILL.md"))
 })
@@ -150,7 +159,7 @@ test_that("AD1: the order of writing is the order given, and the returned paths 
   res <- u4_rel(h4_agent(d, skills = c("claude", "agents")), d)
   expect_lt(min(grep("^\\.claude/", res)), min(grep("^\\.agents/", res)))
   d2 <- adm_proj()
-  res2 <- u4_rel(h4_agent(d2), d2)
+  res2 <- u4_rel(h4_agent(d2, skills = c("agents", "claude")), d2)
   expect_lt(min(grep("^\\.agents/", res2)), min(grep("^\\.claude/", res2)))
   d3 <- adm_proj()
   res3 <- u4_rel(h4_agent(d3, skills = c("tools/skills", "gemini", "claude")), d3)
@@ -194,13 +203,14 @@ test_that("AD2: the AGENTS.md block appears once however many folders are writte
 
 test_that("AD3: an edited copy is left and reported, while a stale copy in the other folder is replaced", {
   d <- adm_proj()
-  h4_agent(d)
+  both <- c("agents", "claude")
+  h4_agent(d, skills = both)
   cur <- readLines(adm_path(d, ".agents/skills/weft/SKILL.md"))
   claude <- adm_path(d, ".claude/skills/weft/SKILL.md")
   adm_edit(claude)
   edited <- readLines(claude)
   adm_stale(adm_path(d, ".agents/skills/weft/SKILL.md"))
-  s <- h4_say(weft::use_agent_docs(d))
+  s <- h4_say(weft::use_agent_docs(d, skills = both))
   expect_identical(readLines(claude), edited)
   expect_identical(readLines(adm_path(d, ".agents/skills/weft/SKILL.md")), cur)
   expect_match(s$text, ADM_EDITED, fixed = TRUE)
@@ -211,11 +221,11 @@ test_that("AD3: an edited copy is left and reported, while a stale copy in the o
 
 test_that("AD3: overwrite = TRUE replaces an edited copy", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   claude <- adm_path(d, ".claude/skills/weft/SKILL.md")
   orig <- readLines(claude)
   adm_edit(claude)
-  h4_agent(d, overwrite = TRUE)
+  h4_agent(d, overwrite = TRUE, skills = c("agents", "claude"))
   expect_identical(readLines(claude), orig)
 })
 
@@ -225,7 +235,7 @@ test_that("AD3: an edited reference is left and reported, and the other folder's
   ref <- adm_path(d, ".agents/skills/weft/references/reports.md")
   adm_edit(ref)
   edited <- readLines(ref)
-  s <- h4_say(weft::use_agent_docs(d))
+  s <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")))
   expect_identical(readLines(ref), edited)
   expect_match(s$text, ADM_EDITED, fixed = TRUE)
   expect_match(s$text, ".agents/skills/weft/references/reports.md", fixed = TRUE)
@@ -236,12 +246,12 @@ test_that("AD3: a foreign SKILL.md in one folder is never replaced while the oth
   d <- adm_proj()
   mine <- c("---", "name: weft", "description: mine", "---", "My skill.")
   f3_write(adm_path(d, ".agents/skills/weft/SKILL.md"), mine)
-  s <- h4_say(weft::use_agent_docs(d))
+  s <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")))
   expect_identical(readLines(adm_path(d, ".agents/skills/weft/SKILL.md")), mine)
   expect_match(s$text, "not written by weft", fixed = TRUE)
   expect_true(file.exists(adm_path(d, ".claude/skills/weft/SKILL.md")))
   expect_true(file.exists(adm_path(d, ".claude/skills/weft/references/syntax.md")))
-  suppressMessages(weft::use_agent_docs(d, overwrite = TRUE))
+  suppressMessages(weft::use_agent_docs(d, overwrite = TRUE, skills = c("agents", "claude")))
   expect_identical(readLines(adm_path(d, ".agents/skills/weft/SKILL.md")), mine)
 })
 
@@ -249,12 +259,12 @@ test_that("AD3: a foreign file under references/ is never replaced while the oth
   d <- adm_proj()
   mine <- c("# my syntax notes", "Not weft's.")
   f3_write(adm_path(d, ".claude/skills/weft/references/syntax.md"), mine)
-  s <- h4_say(weft::use_agent_docs(d))
+  s <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")))
   expect_identical(readLines(adm_path(d, ".claude/skills/weft/references/syntax.md")), mine)
   expect_match(s$text, "not written by weft", fixed = TRUE)
   expect_true(file.exists(adm_path(d, ".agents/skills/weft/references/syntax.md")))
   expect_true(file.exists(adm_path(d, ".claude/skills/weft/SKILL.md")))
-  suppressMessages(weft::use_agent_docs(d, overwrite = TRUE))
+  suppressMessages(weft::use_agent_docs(d, overwrite = TRUE, skills = c("agents", "claude")))
   expect_identical(readLines(adm_path(d, ".claude/skills/weft/references/syntax.md")), mine)
 })
 
@@ -281,7 +291,7 @@ test_that("AD3: a second call with nothing to do returns character() and says so
 test_that("AD3: the announcement has one line per file, before anything is written", {
   d <- adm_proj()
   early <- NULL
-  s <- h4_say(weft::use_agent_docs(d),
+  s <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")),
               first = function() early <<- length(adm_all_skill_files(d)) > 0L || file.exists(adm_path(d, "AGENTS.md")))
   expect_false(early)
   expect_match(s$text, "weft will write", fixed = TRUE)
@@ -297,7 +307,7 @@ test_that("AD3: the announcement has one line per file, before anything is writt
 test_that("AD3: a folder where a skill file should be is an error and nothing is written", {
   d <- adm_proj(list(`.claude/skills/weft/references/syntax.md/keep.txt` = "x"))
   before <- tree(d)
-  err <- tryCatch(suppressMessages(weft::use_agent_docs(d)), error = function(e) e)
+  err <- tryCatch(suppressMessages(weft::use_agent_docs(d, skills = c("agents", "claude"))), error = function(e) e)
   expect_s3_class(err, "weft_tool_error")
   expect_identical(tree(d), before)
 })
@@ -306,7 +316,7 @@ test_that("AD3: a folder where a skill file should be is an error and nothing is
 
 test_that("AD4: the front matter has name weft, a description, and metadata weft-version", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   for (f in c(".agents/skills", ".claude/skills")) {
     fm <- adm_front(adm_path(d, file.path(f, "weft/SKILL.md")))
     expect_identical(fm$name, "weft")
@@ -317,7 +327,7 @@ test_that("AD4: the front matter has name weft, a description, and metadata weft
 
 test_that("AD4: no field only one tool reads (no allowed-tools)", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   fm <- adm_front(adm_path(d, ".claude/skills/weft/SKILL.md"))
   expect_false("allowed-tools" %in% names(fm))
   expect_setequal(setdiff(names(fm), c("name", "description", "metadata")), character())
@@ -333,7 +343,7 @@ test_that("AD4: the name matches the parent folder", {
 
 test_that("AD4: the body names the references by relative path and points to weft::agent_docs()", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   txt <- paste(readLines(adm_path(d, ".claude/skills/weft/SKILL.md")), collapse = "\n")
   expect_match(txt, "references/syntax.md", fixed = TRUE)
   expect_match(txt, "references/reports.md", fixed = TRUE)
@@ -342,13 +352,13 @@ test_that("AD4: the body names the references by relative path and points to wef
 
 test_that("AD4: SKILL.md is under 500 lines", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   expect_lt(length(readLines(adm_path(d, ".claude/skills/weft/SKILL.md"))), 500L)
 })
 
 test_that("AD4: the last line of every written file is the weft marker, with a valid hash", {
   d <- adm_proj()
-  h4_agent(d)
+  h4_agent(d, skills = c("agents", "claude"))
   files <- adm_all_skill_files(d)
   expect_length(files, 6L)
   for (p in files) {
@@ -482,11 +492,10 @@ adm_full <- function(env = parent.frame()) {
   dir
 }
 
-test_that("AD7: use_weft() writes the skill into both default folders, references included", {
+test_that("AD7: use_weft() writes the skill into .agents/skills alone, references included", {
   dir <- adm_full()
-  for (f in c(".agents/skills", ".claude/skills")) {
-    for (p in adm_files(f)) expect_true(file.exists(adm_path(dir, p)), label = p)
-  }
+  for (p in adm_files(".agents/skills")) expect_true(file.exists(adm_path(dir, p)), label = p)
+  expect_false(dir.exists(adm_path(dir, ".claude/skills")))
 })
 
 test_that("AD7: status() reports agent docs current when the block and every copy are current", {
@@ -522,14 +531,19 @@ test_that("AD7: a project with no copy at all is reported missing, as now", {
 
 # ---- AD8: what is unchanged ------------------------------------------------------------------------
 
-test_that("AD8: a project holding only an old .claude SKILL.md gains the .agents copy at the next call", {
+test_that("AD8: a project holding only an old .claude SKILL.md gains the .agents copy and keeps its .claude copy as it was", {
   d <- adm_proj()
   h4_agent(d, skills = "claude")
   unlink(adm_path(d, ".claude/skills/weft/references"), recursive = TRUE)
   adm_stale(adm_path(d, ".claude/skills/weft/SKILL.md"))
   expect_false(dir.exists(adm_path(d, ".agents")))
-  h4_agent(d)
+  old <- unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md")))
+  s <- h4_say(weft::use_agent_docs(d))
   for (p in adm_files(".agents/skills")) expect_true(file.exists(adm_path(d, p)), label = p)
+  expect_identical(unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md"))), old)
+  expect_false(file.exists(adm_path(d, ".claude/skills/weft/references/syntax.md")))
+  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
+  h4_agent(d, skills = c("agents", "claude"))
   for (p in adm_files(".claude/skills")) expect_true(file.exists(adm_path(d, p)), label = p)
   expect_identical(unname(tools::md5sum(adm_path(d, ".agents/skills/weft/SKILL.md"))),
                    unname(tools::md5sum(adm_path(d, ".claude/skills/weft/SKILL.md"))))
@@ -553,4 +567,45 @@ test_that("AD8: calls write nothing in HOME, the cache or the project's parent",
   h4_agent(rp$dir)
   h4_agent(rp$dir, skills = c("gemini", "tools/skills"))
   expect_identical(h4_outside_snap(rp$parent), before)
+})
+
+# ---- the default leaves an older .claude copy stale: the closing message says so ----------------
+
+test_that("AD3/AD7: the default leaves an older .claude copy as it is and says how to update it", {
+  d <- adm_proj()
+  h4_agent(d, skills = c("agents", "claude"))
+  claude <- adm_path(d, ".claude/skills/weft/SKILL.md")
+  adm_stale(claude)
+  old <- readLines(claude)
+  s <- h4_say(weft::use_agent_docs(d))
+  expect_identical(readLines(claude), old)
+  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
+  expect_false(".claude/skills/weft/SKILL.md" %in% u4_rel(s$value, d))
+  # the named call updates it, and then says nothing
+  s2 <- h4_say(weft::use_agent_docs(d, skills = c("agents", "claude")))
+  expect_false(identical(readLines(claude), old))
+  expect_false(grepl("was not updated", s2$text, fixed = TRUE))
+})
+
+test_that("AD3/AD7: no stale-copy message when the .claude copy is current, edited or absent", {
+  d <- adm_proj()
+  s0 <- h4_say(weft::use_agent_docs(d))
+  expect_false(grepl("was not updated", s0$text, fixed = TRUE))
+  h4_agent(d, skills = c("agents", "claude"))
+  s1 <- h4_say(weft::use_agent_docs(d))
+  expect_false(grepl("was not updated", s1$text, fixed = TRUE))
+  adm_edit(adm_path(d, ".claude/skills/weft/SKILL.md"))
+  s2 <- h4_say(weft::use_agent_docs(d))
+  expect_false(grepl("was not updated", s2$text, fixed = TRUE))
+})
+
+test_that("AD3/AD7: the stale-copy message shows when the call also wrote files, and not under suppressMessages()", {
+  d <- adm_proj()
+  h4_agent(d, skills = c("agents", "claude"))
+  adm_stale(adm_path(d, ".claude/skills/weft/SKILL.md"))
+  unlink(adm_path(d, ".agents/skills/weft/references/reports.md"))
+  s <- h4_say(weft::use_agent_docs(d))
+  expect_match(s$text, "Wrote: ", fixed = TRUE)
+  expect_match(s$text, ADM_STALE_NOTE, fixed = TRUE)
+  expect_silent(suppressMessages(weft::use_agent_docs(d)))
 })

@@ -6372,7 +6372,7 @@ and the call prints the line to add to the hook the setup runs,
 `use_hooks(remove = TRUE)` deletes the hook when it is weft's, edited or not, and
 `<git common dir>/weft/` with it.
 
-**9.3.8** `use_agent_docs(path, overwrite, skills = c("agents", "claude"))` writes
+**9.3.8** `use_agent_docs(path, overwrite, skills = "agents")` writes
 a block in `AGENTS.md` at the project root, between `<!-- weft:start use_agent_docs
 <version> <hash> -->` and `<!-- weft:end -->`, and, for each folder `skills`
 names, `<folder>/weft/SKILL.md`, `<folder>/weft/references/syntax.md` and
@@ -6382,7 +6382,7 @@ and `codex` are `.agents/skills`, `claude` is `.claude/skills`, `gemini` is
 `cursor` is `.cursor/skills`) or a folder relative to the project root (a `/` in
 it, or a leading dot); an absolute path, a `..` part, `NA`, an empty string or
 a non-character value is an error, and a folder named twice is written once.
-`character()` writes the block only. The texts are the same in every folder. Each
+`character()` writes the block only. The default writes `.agents/skills` alone; Claude Code reads `.claude/skills`, so its users pass `skills = c("agents", "claude")`. A weft-written copy in a preset folder not written, and older than this weft, is left as it is and the call says how to update it. The texts are the same in every folder. Each
 file is judged alone: one weft wrote and nobody edited is replaced when its text
 would differ, an edited one is left unless `overwrite = TRUE`, a file with no
 weft line is never replaced, and one copy being edited does not stop the others.
