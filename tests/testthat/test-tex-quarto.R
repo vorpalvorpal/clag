@@ -208,3 +208,23 @@ test_that("TQ3: the HTML holds the same TeX in its math spans", {
   expect_true("\\(e = 12.3\\%\\)" %in% m)
   expect_true(any(grepl("a &= -1{,}234{,}567.9", m, fixed = TRUE)))
 })
+
+# ---- a named value in math: published by knitr, resolved by the filter (design 9, phase 2) ---------------------
+
+test_that("TL1, TL4: a named value in $...$ and $$...$$ is resolved by the filter, and the HTML math span holds the TeX", {
+  tq_skip_no_render()
+  files <- list(
+    `_quarto.yml` = c("project:", "  type: default", "format:", "  html:", "    keep-md: true"),
+    `doc.qmd` = c("---", "title: \"Named in math\"", "engine: knitr", "---", "",
+                  "```{r setup, include=FALSE}", "weft::weft_setup()", "share <- 0.123; volume <- 1234567", "```", "",
+                  "The share was $s = `share`{.pct}$ and the volume", "", "$$ V = `volume`{.sci} $$", ""))
+  dir <- mk_project(files)
+  r <- qrender(dir, c("doc.qmd", "--to", "html"))
+  expect_identical(r$status, 0L, label = r$log)
+  expect_false(grepl("<<weft:", r$log, fixed = TRUE))
+  html <- tq_read(dir, "doc.html")
+  expect_false(grepl("{.pct}", html, fixed = TRUE))
+  m <- tq_math(html)
+  expect_true("\\(s = 12.3\\%\\)" %in% m, label = paste(m, collapse = " | "))
+  expect_true("\\[ V = 1.2 \\times 10^{6} \\]" %in% m, label = paste(m, collapse = " | "))
+})
