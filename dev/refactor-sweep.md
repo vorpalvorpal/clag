@@ -583,9 +583,26 @@ whole suite after each. Order:
      `indented_code_lines()` does not, so the two results were not merged.
      `rel_to()` (`io.R`) now serves `lint_rel_path()`.
 5. C13 and C19: `lint_run()`, one findings shape: `lint.R`, `gate.R`.
+   - C13: done. `lints()` keeps the checks and the report set
+     (`lint_report_under()`); `lint_run()` runs the rules; the gate's side
+     reader calls it once for the file rules on the missing documents and the
+     project rules on all of them.
+   - C19: partly done. `as_weft_findings()` shares `sort_findings()` with
+     `finish_findings()`. It does not call `finish_findings()` itself (that
+     dedupes and sets `n_files`) and `bind_plain()` stays on plain frames
+     (`bind_findings()` returns the `weft_findings` class), because either
+     would change what the gate returns and caches.
 6. C3: one added-lines reader: `gate-git.R`, `verify.R`, `lint-doc.R`.
+   - Done as `diff_hunk_lines()` (`gate-git.R`); the `deleted` attribute of
+     `git_added_lines()` stays.
 7. C14: `use_setup()` on `plan_item()`: `setup.R`, `install.R`, `use-weft.R`.
+   - Done: `setup_plan()` returns `items`, `use_setup()` ends with
+     `announce_items()`, `write_items()` and `finish_install()`. `use_weft()`
+     still calls `use_setup()` for its step. `place_check()` replaces
+     `check_place()`: a symbolic link to a folder is now called a link, not a
+     folder, and a file where a parent folder should be is refused up front.
 8. B14: move the sentence finder and anchors out of `ledger.R`, after A.
+   - Done: both sections moved unchanged to `ledger-sentence.R`.
 9. A18: one fence finder.
 10. B13: split `build_dict()`.
 11. A19, stage 1 only (owner decision 3).
