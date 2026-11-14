@@ -906,6 +906,44 @@ with <code><a href="../reference/jl_value.html">jl_value()</a></code> instead.</
 </div>
 </div>
 <div class="section level2">
+<h2 id="tables-in-a-jupyter-or-julia-document">Tables in a Jupyter or Julia document<a class="anchor" aria-label="anchor" href="#tables-in-a-jupyter-or-julia-document"></a>
+</h2>
+<p>In a document on the Jupyter or Julia engine the filter records the
+tables that a cell shows, so that <code><a href="../reference/changes.html">changes()</a></code> can say that a
+table changed. This works for a pandas data frame, an
+<code>IPython.display.HTML</code> or <code>Markdown</code> table, a
+Julia <code>HTML</code> or <code>Markdown</code> table, and a Markdown
+table written in the document, wherever it sits in a cell. Each table
+gets one entry in the ledger, of kind <code>table</code>, keyed by the
+label of its cell (<code>#| label: tbl-sites</code> gives
+<code>tbl-sites</code>; a cell with no label gives an empty key,
+numbered in order). The entry holds a digest of the cells’ text, so a
+change of style, class name or element id is not a change, and a changed
+number or word is. Its sentence is the table’s caption, then the cell’s
+<code>tbl-cap</code>, then the start of its text. Label the cells that
+show tables, so that each keeps its name when a cell is added above
+it.</p>
+<p>The digest is made the same way for a table that arrived as Markdown,
+as HTML or as a table that Quarto built, and does not depend on the
+library that wrote it. It does not compare with the digest of the same
+table in an R document. A document is recorded by one route, so the two
+never meet. A library update that changes what a table prints shows as a
+change, once.</p>
+<p>These tables are not recorded:</p>
+<ul>
+<li>a table whose rows a script fills in after the page loads (itables,
+for one): weft records the HTML the page holds, in practice the header
+row;</li>
+<li>a data frame that pandas prints as text, as it does in PDF
+output;</li>
+<li>a raw LaTeX table;</li>
+<li>a table outside a cell, a table inside another table, and printed
+code output.</li>
+</ul>
+<p>A cell from an included file is recorded under the main source
+file.</p>
+</div>
+<div class="section level2">
 <h2 id="observable-js">Observable JS<a class="anchor" aria-label="anchor" href="#observable-js"></a>
 </h2>
 <p>An <code>{ojs}</code> chunk runs in the reader’s browser, after the
@@ -954,9 +992,10 @@ re-rendered when it need not be, never the reverse.</li>
 <li>A Python or Julia <code><a href="../reference/claim.html">claim()</a></code> stops its chunk at once even
 under <code>chunk_claims: collect</code>, and takes no
 <code>decision</code> pointer.</li>
-<li>Tables that a Python or Julia chunk prints are not recorded in the
-ledger, nor are tables in a document on the Jupyter or Julia
-engine.</li>
+<li>Tables that a Python or Julia chunk prints in a knitr document are
+not recorded in the ledger. In a document on the Jupyter or Julia engine
+the filter records them, with the limits listed under “Tables in a
+Jupyter or Julia document” above.</li>
 <li>
 <code><a href="../reference/checks.html">checks()</a></code> and the gate’s check lines do not read Python
 or Julia checks; they list them as not read.</li>

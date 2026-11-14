@@ -2,6 +2,17 @@
 
 ## weft (development version)
 
+- The ledger now records the tables of a document on the Jupyter or
+  Julia engine, and of Markdown run through the filter. The filter
+  writes one `table` entry for each Pandoc table or HTML table in a
+  cell, keyed by the cell’s label, with a digest of the cells’ text, so
+  [`changes()`](https://vorpalvorpal.github.io/weft/reference/changes.md)
+  reports “table `tbl-sites` changed” there as it does for R. A table
+  that a script fills in after the page loads is recorded by the HTML it
+  holds, pandas in PDF output prints text and records nothing, and knitr
+  documents are unchanged. These digests do not compare with the R
+  route’s. The first render after you upgrade lists each such table as
+  added, once.
 - The hint for a name published nowhere no longer says “above”: it now
   reads “Publish it in code in this document”, since a named value may
   be published below its use.

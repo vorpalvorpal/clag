@@ -776,8 +776,9 @@ values file are not counted.
 - The filter does not follow symbolic links when it reads a values file.
 - Inline R used above the code that defines its value is not resolved
   later; only a named value is.
-- Tables in a document the filter resolves (Jupyter, Julia, markdown)
-  are not recorded in the ledger.
+- Tables in a Jupyter or Julia document are recorded in the ledger by
+  the filter, with the limits in the languages article. A table that a
+  script fills in after the page loads is recorded by the HTML it holds.
 - A guest `claim` counts in the commit gate only in an executed chunk,
   so turning `eval` off on a Python chunk with a claim reads as a
   removal.

@@ -215,9 +215,12 @@ a chunk prints two:
 
 The `sentence` is the table’s caption, or the start of its text. A table
 printed as plain code output (`print(df)` without `results: asis`), a
-figure, and a table from a Python or Julia document are not recorded.
-Label the chunks that print tables, so that each keeps its name when a
-chunk is added above it.
+figure, and a table that a Python or Julia chunk prints in a knitr
+document are not recorded. A document on the Jupyter or Julia engine
+gets the same entries from the filter, keyed by the label of the cell
+(see the languages article); its digest is of the cell text, and does
+not compare with an R document’s. Label the chunks that print tables, so
+that each keeps its name when a chunk is added above it.
 
 The **condition log**, `report.conditions.jsonl`, records each warning
 and error that a chunk or an inline expression raised during the render,
