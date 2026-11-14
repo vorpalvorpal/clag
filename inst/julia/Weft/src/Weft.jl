@@ -20,6 +20,7 @@
 module Weft
 
 include("record.jl")
+include("config.jl")
 
 export @claim, @put
 
@@ -319,6 +320,22 @@ function knitr_collects()::Bool
     end
 end
 
+# The setting for a claim on the julia engine (GN4): the macro's file when it is a .qmd or .md (a relative
+# one made absolute against QUARTO_DOCUMENT_PATH, else pwd()) and its folder; otherwise no source, and the
+# folder is QUARTO_DOCUMENT_PATH, else pwd().
+function engine_collects(file::AbstractString)::Bool
+    try
+        base = get(ENV, "QUARTO_DOCUMENT_PATH", "")
+        if any(e -> endswith(file, e), (".qmd", ".md"))
+            src = isabspath(file) ? file : joinpath(isempty(base) ? pwd() : base, file)
+            return chunk_claims_setting(src, dirname(src)) == "collect"
+        end
+        return chunk_claims_setting("", isempty(base) ? pwd() : base) == "collect"
+    catch
+        return false
+    end
+end
+
 function _claim(level::Symbol, expr::String, value, checks, line = nothing, file::String = "")
     (level === :fail || level === :warn) || throw(ArgumentError("level is :fail or :warn."))
     failed = NamedTuple{(:text, :why, :detail), Tuple{String, Union{Nothing, String}, String}}[]
@@ -360,10 +377,12 @@ function _claim(level::Symbol, expr::String, value, checks, line = nothing, file
         cks = [(text = f.text, level = String(level), why = f.why, expr = expr, value = rv, line = line)
                for f in failed]
         txt = block_text(Tuple{String, Rec}[], cks)
-        if level === :fail
+        if level === :fail && !engine_collects(file)
             println("~~~~", chop(txt, head = 4, tail = 4), "~~~~")
         else
             display(Values(txt))
+            # chunk_claims: collect (GN3): the block is displayed and the claim returns its value
+            level === :fail && return value
         end
     end
     level === :fail && throw(ClaimFailed(msg))

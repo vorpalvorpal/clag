@@ -22,6 +22,7 @@ import re as _re
 import sys as _sys
 import time as _time
 
+from . import _config
 from . import _record
 
 _knitr = None
@@ -158,6 +159,18 @@ def publish(values):
 
 # ---- claims (N52, N53) --------------------------------------------------------------------------
 
+def _collects():
+    """True when a failed claim is collected in this Quarto kernel (GN2b, GN4): the kernel was started by
+    a render (QUARTO_DOCUMENT_PATH is not empty) and `chunk_claims` is collect for the document. The files
+    are read at each call."""
+    folder = _os.environ.get("QUARTO_DOCUMENT_PATH", "")
+    if not folder:
+        return False
+    name = _os.environ.get("QUARTO_DOCUMENT_FILE", "")
+    source = _os.path.join(folder, name) if name else ""
+    return _config.chunk_claims(source, folder) == "collect"
+
+
 def report(level, expr, failures, value=None):
     """Record the failed checks of one claim() call. True when a back end did; the string
     "collected" when every callback for the claim said it collected the failure (G1, GN3).
@@ -184,6 +197,8 @@ def report(level, expr, failures, value=None):
             checks = [{"text": f["text"], "ok": False, "level": level, "why": f["why"],
                        "expr": expr, "value": v, "line": None} for f in failures]
             _show(block_text({}, checks))
+            if level == "fail" and _collects():
+                return "collected"
             return True
         except Exception:
             return False
