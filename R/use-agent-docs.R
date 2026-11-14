@@ -32,25 +32,31 @@
 #' @param overwrite Replace a block or skill file weft wrote that has since
 #'   been edited.
 #' @param skills The skills folders to write into: a character vector of
-#'   preset names or folders relative to the project root. The presets are
+#'   preset names or folders relative to the project root. The default,
+#'   `"agents"`, writes `.agents/skills` alone. Claude Code reads
+#'   `.claude/skills` and not `.agents/skills`, so Claude Code users pass
+#'   `skills = c("agents", "claude")`, or install the plugin with
+#'   `/plugin marketplace add vorpalvorpal/weft`. The presets are
 #'   `agents` (`.agents/skills`), `claude` (`.claude/skills`), `codex`
 #'   (`.agents/skills`), `gemini` (`.gemini/skills`), `opencode`
 #'   (`.opencode/skills`), `kimi` (`.kimi-code/skills`) and `cursor`
 #'   (`.cursor/skills`). An item with a `/` or starting with `.` is a folder; an
 #'   absolute path or one with a `..` part is an error. Folders that come to the
 #'   same place are written once. `character()` writes the `AGENTS.md` block
-#'   only.
+#'   only. A weft-written copy in a preset folder that is not named, and is
+#'   older than this weft, is not touched; the call says so and how to update it.
 #' @return The paths written, invisibly (`character()` when nothing changed):
 #'   `AGENTS.md` first, then the skill files folder by folder in the order
 #'   given.
 #' @export
-use_agent_docs <- function(path = ".", overwrite = FALSE, skills = c("agents", "claude")) {
+use_agent_docs <- function(path = ".", overwrite = FALSE, skills = "agents") {
   root <- install_root(path, "use_agent_docs")
   dirs <- skills_dirs(skills)
   plan <- agent_docs_plan(root, overwrite, dirs)
   announce_items(root, plan$items)
   done <- write_items(plan$items)
   for (n in plan$notes) message(n)
+  for (n in stale_copy_notes(root, dirs)) message(n)
   if (length(done)) {
     # the announcement already named each file once: count them here
     message("Wrote: ", length(done), if (length(done) == 1L) " file" else " files", ", listed above.")
@@ -214,7 +220,7 @@ agents_item <- function(path, root, overwrite) {
             new = c(old[seq_len(b$s - 1L)], block, old[-seq_len(b$e)]), eol = eol)
 }
 
-agent_docs_plan <- function(root, overwrite = FALSE, dirs = c(".agents/skills", ".claude/skills")) {
+agent_docs_plan <- function(root, overwrite = FALSE, dirs = ".agents/skills") {
   agents <- file.path(root, "AGENTS.md")
   place_check(agents, root)
   src <- skill_sources()
@@ -241,6 +247,28 @@ agent_docs_plan <- function(root, overwrite = FALSE, dirs = c(".agents/skills", 
     }
   }
   list(items = items, notes = notes)
+}
+
+# one message for each preset folder not written by this call that holds a copy weft wrote earlier and
+# that is older than the installed weft: it is left as it is, and the message says how to update it.
+# An edited or foreign copy is not mentioned: naming the folder would not update it.
+stale_copy_notes <- function(root, dirs) {
+  src <- names(skill_sources())
+  folders <- unique(unname(SKILL_PRESETS))
+  name_of <- function(d) {
+    nm <- names(SKILL_PRESETS)[match(d, SKILL_PRESETS)]
+    if (is.na(nm)) d else nm
+  }
+  out <- character()
+  for (d in setdiff(folders, dirs)) {
+    sts <- vapply(src, function(rel) file_status(file.path(root, d, "weft", rel), AGENT_FN), "")
+    if (!any(sts == "outdated")) next
+    call <- paste0("use_agent_docs(skills = c(",
+                   paste0('"', unique(c(vapply(dirs, name_of, ""), name_of(d))), '"', collapse = ", "), "))")
+    out <- c(out, sprintf("The copy in %s was not updated: it is older than this weft. Run %s to update it.",
+                          d, call))
+  }
+  out
 }
 
 # the state of the skill copies against the installed version, for status(): list(state, bits), where the

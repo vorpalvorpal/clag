@@ -4,7 +4,7 @@
 \alias{use_agent_docs}
 \title{Write the agent documents: an AGENTS.md block and a skill}
 \usage{
-use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
+use_agent_docs(path = ".", overwrite = FALSE, skills = "agents")
 }
 \arguments{
 \item{path}{A directory in the project.}
@@ -13,14 +13,19 @@ use_agent_docs(path = ".", overwrite = FALSE, skills = c("agents", "claude"))
 been edited.}
 
 \item{skills}{The skills folders to write into: a character vector of
-preset names or folders relative to the project root. The presets are
+preset names or folders relative to the project root. The default,
+\code{"agents"}, writes \code{.agents/skills} alone. Claude Code reads
+\code{.claude/skills} and not \code{.agents/skills}, so Claude Code users pass
+\code{skills = c("agents", "claude")}, or install the plugin with
+\verb{/plugin marketplace add vorpalvorpal/weft}. The presets are
 \code{agents} (\code{.agents/skills}), \code{claude} (\code{.claude/skills}), \code{codex}
 (\code{.agents/skills}), \code{gemini} (\code{.gemini/skills}), \code{opencode}
 (\code{.opencode/skills}), \code{kimi} (\code{.kimi-code/skills}) and \code{cursor}
 (\code{.cursor/skills}). An item with a \code{/} or starting with \code{.} is a folder; an
 absolute path or one with a \code{..} part is an error. Folders that come to the
 same place are written once. \code{character()} writes the \code{AGENTS.md} block
-only.}
+only. A weft-written copy in a preset folder that is not named, and is
+older than this weft, is not touched; the call says so and how to update it.}
 }
 \value{
 The paths written, invisibly (\code{character()} when nothing changed):

@@ -115,6 +115,7 @@ use_weft <- function(path = ".") {
   add("use_agent_docs", items_what(ap$items), function() {
     done <- write_items(ap$items)
     for (n in ap$notes) message(n)
+    for (n in stale_copy_notes(root, ".agents/skills")) message(n)
     vapply(done, `[[`, "", "path")
   })
 

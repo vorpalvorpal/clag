@@ -75,7 +75,7 @@ weft::use_weft()
 #>   use_dictionary  dict.yml (new), _weft/dict.schema.json (new)
 #>   use_hooks       .git/hooks/commit-msg (new)
 #>   use_ci          skipped: origin is not on GitHub
-#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new), .claude/skills/weft/SKILL.md (new), .claude/skills/weft/references/reports.md (new), .claude/skills/weft/references/syntax.md (new)
+#>   use_agent_docs  AGENTS.md (new), .agents/skills/weft/SKILL.md (new), .agents/skills/weft/references/reports.md (new), .agents/skills/weft/references/syntax.md (new)
 #> Wrote: .Rprofile, _weft.yml, report.qmd, ...
 ```
 
@@ -84,7 +84,7 @@ edit to `report.qmd` adds `engine: knitr` to its front matter.
 
 ```sh
 git add .Rprofile _weft.yml report.qmd _extensions _weft _quarto.yml \
-  dict.yml AGENTS.md .claude
+  dict.yml AGENTS.md .agents
 git commit -m "Set up weft"
 ```
 
