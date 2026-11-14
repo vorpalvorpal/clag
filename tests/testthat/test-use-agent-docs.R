@@ -21,8 +21,11 @@ test_that("4b G34: a project with neither file gets exactly AGENTS.md and the sk
   d <- ad_proj()
   before <- tree(d)
   res <- h4_agent(d)
-  expect_setequal(setdiff(tree(d), before), c("AGENTS.md", ".claude/skills/weft/SKILL.md"))
-  expect_setequal(u4_rel(res, d), c("AGENTS.md", ".claude/skills/weft/SKILL.md"))
+  want <- c("AGENTS.md", file.path(rep(c(".agents", ".claude"), each = 3), "skills/weft",
+                                  c("SKILL.md", "references/reports.md", "references/syntax.md")))
+  expect_setequal(setdiff(tree(d), before), want)
+  expect_identical(u4_rel(res, d)[1], "AGENTS.md")
+  expect_setequal(u4_rel(res, d), want)
 })
 
 test_that("4b G34: use_agent_docs() returns the paths written, invisibly", {
@@ -51,7 +54,7 @@ test_that("4b G34: the block text is the design's (heading, the four rules, the 
   expect_true("## weft" %in% inner)
   expect_true(any(grepl("A failed claim is a finding to report to the author, not an error to clear.", inner, fixed = TRUE)))
   expect_true(any(grepl("Do not use", inner, fixed = TRUE)) && any(grepl("--no-verify", inner, fixed = TRUE)))
-  expect_true(any(grepl("The weft skill (`.claude/skills/weft/`) has the detail.", inner, fixed = TRUE)))
+  expect_true(any(grepl("`.claude/skills/weft/`) and has the detail; `weft::agent_docs()` prints it.", inner, fixed = TRUE)))
 })
 
 test_that("4b G34: a file without the block gets it appended after the last line, one blank line before it, the rest untouched", {

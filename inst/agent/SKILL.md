@@ -1,12 +1,22 @@
 ---
 name: weft
 description: Use when editing a document of a project that uses the weft R package (inline `r` values, spans with n=, if=, sign=, list=, cite=, claim() checks, _weft.yml), or when a render, a lint or a commit fails with a weft report.
+metadata:
+  weft-version: "@VERSION@"
 ---
 
 # weft
 
 weft keeps the numbers in a manuscript computed and the wording that depends
 on them chosen by the numbers. This file is written by `weft::use_agent_docs()`.
+
+## References
+
+`references/syntax.md` has the constructs, one example each; `references/reports.md`
+shows how to read a failed render, a lint report and a refused commit.
+`weft::agent_docs()` lists them, and `Rscript -e "weft::agent_docs('syntax')"` (or
+`'reports'`) prints the installed package's version of each; it wins if the copy
+here is older.
 
 ## The four rules
 
@@ -28,8 +38,8 @@ check or the value to make the claim true.
 
 ## The trailer
 
-A commit that removes constructs on purpose needs the number the hook
-printed: `git commit --trailer "Weft-Removed: N"`. A wrong number is refused.
+A removal on purpose needs the hook's number: `git commit --trailer "Weft-Removed: N"`.
+A wrong number is refused.
 
 ## Findings added at a commit
 

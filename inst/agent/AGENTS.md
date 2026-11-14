@@ -14,4 +14,5 @@ This project uses the weft R package: numbers in the prose are computed
   under `weft: dict_local:`, each with a `why:`; read them as
   `dict_local$key`, never `dict$key`.
 
-The weft skill (`.claude/skills/weft/`) has the detail.
+The weft skill is in the project's skills folders (`.agents/skills/weft/`,
+`.claude/skills/weft/`) and has the detail; `weft::agent_docs()` prints it.

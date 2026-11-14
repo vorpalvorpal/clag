@@ -114,7 +114,7 @@ use_weft <- function(path = ".") {
   ap <- agent_docs_plan(root)
   add("use_agent_docs", items_what(ap$items), function() {
     done <- write_items(ap$items)
-    if (nzchar(ap$note)) message(ap$note)
+    for (n in ap$notes) message(n)
     vapply(done, `[[`, "", "path")
   })
 
@@ -381,13 +381,12 @@ status <- function(path = ".") {
   }
 
   # agent docs
-  skill <- file.path(root, ".claude", "skills", "weft", "SKILL.md")
   bs <- block_status(file.path(root, "AGENTS.md"))
-  ss <- file_status(skill, AGENT_FN)
-  ss <- if (ss == "foreign") "edited" else ss
+  sk <- skill_status(root)
+  ss <- sk$state
   worst <- c("missing", "outdated", "edited", "ok")
   st <- worst[min(match(c(bs, ss), worst))]
-  bits <- c(sprintf("AGENTS.md block: %s", bs), sprintf("skill: %s", ss))
+  bits <- c(sprintf("AGENTS.md block: %s", bs), sk$bits)
   add("agent docs", st, if (st == "ok") "the AGENTS.md block and the skill are current" else
         paste(bits, collapse = "; "),
       "use_agent_docs", "write the AGENTS.md block and the weft skill")
