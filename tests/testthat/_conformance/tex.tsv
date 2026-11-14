@@ -1,0 +1,1011 @@
+value	classes	keys	text	record
+1234567.891	num	target=tex	1{,}234{,}567.9	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex	-1{,}234{,}567.9	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex	1{,}000.0	{"t":"float","v":"999.95"}
+3	num	target=tex	3	{"t":"float","v":"3"}
+0.5	num	target=tex	0.5	{"t":"float","v":"0.5"}
+-2.5	num	target=tex	-2.5	{"t":"float","v":"-2.5"}
+0	num	target=tex	0	{"t":"float","v":"0"}
+1000	num	target=tex	1{,}000	{"t":"float","v":"1000"}
+999	num	target=tex	999	{"t":"float","v":"999"}
+0.995	num	target=tex	1.0	{"t":"float","v":"0.995"}
+pi	num	target=tex	3.1	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex	1{,}234.6	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex	0.0	{"t":"float","v":"0.04"}
+-0.04	num	target=tex	0.0	{"t":"float","v":"-0.04"}
+100000	num	target=tex	100{,}000	{"t":"float","v":"100000"}
+1e-6	num	target=tex	0.0	{"t":"float","v":"1e-06"}
+12	num	target=tex	12	{"t":"float","v":"12"}
+0.15	num	target=tex	0.2	{"t":"float","v":"0.15"}
+1234.5	num	target=tex	1{,}234.5	{"t":"float","v":"1234.5"}
+1/3	num	target=tex	0.3	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex digits=0	1{,}234{,}568	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex digits=0	-1{,}234{,}568	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex digits=0	-1{,}234{,}568	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex digits=0	1{,}000	{"t":"float","v":"999.95"}
+3	num	target=tex digits=0	3	{"t":"float","v":"3"}
+0.5	num	target=tex digits=0	1	{"t":"float","v":"0.5"}
+-2.5	num	target=tex digits=0	-3	{"t":"float","v":"-2.5"}
+0	num	target=tex digits=0	0	{"t":"float","v":"0"}
+1000	num	target=tex digits=0	1{,}000	{"t":"float","v":"1000"}
+999	num	target=tex digits=0	999	{"t":"float","v":"999"}
+0.995	num	target=tex digits=0	1	{"t":"float","v":"0.995"}
+pi	num	target=tex digits=0	3	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex digits=0	1{,}235	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex digits=0	0	{"t":"float","v":"0.04"}
+-0.04	num	target=tex digits=0	0	{"t":"float","v":"-0.04"}
+100000	num	target=tex digits=0	100{,}000	{"t":"float","v":"100000"}
+1e-6	num	target=tex digits=0	0	{"t":"float","v":"1e-06"}
+12	num	target=tex digits=0	12	{"t":"float","v":"12"}
+0.15	num	target=tex digits=0	0	{"t":"float","v":"0.15"}
+1234.5	num	target=tex digits=0	1{,}235	{"t":"float","v":"1234.5"}
+1/3	num	target=tex digits=0	0	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex digits=1	1{,}234{,}567.9	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex digits=1	-1{,}234{,}567.9	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex digits=1	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex digits=1	1{,}000.0	{"t":"float","v":"999.95"}
+3	num	target=tex digits=1	3.0	{"t":"float","v":"3"}
+0.5	num	target=tex digits=1	0.5	{"t":"float","v":"0.5"}
+-2.5	num	target=tex digits=1	-2.5	{"t":"float","v":"-2.5"}
+0	num	target=tex digits=1	0.0	{"t":"float","v":"0"}
+1000	num	target=tex digits=1	1{,}000.0	{"t":"float","v":"1000"}
+999	num	target=tex digits=1	999.0	{"t":"float","v":"999"}
+0.995	num	target=tex digits=1	1.0	{"t":"float","v":"0.995"}
+pi	num	target=tex digits=1	3.1	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex digits=1	1{,}234.6	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex digits=1	0.0	{"t":"float","v":"0.04"}
+-0.04	num	target=tex digits=1	0.0	{"t":"float","v":"-0.04"}
+100000	num	target=tex digits=1	100{,}000.0	{"t":"float","v":"100000"}
+1e-6	num	target=tex digits=1	0.0	{"t":"float","v":"1e-06"}
+12	num	target=tex digits=1	12.0	{"t":"float","v":"12"}
+0.15	num	target=tex digits=1	0.2	{"t":"float","v":"0.15"}
+1234.5	num	target=tex digits=1	1{,}234.5	{"t":"float","v":"1234.5"}
+1/3	num	target=tex digits=1	0.3	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex digits=2	1{,}234{,}567.89	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex digits=2	-1{,}234{,}567.89	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex digits=2	-1{,}234{,}567.89	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex digits=2	999.95	{"t":"float","v":"999.95"}
+3	num	target=tex digits=2	3.00	{"t":"float","v":"3"}
+0.5	num	target=tex digits=2	0.50	{"t":"float","v":"0.5"}
+-2.5	num	target=tex digits=2	-2.50	{"t":"float","v":"-2.5"}
+0	num	target=tex digits=2	0.00	{"t":"float","v":"0"}
+1000	num	target=tex digits=2	1{,}000.00	{"t":"float","v":"1000"}
+999	num	target=tex digits=2	999.00	{"t":"float","v":"999"}
+0.995	num	target=tex digits=2	1.00	{"t":"float","v":"0.995"}
+pi	num	target=tex digits=2	3.14	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex digits=2	1{,}234.57	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex digits=2	0.04	{"t":"float","v":"0.04"}
+-0.04	num	target=tex digits=2	-0.04	{"t":"float","v":"-0.04"}
+100000	num	target=tex digits=2	100{,}000.00	{"t":"float","v":"100000"}
+1e-6	num	target=tex digits=2	0.00	{"t":"float","v":"1e-06"}
+12	num	target=tex digits=2	12.00	{"t":"float","v":"12"}
+0.15	num	target=tex digits=2	0.15	{"t":"float","v":"0.15"}
+1234.5	num	target=tex digits=2	1{,}234.50	{"t":"float","v":"1234.5"}
+1/3	num	target=tex digits=2	0.33	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex digits=3	1{,}234{,}567.891	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex digits=3	-1{,}234{,}567.891	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex digits=3	-1{,}234{,}567.890	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex digits=3	999.950	{"t":"float","v":"999.95"}
+3	num	target=tex digits=3	3.000	{"t":"float","v":"3"}
+0.5	num	target=tex digits=3	0.500	{"t":"float","v":"0.5"}
+-2.5	num	target=tex digits=3	-2.500	{"t":"float","v":"-2.5"}
+0	num	target=tex digits=3	0.000	{"t":"float","v":"0"}
+1000	num	target=tex digits=3	1{,}000.000	{"t":"float","v":"1000"}
+999	num	target=tex digits=3	999.000	{"t":"float","v":"999"}
+0.995	num	target=tex digits=3	0.995	{"t":"float","v":"0.995"}
+pi	num	target=tex digits=3	3.142	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex digits=3	1{,}234.568	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex digits=3	0.040	{"t":"float","v":"0.04"}
+-0.04	num	target=tex digits=3	-0.040	{"t":"float","v":"-0.04"}
+100000	num	target=tex digits=3	100{,}000.000	{"t":"float","v":"100000"}
+1e-6	num	target=tex digits=3	0.000	{"t":"float","v":"1e-06"}
+12	num	target=tex digits=3	12.000	{"t":"float","v":"12"}
+0.15	num	target=tex digits=3	0.150	{"t":"float","v":"0.15"}
+1234.5	num	target=tex digits=3	1{,}234.500	{"t":"float","v":"1234.5"}
+1/3	num	target=tex digits=3	0.333	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex sigfig=1	1{,}000{,}000	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex sigfig=1	-1{,}000{,}000	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex sigfig=1	-1{,}000{,}000	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex sigfig=1	1{,}000	{"t":"float","v":"999.95"}
+3	num	target=tex sigfig=1	3	{"t":"float","v":"3"}
+0.5	num	target=tex sigfig=1	0.5	{"t":"float","v":"0.5"}
+-2.5	num	target=tex sigfig=1	-3	{"t":"float","v":"-2.5"}
+0	num	target=tex sigfig=1	0	{"t":"float","v":"0"}
+1000	num	target=tex sigfig=1	1{,}000	{"t":"float","v":"1000"}
+999	num	target=tex sigfig=1	1{,}000	{"t":"float","v":"999"}
+0.995	num	target=tex sigfig=1	1	{"t":"float","v":"0.995"}
+pi	num	target=tex sigfig=1	3	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex sigfig=1	1{,}000	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex sigfig=1	0.04	{"t":"float","v":"0.04"}
+-0.04	num	target=tex sigfig=1	-0.04	{"t":"float","v":"-0.04"}
+100000	num	target=tex sigfig=1	100{,}000	{"t":"float","v":"100000"}
+1e-6	num	target=tex sigfig=1	0.000001	{"t":"float","v":"1e-06"}
+12	num	target=tex sigfig=1	10	{"t":"float","v":"12"}
+0.15	num	target=tex sigfig=1	0.2	{"t":"float","v":"0.15"}
+1234.5	num	target=tex sigfig=1	1{,}000	{"t":"float","v":"1234.5"}
+1/3	num	target=tex sigfig=1	0.3	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex sigfig=2	1{,}200{,}000	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex sigfig=2	-1{,}200{,}000	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex sigfig=2	-1{,}200{,}000	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex sigfig=2	1{,}000	{"t":"float","v":"999.95"}
+3	num	target=tex sigfig=2	3.0	{"t":"float","v":"3"}
+0.5	num	target=tex sigfig=2	0.50	{"t":"float","v":"0.5"}
+-2.5	num	target=tex sigfig=2	-2.5	{"t":"float","v":"-2.5"}
+0	num	target=tex sigfig=2	0.0	{"t":"float","v":"0"}
+1000	num	target=tex sigfig=2	1{,}000	{"t":"float","v":"1000"}
+999	num	target=tex sigfig=2	1{,}000	{"t":"float","v":"999"}
+0.995	num	target=tex sigfig=2	1.0	{"t":"float","v":"0.995"}
+pi	num	target=tex sigfig=2	3.1	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex sigfig=2	1{,}200	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex sigfig=2	0.040	{"t":"float","v":"0.04"}
+-0.04	num	target=tex sigfig=2	-0.040	{"t":"float","v":"-0.04"}
+100000	num	target=tex sigfig=2	100{,}000	{"t":"float","v":"100000"}
+1e-6	num	target=tex sigfig=2	0.0000010	{"t":"float","v":"1e-06"}
+12	num	target=tex sigfig=2	12	{"t":"float","v":"12"}
+0.15	num	target=tex sigfig=2	0.15	{"t":"float","v":"0.15"}
+1234.5	num	target=tex sigfig=2	1{,}200	{"t":"float","v":"1234.5"}
+1/3	num	target=tex sigfig=2	0.33	{"t":"float","v":"0.3333333333333333"}
+1234567.891	num	target=tex sigfig=3	1{,}230{,}000	{"t":"float","v":"1234567.891"}
+-1234567.891	num	target=tex sigfig=3	-1{,}230{,}000	{"t":"float","v":"-1234567.891"}
+-1234567.89	num	target=tex sigfig=3	-1{,}230{,}000	{"t":"float","v":"-1234567.89"}
+999.95	num	target=tex sigfig=3	1{,}000	{"t":"float","v":"999.95"}
+3	num	target=tex sigfig=3	3.00	{"t":"float","v":"3"}
+0.5	num	target=tex sigfig=3	0.500	{"t":"float","v":"0.5"}
+-2.5	num	target=tex sigfig=3	-2.50	{"t":"float","v":"-2.5"}
+0	num	target=tex sigfig=3	0.00	{"t":"float","v":"0"}
+1000	num	target=tex sigfig=3	1{,}000	{"t":"float","v":"1000"}
+999	num	target=tex sigfig=3	999	{"t":"float","v":"999"}
+0.995	num	target=tex sigfig=3	0.995	{"t":"float","v":"0.995"}
+pi	num	target=tex sigfig=3	3.14	{"t":"float","v":"3.141592653589793"}
+1234.5678	num	target=tex sigfig=3	1{,}230	{"t":"float","v":"1234.5678"}
+0.04	num	target=tex sigfig=3	0.0400	{"t":"float","v":"0.04"}
+-0.04	num	target=tex sigfig=3	-0.0400	{"t":"float","v":"-0.04"}
+100000	num	target=tex sigfig=3	100{,}000	{"t":"float","v":"100000"}
+1e-6	num	target=tex sigfig=3	0.00000100	{"t":"float","v":"1e-06"}
+12	num	target=tex sigfig=3	12.0	{"t":"float","v":"12"}
+0.15	num	target=tex sigfig=3	0.150	{"t":"float","v":"0.15"}
+1234.5	num	target=tex sigfig=3	1{,}230	{"t":"float","v":"1234.5"}
+1/3	num	target=tex sigfig=3	0.333	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex	123{,}456{,}789.1\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex	-123{,}456{,}789.1\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex	-123{,}456{,}789.0\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex	99{,}995\%	{"t":"float","v":"999.95"}
+3	pct	target=tex	300\%	{"t":"float","v":"3"}
+0.5	pct	target=tex	50\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex	-250\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex	0\%	{"t":"float","v":"0"}
+1000	pct	target=tex	100{,}000\%	{"t":"float","v":"1000"}
+999	pct	target=tex	99{,}900\%	{"t":"float","v":"999"}
+0.995	pct	target=tex	99.5\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex	314.2\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex	123{,}456.8\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex	4\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex	-4\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex	10{,}000{,}000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex	0.0\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex	1{,}200\%	{"t":"float","v":"12"}
+0.15	pct	target=tex	15\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex	123{,}450\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex	33.3\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex digits=0	123{,}456{,}789\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex digits=0	-123{,}456{,}789\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex digits=0	-123{,}456{,}789\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex digits=0	99{,}995\%	{"t":"float","v":"999.95"}
+3	pct	target=tex digits=0	300\%	{"t":"float","v":"3"}
+0.5	pct	target=tex digits=0	50\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex digits=0	-250\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex digits=0	0\%	{"t":"float","v":"0"}
+1000	pct	target=tex digits=0	100{,}000\%	{"t":"float","v":"1000"}
+999	pct	target=tex digits=0	99{,}900\%	{"t":"float","v":"999"}
+0.995	pct	target=tex digits=0	100\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex digits=0	314\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex digits=0	123{,}457\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex digits=0	4\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex digits=0	-4\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex digits=0	10{,}000{,}000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex digits=0	0\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex digits=0	1{,}200\%	{"t":"float","v":"12"}
+0.15	pct	target=tex digits=0	15\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex digits=0	123{,}450\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex digits=0	33\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex digits=1	123{,}456{,}789.1\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex digits=1	-123{,}456{,}789.1\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex digits=1	-123{,}456{,}789.0\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex digits=1	99{,}995.0\%	{"t":"float","v":"999.95"}
+3	pct	target=tex digits=1	300.0\%	{"t":"float","v":"3"}
+0.5	pct	target=tex digits=1	50.0\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex digits=1	-250.0\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex digits=1	0.0\%	{"t":"float","v":"0"}
+1000	pct	target=tex digits=1	100{,}000.0\%	{"t":"float","v":"1000"}
+999	pct	target=tex digits=1	99{,}900.0\%	{"t":"float","v":"999"}
+0.995	pct	target=tex digits=1	99.5\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex digits=1	314.2\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex digits=1	123{,}456.8\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex digits=1	4.0\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex digits=1	-4.0\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex digits=1	10{,}000{,}000.0\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex digits=1	0.0\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex digits=1	1{,}200.0\%	{"t":"float","v":"12"}
+0.15	pct	target=tex digits=1	15.0\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex digits=1	123{,}450.0\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex digits=1	33.3\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex digits=2	123{,}456{,}789.10\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex digits=2	-123{,}456{,}789.10\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex digits=2	-123{,}456{,}789.00\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex digits=2	99{,}995.00\%	{"t":"float","v":"999.95"}
+3	pct	target=tex digits=2	300.00\%	{"t":"float","v":"3"}
+0.5	pct	target=tex digits=2	50.00\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex digits=2	-250.00\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex digits=2	0.00\%	{"t":"float","v":"0"}
+1000	pct	target=tex digits=2	100{,}000.00\%	{"t":"float","v":"1000"}
+999	pct	target=tex digits=2	99{,}900.00\%	{"t":"float","v":"999"}
+0.995	pct	target=tex digits=2	99.50\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex digits=2	314.16\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex digits=2	123{,}456.78\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex digits=2	4.00\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex digits=2	-4.00\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex digits=2	10{,}000{,}000.00\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex digits=2	0.00\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex digits=2	1{,}200.00\%	{"t":"float","v":"12"}
+0.15	pct	target=tex digits=2	15.00\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex digits=2	123{,}450.00\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex digits=2	33.33\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex digits=3	123{,}456{,}789.100\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex digits=3	-123{,}456{,}789.100\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex digits=3	-123{,}456{,}789.000\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex digits=3	99{,}995.000\%	{"t":"float","v":"999.95"}
+3	pct	target=tex digits=3	300.000\%	{"t":"float","v":"3"}
+0.5	pct	target=tex digits=3	50.000\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex digits=3	-250.000\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex digits=3	0.000\%	{"t":"float","v":"0"}
+1000	pct	target=tex digits=3	100{,}000.000\%	{"t":"float","v":"1000"}
+999	pct	target=tex digits=3	99{,}900.000\%	{"t":"float","v":"999"}
+0.995	pct	target=tex digits=3	99.500\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex digits=3	314.159\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex digits=3	123{,}456.780\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex digits=3	4.000\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex digits=3	-4.000\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex digits=3	10{,}000{,}000.000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex digits=3	0.000\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex digits=3	1{,}200.000\%	{"t":"float","v":"12"}
+0.15	pct	target=tex digits=3	15.000\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex digits=3	123{,}450.000\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex digits=3	33.333\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex sigfig=1	100{,}000{,}000\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex sigfig=1	-100{,}000{,}000\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex sigfig=1	-100{,}000{,}000\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex sigfig=1	100{,}000\%	{"t":"float","v":"999.95"}
+3	pct	target=tex sigfig=1	300\%	{"t":"float","v":"3"}
+0.5	pct	target=tex sigfig=1	50\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex sigfig=1	-300\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex sigfig=1	0\%	{"t":"float","v":"0"}
+1000	pct	target=tex sigfig=1	100{,}000\%	{"t":"float","v":"1000"}
+999	pct	target=tex sigfig=1	100{,}000\%	{"t":"float","v":"999"}
+0.995	pct	target=tex sigfig=1	100\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex sigfig=1	300\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex sigfig=1	100{,}000\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex sigfig=1	4\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex sigfig=1	-4\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex sigfig=1	10{,}000{,}000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex sigfig=1	0.0001\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex sigfig=1	1{,}000\%	{"t":"float","v":"12"}
+0.15	pct	target=tex sigfig=1	20\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex sigfig=1	100{,}000\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex sigfig=1	30\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex sigfig=2	120{,}000{,}000\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex sigfig=2	-120{,}000{,}000\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex sigfig=2	-120{,}000{,}000\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex sigfig=2	100{,}000\%	{"t":"float","v":"999.95"}
+3	pct	target=tex sigfig=2	300\%	{"t":"float","v":"3"}
+0.5	pct	target=tex sigfig=2	50\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex sigfig=2	-250\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex sigfig=2	0.0\%	{"t":"float","v":"0"}
+1000	pct	target=tex sigfig=2	100{,}000\%	{"t":"float","v":"1000"}
+999	pct	target=tex sigfig=2	100{,}000\%	{"t":"float","v":"999"}
+0.995	pct	target=tex sigfig=2	100\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex sigfig=2	310\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex sigfig=2	120{,}000\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex sigfig=2	4.0\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex sigfig=2	-4.0\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex sigfig=2	10{,}000{,}000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex sigfig=2	0.00010\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex sigfig=2	1{,}200\%	{"t":"float","v":"12"}
+0.15	pct	target=tex sigfig=2	15\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex sigfig=2	120{,}000\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex sigfig=2	33\%	{"t":"float","v":"0.3333333333333333"}
+1234567.891	pct	target=tex sigfig=3	123{,}000{,}000\%	{"t":"float","v":"1234567.891"}
+-1234567.891	pct	target=tex sigfig=3	-123{,}000{,}000\%	{"t":"float","v":"-1234567.891"}
+-1234567.89	pct	target=tex sigfig=3	-123{,}000{,}000\%	{"t":"float","v":"-1234567.89"}
+999.95	pct	target=tex sigfig=3	100{,}000\%	{"t":"float","v":"999.95"}
+3	pct	target=tex sigfig=3	300\%	{"t":"float","v":"3"}
+0.5	pct	target=tex sigfig=3	50.0\%	{"t":"float","v":"0.5"}
+-2.5	pct	target=tex sigfig=3	-250\%	{"t":"float","v":"-2.5"}
+0	pct	target=tex sigfig=3	0.00\%	{"t":"float","v":"0"}
+1000	pct	target=tex sigfig=3	100{,}000\%	{"t":"float","v":"1000"}
+999	pct	target=tex sigfig=3	99{,}900\%	{"t":"float","v":"999"}
+0.995	pct	target=tex sigfig=3	99.5\%	{"t":"float","v":"0.995"}
+pi	pct	target=tex sigfig=3	314\%	{"t":"float","v":"3.141592653589793"}
+1234.5678	pct	target=tex sigfig=3	123{,}000\%	{"t":"float","v":"1234.5678"}
+0.04	pct	target=tex sigfig=3	4.00\%	{"t":"float","v":"0.04"}
+-0.04	pct	target=tex sigfig=3	-4.00\%	{"t":"float","v":"-0.04"}
+100000	pct	target=tex sigfig=3	10{,}000{,}000\%	{"t":"float","v":"100000"}
+1e-6	pct	target=tex sigfig=3	0.000100\%	{"t":"float","v":"1e-06"}
+12	pct	target=tex sigfig=3	1{,}200\%	{"t":"float","v":"12"}
+0.15	pct	target=tex sigfig=3	15.0\%	{"t":"float","v":"0.15"}
+1234.5	pct	target=tex sigfig=3	123{,}000\%	{"t":"float","v":"1234.5"}
+1/3	pct	target=tex sigfig=3	33.3\%	{"t":"float","v":"0.3333333333333333"}
+0.123	pct	target=tex	12.3\%	{"t":"float","v":"0.123"}
+-3.456	pct	target=tex	-345.6\%	{"t":"float","v":"-3.456"}
+1.25	num plus	target=tex	+1.3	{"t":"float","v":"1.25"}
+-1.25	num plus	target=tex	-1.3	{"t":"float","v":"-1.25"}
+0	num plus	target=tex	0	{"t":"float","v":"0"}
+3	num plus	target=tex	+3	{"t":"float","v":"3"}
+-3	num plus	target=tex	-3	{"t":"float","v":"-3"}
+0.04	num plus	target=tex	0.0	{"t":"float","v":"0.04"}
+1234.5	num plus	target=tex	+1{,}234.5	{"t":"float","v":"1234.5"}
+-1234.5	num plus	target=tex	-1{,}234.5	{"t":"float","v":"-1234.5"}
+0.5	num plus	target=tex	+0.5	{"t":"float","v":"0.5"}
+0.05	pct plus	target=tex	+5\%	{"t":"float","v":"0.05"}
+0.12	pct plus	target=tex	+12\%	{"t":"float","v":"0.12"}
+-0.12	pct plus	target=tex	-12\%	{"t":"float","v":"-0.12"}
+0	pct plus	target=tex	0\%	{"t":"float","v":"0"}
+1.5	pct plus	target=tex	+150\%	{"t":"float","v":"1.5"}
+0.0001	pct plus	target=tex	0.0\%	{"t":"float","v":"0.0001"}
+1.25	num plus	target=tex digits=0	+1	{"t":"float","v":"1.25"}
+-1.25	num plus	target=tex digits=0	-1	{"t":"float","v":"-1.25"}
+3	num plus	target=tex digits=0	+3	{"t":"float","v":"3"}
+1.25	num plus	target=tex digits=2	+1.25	{"t":"float","v":"1.25"}
+-1.25	num plus	target=tex digits=2	-1.25	{"t":"float","v":"-1.25"}
+3	num plus	target=tex digits=2	+3.00	{"t":"float","v":"3"}
+1234567L	num	target=tex	1{,}234{,}567	{"t":"int","v":"1234567"}
+-7L	num	target=tex	-7	{"t":"int","v":"-7"}
+0L	num	target=tex	0	{"t":"int","v":"0"}
+c(1.5, 2)	num	target=tex	1.5, 2	{"t":"list","v":[{"t":"float","v":"1.5"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1234.5, 0.5, -3)	num	target=tex	1{,}234.5, 0.5, -3	{"t":"list","v":[{"t":"float","v":"1234.5"},{"t":"float","v":"0.5"},{"t":"float","v":"-3"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.decimal_mark=, cfg.big_mark=.	1.234.567{,}9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.decimal_mark=, cfg.big_mark=.	-1.234.567{,}9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.decimal_mark=, cfg.big_mark=.	0{,}5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.decimal_mark=, cfg.big_mark=.	12{,}3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.decimal_mark=, cfg.big_mark=.	-2{,}5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.decimal_mark=, cfg.big_mark=.	1{,}2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.decimal_mark=, cfg.big_mark=.	-1{,}2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.decimal_mark=, cfg.big_mark=.	p < 0{,}001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.decimal_mark=, cfg.big_mark=.	p = 0{,}030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.decimal_mark=, cfg.big_mark=.	1.000{,}0\ \text{to}\ 2.500{,}5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.decimal_mark=,	1{,}234{,}567\text{,}9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.decimal_mark=,	-1{,}234{,}567\text{,}9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.decimal_mark=,	0\text{,}5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.decimal_mark=,	12\text{,}3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.decimal_mark=,	-2\text{,}5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.decimal_mark=,	1\text{,}2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.decimal_mark=,	-1\text{,}2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.decimal_mark=,	p < 0\text{,}001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.decimal_mark=,	p = 0\text{,}030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.decimal_mark=,	1{,}000\text{,}0\ \text{to}\ 2{,}500\text{,}5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=.	1.234.567\text{.}9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=.	-1.234.567\text{.}9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=.	0\text{.}5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=.	12\text{.}3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=.	-2\text{.}5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=.	1\text{.}2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=.	-1\text{.}2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=.	p < 0\text{.}001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=.	p = 0\text{.}030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=.	1.000\text{.}0\ \text{to}\ 2.500\text{.}5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=%20	1\,234\,567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=%20	-1\,234\,567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=%20	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=%20	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=%20	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=%20	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=%20	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=%20	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=%20	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=%20	1\,000.0\ \text{to}\ 2\,500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark= 	1\,234\,567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark= 	-1\,234\,567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark= 	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark= 	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark= 	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark= 	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark= 	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark= 	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark= 	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark= 	1\,000.0\ \text{to}\ 2\,500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark= 	1\,234\,567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark= 	-1\,234\,567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark= 	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark= 	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark= 	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark= 	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark= 	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark= 	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark= 	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark= 	1\,000.0\ \text{to}\ 2\,500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark= 	1\,234\,567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark= 	-1\,234\,567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark= 	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark= 	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark= 	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark= 	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark= 	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark= 	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark= 	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark= 	1\,000.0\ \text{to}\ 2\,500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark='	1\text{'}234\text{'}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark='	-1\text{'}234\text{'}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark='	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark='	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark='	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark='	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark='	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark='	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark='	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark='	1\text{'}000.0\ \text{to}\ 2\text{'}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=’	1\text{'}234\text{'}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=’	-1\text{'}234\text{'}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=’	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=’	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=’	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=’	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=’	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=’	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=’	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=’	1\text{'}000.0\ \text{to}\ 2\text{'}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=·	1{\cdot}234{\cdot}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=·	-1{\cdot}234{\cdot}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=·	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=·	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=·	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=·	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=·	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=·	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=·	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=·	1{\cdot}000.0\ \text{to}\ 2{\cdot}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=	1234567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=	-1234567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=	1000.0\ \text{to}\ 2500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=_	1\_234\_567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=_	-1\_234\_567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=_	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=_	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=_	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=_	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=_	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=_	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=_	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=_	1\_000.0\ \text{to}\ 2\_500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.big_mark=x	1\text{x}234\text{x}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.big_mark=x	-1\text{x}234\text{x}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.big_mark=x	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.big_mark=x	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.big_mark=x	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.big_mark=x	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.big_mark=x	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.big_mark=x	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.big_mark=x	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.big_mark=x	1\text{x}000.0\ \text{to}\ 2\text{x}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.decimal_mark=·	1{,}234{,}567{\cdot}9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.decimal_mark=·	-1{,}234{,}567{\cdot}9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.decimal_mark=·	0{\cdot}5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.decimal_mark=·	12{\cdot}3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.decimal_mark=·	-2{\cdot}5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.decimal_mark=·	1{\cdot}2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.decimal_mark=·	-1{\cdot}2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.decimal_mark=·	p < 0{\cdot}001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.decimal_mark=·	p = 0{\cdot}030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.decimal_mark=·	1{,}000{\cdot}0\ \text{to}\ 2{,}500{\cdot}5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.decimal_mark=, cfg.big_mark=	1234567{,}9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.decimal_mark=, cfg.big_mark=	-1234567{,}9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.decimal_mark=, cfg.big_mark=	0{,}5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.decimal_mark=, cfg.big_mark=	12{,}3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.decimal_mark=, cfg.big_mark=	-2{,}5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.decimal_mark=, cfg.big_mark=	1{,}2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.decimal_mark=, cfg.big_mark=	-1{,}2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.decimal_mark=, cfg.big_mark=	p < 0{,}001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.decimal_mark=, cfg.big_mark=	p = 0{,}030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.decimal_mark=, cfg.big_mark=	1000{,}0\ \text{to}\ 2500{,}5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.decimal_mark=%20	1{,}234{,}567\,9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.decimal_mark=%20	-1{,}234{,}567\,9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.decimal_mark=%20	0\,5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.decimal_mark=%20	12\,3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.decimal_mark=%20	-2\,5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.decimal_mark=%20	1\,2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.decimal_mark=%20	-1\,2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.decimal_mark=%20	p < 0\,001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.decimal_mark=%20	p = 0\,030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.decimal_mark=%20	1{,}000\,0\ \text{to}\ 2{,}500\,5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.minus=-	1{,}234{,}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.minus=-	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.minus=-	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.minus=-	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.minus=-	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.minus=-	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.minus=-	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.minus=-	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.minus=-	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.minus=-	1{,}000.0\ \text{to}\ 2{,}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.minus=−	1{,}234{,}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.minus=−	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.minus=−	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.minus=−	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.minus=−	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.minus=−	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.minus=−	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.minus=−	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.minus=−	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.minus=−	1{,}000.0\ \text{to}\ 2{,}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.minus=--	1{,}234{,}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.minus=--	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.minus=--	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.minus=--	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.minus=--	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.minus=--	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.minus=--	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.minus=--	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.minus=--	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.minus=--	1{,}000.0\ \text{to}\ 2{,}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+1234567.89	num	target=tex cfg.minus=–	1{,}234{,}567.9	{"t":"float","v":"1234567.89"}
+-1234567.89	num	target=tex cfg.minus=–	-1{,}234{,}567.9	{"t":"float","v":"-1234567.89"}
+0.5	num	target=tex cfg.minus=–	0.5	{"t":"float","v":"0.5"}
+0.123	pct	target=tex cfg.minus=–	12.3\%	{"t":"float","v":"0.123"}
+-2.5	num plus	target=tex cfg.minus=–	-2.5	{"t":"float","v":"-2.5"}
+1234567	sci	target=tex cfg.minus=–	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex cfg.minus=–	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+0.0001	p	target=tex cfg.minus=–	p < 0.001	{"t":"float","v":"0.0001"}
+0.03	p	target=tex cfg.minus=–	p = 0.030	{"t":"float","v":"0.03"}
+c(1000, 2500.5)	range	target=tex cfg.minus=–	1{,}000.0\ \text{to}\ 2{,}500.5	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500.5"}],"of":"float","keys":null}
+12345	sci	target=tex	1.2 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex	1.2 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+1	sci	target=tex	1 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex	0	{"t":"float","v":"0"}
+-2500	sci	target=tex	-2.5 \times 10^{3}	{"t":"float","v":"-2500"}
+999000	sci	target=tex	1 \times 10^{6}	{"t":"float","v":"999000"}
+9.99e5	sci	target=tex	1 \times 10^{6}	{"t":"float","v":"999000"}
+1.5e-7	sci	target=tex	1.5 \times 10^{-7}	{"t":"float","v":"1.5e-07"}
+1e10	sci	target=tex	1 \times 10^{10}	{"t":"float","v":"10000000000"}
+-1e-10	sci	target=tex	-1 \times 10^{-10}	{"t":"float","v":"-1e-10"}
+2.5	sci	target=tex	2.5 \times 10^{0}	{"t":"float","v":"2.5"}
+99999	sci	target=tex	1 \times 10^{5}	{"t":"float","v":"99999"}
+123456789L	sci	target=tex	1.2 \times 10^{8}	{"t":"int","v":"123456789"}
+2^53	sci	target=tex	9.0 \times 10^{15}	{"t":"float","v":"9007199254740992"}
+1e100	sci	target=tex	1 \times 10^{100}	{"t":"float","v":"1e+100"}
+-0.00099	sci	target=tex	-9.9 \times 10^{-4}	{"t":"float","v":"-0.00099"}
+1.2345e22	sci	target=tex	1.2 \times 10^{22}	{"t":"float","v":"1.2345e+22"}
+0.5	sci	target=tex	5 \times 10^{-1}	{"t":"float","v":"0.5"}
+10	sci	target=tex	1 \times 10^{1}	{"t":"float","v":"10"}
+100	sci	target=tex	1 \times 10^{2}	{"t":"float","v":"100"}
+3.14159	sci	target=tex	3.1 \times 10^{0}	{"t":"float","v":"3.14159"}
+-3.14159	sci	target=tex	-3.1 \times 10^{0}	{"t":"float","v":"-3.14159"}
+9.5	sci	target=tex	9.5 \times 10^{0}	{"t":"float","v":"9.5"}
+9.96	sci	target=tex	1 \times 10^{1}	{"t":"float","v":"9.96"}
+1234567	sci	target=tex	1.2 \times 10^{6}	{"t":"float","v":"1234567"}
+-0.000123	sci	target=tex	-1.2 \times 10^{-4}	{"t":"float","v":"-0.000123"}
+12345	sci	target=tex digits=0	1 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex digits=0	1 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex digits=0	1 \times 10^{6}	{"t":"float","v":"999000"}
+-2500	sci	target=tex digits=0	-3 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex digits=0	3 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex digits=0	1 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex digits=0	3 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex digits=0	5 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex digits=0	1 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex digits=0	0	{"t":"float","v":"0"}
+9.96	sci	target=tex digits=0	1 \times 10^{1}	{"t":"float","v":"9.96"}
+12345	sci	target=tex digits=1	1.2 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex digits=1	1.2 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex digits=1	1.0 \times 10^{6}	{"t":"float","v":"999000"}
+-2500	sci	target=tex digits=1	-2.5 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex digits=1	3.1 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex digits=1	1.0 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex digits=1	2.5 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex digits=1	5.0 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex digits=1	1.0 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex digits=1	0.0	{"t":"float","v":"0"}
+9.96	sci	target=tex digits=1	1.0 \times 10^{1}	{"t":"float","v":"9.96"}
+12345	sci	target=tex digits=2	1.23 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex digits=2	1.23 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex digits=2	9.99 \times 10^{5}	{"t":"float","v":"999000"}
+-2500	sci	target=tex digits=2	-2.50 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex digits=2	3.14 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex digits=2	1.00 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex digits=2	2.50 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex digits=2	5.00 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex digits=2	1.00 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex digits=2	0.00	{"t":"float","v":"0"}
+9.96	sci	target=tex digits=2	9.96 \times 10^{0}	{"t":"float","v":"9.96"}
+12345	sci	target=tex digits=3	1.235 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex digits=3	1.235 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex digits=3	9.990 \times 10^{5}	{"t":"float","v":"999000"}
+-2500	sci	target=tex digits=3	-2.500 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex digits=3	3.142 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex digits=3	1.000 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex digits=3	2.500 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex digits=3	5.000 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex digits=3	1.000 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex digits=3	0.000	{"t":"float","v":"0"}
+9.96	sci	target=tex digits=3	9.960 \times 10^{0}	{"t":"float","v":"9.96"}
+12345	sci	target=tex sigfig=1	1 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex sigfig=1	1 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex sigfig=1	1 \times 10^{6}	{"t":"float","v":"999000"}
+-2500	sci	target=tex sigfig=1	-3 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex sigfig=1	3 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex sigfig=1	1 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex sigfig=1	3 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex sigfig=1	5 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex sigfig=1	1 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex sigfig=1	0	{"t":"float","v":"0"}
+9.96	sci	target=tex sigfig=1	1 \times 10^{1}	{"t":"float","v":"9.96"}
+12345	sci	target=tex sigfig=2	1.2 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex sigfig=2	1.2 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex sigfig=2	1.0 \times 10^{6}	{"t":"float","v":"999000"}
+-2500	sci	target=tex sigfig=2	-2.5 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex sigfig=2	3.1 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex sigfig=2	1.0 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex sigfig=2	2.5 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex sigfig=2	5.0 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex sigfig=2	1.0 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex sigfig=2	0.0	{"t":"float","v":"0"}
+9.96	sci	target=tex sigfig=2	1.0 \times 10^{1}	{"t":"float","v":"9.96"}
+12345	sci	target=tex sigfig=3	1.23 \times 10^{4}	{"t":"float","v":"12345"}
+0.000123456	sci	target=tex sigfig=3	1.23 \times 10^{-4}	{"t":"float","v":"0.000123456"}
+999000	sci	target=tex sigfig=3	9.99 \times 10^{5}	{"t":"float","v":"999000"}
+-2500	sci	target=tex sigfig=3	-2.50 \times 10^{3}	{"t":"float","v":"-2500"}
+3.14159	sci	target=tex sigfig=3	3.14 \times 10^{0}	{"t":"float","v":"3.14159"}
+1e10	sci	target=tex sigfig=3	1.00 \times 10^{10}	{"t":"float","v":"10000000000"}
+2.5	sci	target=tex sigfig=3	2.50 \times 10^{0}	{"t":"float","v":"2.5"}
+0.5	sci	target=tex sigfig=3	5.00 \times 10^{-1}	{"t":"float","v":"0.5"}
+1	sci	target=tex sigfig=3	1.00 \times 10^{0}	{"t":"float","v":"1"}
+0	sci	target=tex sigfig=3	0.00	{"t":"float","v":"0"}
+9.96	sci	target=tex sigfig=3	9.96 \times 10^{0}	{"t":"float","v":"9.96"}
+0	p	target=tex	p < 0.001	{"t":"float","v":"0"}
+1e-10	p	target=tex	p < 0.001	{"t":"float","v":"1e-10"}
+0.0001	p	target=tex	p < 0.001	{"t":"float","v":"0.0001"}
+0.0004	p	target=tex	p < 0.001	{"t":"float","v":"0.0004"}
+0.00099	p	target=tex	p < 0.001	{"t":"float","v":"0.00099"}
+0.001	p	target=tex	p = 0.001	{"t":"float","v":"0.001"}
+0.004	p	target=tex	p = 0.004	{"t":"float","v":"0.004"}
+0.01	p	target=tex	p = 0.010	{"t":"float","v":"0.01"}
+0.03	p	target=tex	p = 0.030	{"t":"float","v":"0.03"}
+0.046	p	target=tex	p = 0.046	{"t":"float","v":"0.046"}
+0.05	p	target=tex	p = 0.050	{"t":"float","v":"0.05"}
+0.0995	p	target=tex	p = 0.10	{"t":"float","v":"0.0995"}
+0.104	p	target=tex	p = 0.10	{"t":"float","v":"0.104"}
+0.12	p	target=tex	p = 0.12	{"t":"float","v":"0.12"}
+0.2	p	target=tex	p = 0.20	{"t":"float","v":"0.2"}
+0.5	p	target=tex	p = 0.50	{"t":"float","v":"0.5"}
+0.985	p	target=tex	p = 0.99	{"t":"float","v":"0.985"}
+0.99	p	target=tex	p = 0.99	{"t":"float","v":"0.99"}
+0.995	p	target=tex	p > 0.99	{"t":"float","v":"0.995"}
+1	p	target=tex	p > 0.99	{"t":"float","v":"1"}
+0.9996	p	target=tex	p > 0.99	{"t":"float","v":"0.9996"}
+0	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0"}
+1e-10	p	target=tex digits=1	p < 0.1	{"t":"float","v":"1e-10"}
+0.0001	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.0001"}
+0.0004	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.0004"}
+0.00099	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.00099"}
+0.001	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.001"}
+0.004	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.004"}
+0.01	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.01"}
+0.03	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.03"}
+0.046	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.046"}
+0.05	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.05"}
+0.0995	p	target=tex digits=1	p < 0.1	{"t":"float","v":"0.0995"}
+0.104	p	target=tex digits=1	p = 0.1	{"t":"float","v":"0.104"}
+0.12	p	target=tex digits=1	p = 0.1	{"t":"float","v":"0.12"}
+0.2	p	target=tex digits=1	p = 0.2	{"t":"float","v":"0.2"}
+0.5	p	target=tex digits=1	p = 0.5	{"t":"float","v":"0.5"}
+0.985	p	target=tex digits=1	p > 0.9	{"t":"float","v":"0.985"}
+0.99	p	target=tex digits=1	p > 0.9	{"t":"float","v":"0.99"}
+0.995	p	target=tex digits=1	p > 0.9	{"t":"float","v":"0.995"}
+1	p	target=tex digits=1	p > 0.9	{"t":"float","v":"1"}
+0.9996	p	target=tex digits=1	p > 0.9	{"t":"float","v":"0.9996"}
+0	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0"}
+1e-10	p	target=tex digits=2	p < 0.01	{"t":"float","v":"1e-10"}
+0.0001	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0.0001"}
+0.0004	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0.0004"}
+0.00099	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0.00099"}
+0.001	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0.001"}
+0.004	p	target=tex digits=2	p < 0.01	{"t":"float","v":"0.004"}
+0.01	p	target=tex digits=2	p = 0.01	{"t":"float","v":"0.01"}
+0.03	p	target=tex digits=2	p = 0.03	{"t":"float","v":"0.03"}
+0.046	p	target=tex digits=2	p = 0.05	{"t":"float","v":"0.046"}
+0.05	p	target=tex digits=2	p = 0.05	{"t":"float","v":"0.05"}
+0.0995	p	target=tex digits=2	p = 0.10	{"t":"float","v":"0.0995"}
+0.104	p	target=tex digits=2	p = 0.10	{"t":"float","v":"0.104"}
+0.12	p	target=tex digits=2	p = 0.12	{"t":"float","v":"0.12"}
+0.2	p	target=tex digits=2	p = 0.20	{"t":"float","v":"0.2"}
+0.5	p	target=tex digits=2	p = 0.50	{"t":"float","v":"0.5"}
+0.985	p	target=tex digits=2	p = 0.99	{"t":"float","v":"0.985"}
+0.99	p	target=tex digits=2	p = 0.99	{"t":"float","v":"0.99"}
+0.995	p	target=tex digits=2	p > 0.99	{"t":"float","v":"0.995"}
+1	p	target=tex digits=2	p > 0.99	{"t":"float","v":"1"}
+0.9996	p	target=tex digits=2	p > 0.99	{"t":"float","v":"0.9996"}
+0	p	target=tex digits=3	p < 0.001	{"t":"float","v":"0"}
+1e-10	p	target=tex digits=3	p < 0.001	{"t":"float","v":"1e-10"}
+0.0001	p	target=tex digits=3	p < 0.001	{"t":"float","v":"0.0001"}
+0.0004	p	target=tex digits=3	p < 0.001	{"t":"float","v":"0.0004"}
+0.00099	p	target=tex digits=3	p < 0.001	{"t":"float","v":"0.00099"}
+0.001	p	target=tex digits=3	p = 0.001	{"t":"float","v":"0.001"}
+0.004	p	target=tex digits=3	p = 0.004	{"t":"float","v":"0.004"}
+0.01	p	target=tex digits=3	p = 0.010	{"t":"float","v":"0.01"}
+0.03	p	target=tex digits=3	p = 0.030	{"t":"float","v":"0.03"}
+0.046	p	target=tex digits=3	p = 0.046	{"t":"float","v":"0.046"}
+0.05	p	target=tex digits=3	p = 0.050	{"t":"float","v":"0.05"}
+0.0995	p	target=tex digits=3	p = 0.100	{"t":"float","v":"0.0995"}
+0.104	p	target=tex digits=3	p = 0.104	{"t":"float","v":"0.104"}
+0.12	p	target=tex digits=3	p = 0.120	{"t":"float","v":"0.12"}
+0.2	p	target=tex digits=3	p = 0.200	{"t":"float","v":"0.2"}
+0.5	p	target=tex digits=3	p = 0.500	{"t":"float","v":"0.5"}
+0.985	p	target=tex digits=3	p = 0.985	{"t":"float","v":"0.985"}
+0.99	p	target=tex digits=3	p = 0.990	{"t":"float","v":"0.99"}
+0.995	p	target=tex digits=3	p = 0.995	{"t":"float","v":"0.995"}
+1	p	target=tex digits=3	p > 0.999	{"t":"float","v":"1"}
+0.9996	p	target=tex digits=3	p > 0.999	{"t":"float","v":"0.9996"}
+0	p	target=tex digits=4	p < 0.0001	{"t":"float","v":"0"}
+1e-10	p	target=tex digits=4	p < 0.0001	{"t":"float","v":"1e-10"}
+0.0001	p	target=tex digits=4	p = 0.0001	{"t":"float","v":"0.0001"}
+0.0004	p	target=tex digits=4	p = 0.0004	{"t":"float","v":"0.0004"}
+0.00099	p	target=tex digits=4	p = 0.0010	{"t":"float","v":"0.00099"}
+0.001	p	target=tex digits=4	p = 0.0010	{"t":"float","v":"0.001"}
+0.004	p	target=tex digits=4	p = 0.0040	{"t":"float","v":"0.004"}
+0.01	p	target=tex digits=4	p = 0.0100	{"t":"float","v":"0.01"}
+0.03	p	target=tex digits=4	p = 0.0300	{"t":"float","v":"0.03"}
+0.046	p	target=tex digits=4	p = 0.0460	{"t":"float","v":"0.046"}
+0.05	p	target=tex digits=4	p = 0.0500	{"t":"float","v":"0.05"}
+0.0995	p	target=tex digits=4	p = 0.0995	{"t":"float","v":"0.0995"}
+0.104	p	target=tex digits=4	p = 0.1040	{"t":"float","v":"0.104"}
+0.12	p	target=tex digits=4	p = 0.1200	{"t":"float","v":"0.12"}
+0.2	p	target=tex digits=4	p = 0.2000	{"t":"float","v":"0.2"}
+0.5	p	target=tex digits=4	p = 0.5000	{"t":"float","v":"0.5"}
+0.985	p	target=tex digits=4	p = 0.9850	{"t":"float","v":"0.985"}
+0.99	p	target=tex digits=4	p = 0.9900	{"t":"float","v":"0.99"}
+0.995	p	target=tex digits=4	p = 0.9950	{"t":"float","v":"0.995"}
+1	p	target=tex digits=4	p > 0.9999	{"t":"float","v":"1"}
+0.9996	p	target=tex digits=4	p = 0.9996	{"t":"float","v":"0.9996"}
+0.046	p	target=tex label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex label=q	q > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex label=q	q = 0.50	{"t":"float","v":"0.5"}
+0.046	p	target=tex label=	0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex label=	< 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex label=	> 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex label=	0.50	{"t":"float","v":"0.5"}
+0.046	p	target=tex label=\tilde{p}	\tilde{p} = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex label=\tilde{p}	\tilde{p} < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex label=\tilde{p}	\tilde{p} > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex label=\tilde{p}	\tilde{p} = 0.50	{"t":"float","v":"0.5"}
+0.046	p	target=tex digits=3 label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex digits=3 label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex digits=3 label=q	q = 0.995	{"t":"float","v":"0.995"}
+0.5	p	target=tex digits=3 label=q	q = 0.500	{"t":"float","v":"0.5"}
+0.046	p	target=tex cfg.p_label=*p*	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=*p*	p < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=*p*	p > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=*p*	p = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=*p*	p = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=_p_	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=_p_	p < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=_p_	p > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=_p_	p = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=_p_	p = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=adj.%20p	\text{adj. p} = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=adj.%20p	\text{adj. p} < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=adj.%20p	\text{adj. p} > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=adj.%20p	\text{adj. p} = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=adj.%20p	\text{adj. p} = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=p_adj	\text{p}\_\text{adj} = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=p_adj	\text{p}\_\text{adj} < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=p_adj	\text{p}\_\text{adj} > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=p_adj	\text{p}\_\text{adj} = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=p_adj	\text{p}\_\text{adj} = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=q	q = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=q	q < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=q	q > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=q	q = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=q	q = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=p	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=p	p < 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=p	p > 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=p	p = 0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=p	p = 0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_label=	0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex cfg.p_label=	< 0.001	{"t":"float","v":"0.0004"}
+0.995	p	target=tex cfg.p_label=	> 0.99	{"t":"float","v":"0.995"}
+0.5	p	target=tex cfg.p_label=	0.50	{"t":"float","v":"0.5"}
+0.12	p	target=tex cfg.p_label=	0.12	{"t":"float","v":"0.12"}
+0.046	p	target=tex label=p cfg.p_label=adj.%20p	p = 0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex label=p cfg.p_label=adj.%20p	p < 0.001	{"t":"float","v":"0.0004"}
+0.046	p	target=tex label= cfg.p_label=q	0.046	{"t":"float","v":"0.046"}
+0.0004	p	target=tex label= cfg.p_label=q	< 0.001	{"t":"float","v":"0.0004"}
+0.12	p	target=tex cfg.p_digits=3	p = 0.120	{"t":"float","v":"0.12"}
+0.046	p	target=tex cfg.p_digits=3	p = 0.046	{"t":"float","v":"0.046"}
+c(1.23, 3.45)	range	target=tex	1.2\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex	-1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex	2	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex	3\ \text{to}\ 5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex	5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex	-1\ \text{to}\ 2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex	1.3\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex	-3\ \text{to}\ -1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex	0\ \text{to}\ 10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex	1{,}000\ \text{to}\ 2{,}500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex	0.1\ \text{to}\ 0.5	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex	-0.5\ \text{to}\ 1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex	1.2\ \text{to}\ 3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex	0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex	1\ \text{to}\ 4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1, 3)	range plus	target=tex	+1\ \text{to}\ +3	{"t":"list","v":[{"t":"float","v":"1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(1.23, 3.45)	range plus	target=tex	+1.2\ \text{to}\ +3.5	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range plus	target=tex	-1\ \text{to}\ +3	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range plus	target=tex	+2	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range plus	target=tex	+3\ \text{to}\ +5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range plus	target=tex	+5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range plus	target=tex	-1\ \text{to}\ +2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range plus	target=tex	+1.3\ \text{to}\ +3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range plus	target=tex	-3\ \text{to}\ -1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range plus	target=tex	0\ \text{to}\ +10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range plus	target=tex	+1{,}000\ \text{to}\ +2{,}500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range plus	target=tex	+0.1\ \text{to}\ +0.5	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus	target=tex	-0.5\ \text{to}\ +1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus	target=tex	+1.2\ \text{to}\ +3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range plus	target=tex	0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range plus	target=tex	+1\ \text{to}\ +4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex digits=0	1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex digits=0	-1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex digits=0	2	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex digits=0	3\ \text{to}\ 5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex digits=0	5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex digits=0	-1\ \text{to}\ 2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex digits=0	1\ \text{to}\ 4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex digits=0	-3\ \text{to}\ -1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex digits=0	0\ \text{to}\ 10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex digits=0	1{,}000\ \text{to}\ 2{,}500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex digits=0	0\ \text{to}\ 1	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex digits=0	-1\ \text{to}\ 1	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex digits=0	1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex digits=0	0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex digits=0	1\ \text{to}\ 4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range plus	target=tex digits=0	+1\ \text{to}\ +3	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range plus	target=tex digits=0	-1\ \text{to}\ +3	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range plus	target=tex digits=0	+2	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range plus	target=tex digits=0	+3\ \text{to}\ +5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range plus	target=tex digits=0	+5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range plus	target=tex digits=0	-1\ \text{to}\ +2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range plus	target=tex digits=0	+1\ \text{to}\ +4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range plus	target=tex digits=0	-3\ \text{to}\ -1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range plus	target=tex digits=0	0\ \text{to}\ +10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range plus	target=tex digits=0	+1{,}000\ \text{to}\ +2{,}500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range plus	target=tex digits=0	0\ \text{to}\ +1	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus	target=tex digits=0	-1\ \text{to}\ +1	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus	target=tex digits=0	+1\ \text{to}\ +3	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range plus	target=tex digits=0	0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range plus	target=tex digits=0	+1\ \text{to}\ +4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex digits=1	1.2\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex digits=1	-1.0\ \text{to}\ 3.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex digits=1	2.0	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex digits=1	3.0\ \text{to}\ 5.0	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex digits=1	5.0	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex digits=1	-1.0\ \text{to}\ 2.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex digits=1	1.3\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex digits=1	-3.0\ \text{to}\ -1.0	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex digits=1	0.0\ \text{to}\ 10.0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex digits=1	1{,}000.0\ \text{to}\ 2{,}500.0	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex digits=1	0.1\ \text{to}\ 0.5	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex digits=1	-0.5\ \text{to}\ 1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex digits=1	1.2\ \text{to}\ 3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex digits=1	0.0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex digits=1	1.0\ \text{to}\ 4.0	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range plus	target=tex digits=1	+1.2\ \text{to}\ +3.5	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range plus	target=tex digits=1	-1.0\ \text{to}\ +3.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range plus	target=tex digits=1	+2.0	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range plus	target=tex digits=1	+3.0\ \text{to}\ +5.0	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range plus	target=tex digits=1	+5.0	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range plus	target=tex digits=1	-1.0\ \text{to}\ +2.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range plus	target=tex digits=1	+1.3\ \text{to}\ +3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range plus	target=tex digits=1	-3.0\ \text{to}\ -1.0	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range plus	target=tex digits=1	0.0\ \text{to}\ +10.0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range plus	target=tex digits=1	+1{,}000.0\ \text{to}\ +2{,}500.0	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range plus	target=tex digits=1	+0.1\ \text{to}\ +0.5	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus	target=tex digits=1	-0.5\ \text{to}\ +1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus	target=tex digits=1	+1.2\ \text{to}\ +3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range plus	target=tex digits=1	0.0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range plus	target=tex digits=1	+1.0\ \text{to}\ +4.0	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex digits=2	1.23\ \text{to}\ 3.45	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex digits=2	-1.00\ \text{to}\ 3.00	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex digits=2	2.00	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex digits=2	3.00\ \text{to}\ 5.00	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex digits=2	5.00	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex digits=2	-1.00\ \text{to}\ 2.00	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex digits=2	1.25\ \text{to}\ 3.50	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex digits=2	-3.00\ \text{to}\ -1.00	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex digits=2	0.00\ \text{to}\ 10.00	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex digits=2	1{,}000.00\ \text{to}\ 2{,}500.00	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex digits=2	0.12\ \text{to}\ 0.50	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex digits=2	-0.50\ \text{to}\ 1.20	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex digits=2	1.20\ \text{to}\ 3.40	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex digits=2	0.00	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex digits=2	1.00\ \text{to}\ 4.00	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range plus	target=tex digits=2	+1.23\ \text{to}\ +3.45	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range plus	target=tex digits=2	-1.00\ \text{to}\ +3.00	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range plus	target=tex digits=2	+2.00	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range plus	target=tex digits=2	+3.00\ \text{to}\ +5.00	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range plus	target=tex digits=2	+5.00	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range plus	target=tex digits=2	-1.00\ \text{to}\ +2.00	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range plus	target=tex digits=2	+1.25\ \text{to}\ +3.50	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range plus	target=tex digits=2	-3.00\ \text{to}\ -1.00	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range plus	target=tex digits=2	0.00\ \text{to}\ +10.00	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range plus	target=tex digits=2	+1{,}000.00\ \text{to}\ +2{,}500.00	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range plus	target=tex digits=2	+0.12\ \text{to}\ +0.50	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus	target=tex digits=2	-0.50\ \text{to}\ +1.20	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus	target=tex digits=2	+1.20\ \text{to}\ +3.40	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range plus	target=tex digits=2	0.00	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range plus	target=tex digits=2	+1.00\ \text{to}\ +4.00	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex digits=3	1.230\ \text{to}\ 3.450	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex digits=3	-1.000\ \text{to}\ 3.000	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex digits=3	2.000	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex digits=3	3.000\ \text{to}\ 5.000	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex digits=3	5.000	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex digits=3	-1.000\ \text{to}\ 2.000	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex digits=3	1.250\ \text{to}\ 3.500	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex digits=3	-3.000\ \text{to}\ -1.000	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex digits=3	0.000\ \text{to}\ 10.000	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex digits=3	1{,}000.000\ \text{to}\ 2{,}500.000	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex digits=3	0.120\ \text{to}\ 0.500	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex digits=3	-0.500\ \text{to}\ 1.200	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex digits=3	1.200\ \text{to}\ 3.400	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex digits=3	0.000	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex digits=3	1.000\ \text{to}\ 4.000	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range plus	target=tex digits=3	+1.230\ \text{to}\ +3.450	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range plus	target=tex digits=3	-1.000\ \text{to}\ +3.000	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range plus	target=tex digits=3	+2.000	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range plus	target=tex digits=3	+3.000\ \text{to}\ +5.000	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range plus	target=tex digits=3	+5.000	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range plus	target=tex digits=3	-1.000\ \text{to}\ +2.000	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range plus	target=tex digits=3	+1.250\ \text{to}\ +3.500	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range plus	target=tex digits=3	-3.000\ \text{to}\ -1.000	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range plus	target=tex digits=3	0.000\ \text{to}\ +10.000	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range plus	target=tex digits=3	+1{,}000.000\ \text{to}\ +2{,}500.000	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range plus	target=tex digits=3	+0.120\ \text{to}\ +0.500	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range plus	target=tex digits=3	-0.500\ \text{to}\ +1.200	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range plus	target=tex digits=3	+1.200\ \text{to}\ +3.400	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range plus	target=tex digits=3	0.000	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range plus	target=tex digits=3	+1.000\ \text{to}\ +4.000	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex sigfig=1	1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex sigfig=1	-1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex sigfig=1	2	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex sigfig=1	3\ \text{to}\ 5	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex sigfig=1	5	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex sigfig=1	-1\ \text{to}\ 2	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex sigfig=1	1\ \text{to}\ 4	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex sigfig=1	-3\ \text{to}\ -1	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex sigfig=1	0\ \text{to}\ 10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex sigfig=1	1{,}000\ \text{to}\ 3{,}000	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex sigfig=1	0.1\ \text{to}\ 0.5	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex sigfig=1	-0.5\ \text{to}\ 1	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex sigfig=1	1\ \text{to}\ 3	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex sigfig=1	0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex sigfig=1	1\ \text{to}\ 4	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}
+c(1.23, 3.45)	range	target=tex sigfig=2	1.2\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.23"},{"t":"float","v":"3.45"}],"of":"float","keys":null}
+c(-1, 3)	range	target=tex sigfig=2	-1.0\ \text{to}\ 3.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"3"}],"of":"float","keys":null}
+c(2, 2)	range	target=tex sigfig=2	2.0	{"t":"list","v":[{"t":"float","v":"2"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(3, 5)	range	target=tex sigfig=2	3.0\ \text{to}\ 5.0	{"t":"list","v":[{"t":"float","v":"3"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(5, 5)	range	target=tex sigfig=2	5.0	{"t":"list","v":[{"t":"float","v":"5"},{"t":"float","v":"5"}],"of":"float","keys":null}
+c(-1, 2)	range	target=tex sigfig=2	-1.0\ \text{to}\ 2.0	{"t":"list","v":[{"t":"float","v":"-1"},{"t":"float","v":"2"}],"of":"float","keys":null}
+c(1.25, 3.5)	range	target=tex sigfig=2	1.3\ \text{to}\ 3.5	{"t":"list","v":[{"t":"float","v":"1.25"},{"t":"float","v":"3.5"}],"of":"float","keys":null}
+c(-3, -1)	range	target=tex sigfig=2	-3.0\ \text{to}\ -1.0	{"t":"list","v":[{"t":"float","v":"-3"},{"t":"float","v":"-1"}],"of":"float","keys":null}
+c(0, 10)	range	target=tex sigfig=2	0.0\ \text{to}\ 10	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"10"}],"of":"float","keys":null}
+c(1000, 2500)	range	target=tex sigfig=2	1{,}000\ \text{to}\ 2{,}500	{"t":"list","v":[{"t":"float","v":"1000"},{"t":"float","v":"2500"}],"of":"float","keys":null}
+c(0.12, 0.5)	range	target=tex sigfig=2	0.12\ \text{to}\ 0.50	{"t":"list","v":[{"t":"float","v":"0.12"},{"t":"float","v":"0.5"}],"of":"float","keys":null}
+c(-0.5, 1.2)	range	target=tex sigfig=2	-0.50\ \text{to}\ 1.2	{"t":"list","v":[{"t":"float","v":"-0.5"},{"t":"float","v":"1.2"}],"of":"float","keys":null}
+c(1.2, 3.4)	range	target=tex sigfig=2	1.2\ \text{to}\ 3.4	{"t":"list","v":[{"t":"float","v":"1.2"},{"t":"float","v":"3.4"}],"of":"float","keys":null}
+c(0, 0)	range	target=tex sigfig=2	0.0	{"t":"list","v":[{"t":"float","v":"0"},{"t":"float","v":"0"}],"of":"float","keys":null}
+c(1L, 4L)	range	target=tex sigfig=2	1.0\ \text{to}\ 4.0	{"t":"list","v":[{"t":"int","v":"1"},{"t":"int","v":"4"}],"of":"int","keys":null}

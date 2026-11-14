@@ -234,13 +234,15 @@ conf_esc <- function(x) gsub(" ", "%20", gsub("%", "%25", x, fixed = TRUE), fixe
 conf_unesc <- function(x) gsub("%25", "%", gsub("%20", " ", x, fixed = TRUE), fixed = TRUE)
 
 conf_parse_keys <- function(keys) {
-  out <- list(opts = list(), cfg = list(), span = NULL)
+  out <- list(opts = list(), cfg = list(), span = NULL, target = NULL)
   if (!nzchar(keys)) return(out)
   for (p in strsplit(keys, " ", fixed = TRUE)[[1]]) {
     k <- sub("=.*$", "", p)
     v <- conf_unesc(sub("^[^=]*=", "", p))
     if (k == "span") {
       out$span <- v
+    } else if (k == "target") {
+      out$target <- v
     } else if (startsWith(k, "cfg.")) {
       out$cfg[[substring(k, 5L)]] <- if (v %in% c("true", "false")) v == "true" else v
     } else {
@@ -272,7 +274,8 @@ conf_row_text <- function(value, classes, keys) {
     } else {
       # a vector that no collapse class joins prints joined by ", " (rule 1.4.10)
       paste(suppressWarnings(as.character(unclass(
-        apply_formatters(x, paste0(".", toks), k$opts)))), collapse = ", ")
+        apply_formatters(x, paste0(".", toks), k$opts, target = k$target %||% "markdown")))),
+        collapse = ", ")
     }
   })
 }
@@ -529,10 +532,92 @@ conf_governors_rows <- function() {
   conf_finish(out)
 }
 
+# ---- the TeX set (dev/design-9.md, D80): tex.tsv ----------------------------------------------
+#
+# Every row has the token `target=tex` in its keys (tokens in any order); `conf_row_text()` passes it to
+# apply_formatters() as `target`. The set is kept apart from CONF_NEW_SETS, so the nine tables before it
+# are untouched. Regenerate with `conformance_write(dir, sets = CONF_TEX_SETS)`.
+
+conf_tex_rows <- function() {
+  out <- conf_frame(character(), character(), character(), character())
+  add <- function(vals, classes, extra = "") {
+    keys <- paste(c("target=tex", if (nzchar(extra)) extra), collapse = " ")
+    out <<- rbind(out, conf_frame(vals, classes, keys, ""))
+  }
+  nums <- c("1234567.891", "-1234567.891", "-1234567.89", "999.95", "3", "0.5", "-2.5", "0", "1000", "999",
+            "0.995", "pi", "1234.5678", "0.04", "-0.04", "100000", "1e-6", "12", "0.15", "1234.5", "1/3")
+  for (cl in c("num", "pct")) {
+    add(nums, cl)
+    for (k in 0:3) add(nums, cl, paste0("digits=", k))
+    for (k in 1:3) add(nums, cl, paste0("sigfig=", k))
+  }
+  add(c("0.123", "0.15", "-3.456", "1234.5", "1/3", "1e-6", "0.5"), "pct")
+  add(c("1.25", "-1.25", "0", "3", "-3", "0.04", "1234.5", "-1234.5", "0.5"), "num plus")
+  add(c("0.05", "0.12", "-0.12", "0", "1.5", "0.0001"), "pct plus")
+  add(c("1.25", "-1.25", "3"), "num plus", "digits=0")
+  add(c("1.25", "-1.25", "3"), "num plus", "digits=2")
+  add(c("1234567L", "-7L", "0L"), "num")
+  # a vector under a number class prints element by element
+  add(c("c(1.5, 2)", "c(1234.5, 0.5, -3)"), "num")
+  # the marks (TX4)
+  marks <- list(
+    c("cfg.decimal_mark=,", "cfg.big_mark=."), "cfg.decimal_mark=,", "cfg.big_mark=.", "cfg.big_mark=%20",
+    "cfg.big_mark=\u00a0", "cfg.big_mark=\u2009", "cfg.big_mark=\u202f", "cfg.big_mark='",
+    "cfg.big_mark=\u2019", "cfg.big_mark=\u00b7", "cfg.big_mark=", "cfg.big_mark=_", "cfg.big_mark=x",
+    "cfg.decimal_mark=\u00b7", c("cfg.decimal_mark=,", "cfg.big_mark="), "cfg.decimal_mark=%20",
+    "cfg.minus=-", "cfg.minus=\u2212", "cfg.minus=--", "cfg.minus=\u2013")
+  for (m in marks) {
+    mk <- paste(m, collapse = " ")
+    add(c("1234567.89", "-1234567.89", "0.5"), "num", mk)
+    add("0.123", "pct", mk)
+    add("-2.5", "num plus", mk)
+    add(c("1234567", "-0.000123"), "sci", mk)
+    add(c("0.0001", "0.03"), "p", mk)
+    add("c(1000, 2500.5)", "range", mk)
+  }
+  # .sci
+  sci <- c("12345", "0.000123456", "1", "0", "-2500", "999000", "9.99e5", "1.5e-7", "1e10", "-1e-10", "2.5",
+           "99999", "123456789L", "2^53", "1e100", "-0.00099", "1.2345e22", "0.5", "10", "100", "3.14159",
+           "-3.14159", "9.5", "9.96", "1234567", "-0.000123")
+  add(sci, "sci")
+  spread <- c("12345", "0.000123456", "999000", "-2500", "3.14159", "1e10", "2.5", "0.5", "1", "0", "9.96")
+  for (k in 0:3) add(spread, "sci", paste0("digits=", k))
+  for (k in 1:3) add(spread, "sci", paste0("sigfig=", k))
+  # .p
+  pv <- c("0", "1e-10", "0.0001", "0.0004", "0.00099", "0.001", "0.004", "0.01", "0.03", "0.046", "0.05",
+          "0.0995", "0.104", "0.12", "0.2", "0.5", "0.985", "0.99", "0.995", "1", "0.9996")
+  add(pv, "p")
+  for (d in 1:4) add(pv, "p", paste0("digits=", d))
+  add(c("0.046", "0.0004", "0.995", "0.5"), "p", "label=q")
+  add(c("0.046", "0.0004", "0.995", "0.5"), "p", "label=")
+  add(c("0.046", "0.0004", "0.995", "0.5"), "p", "label=\\tilde{p}")
+  add(c("0.046", "0.0004", "0.995", "0.5"), "p", "digits=3 label=q")
+  for (lab in c("*p*", "_p_", "adj.%20p", "p_adj", "q", "p", "")) {
+    add(c("0.046", "0.0004", "0.995", "0.5", "0.12"), "p", paste0("cfg.p_label=", lab))
+  }
+  add(c("0.046", "0.0004"), "p", "label=p cfg.p_label=adj.%20p")
+  add(c("0.046", "0.0004"), "p", "label= cfg.p_label=q")
+  add(c("0.12", "0.046"), "p", "cfg.p_digits=3")
+  # .range, with and without .plus
+  rg <- c("c(1.23, 3.45)", "c(-1, 3)", "c(2, 2)", "c(3, 5)", "c(5, 5)", "c(-1, 2)", "c(1.25, 3.5)", "c(-3, -1)",
+          "c(0, 10)", "c(1000, 2500)", "c(0.12, 0.5)", "c(-0.5, 1.2)", "c(1.2, 3.4)", "c(0, 0)", "c(1L, 4L)")
+  add(rg, "range")
+  add(c("c(1, 3)", rg), "range plus")
+  for (k in 0:3) {
+    add(rg, "range", paste0("digits=", k))
+    add(rg, "range plus", paste0("digits=", k))
+  }
+  for (k in 1:2) add(rg, "range", paste0("sigfig=", k))
+  conf_finish(out)
+}
+
 CONF_NEW_SETS <- c("dates", "sci", "p", "collapse", "text", "governors")
 
+# The sets that write TeX (design 9, D80), apart from CONF_NEW_SETS.
+CONF_TEX_SETS <- "tex"
+
 # "all" is the three first sets stacked, as it was before 6f; the six sets of 6f are asked for by name.
-conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NEW_SETS)) {
+conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NEW_SETS, CONF_TEX_SETS)) {
   set <- match.arg(set)
   out <- switch(set,
     numbers = conf_numbers_rows(),
@@ -544,6 +629,7 @@ conformance_rows <- function(set = c("all", "numbers", "words", "lists", CONF_NE
     collapse = conf_collapse_rows(),
     text = conf_text_rows(),
     governors = conf_governors_rows(),
+    tex = conf_tex_rows(),
     all = rbind(conf_numbers_rows(), conf_words_rows(), conf_lists_rows()))
   rownames(out) <- NULL
   out[conf_cols]
