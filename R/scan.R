@@ -50,6 +50,7 @@ new_scan <- function(text, file, first_line, config, filter_doc = FALSE) {
   S$cend <- as.numeric(if (n) gmatch("-->", text)$s else integer())
 
   find_fences(S)
+  find_knitr_inline(S)
   find_tables(S)
 
   bl <- if (n) gmatch("\n[ \t\r]*(?=\n)", text)$s else integer()
@@ -83,6 +84,7 @@ find_fences <- function(S) {
   nl <- length(lines)
   starts <- integer()
   ends <- integer()
+  chunk <- logical()
   while (k <= nl) {
     mm <- m[[k]]
     k0 <- k
@@ -118,12 +120,44 @@ find_fences <- function(S) {
       }
       starts <- c(starts, ls[k0])
       ends <- c(ends, end)
+      chunk <- c(chunk, grepl(KNITR_CHUNK_BEGIN, lines[k0], perl = TRUE))
     } else {
       k <- k + 1L
     }
   }
   S$f_start <- as.numeric(starts)
   S$f_end <- as.numeric(ends)
+  S$f_chunk <- chunk
+  invisible()
+}
+
+# knitr's own patterns (`knitr::all_patterns$md`), kept as literals so the scan does not load knitr:
+# a chunk's opening line (a fence of three or more backticks, spaces allowed before the `{`, an
+# engine name of letters, digits and underscores; `~~~{r}`, `{ r}`, `{{r}}` and `{.text}` are not
+# chunks), and inline R, which knitr looks for in everything that is not a chunk, whatever the
+# markdown around it (a code span, a fenced block that is not a chunk).
+KNITR_CHUNK_BEGIN <- "^[\\t >]*```+\\s*\\{([a-zA-Z0-9_]+( *[ ,].*)?)\\}\\s*$"
+KNITR_INLINE <- "(?<!(^``))(?<!(\\n``))`r[ #]([^`]+)\\s*`"
+
+# Where knitr's pattern matches in the text outside chunks: `S$kn_s` and `S$kn_e`, the first and
+# last character of each `r expr` (a code span's backticks included), in order. Chunks are blanked
+# first, so a match cannot start or end in one. One regex pass; a text with no "`r" skips it.
+find_knitr_inline <- function(S) {
+  S$kn_s <- integer()
+  S$kn_e <- integer()
+  if (S$n == 0L || !grepl("`r", S$text, fixed = TRUE)) return(invisible())
+  txt <- S$text
+  ck <- which(S$f_chunk)
+  if (length(ck)) {
+    idx <- sequence(S$f_end[ck] - S$f_start[ck] + 1L, S$f_start[ck])
+    ch <- S$chars
+    idx <- idx[ch[idx] != "\n"]
+    ch[idx] <- " "
+    txt <- paste(ch, collapse = "")
+  }
+  m <- gmatch(KNITR_INLINE, txt)
+  S$kn_s <- m$s
+  S$kn_e <- m$e
   invisible()
 }
 
@@ -169,8 +203,13 @@ next_special <- function(S, i) {
 para_limit <- function(S, i) S$plim[findInterval(i - 1L, S$plim) + 1L]
 
 fence_end_at <- function(S, p) {
+  fi <- fence_index(S, p)
+  if (is.na(fi)) NA_integer_ else S$f_end[fi]
+}
+
+fence_index <- function(S, p) {
   fi <- findInterval(p, S$f_start)
-  if (fi > 0L && p <= S$f_end[fi]) S$f_end[fi] else NA_integer_
+  if (fi > 0L && p <= S$f_end[fi]) fi else NA_integer_
 }
 
 comment_end <- function(S, i) {
@@ -1018,9 +1057,10 @@ scan_seq <- function(S, from, to, parent) {
   while (i <= to) {
     p <- next_special(S, i)
     if (p > to) break
-    fe <- fence_end_at(S, p)
-    if (!is.na(fe)) {
-      i <- fe + 1L
+    fi <- fence_index(S, p)
+    if (!is.na(fi)) {
+      # a chunk is knitr's code; any other fenced block is text to knitr, which evaluates its inline R
+      i <- if (!S$f_chunk[fi] && length(S$kn_s)) fence_inline(S, p, S$f_end[fi], parent) else S$f_end[fi] + 1L
       next
     }
     c <- S$chars[p]
@@ -1228,7 +1268,14 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   # What knitr evaluates: `r ` or `r#` straight after the backtick, with no
   # padding stripped (1.1.8); `{r} ` is the Quarto form.
   mm <- regmatches(content, regexec("^(r|\\{r\\})([ #\t\r\n])", content))[[1]]
-  if (!length(mm)) return(handle_named(S, p, cs, content, parent, in_math || in_target))
+  if (!length(mm)) {
+    # inline R that knitr finds inside this span (it pairs backticks by its own pattern, not the markdown's)
+    if (length(S$kn_s)) {
+      nx <- span_inline(S, p, cs$close_end, parent, in_math, in_target)
+      if (!is.na(nx)) return(nx)
+    }
+    return(handle_named(S, p, cs, content, parent, in_math || in_target))
+  }
   if (!(mm[3] %in% c("\r", "\n") ||
         (mm[2] == "r" && mm[3] %in% c(" ", "#")) ||
         (mm[2] != "r" && mm[3] %in% c(" ", "\t")))) {
@@ -1236,6 +1283,13 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   }
   expr <- trim_ws(substring(content, nchar(mm[1]) + 1L))
   newline <- mm[3] %in% c("\r", "\n")
+  inline_row(S, p, cs$close_end, expr, newline, parent, in_math, in_target)
+}
+
+# The row of inline R that starts at `p` and whose code ends at `close_end`, with the attribute
+# block after it, if any: the position after the row.
+inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_target) {
+  cs <- list(close_end = close_end)
   after <- cs$close_end + 1L
   blk <- parse_block(S, after)
   errs <- character()
@@ -1287,6 +1341,37 @@ handle_code <- function(S, p, parent, in_math, in_target = FALSE) {
   add_row(S, kind, p, end, bstart, expr, classes, keys, id, NULL, integer(),
           parent, errs)
   end + 1L
+}
+
+# The inline R that knitr's pattern finds from `from` to `to` (a span, or a fenced block that is not
+# a chunk), each as the row it would be in prose. Returns the position to go on from, or NA when
+# there is none. `r expr` is a row with the same kind and fields as anywhere else, bare unless a
+# class block follows (rule 1.1.10).
+inline_in <- function(S, from, to, parent, in_math = FALSE, in_target = FALSE) {
+  lo <- findInterval(from - 1L, S$kn_s) + 1L
+  hi <- findInterval(to, S$kn_s)
+  if (lo > hi) return(NA_integer_)
+  nxt <- from
+  for (k in lo:hi) {
+    q <- S$kn_s[k]
+    if (q < nxt) next
+    e <- S$kn_e[k]
+    content <- paste(S$chars[(q + 1L):(e - 1L)], collapse = "")
+    mm <- regmatches(content, regexec("^r([ #])", content))[[1]]
+    expr <- trim_ws(substring(content, nchar(mm[1]) + 1L))
+    nxt <- inline_row(S, q, e, expr, FALSE, parent, in_math, in_target)
+  }
+  nxt
+}
+
+span_inline <- function(S, p, close_end, parent, in_math, in_target) {
+  nx <- inline_in(S, p + 1L, close_end, parent, in_math, in_target)
+  if (is.na(nx)) NA_integer_ else max(nx, close_end + 1L)
+}
+
+fence_inline <- function(S, p, fe, parent) {
+  nx <- inline_in(S, p, fe, parent)
+  if (is.na(nx)) fe + 1L else max(nx, fe + 1L)
 }
 
 handle_bracket <- function(S, p, parent) {
