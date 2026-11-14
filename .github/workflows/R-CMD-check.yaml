@@ -1,8 +1,7 @@
-# R CMD check, with Python (numpy, pandas, a Jupyter kernel) and Quarto set
-# up so that the Python, Jupyter and Quarto tests run instead of skipping.
-# The Julia tests are skipped (WEFT_SKIP_JULIA below): Julia segfaults R on
-# the runner, see finding 22 in dev/open-findings.md. One Ubuntu job on R
-# release, to keep it cheap. The suite takes about 25-35 minutes.
+# R CMD check, with Python (numpy, pandas, a Jupyter kernel), Julia and Quarto
+# set up so that the Python, Jupyter, Julia and Quarto tests run instead of
+# skipping. One Ubuntu job on R release, to keep it cheap. The suite takes
+# about 25-35 minutes.
 # Based on check-standard in https://github.com/r-lib/actions/tree/v2/examples
 on:
   push:
@@ -20,7 +19,6 @@ jobs:
     env:
       GITHUB_PAT: ${{ secrets.GITHUB_TOKEN }}
       R_KEEP_PKG_SOURCE: yes
-      WEFT_SKIP_JULIA: '1'
     steps:
       - uses: actions/checkout@v4
 
@@ -44,6 +42,10 @@ jobs:
           python -m pip install numpy pandas jupyter_client ipykernel pyyaml nbformat nbclient
           python -m ipykernel install --user
 
+      - uses: julia-actions/setup-julia@v2
+        with:
+          version: '1'
+
       - name: Install udunits
         run: sudo apt-get update && sudo apt-get install -y libudunits2-dev
 
@@ -51,6 +53,20 @@ jobs:
         with:
           extra-packages: any::rcmdcheck, any::reticulate, any::ggplot2
           needs: check
+
+      # R's own lib directory on LD_LIBRARY_PATH for the later steps, which
+      # start Julia from R (needed for JuliaCall's set-up in the probes of
+      # 13 Nov). The segfault of finding 22 was the system libunwind, which
+      # weft now avoids itself by loading Julia's own before Julia starts.
+      - name: Put R's lib directory on LD_LIBRARY_PATH for Julia
+        run: echo "LD_LIBRARY_PATH=$(R RHOME)/lib:$LD_LIBRARY_PATH" >> "$GITHUB_ENV"
+
+      # weft and the tests start Julia with install = FALSE, so JuliaCall's
+      # Julia packages are added here, once, before the tests.
+      - name: Install RCall and Suppressor for JuliaCall
+        run: |
+          export R_HOME="$(R RHOME)"
+          julia -e 'using Pkg; Pkg.add(["Suppressor", "RCall"])'
 
       - uses: quarto-dev/quarto-actions/setup@v2
 
