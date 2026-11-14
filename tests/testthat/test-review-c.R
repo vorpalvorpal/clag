@@ -235,7 +235,9 @@ rc_stale_proj <- function() {
              "```{r}", "claim(n, . > 99)", "```")
     rc_stale$line1 <- file_line(ch1, "claim(n, . > 50)")
     dir <- mk_project(list(
-      `_quarto.yml` = c("project:", "  type: default", "format: html"),
+      # the order is given: without `render:` Quarto takes the files in the folder's order,
+      # which on Linux can put ch2 first, and then no failure of ch1 precedes the stop
+      `_quarto.yml` = c("project:", "  type: default", "  render:", "    - ch1.qmd", "    - ch2.qmd", "format: html"),
       `ch1.qmd` = ch1, `ch2.qmd` = ch2
     ))
     withr::defer(unlink(dir, recursive = TRUE), teardown_env())
