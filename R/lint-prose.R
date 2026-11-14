@@ -206,8 +206,31 @@ innermost_sentence <- function(ps, sent) {
   }, 1L)
 }
 
+# Which of the positions `ps` (word starts) lie inside a match of `pattern` in `text`.
+inside_matches <- function(text, pattern, ps) {
+  g <- gregexpr(pattern, text, perl = TRUE)[[1L]]
+  if (g[[1L]] == -1L) return(rep(FALSE, length(ps)))
+  e <- as.integer(g) + attr(g, "match.length") - 1L
+  k <- findInterval(ps, as.integer(g))
+  k > 0L & ps <= e[pmax(k, 1L)]
+}
+
+# the regex that finds any of the idioms: any run of white space is one space, the phrase starts and
+# ends at a word boundary, case is ignored (rule 5.5.1)
+idiom_regex <- function(idioms) {
+  if (!length(idioms)) return(NULL)
+  idioms <- idioms[order(-nchar(idioms))]
+  esc <- vapply(strsplit(idioms, "[[:space:]]+"), function(w) {
+    paste(gsub("([][\\\\^$.|?*+(){}-])", "\\\\\\1", w), collapse = "[[:space:]]+")
+  }, "")
+  paste0("(?i)(?<![\\p{L}\\p{N}])(?:", paste(esc, collapse = "|"), ")(?![\\p{L}\\p{N}])")
+}
+
 lint_claim_word <- function(src, ctx) {
   lex <- claim_lexicon(src$cfg, src$lang)
+  mode <- src$cfg$claim_quantifiers %||% "number"
+  qwords <- claim_quantifier_words(src$cfg, src$lang)
+  if (identical(mode, "none")) lex <- setdiff(lex, qwords)
   if (!length(lex) || !nzchar(src$prose)) return(new_findings())
   prose <- lint_prose_view(src, ctx)
   sent <- lint_sentences(src, ctx, prose)
@@ -215,44 +238,85 @@ lint_claim_word <- function(src, ctx) {
   lw <- line_matches("\\p{L}+", prose)
   if (!length(lw$s)) return(new_findings())
   ps <- lw$s
-  run <- tolower(lw$w)
+  orig <- lw$w
+  run <- tolower(orig)
   hit <- run %in% lex
   if (!any(hit)) return(new_findings())
   ps <- ps[hit]
+  orig <- orig[hit]
   run <- run[hit]
+  keep <- function(ok) {
+    ps <<- ps[ok]
+    orig <<- orig[ok]
+    run <<- run[ok]
+  }
   r <- src$rows
   if (nrow(r)) {
     g <- r$kind %in% c("if", "sign")
     guarded <- mark_ranges(nchar(src$text), r$fstart[g], r$fend[g])
-    ok <- !guarded[ps]
-    ps <- ps[ok]
-    run <- run[ok]
+    keep(!guarded[ps])
   }
+  if (!length(ps)) return(new_findings())
   sid <- innermost_sentence(ps, sent)
-  ok <- !is.na(sid)
-  ps <- ps[ok]
-  run <- run[ok]
-  sid <- sid[ok]
+  keep(!is.na(sid))
+  sid <- sid[!is.na(sid)]
   btype <- src$blocks$type[sent$block[sid]]
   ok <- !(btype %in% "phrase")
-  ps <- ps[ok]
-  run <- run[ok]
+  keep(ok)
   sid <- sid[ok]
+  if (!length(ps)) return(new_findings())
+  # CW2: a word inside an idiom is no hit
+  rx <- idiom_regex(claim_idioms(src$cfg, src$lang))
+  if (!is.null(rx)) {
+    ok <- !inside_matches(prose, rx, ps)
+    keep(ok)
+    sid <- sid[ok]
+  }
+  # CW4: a hyphen directly before or after the word; U+2010 and U+2011 are hyphens too
+  if (length(ps)) {
+    hy <- "[-\u2010\u2011]"
+    before <- grepl(hy, substring(prose, ps - 1L, ps - 1L)) & ps > 1L
+    after <- grepl(hy, substring(prose, ps + nchar(run), ps + nchar(run)))
+    ok <- !(before | after)
+    keep(ok)
+    sid <- sid[ok]
+  }
+  # CW5: a capital that is not the first word of its sentence is a proper name
+  if (length(ps)) {
+    cap <- grepl("^\\p{Lu}", orig, perl = TRUE)
+    firstrun <- lw$s[pmin(findInterval(sent$start[sid] - 1L, lw$s) + 1L, length(lw$s))]
+    ok <- !(cap & ps != firstrun)
+    keep(ok)
+    sid <- sid[ok]
+  }
+  # CW6: a quantifier counts only in a sentence with a value or a typed digit (`number`); a word
+  # the project added counts in any sentence
+  vs <- sort(r$fstart[r$kind %in% c("value", "bare", "named", "n", "sign", "list")])
+  in_sent <- function(pos, i) (findInterval(sent$end[i], pos) - findInterval(sent$start[i] - 1L, pos)) > 0L
+  if (length(ps) && identical(mode, "number")) {
+    dg <- gregexpr("[0-9]", prose)[[1L]]
+    dg <- if (dg[[1L]] == -1L) integer() else as.integer(dg)
+    ok <- !(run %in% qwords) | in_sent(vs, sid) | in_sent(dg, sid)
+    keep(ok)
+    sid <- sid[ok]
+  }
   if (!length(ps)) return(new_findings())
   groups <- split(seq_along(ps), sid)
   first <- vapply(groups, function(ix) ps[ix[[1L]]], 1L)
   words <- lapply(groups, function(ix) unique(run[ix]))
   si <- as.integer(names(groups))
-  vs <- sort(r$fstart[r$kind %in% c("value", "bare", "named", "n", "sign", "list")])
-  hasval <- (findInterval(sent$end[si], vs) - findInterval(sent$start[si] - 1L, vs)) > 0L
+  hasval <- in_sent(vs, si)
   quoted <- vapply(words, function(w) paste0("\"", w, "\"", collapse = ", "), "")
   plural <- lengths(words) > 1L
   msg <- sprintf("Claim word%s %s in a sentence with %s (rule 5.5.1).", ifelse(plural, "s", ""), quoted,
                  ifelse(hasval,
                         "a value; check that the value still bears it out, or guard the word with an `if` span",
                         "no value: if it states a result, compute it"))
-  # the design's punctuation: "; check" and ": if" sit inside the one sentence
-  sentence <- gsub("[[:space:]]+", " ", trimws(src_substr(src, sent$start[si], sent$end[si])))
+  # the design's punctuation: "; check" and ": if" sit inside the one sentence; a blockquote's
+  # markers are not part of it (CW9)
+  sentence <- src_substr(src, sent$start[si], sent$end[si])
+  sentence <- gsub("(?m)^[ \t]*(?:>[ ]?)+", "", sentence, perl = TRUE)
+  sentence <- gsub("[[:space:]]+", " ", trimws(sentence))
   f <- finding_at(src, first, sent$end[si], "claim-word", vapply(words, paste, "", collapse = ", "), msg,
                   context = block_context(src, sent$block[si]), sentence = sentence)
   f$end_line <- as.integer(sent$end_line[si])

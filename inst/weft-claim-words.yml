@@ -1,8 +1,9 @@
 # The shipped English claim-word lexicon (design-3 L8a, rule 5.5.1). Lower case.
 # Trimmed by decision 66: number words, loose quantifiers and the bare
-# comparatives flagged two sentences in three of a real manuscript.
-quantifier: [all, every, each, none, "no", nothing, only, most, both, neither, either,
-  always, never, whole, entire, sole, solely]
+# comparatives flagged two sentences in three of a real manuscript. Trimmed
+# again after a labelled sample: each, both, either and whole are gone.
+quantifier: [all, every, none, "no", nothing, only, most, neither, always, never, entire,
+  sole, solely]
 extremum: [largest, smallest, highest, lowest, greatest, least, maximum, minimum, best,
   worst, fewest]
 direction: [rose, rise, rises, risen, rising, fell, fall, falls, fallen, falling, increase,
@@ -10,3 +11,8 @@ direction: [rose, rise, rises, risen, rising, fell, fall, falls, fallen, falling
   decline, declines, declining, grew, grow, grows, growing, dropped, drop, drops, dropping,
   reduced, significant, significantly, higher, lower, exceeded, exceeds, exceed, exceeding,
   surpassed, unchanged]
+# Phrases in which a lexicon word is an ordinary word, not a claim (rule 5.5.1).
+idioms: [at least, at the very least, at most, most likely, as a whole, on the whole, no longer,
+  no doubt, no matter, not only, if only, nothing else, nothing more, best read, best understood,
+  best seen, best practice, lower bound, lower bounds, lower limit, maximum likelihood,
+  minimum detectable, significant figures, significant digits, fall short, either way]

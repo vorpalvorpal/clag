@@ -1133,12 +1133,21 @@ source_sentences <- function(src) {
     st <- c(1L, cuts)
     en <- c(cuts - 1L, nc)
     seg <- substring(t, st, en)
+    # a cut sits after a block marker (`2.`, `(b)`), so the sentence before it would end with that
+    # marker: a last line that is only a marker belongs to the next sentence, not this one (CW10)
+    tl <- ifelse(grepl("\n", seg, fixed = TRUE), sub("(?s)^.*\n", "", seg, perl = TRUE), "")
+    mm <- regexpr(sentence_marker_re, tl, perl = TRUE)
+    tail_marker <- nzchar(tl) & mm == 1L & attr(mm, "match.length") == nchar(tl)
+    en <- ifelse(tail_marker, en - nchar(tl) - 1L, en)
+    seg <- substring(t, st, en)
+    mm <- regexpr(sentence_marker_re, seg, perl = TRUE)
+    only_marker <- mm == 1L & attr(mm, "match.length") == nchar(seg)
     lead <- nchar(seg) - nchar(sub("^[ \t\n]+", "", seg))
     trail <- nchar(seg) - nchar(sub("[ \t\n]+$", "", seg))
     st2 <- st + lead
     en2 <- en - trail
     pseg <- substring(pr, st2, en2)
-    ok <- en2 >= st2 & grepl("[^ \n]", pseg)
+    ok <- en2 >= st2 & grepl("[^ \n]", pseg) & !only_marker
     if (!any(ok)) next
     a <- b$start[i] + st2[ok] - 1L
     e <- b$start[i] + en2[ok] - 1L

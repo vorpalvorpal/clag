@@ -294,23 +294,49 @@ lint_config <- function(root, front = list()) {
 
 lexicon_cache <- new.env(parent = emptyenv())
 
-# The claim words for a document language (L8a).
+# The shipped lexicon file, read once: the words by class, and the idioms (rule 5.5.1).
+claim_lexicon_file <- function() {
+  if (is.null(lexicon_cache$file)) {
+    y <- yaml_read_file(system.file("weft-claim-words.yml", package = "weft"))
+    low <- function(v) tolower(as.character(unlist(v, use.names = FALSE)))
+    lexicon_cache$file <- list(quantifier = low(y$quantifier),
+                               other = low(c(y$extremum, y$direction)),
+                               idioms = low(y$idioms))
+  }
+  lexicon_cache$file
+}
+
+is_english_lang <- function(lang) {
+  is.null(lang) || length(lang) != 1L || is.na(lang) || !nzchar(lang) ||
+    grepl("^(en|eng)([-_]|$)", lang, ignore.case = TRUE)
+}
+
+# The claim words for a document language (L8a): the shipped words, plus the project's `add`,
+# minus its `drop`.
 claim_lexicon <- function(cfg = default_config(), lang = NA_character_) {
   shipped <- character()
-  english <- is.null(lang) || length(lang) != 1L || is.na(lang) || !nzchar(lang) ||
-    grepl("^(en|eng)([-_]|$)", lang, ignore.case = TRUE)
-  if (english) {
-    if (is.null(lexicon_cache$words)) {
-      p <- system.file("weft-claim-words.yml", package = "weft")
-      y <- yaml_read_file(p)
-      lexicon_cache$words <- tolower(unlist(y, use.names = FALSE))
-    }
-    shipped <- lexicon_cache$words
+  if (is_english_lang(lang)) {
+    f <- claim_lexicon_file()
+    shipped <- c(f$quantifier, f$other)
   }
   cw <- cfg$claim_words
-  add <- as.character(unlist(cw$add))
-  drop <- as.character(unlist(cw$drop))
+  add <- tolower(as.character(unlist(cw$add)))
+  drop <- tolower(as.character(unlist(cw$drop)))
   setdiff(unique(c(shipped, add)), drop)
+}
+
+# The words of the lexicon that are quantifiers (rule 5.5.5): a shipped quantifier that the project
+# has not also put in `add`; a word from `add` counts as not a quantifier.
+claim_quantifier_words <- function(cfg = default_config(), lang = NA_character_) {
+  if (!is_english_lang(lang)) return(character())
+  setdiff(claim_lexicon_file()$quantifier, tolower(as.character(unlist(cfg$claim_words$add))))
+}
+
+# The idioms of a document: the shipped phrases (English only) and the project's own, lower case.
+claim_idioms <- function(cfg = default_config(), lang = NA_character_) {
+  shipped <- if (is_english_lang(lang)) claim_lexicon_file()$idioms else character()
+  own <- tolower(trimws(as.character(unlist(cfg$claim_words$idioms))))
+  unique(c(shipped, own[nzchar(own)]))
 }
 
 # ---- the project's documents --------------------------------------------------------------------

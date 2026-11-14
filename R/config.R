@@ -70,7 +70,8 @@ default_config <- function() {
     units = list(),
     label_words = list(),
     numeral_years = FALSE,
-    claim_words = list(add = list(), drop = list()),
+    claim_words = list(add = list(), drop = list(), idioms = list()),
+    claim_quantifiers = "number",
     claim_cap = 20,
     guard_words = 25,
     expected_names = list(),
@@ -444,9 +445,26 @@ validate_lint_config <- function(cfg, raw = NULL) {
     bad("numeral_years", "TRUE or FALSE", "5.2.4")
   }
   cw <- cfg$claim_words
-  cw_msg <- "a mapping with `add` and `drop`, each a list of words"
-  if (!is.list(cw) || is.null(names(cw)) || !all(names(cw) %in% c("add", "drop")) ||
-      is.null(words(cw$add)) || is.null(words(cw$drop))) bad("claim_words", cw_msg, "5.5.4")
+  cw_msg <- paste0("a mapping with `add` and `drop`, each a list of words, and an optional `idioms`, ",
+                   "a list of phrases")
+  phrases <- function(v) {
+    if (is.null(v) || (is.list(v) && !length(v))) return(TRUE)
+    if (is.list(v) && !is.null(names(v))) return(FALSE)
+    u <- if (is.list(v)) {
+      if (any(!vapply(v, function(e) is.character(e) && length(e) == 1L, NA))) return(FALSE)
+      unlist(v, use.names = FALSE)
+    } else v
+    is.character(u) && !anyNA(u) && all(nzchar(trimws(u)))
+  }
+  if (!is.list(cw) || (length(cw) && is.null(names(cw))) || !all(names(cw) %in% c("add", "drop", "idioms")) ||
+      is.null(words(cw$add)) || is.null(words(cw$drop)) || !phrases(cw$idioms)) {
+    bad("claim_words", cw_msg, "5.5.4")
+  }
+  cq <- cfg$claim_quantifiers
+  if (!is.character(cq) || length(cq) != 1L || is.na(cq) || !cq %in% c("number", "any", "none") ||
+      is.list(raw[["claim_quantifiers"]])) {
+    bad("claim_quantifiers", "one of `number`, `any` or `none`", "5.5.5")
+  }
   for (nm in c("claim_cap", "guard_words")) {
     v <- cfg[[nm]]
     if (!is.numeric(v) || length(v) != 1L || !is.finite(v) || v < 1 || v != round(v) ||
