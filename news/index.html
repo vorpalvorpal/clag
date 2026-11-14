@@ -55,6 +55,8 @@
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="development version" id="weft-development-version">weft (development version)<a class="anchor" aria-label="anchor" href="#weft-development-version"></a></h2>
 <ul><li>The hint for a name published nowhere no longer says “above”: it now reads “Publish it in code in this document”, since a named value may be published below its use.</li>
+<li>The <code>claim-word</code> lint is quieter. The shipped list drops <code>each</code>, <code>both</code>, <code>either</code> and <code>whole</code> (65 words), skips idioms such as “at least” and “no longer” (<code>claim_words: {idioms: [...]}</code> adds your own), and skips a word with a hyphen beside it or a capital that does not start its sentence. A quantifier is now listed only in a sentence with a value or a digit; the new setting <code>claim_quantifiers</code> (<code>number</code>, <code>any</code> or <code>none</code>) changes that.</li>
+<li>A <code>claim-word</code> finding in a blockquote no longer shows the <code>&gt;</code> markers, and the last sentence of a list item no longer runs on into the next item’s marker.</li>
 </ul></div>
     <div class="section level2">
 <h2 class="pkg-version" data-toc-text="0.1.0" id="weft-010">weft 0.1.0<a class="anchor" aria-label="anchor" href="#weft-010"></a></h2>

@@ -569,8 +569,14 @@ block anything:</p>
 <code>claim-word</code>: a quantifier, extreme or direction word
 (“all”, “only”, “largest”, “rose”) in a sentence with a value, which the
 value may no longer bear out, or in a new sentence with no value at all.
-A word inside an <code>if</code> or <code>sign</code> span is already
-guarded and is not listed.</li>
+The list holds 65 English words. A word inside an <code>if</code> or
+<code>sign</code> span is already guarded and is not listed. Neither is
+a word inside an idiom such as “at least”, “no longer” or “most likely”
+(the list has 26), a word with a hyphen next to it (“best-supported”),
+or a word with a capital that does not start its sentence (“Wentworth
+Falls”). A quantifier (“all”, “only”, “never”) is listed only in a
+sentence that holds a value or a typed digit; the setting
+<code>claim_quantifiers</code> changes that.</li>
 <li>
 <code>if-zero</code>: an <code>if</code> condition that compares
 with zero.</li>
@@ -619,34 +625,42 @@ run them over the lines added since a commit.</p>
 </tr>
 <tr class="odd">
 <td><code>claim_words</code></td>
-<td><code>{add: [], drop: []}</code></td>
-<td>words added to or dropped from the claim-word list</td>
+<td><code>{add: [], drop: [], idioms: []}</code></td>
+<td>words added to or dropped from the claim-word list, and phrases
+added to its idioms</td>
 </tr>
 <tr class="even">
+<td><code>claim_quantifiers</code></td>
+<td><code>number</code></td>
+<td>when a quantifier is listed: <code>number</code> (only in a sentence
+with a value or a digit), <code>any</code> or <code>none</code>
+</td>
+</tr>
+<tr class="odd">
 <td><code>claim_cap</code></td>
 <td><code>20</code></td>
 <td>claim-word sentences listed per file before a count replaces
 them</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>guard_words</code></td>
 <td><code>25</code></td>
 <td>the length of an <code>if</code> arm that <code>long-guard</code>
 lists</td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>expected_names</code></td>
 <td><code>[]</code></td>
 <td>classes (<code>.foo</code>) and keys (<code>foo</code>) from other
 tools that <code>name</code> should accept</td>
 </tr>
-<tr class="odd">
+<tr class="even">
 <td><code>strict</code></td>
 <td><code>[]</code></td>
 <td>tier-1 rules whose every instance fails <code><a href="../reference/verify.html">verify()</a></code>
 </td>
 </tr>
-<tr class="even">
+<tr class="odd">
 <td><code>anchor_calls</code></td>
 <td><code>[]</code></td>
 <td>helper calls that define anchors, for <code>xref</code>,
