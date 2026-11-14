@@ -147,12 +147,13 @@ inside the block.
 | Kind | Names |
 |---|---|
 | governor and marker keys | `n`, `if`, `sign`, `list`, `cite` |
-| renderer keys | `digits`, `sigfig`, `unit`, `sep`, `last`, `trunc`, `none` |
-| formatter classes | `.num .pct .sci .p .date`, `.no .word .count .ord`, `.and .or .pairs .range .ul .ol .dl`, and project-registered ones (§1.4) |
+| renderer keys | `digits`, `sigfig`, `unit`, `sep`, `last`, `trunc`, `none`, `label` (`.p` only, 1.4.17) |
+| formatter classes | `.num .pct .sci .p .date`, `.plus` (1.4.21), `.no .word .count .ord`, `.and .or .pairs .range .ul .ol .dl`, and project-registered ones (§1.4) |
 | unit classes | `.uname`, `.usym`, `.nounit` (1.4.19) |
 | text classes | `.a`, `.cap`, `.strong`, `.em` |
 | identity | `#id` (§1.7) |
 | lint marker | `.weft-literal`, `why` (§1.8) |
+| decision pointer | `decision` on a `.weft-literal` or a `cite` span (1.8.12) |
 
 **1.2.6** Any class or key weft does not own is put on a Pandoc span around
 the construct's output. With nothing to pass through, the output is plain
@@ -234,7 +235,7 @@ written in.
 
 | Stage | Classes | Acts on |
 |---|---|---|
-| i. number | at most one of `.num .pct .sci .p .date` | each element of the value |
+| i. number | at most one of `.num .pct .sci .p .date`; `.plus`, in no group (1.4.21) | each element of the value |
 | ii. wording | `.no`, then at most one of `.word .count .ord` | each element, as printed by stage i |
 | iii. collapse | at most one of `.and .or .pairs .range .ul .ol .dl` | the vector of elements |
 | iv. text | `.a`, then `.cap`, then `.strong` / `.em` | the final text |
@@ -253,6 +254,7 @@ a wording class together with `.pct` or `.sci`. The three unit classes
 | `.sci` | scientific notation |
 | `.p` | a p-value: "p = 0.046", "p < 0.001", never "p = 0.000" (1.4.17) |
 | `.date` | a date, in the document's default format |
+| `.plus` | a number above zero with a plus sign: "+1.2", "+12%" (1.4.21) |
 | `.no` | a printed zero as "no" |
 | `.word` | a spelled numeral ("three") |
 | `.count` | a word below the threshold, digits from it up ("three", "12"); the threshold defaults to ten |
@@ -269,12 +271,16 @@ a wording class together with `.pct` or `.sci`. The three unit classes
 | `.strong`, `.em` | markdown emphasis |
 
 **1.4.4** `.range` prints one number when both ends print the same, and
-writes "−5 to −3" when either end is negative. A first end above the second
+writes "−5 to −3" when either end is negative. With `.plus` (1.4.21) the
+joiner is " to " when either end prints with a sign, `+` or the minus, and
+the en dash otherwise: `c(1.2, 3.4)` prints "+1.2 to +3.4", `c(-0.5, 1.2)`
+"−0.5 to +1.2", `c(0, 1.2)` "0.0 to +1.2" and `c(1.2, 1.2)` "+1.2". A first end above the second
 is a collected failure (5.3.2). The ends are compared as numbers, not as
 printed, so a bound beside a number that prints as zero is not out of order
 ("< 0.01" beside "0.0").
 
-**1.4.5** `.a` applies to numbers and number words only.
+**1.4.5** `.a` applies to numbers and number words only. It reads a leading
+`+` as it reads a minus: `` `r 8`{.num .plus .a} `` prints "a +8".
 
 **1.4.6** `.ul`, `.ol` and `.dl` produce a block. A value that carries one
 must be alone in its paragraph, and that paragraph must not be inside a list
@@ -292,9 +298,12 @@ text class or `trunc` with one of them is a construct error too.
 | `last` | collapse | the text before the final item |
 | `trunc` | collapse | the number of items shown before "and N others" |
 | `none` | collapse | the text printed for a vector of length zero (1.4.14) |
+| `label` | number | the text before the relation of `.p` (1.4.17) |
 
-`digits` and `sigfig` together are a construct error. Either one, `unit`, or a
-unit class (1.4.19), on a construct with no number-stage class implies `.num`.
+`digits` and `sigfig` together are a construct error. Either one, `unit`, a
+unit class (1.4.19) or `.plus` (1.4.21), on a construct with no number-stage
+class implies `.num`. `label` applies to `.p` only: on a construct without
+`.p` it is a construct error, "`label` applies to `.p` only (rule 1.4.17)."
 
 **1.4.8** A project registers its own formatter (a function, optionally
 bundling options) in `_weft.yml` (9.1.2): the class name, the function, and
@@ -390,6 +399,38 @@ Between, the value is rounded to three decimals. A result below 0.1 prints with
 three decimals ("p = 0.046", "p = 0.004", "p = 0.050"), any other with two
 ("p = 0.10", "p = 0.20"). The record's number is the number printed.
 
+```
+The trend was weak (`r fit$p`{.p digits="3"}).
+After correction it held (`r fit$q`{.p label="q"}).
+Effects were small (`r fit$p`{.p label=""}).
+```
+
+`digits` on `.p` is a whole number from 1 to 6, and replaces the rule above.
+With `digits` d (the key, else the setting `p_digits`, 9.1.5), a value below
+10^-d prints "p < 0.0…01" with d decimals (relation `<`, number 10^-d); a
+value that rounds to 1 at d decimals prints "p > 0.9…9" (relation `>`, number
+1 − 10^-d); any other value is rounded half away from zero to d decimals and
+printed with exactly d decimals (relation `=`). The lower bound is judged on
+the value and the upper on the value rounded. With d = 3, `0` and `0.0004`
+print "p < 0.001", `0.001` "p = 0.001", `0.12` "p = 0.120", `0.9994` "p =
+0.999", and `0.9996` and `1` "p > 0.999". With d = 2, `0.004` prints "p <
+0.01", `0.046` "p = 0.05" and `0.995` "p > 0.99". Without `digits` or
+`p_digits` the rule of the first paragraph holds.
+
+`label` sets the text before the relation. Its default is the setting
+`p_label`, whose default is `p`. `label="q"` prints "q = 0.046" and "q <
+0.001". `label=""` prints "0.046", "< 0.001" and "> 0.99": with no label there
+is no "=" and no space before the number. The label is printed as written,
+markdown included: `label="*p*"` prints "*p* = 0.046". The label does not
+enter the record. A key on the construct wins over the setting.
+
+These are construct errors, found from the source and at render: `digits` on
+`.p` that is not a whole number from 1 to 6 ("`digits` on `.p` must be a whole
+number from 1 to 6 (got `%s`) (rule 1.4.17)."); `sigfig` on `.p` ("`sigfig`
+does not apply to `.p`; use `digits` (rule 1.4.17)."); and `label` without
+`.p` (1.4.7). `digits` and `sigfig` on `.date` stay a construct error. A value
+outside 0 to 1 is a value error, as before.
+
 **1.4.18** The minus sign weft prints is U+2212. In a knit to LaTeX weft
 declares the character for pdflatex, which has no definition for it; xelatex
 and lualatex set it already. It declares as well the other characters it can
@@ -425,6 +466,44 @@ is its meaning: `fmt_cap(fmt_unit(u(5, mL)))` is "mL", not "ML". This holds
 on every route: after a text class, and after `[`. It capitalises
 a name: with `unit_form = "name"` the same call is "Millilitres". `.ord` on a
 quantity that has a unit is a value error.
+
+**1.4.21** `.plus` signs each element that the number stage prints with
+`.num` or `.pct`.
+
+```
+The mean rose by `r d_mean`{.num .plus} mg/L (`r d_pct`{.pct .plus}).
+The change ranged `r d_rng`{.range .plus} across sites.
+```
+
+- An element whose number as printed (1.4.11) is above zero is printed with
+  `+` (U+002B) where the minus would stand: `1.25` prints "+1.3",
+  `1234.5` "+1,234.5", `0.12` under `.pct` "+12%", `u(5, m)` "+5 m".
+- An element whose number as printed is zero has no sign: `0`, `-0` and
+  `1e-10` print "0"; `0.04` and `-0.04` print "0.0" and record the
+  printed-as-zero warned check as before (2.6.11). `.pct` judges on the
+  percentage.
+- An element below zero prints as before, with the `minus` setting.
+- The plus takes the place the minus takes: after a `clamp()` relation
+  (`clamp(150, ceiling = 99)` with `.plus` prints "> +99"), and after a unit
+  written before its number and its space (4.4.22).
+- With no number class, `.plus` implies `.num` (1.4.7). It is in no
+  at-most-one group, so it goes with any one of `.num` and `.pct`, with any
+  collapse class (each element is signed before the collapse; `.range`,
+  1.4.4), and with `.a` (1.4.5), `.cap`, `.strong`, `.em`, a unit class and
+  renderer keys.
+- The record's number keeps its sign and is unchanged, and so are its
+  decimals and relation. The ledger records the text with its `+`.
+- `.plus` with `.sci`, `.p`, `.date`, `.no`, `.word`, `.count`, `.ord`, `.val`
+  or a project formatter of the number stage is a construct error, found from
+  the source and at render: "`.plus` cannot go with `%s`: it signs a number
+  that `.num` or `.pct` prints (rule 1.4.21)." On a span with `n`, `if`,
+  `sign`, `list` or `cite` it is a construct error too: "`.plus` does not
+  apply to a span with `%s=` (rule 1.4.21)." On the result of `ci()`, `pm()`,
+  `of_n()` or `about()` it is the value error a number class there raises.
+
+There is no setting that makes `.plus` the default. `ci()` takes `plus` for
+its three numbers (3.5.3), and `fmt_num()`, `fmt_pct()` and `fmt_range()` take
+it as an argument (3.4.6).
 
 ### 1.5 Governed spans
 
@@ -787,12 +866,33 @@ Samples were filtered through 0.45 µm membranes and stored at 4 °C.
 :::
 ```
 
-**1.8.10** A `.weft-literal` without a `why` is a construct error. A marked
-span or block is not a finding: its `why` is its record, in the source, and
-nothing else lists it.
+**1.8.10** A `.weft-literal` without a `why` is a construct error, with or
+without a `decision` (1.8.12). A marked span or block is not a finding: its
+`why` is its record, in the source, and nothing else lists it.
 
-**1.8.11** The `why` is removed from the output. The class is left on the span
-or div as an ordinary Pandoc class.
+**1.8.11** The `why` and the `decision` are removed from the output, by the
+hooks and by the filter. The class is left on the span or div as an ordinary
+Pandoc class.
+
+**1.8.12** `decision` is a key on a `.weft-literal` span or div and on a `cite`
+span. It points at a decision, as the dictionary's `decision:` field does
+(4.5), and `claim()` takes the same pointer as an argument (3.1.12).
+
+```
+filtered through [0.45 µm]{.weft-literal why="method" decision="12"} membranes
+reached [10 m]{cite="@smith2020" decision="31"} in the upper catchment
+```
+
+A `decision` that is blank is a construct error, found from the source and at
+render: "`decision` must not be blank (rule 1.8.12)." `decision` on any other
+construct (a value, a named value, an `n`, `if`, `sign` or `list` span, a text
+span) is a construct error: "`decision` goes on a `.weft-literal` span or div,
+a `cite` span or a `claim()`, not on %s (rule 1.8.12)." A bracket with no weft
+key or class is an ordinary Pandoc span and is left alone (1.9.1). A pointer
+prints nothing and is not recorded in the ledger: the key of a `cite` entry
+(7.1.4) does not include it, so adding a pointer changes no key. `verify()`
+checks that each pointer resolves (4.5.5). Comments are never scanned for
+decision ids.
 
 ### 1.9 What weft leaves alone
 
@@ -957,7 +1057,10 @@ characters, and not one of `TRUE FALSE True False true false NA NULL None
 nothing missing Inf NaN`. A dot is part of the name, never a path: there is
 no access into a value. Pandoc's trimming of one space inside the backticks
 applies. A code span with an attribute block that carries no weft class or
-key, such as `` `depth`{.python} `` or `` `depth`{#d} ``, is code.
+key, such as `` `depth`{.python} `` or `` `depth`{#d} ``, is code. `label`
+alone does not make a named value (1.4.17): `` `depth`{label="q"} `` is code.
+A name with a `decision` key is a named value, and the key is a construct
+error on it (1.8.12).
 
 **1.12.2** `.val` prints a named value as itself: an integer as its digits,
 a float as the shortest text that reads back as the same double, a decimal
@@ -1014,11 +1117,52 @@ the number as printed. A governor value that starts with a space is a construct
 error: Pandoc does not read such an attribute value, so the span would print as
 text. `weft-check.lua` also flags a span lost this way that reaches its output.
 
-**1.12.7** A construct sees the names published above it. A name used above
-any publication of it is a "no value" failure. A later publication replaces
-the value for the constructs below it. Captions and the front-matter fields
-of 1.10.7 see each name's last published value. A named value in an arm that
-is not chosen is never read (1.5.16).
+**1.12.7** A construct sees the names published above it. A later
+publication replaces the value for the constructs below it. Captions and the
+front-matter fields of 1.10.7 see each name's last published value. A named
+value in an arm that is not chosen is never read (1.5.16).
+
+```
+In summary, `n_sites`{.count} sites were sampled.     <- above the chunk
+
+```{r}
+n_sites <- nrow(sites)
+```
+```
+
+A name used above every publication of it, as a named value or as the name in
+an `if`, `n`, `sign` or `list` value, takes the value the document publishes
+below, when the name takes one value. It takes one value when the records
+published under it in the document (every `weft-values` block and values file
+the filter reads, wherever it stands) are equal when compared without their
+`checks`: the same members with the same values, a float's `v` compared as
+text. One publication, several identical ones, and a values file and a block
+that agree are one value; a `missing` record counts as a value. The record used
+is the last publication, with its `checks`, which run at the use as any
+record's do (2.13.4). Its ledger entry is a named value's entry, with the
+printed text of that record. This holds in every document the filter resolves,
+knitr documents included: the hooks publish each name the source uses when it
+is bound, at each prose block and at the end of the document (2.13.11), so the
+value is in the closing block.
+
+When the document publishes more than one value under the name, the use is a
+collected failure of kind "no value", and the render fails at the end
+(2.6.2): "`%s` is used above its first publication, and the document
+publishes %d different values for it below; a use above every publication
+needs a name that takes one value (rule 1.12.7)." Its hint: "Move the sentence
+below the value it means, or publish that value under a name of its own." A
+name the document never publishes is a "no value" failure: "no value is
+published under the name `%s` in this document (rule 1.12.7)." Its hint is
+"Publish it in code above: weft_put(%s = ...) in R, put(%s=...) in Python, @put
+%s in Julia. A cell with include: false or output: false publishes nothing on
+the jupyter and julia engines." Captions and front-matter fields take the
+last value and have no several-values failure.
+
+Inline R is not covered: `` `r n_sites` `` above the chunk is evaluated where
+it stands. When such an expression is a single name and fails with "object not
+found", the failure's hint is "If `%s` is computed further down, write it as a
+named value, `%s`{.num}, which takes its value from below (rule 1.12.7)." No
+setting turns the fallback on or off.
 
 **1.12.8** A named value means the same in every document and on every
 engine. In a knitr document R values and spans stay R (1.1.2); write a name
@@ -1048,9 +1192,10 @@ refer to an id on a named value, and a span the filter resolves cannot refer
 to an id on an R value; either is a construct error found from the source.
 
 **1.12.11** The filter implements the classes `.num`, `.pct`, `.val`, `.sci`,
-`.p`, `.date`, `.no`, `.word`, `.count`, `.ord`, `.and`, `.or`, `.pairs`,
+`.p`, `.date`, `.plus`, `.no`, `.word`, `.count`, `.ord`, `.and`, `.or`, `.pairs`,
 `.range`, `.ul`, `.ol`, `.dl`, `.a`, `.cap`, `.strong` and `.em`, the keys
-`digits`, `sigfig`, `sep`, `last`, `trunc` and `none`, text spans, `cite`
+`digits`, `sigfig`, `sep`, `last`, `trunc`, `none` and `label` (with `digits`
+on `.p`, and the settings `p_digits` and `p_label`, 1.4.17), text spans, `cite`
 spans (the key check at render is not done: the `cite-key` lint covers it),
 and the governors of this section. Rules of other sections hold for them as
 stated there, with these differences. `.p` outside 0 to 1, and `.a` on text
@@ -1174,13 +1319,20 @@ it (1.12.7).
 
 ### 2.4 `claim()` by context
 
-**2.4.1** A failed check is collected, and the value returned, only when the
+**2.4.1** A failed check is collected, and the value returned, when the
 `claim()` call is evaluated in inline R during a knit, in a construct or a
-bare value: in prose, in a caption, or in a string given to `weft_str()`.
+bare value: in prose, in a caption, or in a string given to `weft_str()`. With
+the setting `chunk_claims: collect` it is collected in chunk code too (2.4.4).
 
 **2.4.2** Everywhere else a failed check stops at once, unless it is a warned
-one (2.4.6): in chunk code, in a pipeline target, in plain R, and in a
-document in which the hooks never installed.
+one (2.4.6): in chunk code under the default setting `chunk_claims: stop`, in
+a pipeline target, in plain R, and in a document in which the hooks never
+installed. These stop under `collect` as well: a claim outside a knit; a claim
+in a running `targets` target (judged by `targets::tar_active()` when
+`targets` is installed), so that a target never stores a value that failed its
+claim; a claim in another process (a `callr`, `future` or `mirai` worker has no
+knit, and its error reaches the chunk as an ordinary error); and a Python or
+Julia `claim()` (3.9.3).
 
 **2.4.3** `claim()` does not depend on knitr.
 
@@ -1190,9 +1342,51 @@ carries on, and the render still fails at the end with the check in its report
 (2.6.2). The same holds for a failed check caught by `try()` or `tryCatch()`:
 it is recorded, and the render fails.
 
+The setting `chunk_claims` (9.1.5), in `_weft.yml` or a document's `weft:`, is
+`stop` (the default) or `collect`. Under `collect`, a `claim()` check that is
+not `TRUE`, at level `"fail"`, evaluated during a knit outside inline R, is
+recorded as a failed claim located by its chunk's label, with the detail of
+2.6.2 (". >= 10 was FALSE (value 7)"), and `claim()` returns its value,
+visibly. The knit goes on. This covers chunk code, the functions it calls, the
+files it `source()`s, and the chunk options knitr evaluates. The render fails
+at the end with every failure listed in the order collected, as for any
+collected failure, and draft mode reports and does not fail (9.4.3).
+`last_knit()` holds the failures, and `rehearse()` knits each case with the
+project's setting and lists its chunk claims as it lists any failure.
+`level = "warn"`, `error: true` and a claim inside `try()` behave as without
+the setting. The gate counts `claim()` calls the same under either setting
+(6.3.1).
+
+```yaml
+# _weft.yml
+chunk_claims: collect
+```
+
+```r
+n_up <- claim(sum(trend$up), . >= 10)      # recorded, and the chunk goes on
+share <- claim(n_up / n_sites, . > 0.5)    # recorded too
+```
+
 **2.4.5** A failed check that stops the knit prints, with its own error, every
 failure collected before it. The warned checks collected so far are reported
 whenever the knit ends (2.6.10), also when it stops on an error of any kind.
+
+When the knit is about to stop on an error (in a chunk without `error: true`,
+or in a bare inline value, 2.6.4) and at least one claim was collected in
+chunk code under `collect` (2.4.4) in this knit, weft raises instead a
+condition of class `weft_claims_collected` (and `weft_error`) whose parent is
+the original error. Its message lists the collected failures first, then the
+error:
+
+```
+weft: the knit stopped on an error after 2 failed claims in chunk code. The claims are listed first: the error may follow from a value that failed its claim.
+<the report of 2.6.2>
+The error that stopped the knit:
+  <the error's message>
+```
+
+Without such a claim nothing changes, and the error keeps its class. A case of
+`rehearse()` that stops this way is reported with this text.
 
 **2.4.6** A check given `level = "warn"` (3.1.11) neither collects a failure
 nor stops, in any context. In a knit, in prose, a caption, a `weft_str()`
@@ -1231,14 +1425,17 @@ After knitting, the render fails on:
 The extension lists `weft.lua` before `weft-check.lua` (2.13.2). It works when
 the package was never loaded, and when the file was never knit (9.2.8). It covers captions. The filter exits through `os.exit(1)` (tier 1).
 In draft mode it reports instead (9.4.3). Under rmarkdown, `use_setup()`
-places the filter file and names it under the output format in the
-document's front matter:
+places the filter files and names them under the output format in the
+document's front matter, with the output check of 2.5.5 last:
 
 ```yaml
 output:
   html_document:
-    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua"]
+    pandoc_args: ["--lua-filter", "weft.lua", "--lua-filter", "weft-check.lua", "--lua-filter", "weft-output.lua"]
 ```
+
+What the render prints, after Quarto's own filters and the writers' citations
+and cross-references, is checked by a filter of its own (2.5.5).
 
 **2.5.4** *The `pre-render` check.* In a Quarto project, the `pre-render`
 script that `use_quarto()` writes reads every `.qmd` the render will process.
@@ -1248,6 +1445,98 @@ with an attribute block) or a span whose governor is outside the grammar of
 with only named values and spans in that grammar passes. The message adds that
 a document on another engine can use named values instead. Nothing has
 rendered by then (tier 1).
+
+**2.5.5** *The rendered-output check.* The filter `weft-output.lua`, shipped
+beside `weft-check.lua` in the `weft-check` extension, reads the document's
+final tree, after Quarto's own filters, so that one filter covers every output
+format. It reads no output file and changes nothing in the document. It reads
+`_weft.yml` and the document's `weft:` through the filter's `weftlib/`
+(2.13.7), so unlike `weft-check.lua` it is not self-contained. It is
+installed:
+
+- by `use_quarto()`, as an entry of `filters:` in `_quarto.yml` after
+  `weft-check`, because an extension cannot place a filter after Quarto's own:
+
+  ```yaml
+  filters:
+    - weft-check
+    - path: _extensions/weft-check/weft-output.lua
+      at: post-render
+  ```
+
+  A project set up before this check gets the entry when `use_quarto()` is
+  run again; until then `status()` reports it missing (9.5.3);
+- by `use_setup()` under rmarkdown, as the last `--lua-filter` (2.5.3);
+- in plain Pandoc, by hand, as the last filter.
+
+It reports three kinds of finding. Each has a setting (9.1.5), `fail`, `warn`
+or `off`:
+
+| Kind | Setting | Default | Found |
+|---|---|---|---|
+| `unresolved reference` | `output_refs` | `fail` | under Quarto only: bold text that is exactly `?@` and an id, or `?meta:` or `?var:` and a key, which Quarto prints for a reference it could not resolve |
+| `missing value in output` | `output_missing` | `warn` | in prose, a word that is exactly `NA`, `NaN`, `nan`, `Inf`, `-Inf`, `−Inf` (U+2212), `inf` or `-inf` once a leading `( [ " ' “ ‘` and a trailing `. , ; : ! ? ) ] % " ' ” ’` are removed |
+| `leftover markup` | `output_markup` | `fail` | in prose and in table cells: a word that begins `:::` (a fence Pandoc did not read); an attribute block touching the text before it, `{#` or `{.` and a letter after a character that is not a space, `{` or `]`; under Quarto, `\@ref(`, which Quarto never resolves |
+
+Prose is paragraphs, plain blocks, headings, list items, block quotes,
+definition lists, line blocks, footnotes, and figure and table captions. Not
+checked: a missing value in a table cell; code, code blocks, math, raw content
+and link targets; and anything inside a span or div with the class
+`weft-literal`, whose `why` is gone by then while the class stays (1.8.11),
+which is how a deliberate "NA" is marked. "Na", "N/A", "NULL", "None" and
+"missing" are not matched. Citations are not checked (5.4 covers their keys),
+nor is anything a writer or a later program adds: bookdown's `\@ref()` under
+rmarkdown, LaTeX's "??", Typst's own references.
+
+Each finding has its file, the output format, its kind, its level (the
+setting, `fail` or `warn`), its section (the identifier of the last heading
+above it, or `""`), its text as printed, and an excerpt: the block that holds
+it, white space collapsed, cut to 80 characters around the text with "..." at
+each end that was cut. A document gives one finding per distinct kind, text and
+section. The detail is:
+
+- "Quarto could not resolve the reference `@%s`, and printed \"?@%s\" (rule
+  2.5.5)."; for `?meta:` and `?var:`, "the shortcode value `%s` was not found,
+  and printed \"?%s\" (rule 2.5.5)."
+- "\"%s\" in the rendered prose: a value printed as missing. Mark a
+  deliberate one [%s]{.weft-literal why=\"...\"} (rule 2.5.5)."
+- "\"%s\" in the rendered text: markup that Pandoc did not read (rule 2.5.5)."
+
+With the collection file open (2.6.6) each finding is a line in it and the
+filter does not exit. The `post-render` script lists `fail` findings among the
+failures, tagged by kind, and `warn` findings among the warned checks. A
+finding with the same file, section, kind and text from several formats is one
+entry, the formats joined in the order they were found:
+
+```
+  ch2.qmd #methods (html, latex)  [unresolved reference] ?@sec-missing
+      See ?@sec-missing for the sampling design.
+    Quarto could not resolve the reference `@sec-missing`, and printed "?@sec-missing" (rule 2.5.5).
+```
+
+With no collection file (under rmarkdown, in plain Pandoc, a Quarto document
+outside a project) the filter writes the same entries to stderr, with no level
+on an entry, under a heading line, and exits 1 when a finding is `fail`, except
+in draft mode (9.4.3), where it only reports:
+
+```
+weft: 1 problem in the rendered output of r.md (html)
+  r.md #sec-results (html)  [missing value in output] NA
+      The mean was NA mg/L.
+    "NA" in the rendered prose: a value printed as missing. Mark a deliberate one [NA]{.weft-literal why="..."} (rule 2.5.5).
+```
+
+When `WEFT_OUTPUT_LOG` names a file, each finding is also appended to it as a
+JSON line; `verify()` reads it (8.3.6). A setting that is not `fail`, `warn`
+or `off` is a `weft_config_error` in R, "The setting `%s` must be fail, warn or
+off."; the filter uses the default, and with no collection file says so on
+stderr (2.13.7).
+
+`bare_missing` (1.3.5) warns at knit time about a bare value that prints `NA`,
+naming its expression; this check warns about the same text in the output,
+naming its sentence. Both are listed. `weft-check.lua` already fails on a weft
+attribute block before Quarto's filters (2.5.3), and this check may list the
+same text again.
 
 ### 2.6 Failures
 
@@ -1293,7 +1582,9 @@ output has been written by then, and carries the visible markers. The
 collection file holds a warned check with `"level": "warn"`, the `post-render`
 report lists warned checks after the failures, and a warned check does not fail
 the render (2.6.10). While the file is open a chapter prints no warnings of its
-own.
+own. The rendered-output check (2.5.5) writes its findings to the same file,
+with their level, and the `post-render` report lists them with the rest: a
+`fail` finding fails the render, a `warn` one is listed with the warned checks.
 
 **2.6.7** Failed checks, unevaluated constructs and fatal conditions (§7.4)
 are reported distinctly from ordinary knit errors.
@@ -1779,8 +2070,9 @@ Paths are relative to the working folder when under it.
 at most 8 levels) and the document's `weft:` key as text, with a flat reader,
 never through Pandoc's metadata. It reads `digits`, `decimal_mark`,
 `big_mark`, `thousands_from`, `minus`, `governor_class`, `pct_proportion`,
-`serial_comma`, `count_threshold`, `word_limit`, `date_format`, `draft` and
-`ledger`. The document's value wins (9.1.1). A value of the wrong kind for its
+`serial_comma`, `count_threshold`, `word_limit`, `date_format`, `draft`,
+`ledger`, `p_digits`, `p_label`, `output_refs`, `output_missing` and
+`output_markup`. The document's value wins (9.1.1). A value of the wrong kind for its
 key is a construct error, reported once, and the default is used.
 `pct_proportion: false` is a value error. `lang` comes from Pandoc's metadata. A `weft:` or `formatters:` mapping in flow
 style is read as the block form is; a form the flat reader cannot read is a
@@ -1877,7 +2169,7 @@ the failures of named values show at the next render.
 ### 3.1 `claim()`
 
 ```r
-claim(x, <check>, ..., level = c("fail", "warn"))
+claim(x, <check>, ..., level = c("fail", "warn"), decision = NULL)
 ```
 
 **3.1.1** `x` is any type. `claim()` returns it visibly and unchanged, so a
@@ -1933,6 +2225,35 @@ errors is a failed check at the level given. Any other `level` is an error. A
 bare `"warn"` or `"fail"` in the position of a check is an error that says to
 write `level = `. A guard has no level (1.5.5).
 
+**3.1.12** `decision`, given by name, points at the decision the check rests
+on (1.8.12): one string that is not blank, or one whole number from 1.
+Anything else is an error of class `weft_claim_decision` (and `weft_error`),
+raised before the checks run, in any context: "`decision` of claim() must be
+one string that is not blank, or a whole number from 1." A failure's detail
+ends "; decision <value>": ". >= 10 was FALSE (value 7); decision 31" in a
+collected failure, and "check `. >= 10` failed (value: 7); decision 31" in an
+error that stops at once (2.4.2) and in the warning of a warned check outside
+a knit. `verify()` checks a pointer written as a literal (4.5.5).
+`decision` is not a check (3.10.1). Python and Julia `claim()` take no
+`decision`.
+
+```
+`r claim(n_sites, . >= 10, decision = 31)` sites
+```
+
+**3.1.13** A value checked in several places drifts: a guard or a claim
+repeated through the prose is loosened in one place and not the others, and
+deleting the strictest copy loosens the document without anyone seeing it.
+Check a value once, where it is made, and use the name after:
+
+```r
+n_up <- claim(sum(trend$up), . >= 10)
+```
+
+`checks()` lists the checks of each value and flags a value checked with
+differing conditions (3.10); the gate says, for each check a commit removes,
+whether a check that remains implies it (6.3.7).
+
 ### 3.2 Function forms
 
 **3.2.1** The markup exists in prose. In R code a construct has a function:
@@ -1971,6 +2292,22 @@ dictionary (§4).
 **3.3.5** Given `NA`, a `lookup()` or `brk()` function raises the "no value"
 failure of 1.3.4. It never falls through to a default phrase, such as a
 `TRUE ~` formula.
+
+**3.3.6** `in_range(x, range)` is exported. It is `TRUE` where
+`range[1] <= x` and `x <= range[2]`, element by element, and `NA` where `x` is
+`NA`: the bounds are inside the range. `range` is a `range` entry of the
+dictionary (4.2.8) or any two numbers in order. A quantity `x` is converted to
+the range's unit. Units that do not convert, and a number against a range with
+a unit or the reverse, are a `weft_value_error`: "in_range(): `x` in %s cannot
+be compared with a range in %s (rule 4.2.8)." (a plain number is "no unit"). A
+`range` that is not two finite numbers with the lower below the upper is one
+too: "in_range(): `range` must be two numbers, the lower first (rule 4.2.8)."
+It is R: the filter has no dictionary.
+
+```
+The acceptable band is `r dict$do_band`{.range}, and the mean was
+[within | outside]{if="in_range(do_mean, dict$do_band)"} it.
+```
 
 ### 3.4 Formatter functions
 
@@ -2014,13 +2351,20 @@ an error of class `weft_construct_error`. `last` on `fmt_and()`,
 setting applies (1.4.15).
 
 **3.4.6** `fmt_num()`, `fmt_pct()` and `fmt_range()` record a number that prints
-as zero as the classes do (2.6.11).
+as zero as the classes do (2.6.11). They take `plus = FALSE` as their last
+argument, which signs a number as `.plus` does (1.4.21); `plus` that is not
+`TRUE` or `FALSE` is a `weft_construct_error`, "`plus` must be TRUE or FALSE."
+`fmt_p(x, digits = NULL, label = NULL)` takes `digits` and `label` as the keys
+of `.p` do (1.4.17); `NULL` takes the settings `p_digits` and `p_label`. A
+`label` that is not one string is a `weft_construct_error`, "`label` must be
+one string (rule 1.4.17)."
 
 **3.4.7** Subsetting a `weft_text` that carries a unit keeps the unit.
 
 **3.4.8** `fmt_num()`, `fmt_sci()`, `fmt_range()`, `fmt_no()`, `fmt_word()`,
 `fmt_count()`, `fmt_ord()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`,
-`fmt_ol()` and `fmt_dl()` take `unit_form = NULL`, as the last argument. Its
+`fmt_ol()` and `fmt_dl()` take `unit_form = NULL`, as the last argument
+(before `plus` on `fmt_num()` and `fmt_range()`, 3.4.6). Its
 values are `"auto"`, `"name"`, `"symbol"` and `"none"`, the forms of 4.4.15 and
 the classes `.uname`, `.usym` and `.nounit`. `NULL` leaves the form in force for
 a quantity (4.4.15), and the printed form of each element for a `weft_text`
@@ -2069,7 +2413,7 @@ the path of the YAML file the table is read from. It registers nothing.
 |---|---|
 | `of_n(k, n, "site", "sites")` | "none of the 4 sites", "the only site", "both sites", "all 5 sites", "3 of the 7 sites" |
 | `about(x, to = 1/2)` | "nearly half", "just over half", "half" |
-| `ci(est, lo, hi)` | "2.1 (95% CI 1.3 to 2.9)" |
+| `ci(est, lo, hi)` | "2.1 (95% CI 1.3 to 2.9)"; "2.1 (1.3 to 2.9)" with `short = TRUE` |
 | `pm(est, se)` | "2.1 ± 0.3" |
 | `clamp(x, floor, ceiling)` | "< 0.01", "> 99" for a value outside the bounds |
 
@@ -2081,11 +2425,36 @@ argument. Their defaults are configuration settings (§9.1), as the default
 digits are. A project that stipulates them in its dictionary passes
 `level = dict$ci_level`. `ci()` writes "to" between the bounds.
 
+`ci(est, lo, hi, level = NULL, digits = NULL, sigfig = NULL, plus = FALSE,
+pct = FALSE, short = NULL)`:
+
+- `plus = TRUE` signs all three numbers as `.plus` does (1.4.21).
+- `pct = TRUE` prints each of the three as `.pct` prints it: `pct_proportion`
+  applies, `digits` and `sigfig` act on the percentage, and the printed-as-zero
+  check judges the percentage. The level text is unchanged.
+- `short = TRUE` drops the level text. `short = NULL` takes the setting
+  `ci_short` (default `false`). The short form with a `level` given in the
+  call is a value error, because a level other than the reader's default would
+  print without saying so: "ci(): the short form prints no level, and `level =
+  %s` was given; give `short = FALSE` to print it, or drop `level` (rule
+  3.5.3)." The setting `ci_level` with the short form is not an error.
+- `plus` and `pct` must each be `TRUE` or `FALSE`, and `short` `TRUE`, `FALSE`
+  or `NULL`; anything else is a `weft_construct_error` ("`short` must be TRUE,
+  FALSE or NULL.").
+- The checks on `est`, `lo` and `hi` are on the raw numbers, as before.
+
+`ci(2.1, 1.3, 2.9, short = TRUE)` prints "2.1 (1.3 to 2.9)";
+`ci(0.12, 0.08, 0.16, pct = TRUE)` "12% (95% CI 8% to 16%)";
+`ci(-0.4, -1.2, 0.4, plus = TRUE)` "−0.4 (95% CI −1.2 to +0.4)";
+`ci(0.031, 0.012, 0.052, pct = TRUE, plus = TRUE, short = TRUE)` "+3.1%
+(+1.2% to +5.2%)".
+
 **3.5.4** `clamp()` sets the relation in the printed record, as `.p` does.
 
 **3.5.5** Not built: fractions and multiples in words ("two-thirds", "twice")
-come from `nombre`; compact and signed numbers ("1.2 million", "+3.2%") come
-from `scales`, registered as a project formatter (1.4.8).
+come from `nombre`; compact numbers ("1.2 million") come from `scales`,
+registered as a project formatter (1.4.8). A signed number is `.plus`
+(1.4.21).
 
 **3.5.6** Deferred: `drange()` for date ranges ("3–5 June 2024") and `dur()`
 for durations ("2 years and 3 months").
@@ -2103,7 +2472,10 @@ number to them.
 
 **3.6.1** `weft_str()` renders a markup string, for the text slots no chunk
 option reaches: `ggplot2::labs()`, a `gt` footnote or column label,
-`knitr::kable(caption = )`, text printed with `results: asis`.
+`knitr::kable(caption = )`, text printed with `results: asis`. Text a chunk
+prints has two routes to typed but checked values, which print the same: the
+markup in a string given to `weft_str()`, and a named value (1.12.1) whose value
+the chunk publishes with `weft_put()` (3.8.1, 1.12.8).
 
 **3.6.2** The lints read a literal string passed to `weft_str()` as prose.
 
@@ -2269,6 +2641,379 @@ is the author's way to go on. On the jupyter and julia engines it is carried in
 a block to the filter (2.13.4). Calling it through reticulate's `r` object is
 refused by a lint (5.11.2), since reticulate converts its argument unchecked.
 
+### 3.10 Checks compared
+
+The checks of a document are read without running it, so that the checks on one
+value can be compared: by `checks()` (3.10.13), and by the gate for each check a
+commit removes (6.3.7). Only checks of the forms below are reasoned about;
+anything else is grouped by its text.
+
+```
+The site [exceeded the trigger]{if="turb_max > trigger"} on most days.
+In March it [reached the trigger]{if="turb_max >= trigger"}.
+```
+
+```r
+n_up <- claim(sum(trend$up), . >= 10)    # reads as n_up >= 10
+claim(n_sites, . > 5, level = "warn")    # n_sites > 5, warned
+x |> claim(. < u(50, NTU))               # x < u(50, NTU)
+claim(max(turb), . < u(50, NTU))         # max(turb) < u(50, NTU)
+claim(diffs, all(. > 0))                 # not read: the check is a call
+```
+
+**3.10.1** A *check* is:
+
+- each comma part of a guard, a one-arm `if` (1.5.5): role `guard`, level
+  `fail`. In a document the hooks resolve the parts are R's argument list
+  (1.5.4); in a document the filter resolves they are the parts of 1.12.4;
+- each check argument of an R `claim()` call, that is every argument after the
+  value that is not named `level` or `decision` (3.1.3, 3.1.12): role
+  `claim`. Its level is `fail` when `level` is absent, `warn` when it is the
+  string `"warn"`, and `unknown` when it is computed. Claims are found where
+  the gate counts them (6.3.1): in executed R chunks, inline values and
+  governor expressions;
+- for `checks()` only, each comma part of a two-arm `if`: role `branch`, with
+  no level. A branch chooses wording and fails nothing (1.5.3), so the gate
+  never counts it.
+
+Not checks: the governors of `n`, `sign` and `list`; `brk()` formulas; a
+record's `checks` in a values block (2.13.4); anything in an `eval: false` R
+chunk or in indented code. A Python or Julia `claim()`, found by pattern
+(6.3.1), is a check that is never readable, with its text as the gate keeps it.
+
+**3.10.2** A check is *readable* when, after parentheses that enclose the whole
+of it are removed, it is
+
+- `A OP B`, `OP` one of `< <= > >= == !=`, each side an operand (3.10.3), at
+  least one side a value operand, and the two sides not the same operand (the
+  same kind and the same text in normal form); or
+- a name, or `!` directly before a name: a *bool check*.
+
+Anything else is not readable: `&&`, `||` or `%in%` at the top of the check; a
+call as the whole check (`all(. > 0)`, `is.na(x)`, `in_range(., r)`);
+arithmetic or indexing as the whole check, with no comparison at its top; an
+expression as a bool check (`all(x)`, `!any(x)`, `claim(all(x), .)`); an
+ordering operator (`<`, `<=`, `>`, `>=`) against a `string` or `bool` literal;
+and a comparison of two literals (already `inert-check`, 3.1.6). A call,
+arithmetic or indexing on one side of a comparison is an operand of kind
+`expr`: `max(x) > 5`, `x[1] > 5` and `x < 2 * lim` are readable. In a document
+the filter resolves, every guard part that is not a construct error has one of
+the readable forms and holds no expression (1.12.4).
+
+**3.10.3** An operand has a kind. The kinds are tried in this order, so
+`u(50, NTU)` is a quantity and `-2L` a number, never an expression:
+
+- `name`: an R symbol in R code (`T` and `F` are names); a name (1.12.1) in a
+  condition of 1.12.4;
+- `dict`: `dict$k`, `dict$"k"`, `dict[["k"]]` and the same of `dict_local`,
+  the forms the `dict-key` lint reads (5.8), written `dict$k` or
+  `dict_local$k`. A `dict$k` in a document that defines a local `k` is not an
+  operand: the lint calls it ambiguous (4.3.2);
+- `number`: in R a numeric constant in decimal form, with an optional `L` and
+  an optional unary minus (`5`, `5.0`, `.5`, `1e3`, `-2L`), and not hex,
+  `Inf`, `NaN`, `NA` or complex; in a condition of 1.12.4 its number literal;
+- `date`: a string literal that is a valid `YYYY-MM-DD` date (1.12.5);
+- `string`: any other string literal;
+- `bool`: `TRUE` or `FALSE` in R;
+- `quantity`: `u(<number>, <unit>)` in R, with a number as above and a unit
+  written as a symbol or a string. The kind carries the unit as written, white
+  space removed (`quantity NTU`);
+- `expr`, in R only: any other R expression that is usable (3.10.5), known by
+  its normal form (3.10.4): `max(turbidity)`, `x[1]`, `2 * lim`,
+  `nrow(subset(d, flow > 2))`. An expression that occurs once in a document is
+  read like any other, as a value checked in one place.
+
+An operand that is none of these is not an operand, and its check is not
+readable (`x > Inf`, `x > NULL`). A *value operand* is one of kind `name`,
+`dict` or `expr`.
+
+**3.10.4** The *normal form* of an expression is its source text parsed alone,
+with calls to `(` that enclose the whole expression removed, then deparsed,
+each line trimmed and the lines joined by one space. So `max( turbidity )`,
+`(max(turbidity))`, the call written over two lines with a comment, and
+`turbidity |> max()` are one expression, `max(turbidity)`: R's parser rewrites
+the native pipe, and its `_` placeholder, before anything is deparsed.
+Deparsing writes every string in double quotes (`f('a')` is `f("a")`) and a
+number as R prints it (`f(5.0)` is `f(5)`, `f(1e3)` is `f(1000)`; `5L` stays
+`5L`). Nothing else is normalised: parentheses inside (`max((x))` is not
+`max(x)`), a package prefix (`base::max(x)` is not `max(x)`), the order of
+arguments, named against positional arguments (`round(x, 1)` is not
+`round(x, digits = 1)`), `%>%` against nesting (`x %>% max()` is not
+`max(x)`), `T` against `TRUE`, `dict$"k"` against `dict$k` inside the
+expression, and arithmetic (`2 * lim` is not `lim * 2`, nor `lim + lim`). Two
+texts with one normal form are one operand; nothing else is.
+
+**3.10.5** The *names* an expression reads are its symbols other than one
+directly after `$` or `@`; the *functions* it calls are the symbols it calls,
+with the package when written `pkg::f` or `pkg:::f`. An expression is usable
+unless
+
+1. it reads no name (`1/3`, `2 * 25`, `Inf`, `0x10`, `c(1, 2)`, `runif(1)`):
+   `x > 1/3` is not readable; write the literal;
+2. it reads `.`: a placeholder of `%>%`, or a claim's `.` inside an operand
+   (`claim(x, mean(.) > 3)`, `x %>% max(.)`);
+3. it holds an assignment (`<-`, `<<-`, `->`, `->>`, `=` outside an argument
+   list, `:=`) or a function definition (`function`, `\(`);
+4. it holds `{`, `if`, `for`, `while`, `repeat`, `break` or `next`;
+5. it calls a function through anything but a plain or `pkg::` name
+   (`obj$size()`, `f()()`, `fs[[1]](x)`): such a call may be a method with
+   effects;
+6. it calls, with or without a package prefix, one of these functions:
+   - random draws: `sample`, `sample.int`, `set.seed`, `rbeta`, `rbinom`,
+     `rcauchy`, `rchisq`, `rexp`, `rf`, `rgamma`, `rgeom`, `rhyper`,
+     `rlnorm`, `rlogis`, `rmultinom`, `rnbinom`, `rnorm`, `rpois`,
+     `rsignrank`, `rt`, `runif`, `rweibull`, `rwilcox`;
+   - the clock and the session: `Sys.time`, `Sys.Date`, `date`, `proc.time`,
+     `Sys.getenv`, `Sys.getpid`, `tempfile`, `getwd`;
+   - input: `readline`, `readLines`, `scan`, `menu`, `file.choose`;
+   - reads the source cannot show, and effects: `get`, `get0`, `mget`,
+     `exists`, `eval`, `evalq`, `assign`, `rm`, `source`, `library`,
+     `require`, `attach`, `options`, `Sys.setenv`, `setwd`, `parent.frame`,
+     `sys.call`, `sys.function`, `environment`;
+7. it holds a dictionary read `dict$k` of a key `k` the document also defines
+   locally (3.10.3).
+
+An expression that is not usable is not an operand, so its check is not
+readable and is grouped by its text. A function the document defines is not
+looked into. Rebinding does not make an expression unusable: it is rebound
+(3.10.8), as a name is.
+
+**3.10.6** The claim's `.` (3.1.2) is bound to the first of:
+
+1. the value expression, when it is a name or a dictionary read:
+   `claim(foo, . > bar)` reads `foo > bar`;
+2. the piped value, when the claim is the right side of `|>` or `%>%` and that
+   value is a name or a dictionary read: `foo |> claim(. > 0)` reads
+   `foo > 0`;
+3. the name the result is assigned to, when the claim call (or the pipe that
+   ends in it) is the whole right side of `<-`, `=` or `<<-`, or the whole
+   left side of `->`: `n_up <- claim(sum(trend$up), . >= 10)` reads
+   `n_up >= 10`, because `claim()` returns its value unchanged (3.1.1);
+4. the value expression, or the piped value when the claim is the right side of
+   a pipe, when it is a usable expression, in its normal form:
+   `claim(max(turbidity), . < u(50, NTU))` and
+   `turbidity |> max() |> claim(. < u(50, NTU))` both read
+   `max(turbidity) < u(50, NTU)`.
+
+So `n <- claim(max(turbidity), . < 5)` reads `n < 5`, and is a check of
+another value than a bare `claim(max(turbidity), . < 5)` elsewhere. `.` is
+bound only where it is a whole operand; a `.` inside an operand makes that
+operand unusable (3.10.5). Otherwise a check that holds `.` is not readable
+(`claim(5, . > 3)` compares two literals; `claim(runif(1), . < 1)` has a value
+that is not usable). A check without `.` is read as written: `claim(x, y > 3)`
+reads `y > 3`. A claim anywhere inside a function definition is not readable:
+its names are the function's.
+
+**3.10.7** A readable check is written `value op other`, its *condition*:
+
+- a bool check keeps its own form: `x` has the operator `is` and the other
+  side `TRUE`, `!x` has `is` and `FALSE`, and the condition is `x` or `!x` as
+  written. It is not `x == TRUE`: in R, `x == TRUE` passes on the number 1 and
+  the bare `x` does not (3.1.3);
+- a value operand against a literal has the value operand on the left, the
+  operator mirrored when the sides swap (`<` and `>`, `<=` and `>=`; `==` and
+  `!=` unchanged): `5 < x` is `x > 5`, `50 > max(t)` is `max(t) < 50`;
+- two value operands are put in byte order of their text (an expression by
+  its normal form), the operator mirrored, for the check's key; the check is
+  shown in the orientation of the check on that pair that comes first in the
+  document (by line, then column), and every check on the pair is shown in it.
+  `x < 2 * lim` is keyed `2 * lim > x` and shown as written;
+- an expression is written in its normal form, with nothing else changed;
+- a literal is written canonically: a number as its exact decimal with no
+  `+`, no leading zeros, no trailing zeros after the point, no exponent, and
+  `0` for `-0` (`5.0` is `5`, `1e3` is `1000`, `.50` is `0.5`, `-2L` is `-2`),
+  or as `<mantissa>e<exponent>`, one digit before the point, when the plain
+  form would have more than 20 digits (`1e-25`); a string or a date in single
+  quotes, or double quotes when it holds `'`; `TRUE` and `FALSE`; a quantity as
+  `u(<number>, <unit>)` with the number canonical (`u(50, NTU)`);
+- the condition is the value, the operator and the other side joined by single
+  spaces.
+
+A check's *key* is its condition in key orientation, or for a check that is not
+readable its text with white space collapsed, together with its level.
+
+**3.10.8** In a document, a name is *rebound* when it is assigned in more than
+one place, counting:
+
+- in executed R code (inline values, and executed R chunks outside function
+  bodies), each `<-`, `=`, `<<-` or `->` whose target's first symbol is the
+  name (`x <-`, `x[i] <-`, `x$a <-`, `names(x) <-`), each `assign("x", ...)`
+  with a string constant, and each `for (x in ...)`, which counts two;
+- in executed Python and Julia chunks, each line that begins, after blanks,
+  with the name and then `=` (not `==`) or `+=`, `-=`, `*=` or `/=`, and each
+  `for x in`, which counts two.
+
+Not counted: `weft_put()`, a `weft-values` block, a values file, a `source()`d
+script, `list2env()`, and `<<-` inside a function. A dictionary read is never
+rebound. An expression is rebound when a name it reads is, or a function it
+calls without a package prefix is: a function the document defines twice is
+rebound, `base::max` never is, and `dict` and `dict_local` never are. A check
+is rebound when a name among its operands is, or an expression among them is.
+
+**3.10.9** A check *runs always* unless its construct sits in an arm of a span
+with more than one arm (`n`, `if`, `sign`, `list`), or the claim sits under an
+R `if`, `else`, `for`, `while` or `repeat`.
+
+**3.10.10** A check A *implies* a check B when every value that passes A
+passes B. weft decides it only between two readable checks on the same
+*pair*: the same two value operands in either orientation, or the same value
+operand against literals of one kind (for `quantity`, one unit). Two
+expressions are the same operand only when their normal forms are equal:
+`max(t) < 5` and `max(t, na.rm = TRUE) < 5` are on two pairs, and neither
+implies the other. Between any other two checks the only implication is
+identity, the same key.
+
+Between two value operands, with A and B oriented the same way, A implies B
+exactly where the table has ✓:
+
+| A \ B | `<` | `<=` | `>` | `>=` | `==` | `!=` |
+|---|---|---|---|---|---|---|
+| `<` | ✓ | ✓ | | | | ✓ |
+| `<=` | | ✓ | | | | |
+| `>` | | | ✓ | ✓ | | ✓ |
+| `>=` | | | | ✓ | | |
+| `==` | | | | | ✓ | |
+| `!=` | | | | | | ✓ |
+
+An ordering check that passes shows the two values are of a kind that orders,
+so it implies `!=` and its non-strict twin. `==` implies no ordering: two equal
+strings in the filter, or two equal factors in R, pass `==` and fail `<=`.
+
+A value operand against literals of kind `number`, `date` or `quantity`: A is
+`x opA a`, B is `x opB b`, and A implies B exactly when the cell holds for the
+literals compared by 3.10.11 (— never):
+
+| A \ B | `x < b` | `x <= b` | `x > b` | `x >= b` | `x == b` | `x != b` |
+|---|---|---|---|---|---|---|
+| `x < a` | a ≤ b | a ≤ b | — | — | — | a ≤ b |
+| `x <= a` | a < b | a ≤ b | — | — | — | a < b |
+| `x > a` | — | — | a ≥ b | a ≥ b | — | a ≥ b |
+| `x >= a` | — | — | a > b | a ≥ b | — | a > b |
+| `x == a` | a < b | a ≤ b | a > b | a ≥ b | a = b | a ≠ b |
+| `x != a` | — | — | — | — | — | a = b |
+
+Against `string` and `bool` literals only the `==` and `!=` cells apply. A bool
+check `x` implies `x`, `x == TRUE` and `x != FALSE`; `!x` implies `!x`,
+`x == FALSE` and `x != TRUE`; nothing else implies either. The reasoning is
+over the reals, not the integers: `x > 4` does not imply `x >= 5`. In R a
+value compared with a number is assumed to be a number; a character or factor
+value compares as text, where `"10" > "9"` is `FALSE`, and for such a value the
+table can be wrong. So `x > 5` implies `x > 3`; `x >= 5` implies `x > 4` and
+`x > 4.999` but not `x > 5`; `x == 5` implies `x >= 5.0` and `x != 3`;
+`x < 0` implies `x != 0`; `x != 0` implies only `x != 0`;
+`d >= '2024-02-01'` implies `d > '2024-01-31'`; `x < u(50, NTU)` implies
+`x <= u(60, NTU)` and nothing about `x < u(0.06, kNTU)`. Arithmetic is not
+reasoned about: `x < 2 * lim` implies `x <= 2 * lim`, and nothing about
+`x < lim`.
+
+**3.10.11** Two numbers, and the numbers of two quantities, compare as exact
+decimals, as the filter compares them (1.12.5); no double decides. Where a cell
+needs a strict relation (a < b, a > b, a ≠ b) and B is checked by R (a claim,
+or a guard of a document the hooks resolve), the two literals must also differ
+when R reads each as a double: R compares doubles, so `x >= 0.1` does not imply
+`x > 0.1000000000000000001`. Dates compare by their text, which is calendar
+order. Strings and bools are equal or not, exactly.
+
+**3.10.12** A check B gone from a document D (6.3.7) is *covered* when the new
+side of D holds one check A such that
+
+- A has B's key, or A implies B (3.10.10);
+- A runs always (3.10.9);
+- A's level is `fail`, or B's level is `warn`: a warned check fails nothing,
+  so it covers only a warned one. A level `unknown` counts as `warn` when it
+  covers and as `fail` when it is gone; and
+- B is not rebound in D on the new side (3.10.8).
+
+One check must do it alone. Two checks are never combined (`x >= 5` and
+`x != 5` do not cover `x > 5`), and implications are not chained (`x > y` and
+`y > 5` do not cover `x > 5`). A check that is not readable is covered only by
+a check with its key: the same text, white space collapsed, in D. Coverage is
+judged within one document: the same name in two documents is two values
+(2.13.10).
+
+**3.10.13** `checks(path = ".", files = NULL, repeats = 3L)` is exported. It
+reports the checks of each document, grouped by value. `path` and `files` are
+read as `lints()` reads them (5.1.7), with its errors. `repeats` is a whole
+number from 2, else a `weft_lint_error`: "`repeats` must be a whole number from
+2." Each document is read from the work tree as `lints()` reads it, from the
+same parse; nothing is run, and the gate's cache does not apply. A document
+that is not valid UTF-8 is skipped with a note.
+
+**3.10.14** It returns a data frame of class `weft_checks`, one row per check
+of 3.10.1 (all three roles), sorted by file, line and column, with the
+columns `file`, `line`, `role` (`guard`, `claim`, `branch`), `level` (`fail`,
+`warn`, `unknown`; `NA` for a branch), `value`, `op`, `other` (an expression
+in its normal form), `cond` (the condition in the shown orientation; `NA` when
+not readable), `text` (as written, white space collapsed), `always` (3.10.9),
+`rebound` (3.10.8), `flag` and `repeated`, and the attribute `notes`.
+
+- A *group* is the readable rows with one `file` and one `value`. Every row of
+  a group carries the group's `flag`: `""`, `operators`, `literals`, or both
+  joined by `"; "`. `operators`: two rows of the group with the same `other`
+  whose operators differ within one direction, `<` with `<=` or `>` with `>=`.
+  `literals`: two rows whose `other` are literals of one kind (and one unit),
+  different by 3.10.11, with operators in one direction (`<` or `<=`; `>` or
+  `>=`), or both `==`, or both `is` (`x` beside `!x`). Not flagged: a lower and
+  an upper bound (`x > 0`, `x < 10`); several `!=`; `x == 5` beside `x >= 5`;
+  one value against two different names. Branches and warned checks take
+  part. A row that is not readable has `flag` `""`.
+- `repeated` is, for a `guard` or `claim` row, the count of `guard` and `claim`
+  rows of its file with its `cond` and its level; `NA` for a branch and for a
+  row that is not readable.
+
+**3.10.15** `print()` shows a heading line, a blank line, then for each file
+in path order: the file's path; for each value in order of first line, two
+spaces and the value, then `  [<flag>]` when it is flagged, and
+`  (assigned in more than one place)` when its rows are rebound
+(`  (reads a name assigned in more than one place)` for an expression); then
+one line for each distinct condition and kind, in order of first line, giving
+the condition, the count and the lines. The kind is `check` (fail-level guards
+and claims), `warn` (warned or unknown) or `branch`, and the line ends
+`  (warn)` or `  (branch)` for the last two. Under a `check` line whose count
+is at least `repeats` comes "checked in %d places with the same condition:
+check it once where the value is made", indented six spaces. Then, when the
+file has checks that are not readable, `  not read` and one line for each
+distinct text, in the same layout. The lines are listed as "line L" or
+"lines L1, L2, ...", at most ten, then ", and %d more". A value, a condition
+and a text are cut at 60 characters. The columns are aligned within a file. A
+blank line follows each file.
+
+```
+weft checks: 15 checks of 3 values in 1 document; 1 value flagged
+
+report.qmd
+  n_up
+    n_up >= 10              3  lines 8, 44, 90
+      checked in 3 places with the same condition: check it once where the value is made
+  turb_max  [operators]
+    turb_max >= trigger     9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
+    turb_max > trigger      1  line 64
+  max(turb)
+    max(turb) < u(50, NTU)  1  line 120
+  not read
+    claim(diffs, all(. > 0))  1  line 126
+
+```
+
+The heading is "weft checks: %d check%s of %d value%s in %d document%s; %d
+value%s flagged", counting the rows, the groups (a value in two documents
+counts twice) and the groups with a flag; with no checks it is "weft checks: no
+checks in %d document%s".
+
+**3.10.16** Not reasoned about: any R check outside the readable forms
+(3.10.2), which is grouped by its text; arithmetic, and any meaning of an
+expression beyond its normal form; an expression as a bool check, or with `.`
+inside it; what a function the document defines reads, or whether it draws
+random numbers; two checks combined or chained; the class of an R value;
+coverage across documents; quantities in different units; and Python and
+Julia checks. The rebinding count is read from the source, so it misses
+`assign()` with a computed name, `list2env()`, a value published only by
+`weft_put()`, a value changed in place without an assignment, and a data file
+read twice that changes between the reads. Since the gate's verdicts decide
+nothing (6.3.7), such a miss costs a wrong line in a report, not a wrong
+commit. `verify(since = )` keeps listing constructs only (8.2.2), and the filter
+does not change.
+
 ---
 
 ## 4. Dictionary
@@ -2328,9 +3073,11 @@ salinity_res:
 ```
 
 **4.2.1** An entry has a `value`, a `type` and a `definition`. `decision` is
-optional, and so are `term` (any type, 4.7.3) and `avoid` (4.7.4). `unit` is required for `type: quantity` and an error on any other
-type. `display`, one unit, is optional on a `type: quantity` entry
-(4.2.7) and an error on any other type. A field that is not named here is an error; the problem lists
+optional, and so are `term` (any type, 4.7.3) and `avoid` (4.7.4). `unit` is
+required for `type: quantity`, optional for `type: range` (4.2.8), and an error
+on any other type. `display`, one unit, is optional on a `type: quantity`
+entry and on a `type: range` entry that has a `unit` (4.2.7), and an error on
+any other entry. A field that is not named here is an error; the problem lists
 the nine fields: `value`, `type`, `definition`, `unit`, `display`, `decision`,
 `why`, `term` and `avoid`.
 
@@ -2343,6 +3090,7 @@ the nine fields: `value`, `type`, `definition`, `unit`, `display`, `decision`,
 | `string` | text | a string |
 | `labels` | a map from key to phrase | a `lookup()` (3.3.2) |
 | `breaks` | a list of bound and phrase | a `brk()` (3.3.3) |
+| `range` | two numbers, lower then upper, with an optional `unit` | a vector named `lower` and `upper` (4.2.8), a `units` vector when it has a `unit` |
 
 Any other `type` is an error when the dictionary is read.
 
@@ -2368,8 +3116,9 @@ and a year combined with an integer or a double is a plain integer or double.
 read at a glance. Each of these is a problem, never read silently:
 
 - a number written with a leading zero (`010`), whether or not it is quoted,
-  or in hex or octal (`0x1F`, `0o17`), under `number`, `quantity`, `year` or
-  a bound of `breaks`. The problem says to write it in decimal;
+  or in hex or octal (`0x1F`, `0o17`), under `number`, `quantity`, `year`, a
+  bound of `breaks` or a bound of `range`. The problem says to write it in
+  decimal;
 - a merge key (`<<`). Anchors and aliases without one are allowed;
 - more than one YAML document in the file;
 - an unquoted `null` as a key. A quoted `"null"` is a key;
@@ -2389,8 +3138,9 @@ Two bands of a `breaks` entry that leave a band which can never be chosen
 (an `at_most` followed by a `below` of the same number, or equal bounds of
 the same kind) are a problem.
 
-**4.2.7** `display:` is optional on a `type: quantity` entry, in `dict.yml` and
-in `dict_local`. The value is read in `unit` and converted to `display`:
+**4.2.7** `display:` is optional on a `type: quantity` entry, and on a
+`type: range` entry that has a `unit` (4.2.8), in `dict.yml` and in
+`dict_local`. The value is read in `unit` and converted to `display`:
 
 ```yaml
 reach_len:
@@ -2422,6 +3172,32 @@ attribute of the dictionary holds a `display` column, `NA` where an entry has
 none, then a `term` column (`NA` where absent) and an `avoid` column (a list
 column, `character(0)` where absent), and `print()` shows the unit the entry is held in. An entry holds no form setting:
 the form is the reader's choice (4.4.15).
+
+**4.2.8** A `type: range` entry holds a band of values, read with both bounds.
+
+```yaml
+do_band:
+  value: [6.5, 8.5]
+  type: range
+  unit: mg/L
+  definition: "Acceptable dissolved oxygen."
+```
+
+`value` is a sequence of two finite numbers, the lower first, the lower
+strictly below the upper. `unit` is optional; `display` is allowed only with
+`unit` (4.2.7). These are problems of the dictionary (4.2.6), each with the
+file, the line and the rule: "must be a sequence of two numbers, lower then
+upper"; "the lower bound must be below the upper bound"; "a bound must be
+finite; a limit on one side is a `number` or `quantity` entry"; a number not
+written in decimal (4.2.5); and "`display` is only for a range with a `unit`".
+The entry is read as a numeric vector of length 2 named `lower` and `upper`, or
+a `units` vector of that shape when it has a `unit` (in its `display` unit when
+it has one), so `dict$do_band[["lower"]]` reads one bound. `.range` prints it
+by 1.4.4, the unit once: "6.5–8.5 mg/L". `in_range()` tests a value against it
+(3.3.6). The glossary prints it as `.range` does (4.7.1), `tar_dict()` passes
+the vector, and `print()` of a dictionary shows it as "range 6.5 to 8.5 mg/L".
+Both bounds are thresholds for `changes()` (7.3.4). No lint is added: `dict-key`
+covers its reads as any other's.
 
 ### 4.3 Local entries
 
@@ -3208,6 +3984,16 @@ rows are could not check. Each row of the result says which it is, and a
 could-not-check detail begins `could not check: ` and is one line. Nothing is
 cached between calls.
 
+**4.5.5** Pointers outside the dictionary are checked too (1.8.12, 3.1.12).
+`verify()`'s decisions part (8.1.1) checks, with the configured resolver and
+each distinct pointer once, the pointers of `dict.yml` and of the documents it
+verifies: every `decision` on a `.weft-literal` or a `cite` span in the
+source, and every `claim()` call in an R chunk or in inline code whose
+`decision` argument is a literal string or number. A computed argument is not
+checked. Each document pointer is a row of the table of 4.5.3: `file` the
+document, `line` the construct's line, and `key` one of `.weft-literal`,
+`cite="<value>"` or `claim()`.
+
 ### 4.6 The pipeline
 
 ```r
@@ -3299,8 +4085,9 @@ core length (0.5 m)
 
 - The heading is the entry's `term`, as written (markdown), else the key in
   code (`` `salinity_res` ``). When `values` is `TRUE` and the type is `number`,
-  `quantity`, `year`, `date` or `string`, a space and the value in parentheses
-  follow. `labels` and `breaks` show no value.
+  `quantity`, `range`, `year`, `date` or `string`, a space and the value in
+  parentheses follow. `labels` and `breaks` show no value. A range prints as
+  `.range` prints it (4.2.8).
 - The value is the value as stipulated, printed with the configuration in force:
   the marks, the minus sign, `thousands_from`, the unit form and the `units:`
   table. It keeps the decimals it was written with: `value: 0.50` prints
@@ -3553,6 +4340,13 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
 - a duplicate id; a back-reference to an id that is unknown or defined later
   (1.7.5, 1.7.10)
 - a `.weft-literal` with no `why` (1.8.10)
+- a blank `decision`; a `decision` on anything but a `.weft-literal` or a
+  `cite` span (1.8.12)
+- `.plus` with `.sci`, `.p`, `.date`, `.no`, `.word`, `.count`, `.ord`, `.val`
+  or a project formatter of the number stage; `.plus` on an `n`, `if`, `sign`,
+  `list` or `cite` span (1.4.21)
+- `digits` on `.p` that is not a whole number from 1 to 6; `sigfig` on `.p`;
+  `label` without `.p` (1.4.17, 1.4.7)
 - a caption or a front-matter field that contains a construct and is not a
   YAML block scalar (1.10.3, 1.10.7)
 - a construct in the caption of a chunk with `cache: true`, `eval: false` or
@@ -3977,13 +4771,16 @@ sources. A reinstall at the same version therefore starts with a cold cache.
 The `HEAD` version of a file, and what the hook needs from the files not
 staged (the anchors and reference labels of 5.7, the citation keys of 5.4),
 come from the cache when they are in it. An entry that will not read is
-a miss. The cache is pruned to 800 entries when it passes 1,000. When the
+a miss. A source's entry holds its findings, its constructs and its checks
+(6.3.7); an entry without checks, as one written before the checks were read,
+is a miss too. The cache is pruned to 800 entries when it passes 1,000. When the
 folder cannot be written the gate runs without it and says so.
 `use_hooks(remove = TRUE)` deletes it.
 
 **6.1.7** The hook prints one report, listing every reason the commit failed,
 each with its file and line. It prints how long it took. A passing run prints
-one line.
+one line, after any notes: the first-commit and configuration notes, and the
+notes on checks gone with nothing covering them (6.3.7).
 
 **6.1.8** `git commit --no-verify` skips the hook, and git records nothing of
 it. Draft mode does not affect it (9.4.3). Git ignores a hook that is not
@@ -4073,7 +4870,9 @@ fell. When N is above 0 the commit message must carry the trailer
 **6.3.3** Turning a value into a span, renaming a variable in forty
 expressions, or changing a bound changes no count, and costs nothing. A
 changed expression is not a removal. Claims are counted apart, so that a
-deleted `claim()` is not hidden by a value added in the same commit.
+deleted `claim()` is not hidden by a value added in the same commit. A changed
+bound that loosens a check still costs nothing, and the gate prints a note
+saying so (6.3.7).
 
 **6.3.4** The failure lists what is gone, each with its text and its line in
 `HEAD`, and prints the exact trailer line to add. What is gone is every
@@ -4106,6 +4905,91 @@ message holds a wrong number it says `Change that line to:`.
 **6.3.6** Two limits are accepted. A removal and an unrelated addition in one
 commit net out. The trailer is lost when commits are squashed.
 
+**6.3.7** For each check a commit removes, the gate says whether a check that
+remains implies it. This is information only: no verdict changes whether the
+commit passes, N, or the trailer wanted (6.3.2), and a construct removed counts
+as before even when every check in it is still made elsewhere.
+
+- *Reading.* On each side the gate reads the checks of every document by
+  3.10.1 to 3.10.9, from the same source it counts constructs on, and keeps
+  them in the file's cache entry (6.1.6). When a side's `_weft.yml` does not
+  read, the checks are read with the default settings, as the constructs are
+  (6.2.8).
+- *Gone.* Per project, a key (3.10.7) is gone k times when the new side holds k
+  fewer checks with it than the parent that holds fewest (6.2.8). The count
+  runs over the whole project, as the construct and finding counts do (6.2.3),
+  so a check moved to another document, a guard rewritten as a claim with the
+  same condition, and an edited sentence around an unchanged guard are not
+  gone; a removal and an identical addition elsewhere net out (6.3.6). A
+  changed bound is a gone key: `x >= 5` edited to `x > 3` makes `x >= 5` gone.
+- *Which rows.* For a key gone k times, the rows listed are taken from that
+  parent: first its rows on lines the commit deleted or changed, the last k of
+  them in file and line order; when fewer than k are on such lines, the rest
+  are the last of the others, as 6.3.4 picks. The verdicts do not depend on
+  which row is listed.
+- *Verdict.* Each gone row B of document D gets the first that applies:
+
+  | Verdict | When | Line |
+  |---|---|---|
+  | `deleted` | D is not on the new side (deleted or renamed) | "the document is gone, and its %d check%s with it", once for the file |
+  | `rebound` | B is readable, the new side of D holds a check on B's pair, and B is rebound there (3.10.8) | "not judged: `%s` is assigned in more than one place in %s, so no other check is taken to cover this one" |
+  | `same` | covered (3.10.12) by a check with B's key | "covered: the same check remains, at line %d%s" |
+  | `implied` | covered by a check with another key | "covered: `%s` at line %d implies it" |
+  | `warned` | a check of D on the new side that runs always implies B, but every such check is warned or of level `unknown` while B is not | "looser: only a warned check implies it, `%s` at line %d, and a warned check fails nothing" |
+  | `looser` | D still holds checks on B's pair, and none covers it | "looser: nothing that remains implies it; remaining on %s against %s: %s" |
+  | `none` | D holds no check on B's pair | "looser: no check of %s against %s remains in %s" |
+  | `unread` | B is not readable and not `same` | "not read: weft compares only comparisons whose sides are names, dictionary reads, value expressions or literals (rule 3.10)" |
+
+  `rebound` names the first rebound name in the check's text (for an
+  expression, a name or function it reads) and the file. `same` names the
+  first check with B's key in D by line, then " and %d other place%s" when
+  there are more. `implied` names the first covering check in line order.
+  `looser` and `none` name the value (an expression cut at 60 characters) and
+  the other side: the other value operand, or "a number", "a date", "a
+  string", "TRUE or FALSE" or "a quantity in %s". `looser` lists the checks on
+  B's pair that run always, at any level, keeping only those that no other of
+  them implies, each as `` `cond` `` then " (line L)" or " (N places)", at most
+  three in order of first line, then ", and %d more". Files are named as the
+  project path shows them.
+- *The report.* When the gate prints its full report (the commit fails, for
+  any reason) and a key is gone, this block follows the block of constructs
+  removed, or the findings block when there is none, and comes before the
+  notes and the time line. Its heading is "commit-msg: %s gone since HEAD
+  (information: what still checks each; rule 6.3.7)", with "1 check" or "%d
+  checks". Then, per file in path order, `  <file>, as in HEAD`, and each gone
+  row in line order as its line number right-aligned in five columns after
+  four spaces, two spaces, and the condition or the text cut at 70 characters
+  as 6.3.4 cuts it; its verdict follows on the next line, indented 11 spaces.
+  A blank line follows each file. A deleted document's heading is followed by
+  its one line alone, indented four spaces.
+
+  ```
+  commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6.3.7)
+    report.qmd, as in HEAD
+         64  turb_max > trigger
+             looser: nothing that remains implies it; remaining on turb_max against trigger: `turb_max >= trigger` (9 places)
+
+  ```
+
+- *A passing run.* Before its one line (6.1.7), a passing run prints, for each
+  gone row whose verdict is `rebound`, `warned`, `looser` or `none`, in file
+  and line order, at most five: "commit-msg: note: %s:%d in HEAD, `%s`, is gone
+  and nothing that remains covers it (rule 6.3.7)"; then for the rest
+  "commit-msg: note: and %d more check%s gone with nothing that remains
+  covering %s; gate() lists them in `checks`" ("it" or "them"). `same`,
+  `implied`, `deleted` and `unread` print nothing on a pass.
+- *The result.* What `gate()` returns holds `checks`: a data frame with the
+  columns `project`, `file`, `line` (in the parent), `cond` (the condition or
+  text as listed), `level`, `verdict`, `by` (the covering check's condition,
+  `NA` unless `same` or `implied`), `by_line` (its line on the new side, else
+  `NA`) and `remains` (the list of `looser`, else `NA`), sorted by project,
+  file and line. It has no rows on a first commit.
+
+The example is a document in which nine sentences guard `turb_max >= trigger`
+and one, at line 64, `turb_max > trigger`. Deleting line 64 leaves the document
+looser, and the gate says so. Deleting one of the nine leaves eight identical
+checks: its verdict is `same`, which a passing run does not print.
+
 ---
 
 ## 7. Ledger and conditions
@@ -4122,7 +5006,7 @@ Its unit is written as `units::deparse_unit()` writes it, and is `null` for a
 plain number. A
 construct that failed in draft mode is recorded with its failure kind, and has
 no printed text, arm, raw value or unit. The sentence is found by sentence-boundary
-rules for the document's language: ICU's, through `stringi` (an `Imports`
+rules for the document's language (a table's is its caption, below): ICU's, through `stringi` (an `Imports`
 package), for the document's `lang` (`en` when unset). They are applied to the
 block of markdown that holds the construct's text, after what is not prose is
 masked: code, maths, link targets, citations and cross-references, footnotes,
@@ -4136,6 +5020,36 @@ boundary after `.^[note]` stands, and the note stays with the sentence before it
 ranking only, and never decides whether an entry has changed. A failure marker inside a stored
 sentence has no line number. A footnote's definition marker is not part of its
 sentence.
+
+The ledger also records each table a chunk prints, so that `changes()` reports
+"table `tbl-sites` changed" without listing cells. In a top-level knit with the
+ledger on, each executed R chunk whose output reaches the document (not
+`include: false`, not `results: "hide"`) gives one entry, of kind `table`, per
+output element that is a `knit_asis` value (`knitr::kable()` in markdown, gt,
+flextable, tinytable, kableExtra, `knitr::asis_output()`, a data frame that
+Quarto's `df-print` prints so), or, in a chunk with `results: "asis"`, printed
+text, one entry per element as `evaluate` gives it. Printed output that knitr
+shows as verbatim, figures, conditions, the output of other engines' chunks,
+and an element whose visible text is empty are not recorded. The entry's text
+is a digest: the XXH3 hash, 16 lower-case hex characters, of the UTF-8 bytes of
+the element's visible text. The visible text is the element's text with line
+ends made `\n`, HTML comments removed, `<style>` and `<script>` elements removed
+with their content in any letter case, every tag removed (a tag being `<` then
+a letter, `/` or `!`, up to the next `>`, so "x < 5 and y > 3" in a cell is
+kept), raw-attribute fence lines removed, runs of white space made one space,
+and the ends trimmed; nothing else, so a change of style, class name or element
+id is not a change, and a change of any visible character is. The sentence is
+the chunk's table caption (`tbl-cap`, else `tab.cap`) when it is one string,
+else the first 80 characters of the visible text, then "..." when cut. The
+context is `chunk`; the arm, relation, raw value, unit and failure are `null`,
+and the dictionary entries none. The entries are recorded in the evaluate hook,
+so a cached chunk replays them, and a chunk with `error: true` records every
+element that reached the document, before the error and after it. Python and
+Julia documents, tables printed by a Python chunk under knitr, and tables
+inside a figure are not recorded. The ledger's version is unchanged: `table` is
+a new value of the kind, and a ledger written before reads as before. A table
+is not a construct: the gate does not count it (6.3.1), and its removal needs
+no trailer.
 
 **7.1.2** Every inline R value is recorded, with or without an attribute
 block. A bare value is not a construct (1.1.8), but it prints in the
@@ -4167,8 +5081,12 @@ are not looked for.
 **7.1.4** An entry is keyed on its `#id` where it has one, with the id's
 occurrence. Otherwise it is keyed on five things: the file the construct is
 written in; the anchor of its section; its kind (a value, an `n`, `if` or
-`sign` span, or a `cite` span); its expression; and its occurrence index among
-the entries in that file and section with the same kind and expression.
+`sign` span, a `cite` span, or a table); its expression; and its occurrence index among
+the entries in that file and section with the same kind and expression. A
+table's id is its chunk's label, and its expression is that label, or `""` for
+a chunk with no label of its own (a label knitr generated), which has no id;
+its occurrence follows the same rule, so the second table of chunk `tbl-two`
+has occurrence 2.
 The expression of a value is its inline R, parsed, so spacing and line
 breaks do not count. That of a governed span is the value of its key,
 parsed. That of a `cite` span is its keys and its bracket text, written
@@ -4291,6 +5209,11 @@ kind and expression whose counts differ between the two sides, the occurrences
 are lined up by their sentences before the occurrence index is used, so deleting
 one of three identical expressions reports that one as removed.
 
+A table (7.1.1) has changed when its digest differs. It has no structural
+reason and no claim word, is not ranked, and is shown by its caption, not by
+its sentence before and after (7.3.9). The first render after tables were
+recorded lists every table as added, once.
+
 **7.3.4** Structural changes come first: a governed span choosing a
 different arm, a sign flip, crossing zero, crossing 1.0 (for an entry whose
 `unit` is null on both sides, a ratio or a count, and not for a quantity),
@@ -4300,7 +5223,8 @@ A sign flip is two non-zero values of opposite sign; crossing zero is exactly on
 of the two being zero; crossing 1.0 is strict, the value being on one side of 1
 and then on the other, so starting or ending at 1 is not a crossing. Crossing a
 dictionary threshold is the same test against a number, quantity or year that the
-entry's expression or its sentence names, taken from `dict.yml` at the
+entry's expression or its sentence names, or against either bound of a range
+(4.2.8), reported once for the entry, taken from `dict.yml` at the
 comparison point and now; a quantity threshold is converted to the unit of the
 raw value first, and with no unit on either side, or no conversion between
 them, or no readable `dict.yml` on a side, there is no crossing for that key. An
@@ -4337,13 +5261,29 @@ only: its third state is not computed.
 
 **7.3.9** `print()` of what `changes()` returns shows a header line, then the
 ledgers not re-rendered, the structural changes, the other changes ranked, the
-entries added, the entries removed, the new conditions and the ledgers whose
+entries added, the entries removed, the tables, the new conditions and the ledgers whose
 status is not a comparison. A ledger that is new, deleted or unreadable is
 listed there with a count of its entries, an unreadable one too. An entry whose
 text is `""`, an arm that prints nothing, shows `(prints nothing)` as its text,
 and never a neighbouring sentence. `print(x, brief = TRUE)` shows the header line, the
 structural changes, the ledgers not re-rendered and the new conditions, and
 nothing else.
+
+Tables (7.1.1) are counted in the header's changed, added and removed, and are
+listed only in their own section, headed "Tables". A changed table is a line
+`  ~ table `<label>` changed`, with " #2" after it for a second table of a
+chunk, or `(unlabelled)` in place of the label for a chunk with none, in file
+order, with its caption on the next line, indented six spaces. The tables
+added, and those removed, are one line per ledger: `  report.qmd: 2 tables
+added: tbl-sites, tbl-flow`, the labels without backticks, at most ten, then "
+and %d other%s".
+
+```
+Tables
+  ~ table `tbl-sites` changed
+      Sites sampled in 2024, by catchment.
+  report.qmd: 1 table added: tbl-flow
+```
 
 ### 7.4 Conditions
 
@@ -4432,13 +5372,17 @@ render. It has four parts, and runs them in this order:
    and fails nothing for, the constructs removed (8.2.2), the tier-2 findings
    on lines added since the comparison commit (every line when there is none),
    and the totals of 8.1.2.
-2. `decisions`: the `decision:` pointers of `dict.yml` (4.5.2). A pointer that
+2. `decisions`: the `decision:` pointers of `dict.yml` (4.5.2) and the
+   `decision` pointers of the documents it verifies (4.5.5). A pointer that
    does not resolve fails; one that could not be checked is listed. A
-   `dict.yml` that will not read fails. Skipped when there is no `dict.yml`.
+   `dict.yml` that will not read fails. Skipped, "skipped: no decision
+   pointers", when there is no `dict.yml` and no document holds a pointer;
+   with a `dict.yml` it runs, with no pointer too.
 3. `render`: the render, re-executing every document it verifies (§8.3), and
    the knit-time results (8.3.4): failed checks, unevaluated constructs,
-   documents served from freeze, and conditions on the severity list (§2.6,
-   2.5.2, 2.9.3, 7.4.2). It needs a set-up project (9.3.2).
+   documents served from freeze, conditions on the severity list (§2.6,
+   2.5.2, 2.9.3, 7.4.2), and the findings of the rendered-output check
+   (8.3.6). It needs a set-up project (9.3.2).
 4. `ledger`: the entries not re-rendered (7.2.3). Every stale ledger of a
    verified document fails, with its reasons.
 
@@ -4542,6 +5486,17 @@ first, which ends any other Julia notebook open in that server; the report says
 so. The Julia server keeps its environment across renders, so no narrower
 command refreshes it.
 
+**8.3.6** The render sets `WEFT_OUTPUT_LOG` to a temporary file, to which the
+rendered-output check (2.5.5) appends each finding. The result of `verify()`
+holds `output`, a data frame with the columns `file`, `format`, `kind`,
+`level`, `section`, `text` and `excerpt`. Each `fail` row is a reason and
+fails the render part; `warn` rows are listed and fail nothing. The report
+lists them under "Rendered-output findings", `fail` rows first, each as
+`  <file> #<section> (<format>)  [<kind>] <text>` (with no `#<section>` above
+the first heading), a warned one followed by `  (warned)`, with the excerpt on
+the next line, indented six spaces.
+`verify_skip: [render]` skips them with the render.
+
 ### 8.4 CI
 
 **8.4.1** `use_ci()` writes a workflow that runs
@@ -4574,6 +5529,10 @@ rule 8), and its message names `_weft.yml`.
 | whether `.pct` reads its value as a proportion (the default) | `.pct` |
 | the `.count` threshold; the `.word` limit | `.count`, `.word` (1.4.12) |
 | the level of `ci()`; the tolerance of `about()` | 3.5.3 |
+| `ci_short`: whether `ci()` prints its short form by default | 3.5.3 |
+| `p_digits`, `p_label`: the decimals and the label of `.p` | 1.4.17 |
+| `output_refs`, `output_missing`, `output_markup`: the level of each kind of rendered-output finding | 2.5.5 |
+| `chunk_claims`: whether a failed claim in chunk code stops the knit or is collected | 2.4.4 |
 | `dict_local` (front matter only) | 4.3.4 |
 | `bibliography`, for files the front matter and the project do not name | 5.4.4 |
 | the date format | `.date` |
@@ -4613,7 +5572,14 @@ draft: false           # 9.4.4: true or false
 ledger: true           # false turns the ledger and the condition log off (9.1.9)
 date_format: "%-d %B %Y"   # .date: strftime codes; %-d and %-m print no leading zero, names in English (1.6.8)
 ci_level: 0.95         # 3.5.3: the default level of ci(); at least 0 and below 1
+ci_short: false        # 3.5.3: true makes ci() print its short form unless `short` is given
+p_digits: null         # 1.4.17: a whole number from 1 to 6; null keeps the rule of three and two decimals
+p_label: p             # 1.4.17: the text before the relation of .p; "" for none
 about_tolerance: 0.05  # 3.5.3: the default tolerance of about(); from 0 to 1
+output_refs: fail      # 2.5.5: fail, warn or off
+output_missing: warn   # 2.5.5: fail, warn or off
+output_markup: fail    # 2.5.5: fail, warn or off
+chunk_claims: stop     # 2.4.4: stop or collect
 sentence_start_fail: false   # 5.10.1: true makes the sentence-start list fail the render
 unit_form: auto        # auto, symbol or name (4.4.15)
 unit_defaults: weft    # weft or si (4.4.21)
@@ -4645,6 +5611,14 @@ error that offers the nearest, and a tier-2 id is an error, since tier 2 blocks
 nothing. `verify_skip` takes some of `lints`, `decisions`, `render` and
 `ledger`. `weft_version` is one string; `null` and an absent key both mean no
 record.
+
+`ci_short` is `true` or `false`. These are `weft_config_error`s when the
+configuration is read: "The setting `p_digits` must be a whole number from 1
+to 6, or null."; "The setting `p_label` must be a single string." (an empty
+string is one); "The setting `%s` must be fail, warn or off." for the three
+`output_` settings; and "The setting `chunk_claims` must be stop or collect."
+The filter reads `p_digits`, `p_label` and the `output_` settings as well
+(2.13.7), and uses the default for a wrong value.
 
 **9.1.6** `thousands_from` is a whole number, and `serial_comma` is `true` or
 `false`, and so are `ledger` and `bare_missing`. An `anchor_calls` entry
@@ -4843,8 +5817,8 @@ processed. The backstops of §2.5 catch it, and a lint forbids it (§5.8).
 **9.2.6** Attaching the package is not a route (2.1.3): `library(weft)` in a
 setup chunk activates nothing.
 
-**9.2.7** Under rmarkdown, each document also names the `weft-check` filter
-in its front matter (2.5.3). `use_setup()` writes the filter line beside the
+**9.2.7** Under rmarkdown, each document also names the filters `weft.lua`,
+`weft-check.lua` and `weft-output.lua` in its front matter (2.5.3, 2.5.5). `use_setup()` writes the filter line beside the
 activating one.
 
 **9.2.9** R reads one profile: the project's `.Rprofile` instead of
@@ -4868,8 +5842,8 @@ says what it will write before it writes it.
 | Function | Writes |
 |---|---|
 | `use_weft()` | everything below except `dict_vale()`, with a summary first (9.3.6) |
-| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`, and leaving a `.qmd` that holds only another engine's chunks unless it holds an R value or a span outside the grammar of 1.12.4 (9.3.5); `_weft.yml`, with the `weft_version` line; under rmarkdown, `weft.lua`, `weftlib/` and `weft-check.lua` beside the document and the `pandoc_args` line that names both, `weft.lua` first; a document set up before named values that names only `weft-check.lua` gains `weft.lua` before it (2.5.3) |
-| `use_quarto()` | the `weft-check` project extension, holding the filters `weft.lua` (with its folder `weftlib/`) and `weft-check.lua`, in that order; the `pre-render` and `post-render` scripts. It prints the install line for the Python package for a project with a Jupyter-engine document, and for the Julia package for one with a julia-engine document; the Python package and the Julia package are never written into the project |
+| `use_setup()` | the `.Rprofile` (Quarto project, 9.2.9) or the front-matter line (single document, or `route = "front-matter"`); `engine: knitr` in the front matter of the document, or of each `.qmd` without an `engine:` or `jupyter:` key that a Quarto project renders (9.2.8), leaving files and folders whose names start with `_` or `.`, and leaving a `.qmd` that holds only another engine's chunks unless it holds an R value or a span outside the grammar of 1.12.4 (9.3.5); `_weft.yml`, with the `weft_version` line; under rmarkdown, `weft.lua`, `weftlib/`, `weft-check.lua` and `weft-output.lua` beside the document and the `pandoc_args` line that names the three, `weft.lua` first and `weft-output.lua` last; a document set up before named values that names only `weft-check.lua` gains `weft.lua` before it, and one set up before the rendered-output check gains `weft-output.lua` last (2.5.3, 2.5.5) |
+| `use_quarto()` | the `weft-check` project extension, holding the filters `weft.lua` (with its folder `weftlib/`) and `weft-check.lua`, in that order, and `weft-output.lua`; the `filters:` entries of `_quarto.yml`, `weft-check` and then the mapping `{path: _extensions/weft-check/weft-output.lua, at: post-render}` (2.5.5); the `pre-render` and `post-render` scripts. It prints the install line for the Python package for a project with a Jupyter-engine document, and for the Julia package for one with a julia-engine document; the Python package and the Julia package are never written into the project |
 | `use_hooks()` | the `commit-msg` hook, with the path of R and its libraries (6.1.5) |
 | `use_ci()` | the CI workflow, at the top of the repository (8.4.1) |
 | `use_dictionary()` | `dict.yml` when absent (a starter that reads as no keys, with two examples commented out) and `_weft/dict.schema.json` |
@@ -4883,8 +5857,8 @@ also writes `.weft/.gitignore` holding `*`, so that its files are not committed
 by accident; the `pre-render` script of `use_quarto()` is one of them. With
 `ledger: false` (9.1.9) neither the ledger nor the condition log is written.
 
-**9.3.3** `inst/` holds the hook template, the Lua filters (`weft.lua`, its `weftlib/`
-and `weft-check.lua`), the render scripts,
+**9.3.3** `inst/` holds the hook template, the Lua filters (`weft.lua`, its `weftlib/`,
+`weft-check.lua` and `weft-output.lua`), the render scripts,
 the CI workflow template, the Python package (`inst/python`) and the Julia
 package (`inst/julia`), the dictionary schema and the starter dictionary, the
 table of default units (4.4.21), the default claim-word lexicon and severity
@@ -4940,9 +5914,10 @@ is outside the grammar of 1.12.4) and has no `engine:` or `jupyter:` key: then
 it gains `engine: knitr` (2.12.1), since its constructs would not be evaluated
 otherwise. A named value, and a span in that grammar, are the filter's and need
 no knitr. `status()` flags
-exactly the files `use_setup()` would change. Under rmarkdown, a
-`weft-check.lua` is copied beside the document, replaced when it differs, and
-named under each format of `output:`; with no `output:` one is written. Front
+exactly the files `use_setup()` would change. Under rmarkdown, `weft.lua`,
+`weftlib/`, `weft-check.lua` and `weft-output.lua` are copied beside the
+document, each replaced when it differs, and named under each format of
+`output:`; with no `output:` one is written. Front
 matter is edited as text and checked by parsing it again. When an edit cannot
 be made safely (flow style, a YAML anchor, another `weft:` value under
 `opts_knit`), or a link or folder is in a file's place, nothing is written and a
@@ -5099,6 +6074,12 @@ chunk with no `engine:` key and no `{r}` chunk. A state is one of:
   project `.Rprofile` because `R_PROFILE_USER` is set
 - `n/a`: `quarto` outside a Quarto project, and `hooks` and `ci` without git
 
+The `quarto` row is `missing` when a file of the extension or a script is
+missing, or when `_quarto.yml` lacks one of the weft entries; when the entry
+missing is the rendered-output filter's (2.5.5), as in a project set up before
+it, its detail reads "_quarto.yml lacks the weft entries (the weft-output.lua
+filter entry, `at: post-render`)".
+
 `next` is the first part, in the order of 9.3.9, that is `missing` or
 `outdated`, as a sentence naming the `use_*()` function; with none it says there
 is nothing to install and to run `verify()`.
@@ -5196,13 +6177,14 @@ code review (`dev/research-checks.md` §3).
 ## 11. Layer labels
 
 The companion plan and the first scoping document number the checks as layers.
+The plan's L13, checks on the rendered output, was added after the others.
 This document does not use the labels anywhere else.
 
 | Label | What it is | Rules |
 |---|---|---|
 | L1 | structural diff: the commit says how many constructs it removes | §6.3 |
 | L2 | claim tokens: numerals and claim words in prose | §5.2, §5.5, §5.6 |
-| L3 | checks: `claim()` and the one-arm `if` | §3.1, 1.5.3 to 1.5.5 |
+| L3 | checks: `claim()` and the one-arm `if` | §3.1, 1.5.3 to 1.5.5, §3.10, 6.3.7 |
 | L4 | cross-references and citations | §5.4, §5.7 |
 | L5 | the value ledger, and `changes()` | §7.1 to §7.3 |
 | L6 | surfacing: conditions, unevaluated constructs, frozen chapters | §2.5, §2.8, §2.9, §7.4 |
@@ -5212,6 +6194,7 @@ This document does not use the labels anywhere else.
 | L10 | the dictionary | §4, 5.8 rule 6 |
 | L11 | figures and tables | §1.10, §5.9 |
 | L12 | data contracts in the pipeline | not a package layer: §15 |
+| L13 | checks on the rendered output | 2.5.5: unresolved references, missing values and leftover markup; alt text, numbering between formats, inventories and typesetting are not a package layer |
 
 ## 12. Principles
 
@@ -5590,6 +6573,26 @@ div into the abstract position.
 of contents without knitting it, so a construct there shows raw in every one
 of them.
 
+**1.4.17** "p = 0.000" must never print, and "p < 0.001" beside "p = 0.05"
+mixes precisions, so the thresholds move with `digits`. An empty label means
+no label, and Pandoc keeps an empty attribute value.
+
+**1.4.21** A sign belongs to a difference, not to a document: a setting that
+signed every number would print "+12 sites". Zero takes no sign, as a number
+that rounds to zero takes no minus (1.4.13).
+
+**1.8.12** A pointer prints nothing; recording it in the ledger would only
+churn it. Scanning comments for decision ids would make weft keep a register
+convention, which §16 leaves to the project.
+
+**1.12.7** A name that takes several values below its use is an error, not a
+warning: a warning would print a value the sentence may not mean, which is the
+defect weft exists to stop. Records are compared without their checks, so that
+the value the hooks publish and the same value published by `weft_put()` are
+one. The fallback turns only failures into values, so no setting is needed.
+Inline R is left out because its value does not exist where it stands, and
+deferring it would change when every `claim()` and condition runs.
+
 ### Runtime
 
 **2.1.3** A conditional install fails silently when the package was loaded
@@ -5716,6 +6719,24 @@ list marker, so those are not findings.
 than any other paragraph (1.10.9). Unmasked, the position-tracking reader read
 a late metadata block as a horizontal rule and a heading.
 
+**2.4.4, 2.4.5** The worst trap in a long report was a failure hidden by the
+next one: the first failing guard in a chunk hid every guard below it.
+Collected, a claim returns its value, as a warned one does, and the render
+still fails. An error after a collected claim is wrapped because the claim is
+the likely cause; an error in a document that did not opt in keeps its class.
+A `targets` target still stops, because a stored value that failed its claim
+would be served as good.
+
+**2.5.5** One filter on the final tree reads every output format the same way;
+reading HTML, LaTeX and Word files would need a parser for each. It must run
+after Quarto's filters, which an extension cannot ask for, hence the
+`_quarto.yml` entry, and it is a file of its own so that `weft-check.lua` stays
+self-contained. No unresolved reference or broken fence is ever right, so those
+fail; "NA" is sometimes an abbreviation, and `bare_missing` already warns about
+the same text, so it warns. A deliberate one is marked where it stands, as a
+numeral is, because the filter cannot read `dict.yml`. Citations are resolved
+after every filter, so no filter can see one that failed.
+
 ### Functions
 
 **3.1.3, 3.1.4** The error text is the feature: the report quotes the check
@@ -5787,6 +6808,20 @@ arms as text, so the form is chosen on the formatter that makes its governor.
 **3.4.9** A heading or an axis label needs the unit with no number, spelled as
 the text spells it, and resolved by the same rules. A plural name is the common
 case in a heading ("Length (metres)").
+
+**3.5.3** A 90% interval printed without its level reads as 95%, so the short
+form with a `level` is an error. Under `pct` every number takes "%", because
+that is what `.pct` prints, and no bound is read as a proportion.
+
+**3.10** A check is read from the source alone, so it can be judged in a commit
+hook. `.` is bound to the assigned name before the expression, so that the
+recommended form, `n <- claim(expr, . >= 10)`, groups under the name the prose
+uses. Whether a check is readable depends on the check alone: if it depended on
+how often its text recurs, deleting one of two copies would change the key of
+the copy that remains. An expression's identity is its deparsed text, which
+makes white space, comments, quotes and the native pipe stop mattering;
+anything it does not normalise is two values, the safe side. Unsafe calls are
+listed rather than safe ones, which would leave most of R unread.
 
 ### Dictionary
 
@@ -6200,6 +7235,18 @@ reviews an agent's work, who sees it then. After a squash the history no
 longer holds the removal as a separate step either. Over a range,
 `verify(since = )` reports removals instead of judging them (8.2.2).
 
+**6.3.7** The construct rows know no condition, since a guard's text is its
+whole span, prose included, so the gate reads checks of its own. Keys are
+counted over the project, as findings are, because a per-document diff would
+report every moved check. The verdicts decide nothing: the trailer counts
+constructs, and a failure would need the reasoning to be complete, which it is
+not. One remaining check must cover alone, which gives a table a reader can
+check by eye; the cost of not combining two is a `looser` line that a reader
+can see is wrong, the safe side. A name assigned twice is never judged covered, because
+the lines of two revisions do not compare without a diff of meaning. A changed
+bound passes with no trailer (6.3.3) and is the likeliest silent loosening, so
+a passing run names the looser ones.
+
 ### Ledger and conditions
 
 **7.1.2** The ledger is the record of what the document said, and a bare
@@ -6263,6 +7310,12 @@ Without normalising, every condition would read as new on every render.
 
 **7.4.6** Carrying the first text forward keeps the log's diff to real
 changes.
+
+**7.1.1** For a table: gt, flextable and tinytable write random ids and class names
+into their HTML on every render, so a digest of the raw text would show every
+such table as changed every time; the visible text is stable, and a change of
+style is not a change of numbers. One entry per table, not per cell, says which
+table changed without multiplying the ledger's churn.
 
 ### `verify()` and activation
 
@@ -6510,6 +7563,8 @@ one function they share.
   render.
 - **Keep registers.** Decision logs, task registers and status conventions are
   a project's own. The dictionary's `decision:` field points at them (§4.5).
+- **Generate registers from commit trailers.** A `Decision:` or `Closes:`
+  trailer is the project's; a separate tool may collect them.
 - **Keep authored accounting files.** There is no baseline, no file of
   removals and no file of acceptances. `HEAD` holds what was tolerated, the
   commit message says what was removed, and committing the ledger is the
