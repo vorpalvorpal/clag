@@ -1,0 +1,73 @@
+# weft 0.1.0
+
+First release.
+
+## Values in prose
+
+* Inline R with an attribute block prints a computed value through a
+  formatter class: numbers, percentages, p-values, scientific notation,
+  dates, spelled and ordinal counts, lists, ranges and pairs, with keys
+  for decimals, significant figures and list joins. `.plus` signs a
+  difference; `.p` takes `digits` and `label`.
+* Every class has a function form (`fmt_num()`, `fmt_pct()`, `fmt_p()` and
+  the rest), and `weft_str()` resolves weft markup in a string from R code.
+* Quantities with units (`u()`), printed by symbol or name and converted on
+  request.
+* Project settings in `_weft.yml` for the house style, and project
+  formatters for rules no class covers.
+
+## Wording and claims
+
+* Spans whose wording depends on a value: counts (`n`), lists (`list`),
+  conditions and guards (`if`), and direction (`sign`), with agreement
+  through ids and back-references.
+* `claim()` checks a value where it is used and fails the render with the
+  sentence quoted. `level = "warn"` lists a check without failing.
+  `chunk_claims: collect` collects failures in chunk code and fails the
+  render at the end.
+* Phrase functions: `of_n()`, `about()`, `ci()` (with short, percentage
+  and signed forms), `pm()`, `clamp()`, `lookup()`, `brk()` and
+  `in_range()`.
+* `arms()` lists every wording a document can produce; `rehearse()` knits
+  it under several sets of parameters.
+
+## The dictionary
+
+* `dict.yml` holds a project's chosen values (numbers, quantities, ranges,
+  years, dates, strings, label maps and breaks), each with a definition and
+  an optional decision pointer that `verify()` resolves. Decision pointers
+  also go on literals, `cite` spans and claims.
+* A glossary, a Vale rule for spellings to avoid, and `dict_seed()` to find
+  values that belong in the dictionary.
+* `tar_dict()` and `tar_dict_deps()` for `targets` pipelines.
+
+## Other languages and named values
+
+* Python and Julia values reach prose in knitr documents through `py$` and
+  `jl_value()`, read exactly or refused.
+* Named values: `` `depth`{.num} `` in a document on any engine, published
+  from R (`weft_put()`, `weft_values_write()`), Python (`put()`, `auto()`)
+  or Julia (`@put`) and resolved by a Pandoc filter. A name can be used
+  above the code that publishes it when it takes one value.
+
+## Checking a project
+
+* `lints()` reads documents without running them and reports typed
+  numbers, construct errors, cross-reference and citation problems and
+  more.
+* Each render checks its output for unresolved references, values printed
+  as missing and leftover markup, in every format.
+* Each render writes a ledger of the values, wording and tables it printed,
+  and a log of the conditions it raised; `changes()` compares them with a
+  commit.
+* A commit gate refuses new typed numbers and construct errors, and asks
+  for a trailer when computed values are removed. `checks()` lists the
+  checks of a project by the value they check.
+* `verify()` runs the lints, resolves decision pointers, renders every
+  document and checks that no ledger is stale.
+
+## Setting up
+
+* `use_weft()` sets a project up in one call: activation, Quarto
+  extension and scripts, dictionary, commit hook, GitHub Actions workflow
+  and instructions for coding agents. `status()` reports what is in place.

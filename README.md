@@ -111,13 +111,18 @@ lists typed numbers, construct errors and other problems. See
 
 **The commit gate and `verify()`.** A git hook refuses a commit that adds a
 typed number or a construct error, or that removes computed values without
-saying so. `verify()` renders the whole project and checks every claim before
-a release. See
+saying so. Each render writes a ledger of the values, wording and tables it
+printed, which `changes()` compares between commits, and checks the rendered
+output for references Quarto could not resolve and values printed as "NA".
+`verify()` renders the whole project and checks every claim before a release.
+See
 [The commit gate, the ledger and verify()](https://vorpalvorpal.github.io/weft/articles/gate.html).
 
 **Setting up a project.** `use_weft()` writes everything a project needs, and
 says what it will write first. See
-[Setting up a project](https://vorpalvorpal.github.io/weft/articles/setup.html).
+[Setting up a project](https://vorpalvorpal.github.io/weft/articles/setup.html),
+and, to bring a long report across,
+[Adopting weft in an existing report](https://vorpalvorpal.github.io/weft/articles/adopting.html).
 If an AI coding agent edits your documents, read
 [Working with coding agents](https://vorpalvorpal.github.io/weft/articles/agents.html).
 
