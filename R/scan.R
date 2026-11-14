@@ -219,7 +219,7 @@ comment_end <- function(S, i) {
   k <- findInterval(i + 3L, S$cend) + 1L
   if (k <= length(S$cend)) return(S$cend[k] + 2L)
   # Unclosed: an HTML block at the start of a line runs on; in the middle of
-  # a line it is no comment at all (1.9.2).
+  # a line it is no comment at all.
   j <- i - 1L
   while (j >= 1L && S$chars[j] %in% c(" ", "\t")) j <- j - 1L
   if (j < 1L || S$chars[j] == "\n") S$n else NA_integer_
@@ -1069,7 +1069,7 @@ scan_seq <- function(S, from, to, parent) {
       "\\" = p + 2L,
       "<" = {
         ce <- angle_end(S, p)
-        if (is.na(ce)) p + 1L else ce + 1L
+        if (is.na(ce)) p + 1L else if (length(S$kn_s)) comment_inline(S, p, ce, parent) else ce + 1L
       },
       "`" = handle_code(S, p, parent, FALSE),
       "$" = {
@@ -1312,7 +1312,11 @@ inline_row <- function(S, p, close_end, expr, newline, parent, in_math, in_targe
     end <- blk$end
     bstart <- after
     errs <- c(errs, block_errors(S, blk, "value"))
-    if (in_math) errs <- c(errs, "An attribute block inside math is an error (rule 5.2.6).")
+    if (in_math) {
+      errs <- c(errs, paste0(
+        "A class block cannot be used inside math: its output is markdown and math is TeX. ",
+        "Format the value in the expression, for example fmt_num(x, digits = 2) (rule 5.2.6)."))
+    }
     if (in_target) {
       errs <- c(errs, paste0("An attribute block on inline R in a link target is ",
                              "an error; bind the value to a name or move it out of the link."))
@@ -1367,6 +1371,16 @@ inline_in <- function(S, from, to, parent, in_math = FALSE, in_target = FALSE) {
 span_inline <- function(S, p, close_end, parent, in_math, in_target) {
   nx <- inline_in(S, p + 1L, close_end, parent, in_math, in_target)
   if (is.na(nx)) NA_integer_ else max(nx, close_end + 1L)
+}
+
+# A comment, autolink or raw tag `p`..`ce` that the walk passes over: knitr evaluates inline R in an HTML
+# comment as it does in prose (rule 1.1.10), closed, multi-line, or unclosed at a line start (where the
+# comment runs to the end of the text). Nothing else in it is read, and a weft marker comment is no row.
+comment_inline <- function(S, p, ce, parent) {
+  if (!identical(S$chars[p + 1L], "!") || !identical(S$chars[p + 2L], "-")) return(ce + 1L)
+  if (grepl("^<!--\\s*weft[-:]", substr(S$text, p, min(ce, p + 40L)), perl = TRUE)) return(ce + 1L)
+  nx <- inline_in(S, p, ce, parent)
+  if (is.na(nx)) ce + 1L else max(nx, ce + 1L)
 }
 
 fence_inline <- function(S, p, fe, parent) {

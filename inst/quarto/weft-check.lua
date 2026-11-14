@@ -221,7 +221,7 @@ end
 
 -- A code block is chunk output (a block with no language class, or with a
 -- `cell-output` class) or a fenced block that shows code on purpose (it
--- carries a language class): only chunk output is looked in (2.9.5, 1.9.2).
+-- carries a language class): only chunk output is looked in (2.9.5, 1.1.10).
 local function check_codeblock(el)
   local classes = el.classes or {}
   local output = #classes == 0
