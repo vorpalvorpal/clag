@@ -223,8 +223,6 @@ local function apply(cfg, problems, file, key, rest)
   local want = KINDS[key]
   if not want then return end
   local kind, v = scalar(rest)
-  -- `p_label:` with nothing after it is the empty label (N23, N25); it is no "null" for a string
-  if key == "p_label" and kind == "empty" and trim(rest) == "" then kind, v = "str", "" end
   local ok = false
   if want == "pdig" then
     -- p_digits: a whole number from 1 to 6, or null (the default, so nil)

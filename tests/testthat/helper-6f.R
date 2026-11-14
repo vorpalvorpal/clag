@@ -109,7 +109,9 @@ f6_rows <- function(d, head = character()) {
   n <- nrow(d)
   kk <- lapply(d$keys, f6_keys)
   cfgs <- vapply(kk, function(k) {
-    paste(sprintf("%s: %s", names(k$cfg), unlist(k$cfg)), collapse = "\n")
+    # an empty value is written quoted: a bare `key:` is YAML's null, not the empty string
+    v <- unlist(k$cfg)
+    paste(sprintf("%s: %s", names(k$cfg), ifelse(nzchar(v), v, "\"\"")), collapse = "\n")
   }, "")
   nm <- sprintf("v%d", seq_len(n))
   got <- rep(NA_character_, n)
