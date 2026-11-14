@@ -5,13 +5,20 @@
 # knit under another `lang`, they stop with a construct error.
 check_english <- function(fn) {
   s <- active_state()
-  l <- tolower(sub("[-_].*$", "", s$lang %||% ""))
-  if (nzchar(l) && l != "en") {
+  if (!lang_is_english(s$lang)) {
     construct_error(sprintf(
       "`%s()` prints English words, and the document's `lang` is `%s` (rule 1.6.8).",
       fn, s$lang))
   }
   invisible()
+}
+
+# The error for a plural-arm span in a language whose plural rules weft does
+# not ship (1.6.5, 1.6.7); `kind` is `n` or `list`.
+plural_rules_message <- function(kind, lang) {
+  sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
+                 "which weft does not ship; English rules are never applied to another ",
+                 "language (rules 1.6.5, 1.6.7)."), kind, lang)
 }
 
 # Mark a weft_text as finished wording: a number or wording class on it is a

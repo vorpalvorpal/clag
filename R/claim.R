@@ -212,6 +212,37 @@ claim_value_text <- function(value) {
   s
 }
 
+# The line for each check of a failed claim, in one of three styles: the
+# `detail` of a collected failure, the `report` lines of the error that stops
+# the code, and the `warn` lines of a warned check. A check that raised an
+# error (`errs`) and one that returned more than one value (`lens`) have
+# their own wording. The `warn` style does not carry the `all()` advice the
+# other two give; that drift is kept (the lines are user-visible).
+check_lines <- function(record, errs, lens, style = c("detail", "report", "warn")) {
+  style <- match.arg(style)
+  ck <- record$checks
+  v <- record$value
+  advice <- sprintf("; write all(%s) to require every element", ck)
+  switch(
+    style,
+    detail = ifelse(
+      !is.na(errs), sprintf("%s raised an error: %s (value %s)", ck, errs, v),
+      ifelse(!is.na(lens),
+             paste0(sprintf("%s returned %d values, not a single TRUE (value %s)", ck, lens, v), advice),
+             sprintf("%s was FALSE (value %s)", ck, v))),
+    report = ifelse(
+      !is.na(errs), sprintf("  check `%s` raised an error: %s (value: %s)", ck, errs, v),
+      ifelse(!is.na(lens),
+             paste0(sprintf("  check `%s` returned %d values, not a single TRUE (value: %s)", ck, lens, v),
+                    advice),
+             sprintf("  check `%s` failed (value: %s)", ck, v))),
+    warn = ifelse(
+      !is.na(errs), sprintf("check `%s` raised an error: %s (value: %s)", ck, errs, v),
+      ifelse(!is.na(lens),
+             sprintf("check `%s` returned %d values, not a single TRUE (value: %s)", ck, lens, v),
+             sprintf("check `%s` failed (value: %s)", ck, v))))
+}
+
 # The one place a failed claim goes (rule 2.4). In inline R during a knit it
 # is collected and `claim()` returns its value (2.4.1). In chunk code during a
 # knit it is recorded and then stops, with every failure collected so far in
@@ -220,14 +251,7 @@ claim_fail <- function(record, level = "fail") {
   errs <- record$errors %||% rep(NA_character_, length(record$checks))
   lens <- record$lens %||% rep(NA_integer_, length(record$checks))
   hints <- record$hints %||% rep(NA_character_, length(record$checks))
-  detail <- ifelse(
-    !is.na(errs),
-    sprintf("%s raised an error: %s (value %s)", record$checks, errs, record$value),
-    ifelse(
-      !is.na(lens),
-      sprintf("%s returned %d values, not a single TRUE (value %s); write all(%s) to require every element",
-              record$checks, lens, record$value, record$checks),
-      sprintf("%s was FALSE (value %s)", record$checks, record$value)))
+  detail <- check_lines(record, errs, lens, "detail")
   # N103: the decision ends the detail
   dec <- if (is.null(record$decision)) "" else paste0("; decision ", record$decision)
   detail <- paste0(detail, dec)
@@ -254,15 +278,7 @@ claim_fail <- function(record, level = "fail") {
     s$claims_collected <- (s$claims_collected %||% 0L) + length(detail)
     return(invisible(NULL))
   }
-  lines <- ifelse(
-    !is.na(errs),
-    sprintf("  check `%s` raised an error: %s (value: %s)", record$checks,
-            errs, record$value),
-    ifelse(
-      !is.na(lens),
-      sprintf("  check `%s` returned %d values, not a single TRUE (value: %s); write all(%s) to require every element",
-              record$checks, lens, record$value, record$checks),
-      sprintf("  check `%s` failed (value: %s)", record$checks, record$value)))
+  lines <- check_lines(record, errs, lens, "report")
   lines <- ifelse(is.na(hints), paste0(lines, dec), paste0(lines, dec, "\n    ", hints))
   msg <- paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
                          if (length(record$checks) == 1L) "" else "s"), lines),
@@ -326,14 +342,7 @@ claim_warn <- function(record, detail, s, inl, errs, lens, hints = rep(NA_charac
     for (k in seq_along(detail)) warn_here(s, inl, "failed claim", detail[k], hints[k])
     return(invisible(NULL))
   }
-  lines <- ifelse(
-    !is.na(errs),
-    sprintf("check `%s` raised an error: %s (value: %s)", record$checks, errs, record$value),
-    ifelse(
-      !is.na(lens),
-      sprintf("check `%s` returned %d values, not a single TRUE (value: %s)",
-              record$checks, lens, record$value),
-      sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
+  lines <- check_lines(record, errs, lens, "warn")
   dec <- if (is.null(record$decision)) "" else paste0("; decision ", record$decision)
   lines <- ifelse(is.na(hints), paste0(lines, dec), paste0(lines, dec, "\n    ", hints))
   for (l in lines) weft_warn(paste0("weft: ", l), class = "weft_claim_warning")

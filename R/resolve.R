@@ -481,10 +481,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     ev
   }
 
-  non_english <- function() {
-    l <- tolower(sub("[-_].*$", "", s$lang %||% ""))
-    nzchar(l) && l != "en"
-  }
+  non_english <- function() !lang_is_english(s$lang)
   lang_check <- function(k, classes, keys, n_arms = 1L) {
     if (!non_english()) return(NULL)
     expr <- R$expr[k]
@@ -496,9 +493,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
                             "(rule 1.6.8)."), sub("[ \t]*\\($", "", ph), s$lang))
     }
     if (R$kind[k] %in% c("n", "list") && n_arms > 1L) {
-      return(sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
-                            "which weft does not ship; English rules are never applied to another ",
-                            "language (rules 1.6.5, 1.6.7)."), R$kind[k], s$lang))
+      return(plural_rules_message(R$kind[k], s$lang))
     }
     eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date", ".uname")
     bad <- intersect(classes, eng)

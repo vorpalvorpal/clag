@@ -95,17 +95,13 @@ arms_one <- function(path, offset = 0L) {
   # a two-arm or longer `n` in a language whose plural rules weft does not ship
   # is a construct error (1.6.4, 1.6.5): listed in `errors`, with no rows
   lang_raw <- document_lang(front, path)
-  lang <- tolower(sub("[-_].*$", "", lang_raw))
-  if (!is.na(lang) && nzchar(lang) && lang != "en" && length(gov)) {
+  if (!is.na(lang_raw) && !lang_is_english(lang_raw) && length(gov)) {
     plural <- gov[rows$kind[gov] %in% c("n", "list") & lengths(rows$arms[gov]) > 1L &
                     is.na(rows$error[gov])]
     if (length(plural)) {
       errors <- rbind(errors, data.frame(
         file = rep(path, length(plural)), line = rows$line[plural],
-        message = sprintf(paste0("A `%s` span with more than one arm needs the plural rules of `%s`, ",
-                                 "which weft does not ship; English rules are never applied to another ",
-                                 "language (rules 1.6.5, 1.6.7)."),
-                          rows$kind[plural], lang_raw),
+        message = plural_rules_message(rows$kind[plural], lang_raw),
         stringsAsFactors = FALSE))
       gov <- setdiff(gov, plural)
     }
