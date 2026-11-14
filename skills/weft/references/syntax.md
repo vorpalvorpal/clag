@@ -16,6 +16,17 @@ We sampled `r sites`{.and trunc="3"}.
 Classes in use: `.num`, `.pct`, `.p`, `.sci`, `.ord`, `.count`, `.word`, `.date`,
 `.range`, `.pairs`, `.and`, `.or`. `.plus` signs a number.
 
+weft reads inline R wherever knitr evaluates it: prose, a code span, a fenced
+block that is not a chunk, an HTML comment, math. Wrapping text in an HTML
+comment does not switch its values or checks off.
+
+Inside math (`$...$`) a class block is an error, because a formatter writes
+markdown and math is TeX. Format the value in the expression instead:
+
+```markdown
+$p = `r fmt_num(p_val, digits = 3)`$
+```
+
 ## Spans that choose wording
 
 ```markdown
