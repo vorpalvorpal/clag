@@ -246,6 +246,75 @@ resolve_text <- function(x) {
   resolve_markup(s, x, block = locate_block(s, x))
 }
 
+# ---- helpers of resolve_markup() that read no state of its own ----------------------
+
+# The text of construct `start` to `end`, on one line and cut at 70 characters.
+source_label <- function(text, start, end) {
+  t <- substr(text, start, end)
+  t <- gsub("[ \t\r\n]+", " ", t)
+  if (nchar(t) > 70L) t <- paste0(substr(t, 1L, 67L), "...")
+  t
+}
+
+# The classes and keys the construct does not own, written back as a span.
+passthrough <- function(text, cl, ky) {
+  if (!nzchar(text)) return(text)
+  items <- c(cl, if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
+  if (!length(items)) return(text)
+  sprintf("[%s]{%s}", text, paste(items, collapse = " "))
+}
+
+# The reason a construct may not be used in a document whose `lang` is not English (1.6.8), or NULL.
+lang_check <- function(lang, kind, expr, classes, keys, n_arms = 1L) {
+  if (lang_is_english(lang)) return(NULL)
+  ph <- if (kind %in% c("value", "n", "sign", "list") && !is.na(expr)) {
+    regmatches(expr, regexpr("\\b(of_n|about|ci)[ \t]*\\(", expr, perl = TRUE))
+  } else character()
+  if (length(ph)) {
+    return(sprintf(paste0("`%s()` prints English words, and the document's `lang` is `%s` ",
+                          "(rule 1.6.8)."), sub("[ \t]*\\($", "", ph), lang))
+  }
+  if (kind %in% c("n", "list") && n_arms > 1L) {
+    return(plural_rules_message(kind, lang))
+  }
+  eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date", ".uname")
+  bad <- intersect(classes, eng)
+  if (length(bad) || "trunc" %in% names(keys)) {
+    return(sprintf(paste0("The class `%s` prints English words, and the document's `lang` is ",
+                          "`%s` (rule 1.6.8)."), c(bad, "trunc")[1L], lang))
+  }
+  NULL
+}
+
+# A construct's classes and keys, split into those weft owns and those that pass through.
+split_classes <- function(cl, ky, owned) {
+  list(own = intersect(cl, owned),
+       pass = setdiff(cl, owned),
+       keys = ky,
+       pass_keys = ky[!(names(ky) %in% owned_keys())])
+}
+
+# Whether the classes or keys give the number a format of its own.
+has_own_format <- function(cc, formatters) {
+  any(!is.na(class_group(cc$own, formatters))) || ".no" %in% cc$own ||
+    ".plus" %in% cc$own || any(c("digits", "sigfig", "unit") %in% names(cc$keys))
+}
+
+# Whether the construct at `st` opens a sentence: a digit or lower-case letter after it is wrong.
+# `nlpos` holds the newline positions of `text`, `first_ink` its first non-blank character.
+starts_sentence <- function(st, text, nlpos, first_ink) {
+  if (first_ink < 0L || first_ink >= st) return(TRUE)
+  k <- sum(nlpos < st)
+  pre <- substr(text, if (k >= 2L) nlpos[k - 1L] else 1L, st - 1L)
+  # after the end of a sentence
+  if (grepl("[.?!][]\"')*_~]*[ \t\n]+$", pre)) return(TRUE)
+  # a new paragraph
+  if (grepl("\n[ \t]*\n[ \t]*$", pre)) return(TRUE)
+  # after a heading or list marker
+  last <- sub("^.*\n", "", pre)
+  grepl("^[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|:)[ \t]+)+$", last)
+}
+
 # Resolve one piece of markup. `block` is the located block of prose the
 # `text` hook hands over (its inline code is parked as placeholders). With no
 # `block` the markup is a string (a caption, or the argument of weft_str()):
@@ -364,7 +433,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
     fail_note(k, "construct error")
     add_failure(s, "construct error", file = R$file[k], line = R$line[k],
-                expr = source_label(k), detail = msg, chunk = chunk_label,
+                expr = source_label(text, R$start[k], R$end[k]), detail = msg, chunk = chunk_label,
                 option = ctx$option)
     marker("construct error", R$line[k], chunk_label)
   }
@@ -424,13 +493,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     }
   }
 
-  source_label <- function(k) {
-    t <- substr(text, R$start[k], R$end[k])
-    t <- gsub("[ \t\r\n]+", " ", t)
-    if (nchar(t) > 70L) t <- paste0(substr(t, 1L, 67L), "...")
-    t
-  }
-
   record_fail <- function(k, kind, label, detail, hint = NA_character_) {
     R$unit_picked[k] <<- NA_character_   # a construct that printed nothing printed in no unit
     if (strict) {
@@ -482,37 +544,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   non_english <- function() !lang_is_english(s$lang)
-  lang_check <- function(k, classes, keys, n_arms = 1L) {
-    if (!non_english()) return(NULL)
-    expr <- R$expr[k]
-    ph <- if (R$kind[k] %in% c("value", "n", "sign", "list") && !is.na(expr)) {
-      regmatches(expr, regexpr("\\b(of_n|about|ci)[ \t]*\\(", expr, perl = TRUE))
-    } else character()
-    if (length(ph)) {
-      return(sprintf(paste0("`%s()` prints English words, and the document's `lang` is `%s` ",
-                            "(rule 1.6.8)."), sub("[ \t]*\\($", "", ph), s$lang))
-    }
-    if (R$kind[k] %in% c("n", "list") && n_arms > 1L) {
-      return(plural_rules_message(R$kind[k], s$lang))
-    }
-    eng <- c(".no", WORDING_CLASSES, ".and", ".or", ".pairs", ".range", ".a", ".date", ".uname")
-    bad <- intersect(classes, eng)
-    if (length(bad) || "trunc" %in% names(keys)) {
-      return(sprintf(paste0("The class `%s` prints English words, and the document's `lang` is ",
-                            "`%s` (rule 1.6.8)."), c(bad, "trunc")[1L], s$lang))
-    }
-    NULL
-  }
-
-  split_classes <- function(k) {
-    cl <- R$classes[[k]]
-    ky <- R$keys[[k]]
-    list(own = intersect(cl, owned),
-         pass = setdiff(cl, owned),
-         keys = ky,
-         pass_keys = ky[!(names(ky) %in% owned_keys())])
-  }
-
   apply_text_classes <- function(text, own, symbol = FALSE) {
     reg <- cfg$formatters
     # a unit's symbol keeps its case (4.4.16)
@@ -520,13 +551,6 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     tcl <- own[own %in% text_classes(reg)]
     if (!length(tcl) || !nzchar(text)) return(text)
     as.character(apply_formatters(text, tcl, list(), cfg))
-  }
-
-  passthrough <- function(text, cl, ky) {
-    if (!nzchar(text)) return(text)
-    items <- c(cl, if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
-    if (!length(items)) return(text)
-    sprintf("[%s]{%s}", text, paste(items, collapse = " "))
   }
 
   finish <- function(k, text, cc, claim_failed, text_classes = TRUE) {
@@ -563,23 +587,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # lines, which hold every test below. A run of blank space that ends in
   # two newlines is a paragraph break, so no test reaches further back.
   first_ink <- regexpr("[^ \t\r\n]", text)
-  starts_sentence <- function(st) {
-    if (first_ink < 0L || first_ink >= st) return(TRUE)
-    k <- sum(nlpos < st)
-    pre <- substr(text, if (k >= 2L) nlpos[k - 1L] else 1L, st - 1L)
-    # after the end of a sentence
-    if (grepl("[.?!][]\"')*_~]*[ \t\n]+$", pre)) return(TRUE)
-    # a new paragraph
-    if (grepl("\n[ \t]*\n[ \t]*$", pre)) return(TRUE)
-    # after a heading or list marker
-    last <- sub("^.*\n", "", pre)
-    grepl("^[ \t]*((#{1,6}|[-*+]|[0-9]+[.)]|>|:)[ \t]+)+$", last)
-  }
   note_sentence <- function(it, out) {
     if (is_str || !nzchar(out)) return("")
     body <- sub("^[*_\\[]+", "", out)
     if (!grepl("^[0-9[:lower:]]", body)) return("")
-    if (!starts_sentence(it$start)) return("")
+    if (!starts_sentence(it$start, text, nlpos, first_ink)) return("")
     if (it$type == "span") {
       li <- span_line(it$start)
       expr <- s$parked[[it$idx]]$code
@@ -590,7 +602,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       if (R$kind[it$k] == "if") {
         expr <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", trim_ws(out)))
       } else if (R$kind[it$k] %in% c("text", "cite", "literal")) {
-        expr <- source_label(it$k)
+        expr <- source_label(text, R$start[it$k], R$end[it$k])
       }
       file <- R$file[it$k]
       line <- R$line[it$k]
@@ -640,7 +652,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     for (i in seq_along(items)) {
       it <- items[[i]]
       rec <- if (it$type == "row") L_rec[[as.character(it$k)]]
-      if (!is.null(rec)) typed_after(rec, gaps[i + 1L], R$file[it$k], R$line[it$k], source_label(it$k))
+      if (!is.null(rec)) typed_after(rec, gaps[i + 1L], R$file[it$k], R$line[it$k], source_label(text, R$start[it$k], R$end[it$k]))
     }
     res <- join_pieces(gaps, outs, vapply(items, governed, NA), pos = top)
     if (top) {
@@ -673,7 +685,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     tmpl <- arm_template_range(S, r$a, r$b, idf)
     if (!is.null(record) && length(attr(record, "unit_suffix"))) {
       after <- regmatches(tmpl, regexec("\ue001([^\ue001\ue002]*)", tmpl))[[1L]]
-      if (length(after) == 2L) typed_after(record, after[2L], R$file[k], R$line[k], source_label(k))
+      if (length(after) == 2L) typed_after(record, after[2L], R$file[k], R$line[k], source_label(text, R$start[k], R$end[k]))
     }
     fill_template(tmpl, hash, as.list(outs), vapply(items, governed, NA))
   }
@@ -739,9 +751,9 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   render_value <- function(k) {
-    cc <- split_classes(k)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
     expr <- unwrap_quarto(R$expr[k])
-    msg <- lang_check(k, cc$own, cc$keys)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
     if (!is.null(msg)) return(construct_fail(k, msg))
     idx <- spans$idx[match(R$start[k], spans$start)]
     label <- sprintf("`r %s`", expr)
@@ -852,16 +864,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     list(v = ent$rec, claim_failed = FALSE)
   }
 
-  has_own_format <- function(cc) {
-    any(!is.na(class_group(cc$own, cfg$formatters))) || ".no" %in% cc$own ||
-      ".plus" %in% cc$own || any(c("digits", "sigfig", "unit") %in% names(cc$keys))
-  }
-
   # The governor of an `n` or `sign` span: a value to read the number from.
   # Returns a list with `stop` (a marker, when it failed) or `v`.
   get_governor <- function(k, label, cc) {
     expr <- R$expr[k]
-    own_fmt <- has_own_format(cc)
+    own_fmt <- has_own_format(cc, cfg$formatters)
     if (R$kind[k] == "n" && identical(trim_ws(expr), ".")) {
       if (is.null(gov)) {
         return(list(stop = construct_fail(k, "`n=\".\"` outside an `n` or `sign` span (rule 1.7.2).")))
@@ -877,10 +884,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   render_n <- function(k) {
-    cc <- split_classes(k)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
     arms <- R$arms[[k]]
     narms <- length(arms)
-    msg <- lang_check(k, cc$own, cc$keys, narms)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
     if (!is.null(msg)) return(construct_fail(k, msg))
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
     g <- get_governor(k, label, cc)
@@ -889,7 +896,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     claim_failed <- g$claim_failed
     L_raw[k] <<- ledger_raw(v)
     L_unit[k] <<- ledger_unit(v)
-    own_fmt <- has_own_format(cc)
+    own_fmt <- has_own_format(cc, cfg$formatters)
     # a range of two ends is one governor (1.5.11)
     if (!(".range" %in% cc$own)) {
       chk <- check_governor(v)
@@ -911,10 +918,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # of the number as printed, or of its absolute value when the span
   # formats the raw value.
   render_sign <- function(k) {
-    cc <- split_classes(k)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
     arms <- R$arms[[k]]
     narms <- length(arms)
-    msg <- lang_check(k, cc$own, cc$keys, narms)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
     if (!is.null(msg)) return(construct_fail(k, msg))
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
     g <- get_governor(k, label, cc)
@@ -925,7 +932,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
     L_unit[k] <<- ledger_unit(v)
     chk <- check_governor(v)
     if (!is.null(chk)) return(record_fail(k, chk$kind, label, chk$detail))
-    own_fmt <- has_own_format(cc)
+    own_fmt <- has_own_format(cc, cfg$formatters)
     rec <- if (inherits(v, "weft_text") && !own_fmt) {
       v
     } else {
@@ -972,10 +979,10 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # chosen by its length as `n` chooses by a count, and `#` is the vector
   # collapsed as `.and` collapses it.
   render_list <- function(k) {
-    cc <- split_classes(k)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
     arms <- R$arms[[k]]
     narms <- length(arms)
-    msg <- lang_check(k, cc$own, cc$keys, narms)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, narms)
     if (!is.null(msg)) return(construct_fail(k, msg))
     label <- sprintf("\"%s\"", gsub("[ \t\r\n]+", " ", arms[1L]))
     ev <- eval_expr(k, R$expr[k], gov_label(k))
@@ -1005,7 +1012,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       if (!length(intersect(fcl, c(COLLAPSE_CLASSES, registered_classes(reg, "collapse"))))) fcl <- c(fcl, ".and")
       # a number vector with no number or wording class prints each element as
       # a bare value prints
-      if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc)) {
+      if (is.numeric(v) && !inherits(v, "units") && !has_own_format(cc, cfg$formatters)) {
         v <- stats::setNames(vapply(v, stock_print, ""), names(v))
       }
       out <- tryCatch(
@@ -1024,8 +1031,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   render_if <- function(k) {
-    cc <- split_classes(k)
-    msg <- lang_check(k, cc$own, cc$keys)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
     if (!is.null(msg)) return(construct_fail(k, msg))
     arms <- R$arms[[k]]
     narms <- length(arms)
@@ -1089,8 +1096,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
 
   render_text <- function(k) {
-    cc <- split_classes(k)
-    msg <- lang_check(k, cc$own, cc$keys)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
     if (!is.null(msg)) return(construct_fail(k, msg))
     a <- R$start[k] + 1L
     b <- R$block_start[k] - 2L
@@ -1121,8 +1128,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # A `cite` span (1.8): its prose, and in the citation form the value in
   # brackets after it; each key must be in the bibliography (1.8.5).
   render_cite <- function(k) {
-    cc <- split_classes(k)
-    msg <- lang_check(k, cc$own, cc$keys)
+    cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
+    msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys)
     if (!is.null(msg)) return(construct_fail(k, msg))
     a <- R$start[k] + 1L
     b <- R$block_start[k] - 2L
@@ -1268,11 +1275,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
       },
       weft_value_error = function(e) {
         if (strict) stop(e)
-        record_fail(k, "value error", source_label(k), conditionMessage(e))
+        record_fail(k, "value error", source_label(text, R$start[k], R$end[k]), conditionMessage(e))
       },
       weft_no_value = function(e) {
         if (strict) stop(e)
-        record_fail(k, "no value", source_label(k), conditionMessage(e))
+        record_fail(k, "no value", source_label(text, R$start[k], R$end[k]), conditionMessage(e))
       })
     # a value that failed still defined its id: a reference to it follows
     # from that failure (1.7.10)
@@ -1287,8 +1294,8 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   # on the data (1.6.8, 1.6.4)
   if (nr && non_english()) {
     for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & is.na(R$error))) {
-      cc <- split_classes(k)
-      msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
+      cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
+      msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, length(R$arms[[k]]))
       if (is.null(msg)) next
       if (!draft) {
         weft_abort(sprintf("weft: %s: %s", loc_str(k), msg),
@@ -1315,11 +1322,11 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   }
   if (nr && draft && non_english()) {
     for (k in which(R$kind %in% c("value", "n", "sign", "list", "text", "cite", "if") & !R$evaluated & is.na(R$error))) {
-      cc <- split_classes(k)
-      msg <- lang_check(k, cc$own, cc$keys, length(R$arms[[k]]))
+      cc <- split_classes(R$classes[[k]], R$keys[[k]], owned)
+      msg <- lang_check(s$lang, R$kind[k], R$expr[k], cc$own, cc$keys, length(R$arms[[k]]))
       if (!is.null(msg)) {
         add_failure(s, "construct error", file = R$file[k], line = R$line[k],
-                    expr = source_label(k), detail = msg, chunk = chunk_label)
+                    expr = source_label(text, R$start[k], R$end[k]), detail = msg, chunk = chunk_label)
       }
     }
   }
