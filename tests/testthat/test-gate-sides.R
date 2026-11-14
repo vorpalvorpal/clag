@@ -18,7 +18,7 @@ test_that("4a G19: a passing gate returns a weft_gate invisibly, with exactly th
   res <- vis$value
   expect_s3_class(res, "weft_gate")
   expect_setequal(names(res), c("ok", "errors", "added", "excess", "removed", "n_removed", "trailer",
-                                "changed", "notes", "seconds"))
+                                "changed", "notes", "seconds", "checks"))
   expect_true(is.logical(res$ok) && length(res$ok) == 1L)
   expect_true(res$ok)
   expect_s3_class(res$errors, "weft_findings")
