@@ -186,10 +186,12 @@ test_that("1.4.2: two number-stage classes with .p or .date are a construct erro
   b_expect_scan_error("Value `r d`{.date .p}")
 })
 
-test_that("1.4.7 + design: digits or sigfig with .p is a construct error", {
-  b_expect_scan_error("Value `r x`{.p digits=\"2\"}", "Value `r x`{.p}")
+# stage 7 (F2, N21) gives `digits` a meaning on .p; `sigfig` stays an error, as does a
+# `digits` outside 1 to 6 (E5)
+test_that("1.4.7 + design: sigfig, or digits outside 1 to 6, with .p is a construct error", {
+  b_expect_scan_error("Value `r x`{.p digits=\"7\"}", "Value `r x`{.p digits=\"2\"}")
   b_expect_scan_error("Value `r x`{.p sigfig=\"2\"}")
-  b_expect_scan_error("Value `r x`{.p digits=\"2\" .strong}")
+  b_expect_scan_error("Value `r x`{.p sigfig=\"2\" .strong}")
 })
 
 test_that("1.4.2: .range with another collapse class is a construct error", {

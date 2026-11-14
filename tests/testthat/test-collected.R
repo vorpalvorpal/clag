@@ -176,7 +176,7 @@ CERR_ROWS <- list(
   mk_cerr("E08", "[0.45]{.weft-literal}.", "1.8.10: a .weft-literal span with no why"),
   mk_cerr("E09", "[a]{cite=\"see smith2020\"}.", "1.8.4: a bare-form cite that is not keys only"),
   mk_cerr("E10", "[a]{.num cite=\"@smith2020\"}.", "1.8.7: a formatter class on a cite span"),
-  mk_cerr("E11", "`r 0.03`{.p digits=\"2\"}.", "design: digits with .p"),
+  mk_cerr("E11", "`r 0.03`{.p sigfig=\"2\"}.", "design: sigfig with .p"),
   mk_cerr("E12", "[a]{#ztx .strong}.", "1.1.9: an id on a text span"),
   mk_cerr("E13", "[a]{#zcx cite=\"@smith2020\"}.", "1.7.5: an id on a cite span"),
   mk_cerr("E14", "`r 0.03`{.num .p}.", "1.4.2: .num and .p"),
