@@ -146,12 +146,12 @@ test_that("4c G28: a clean static run prints the verdict, one line per part, and
   rep <- r$report
   expect_length(rep, 6L)
   expect_match(rep[2], "^  lints      ")
-  expect_identical(rep[3], sprintf("  %-10s %s", "decisions", "skipped: no dict.yml"))
+  expect_identical(rep[3], sprintf("  %-10s %s", "decisions", "skipped: no decision pointers"))
   expect_identical(rep[4], sprintf("  %-10s %s", "render", "skipped: static = TRUE"))
   expect_match(rep[5], "^  ledger     skipped: ")
   expect_identical(rep[6], "weft verify: T s")
   expect_false(any(vapply(V4_SECTIONS, function(s) v4_has_section(rep, s), NA)))
-  expect_identical(v4_detail(r$value, "decisions"), "skipped: no dict.yml")
+  expect_identical(v4_detail(r$value, "decisions"), "skipped: no decision pointers")
   expect_identical(v4_status(r$value, "decisions"), "skipped")
 })
 

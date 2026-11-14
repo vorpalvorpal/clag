@@ -261,6 +261,11 @@ values_claim_parts <- function(e, env) {
   bare <- vapply(checks, function(ck) is.character(ck) && length(ck) == 1L &&
                    ck %in% c("warn", "fail"), NA)
   if (any(bare)) return(NULL)
+  # a bad decision is claim()'s own error (E52), raised before any check runs (N103)
+  if (!is.null(mc$decision)) {
+    ok <- tryCatch({ claim_decision(eval(mc$decision, env)); TRUE }, error = function(err) FALSE)
+    if (!ok) return(NULL)
+  }
   level <- "fail"
   if (!is.null(mc$level)) {
     lv <- tryCatch(eval(mc$level, env), error = function(err) NULL)

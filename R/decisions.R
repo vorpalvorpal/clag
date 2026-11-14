@@ -105,6 +105,12 @@ check_decisions <- function(dict, resolver = NULL, root = NULL, fetch = github_f
   }
   route <- decisions_route(resolver)
   if (!nrow(out)) return(out)
+  decisions_resolve(out, route, root, fetch)
+}
+
+# Resolve the pointers of a table with a `decision` column by one route, each distinct pointer once (N104):
+# the table with `resolved` and `detail` filled in.
+decisions_resolve <- function(out, route, root, fetch = github_fetch) {
   ptr <- unique(out$decision)
   res <- switch(route$kind,
     github = decisions_github(ptr, route, root, fetch),

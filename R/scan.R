@@ -869,6 +869,18 @@ block_errors <- function(S, blk, kind) {
     cv <- blk$values[lc == "cite"]
     if (length(cv)) e <- c(e, cite_errors(cv[1L]))
   }
+  # N100, N101 (E50, E51): `decision` goes on a literal or a cite span, and is not blank there
+  dk <- which(blk$names == "decision")
+  if (length(dk)) {
+    if (kind %in% c("literal", "cite")) {
+      if (!nzchar(trim_ws(blk$values[dk[1L]]))) e <- c(e, "`decision` must not be blank (rule 1.8.12).")
+    } else {
+      what <- switch(kind, value = , bare = "a value", named = "a named value", n = "an `n` span",
+                     `if` = "an `if` span", sign = "a `sign` span", list = "a `list` span", "a text span")
+      e <- c(e, sprintf(paste0("`decision` goes on a `.weft-literal` span or div, a `cite` span or a `claim()`, ",
+                               "not on %s (rule 1.8.12)."), what))
+    }
+  }
   if (kind == "literal") {
     why <- blk$values[blk$names == "why"]
     if (!length(why) || !nzchar(trim_ws(why[1L]))) {

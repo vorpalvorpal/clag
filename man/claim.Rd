@@ -4,7 +4,7 @@
 \alias{claim}
 \title{Check a value in place}
 \usage{
-claim(x, ..., level = c("fail", "warn"))
+claim(x, ..., level = c("fail", "warn"), decision = NULL)
 }
 \arguments{
 \item{x}{Any value.}
@@ -13,6 +13,12 @@ claim(x, ..., level = c("fail", "warn"))
 variables.}
 
 \item{level}{\code{"fail"} (the default) or \code{"warn"}. It must be given by name.}
+
+\item{decision}{\code{NULL} (the default), one string that is not blank, or one
+whole number from 1: the decision the check rests on. It must be given by
+name. A failure's message ends with \verb{; decision <value>}, and \code{verify()}
+checks that the pointer resolves (rule 1.8.12). Anything else is an error
+of class \code{weft_claim_decision}.}
 }
 \value{
 \code{x}, unchanged.

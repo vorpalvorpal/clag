@@ -136,3 +136,81 @@ working_constructs <- function(src) {
   rownames(out) <- NULL
   out
 }
+
+# ---- decision pointers (N104) ---------------------------------------------------------------------
+
+# The `decision` of each `claim()` call in R code whose argument is a literal string or number: a data
+# frame of the call's first line (1-based, within `code`) and the pointer as text. A computed argument,
+# `NULL`, a blank string and a number that is not a whole number from 1 give no row (they are not checked
+# statically; claim() itself refuses the bad ones).
+claim_decisions <- function(code) {
+  none <- data.frame(line = integer(), decision = character(), stringsAsFactors = FALSE)
+  if (!length(code) || !any(grepl("decision", code, fixed = TRUE))) return(none)
+  code <- paste(code, collapse = "\n")
+  pd <- tryCatch(utils::getParseData(parse(text = code, keep.source = TRUE)), error = function(e) NULL)
+  if (is.null(pd)) return(none)
+  sfc <- pd[pd$token == "SYMBOL_FUNCTION_CALL" & pd$text == "claim", , drop = FALSE]
+  line <- integer()
+  dec <- character()
+  for (i in seq_len(nrow(sfc))) {
+    sib <- pd[pd$parent == sfc$parent[i] & pd$token == "SYMBOL_PACKAGE", , drop = FALSE]
+    if (nrow(sib) && !all(sib$text == "weft")) next
+    call_id <- pd$parent[match(sfc$parent[i], pd$id)]
+    kids <- pd[pd$parent == call_id, , drop = FALSE]
+    kids <- kids[order(kids$line1, kids$col1), , drop = FALSE]
+    sub <- which(kids$token == "SYMBOL_SUB" & kids$text == "decision")
+    if (!length(sub)) next
+    val <- kids[sub[1L] + 2L, , drop = FALSE]
+    if (!nrow(val) || val$token != "expr") next
+    leaf <- pd[pd$parent == val$id, , drop = FALSE]
+    if (nrow(leaf) != 1L || !leaf$token %in% c("STR_CONST", "NUM_CONST")) next
+    v <- tryCatch(eval(parse(text = leaf$text, keep.source = FALSE)[[1L]]), error = function(e) NULL)
+    d <- tryCatch(claim_decision(v), error = function(e) NULL)
+    if (is.null(d)) next
+    line <- c(line, as.integer(pd$line1[match(call_id, pd$id)]))
+    dec <- c(dec, d)
+  }
+  if (!length(line)) return(none)
+  data.frame(line = line, decision = dec, stringsAsFactors = FALSE)
+}
+
+# The decision pointers of a source (N104): one row per `decision` on a `.weft-literal` or a `cite`
+# span, and per `claim()` call in an R chunk or in inline code with a literal `decision`. `file`, `line`,
+# `key` (".weft-literal", `cite="<value>"` or "claim()") and `decision`.
+decision_pointer_rows <- function(src) {
+  empty <- data.frame(file = character(), line = integer(), key = character(), decision = character(),
+                      stringsAsFactors = FALSE)
+  if (isTRUE(src$invalid)) return(empty)
+  parts <- list()
+  add <- function(line, key, decision) {
+    if (length(line)) {
+      parts[[length(parts) + 1L]] <<- data.frame(file = rep(src$file, length(line)), line = as.integer(line),
+                                                  key = key, decision = decision, stringsAsFactors = FALSE)
+    }
+  }
+  r <- src$rows
+  if (!is.null(r) && nrow(r)) {
+    for (i in which(r$kind %in% c("literal", "cite"))) {
+      d <- unname(r$keys[[i]][names(r$keys[[i]]) == "decision"])
+      if (!length(d) || !nzchar(trim_ws(d[1L]))) next
+      add(r$line[i], if (r$kind[i] == "literal") ".weft-literal" else sprintf("cite=\"%s\"", r$expr[i]), d[1L])
+    }
+    for (i in which(!is.na(r$expr) & grepl("claim", r$expr, fixed = TRUE) & r$kind %in% c("value", "bare"))) {
+      cd <- claim_decisions(r$expr[i])
+      if (nrow(cd)) add(rep(r$line[i], nrow(cd)), "claim()", cd$decision)
+    }
+  }
+  ch <- src$chunks
+  if (!is.null(ch) && nrow(ch)) {
+    for (j in seq_len(nrow(ch))) {
+      if (!identical(tolower(ch$engine[j]), "r")) next
+      cd <- claim_decisions(ch$code[[j]])
+      if (nrow(cd)) add(ch$code_line[j] + cd$line - 1L, "claim()", cd$decision)
+    }
+  }
+  if (!length(parts)) return(empty)
+  out <- do.call(rbind, parts)
+  out <- out[order(out$line, seq_len(nrow(out))), , drop = FALSE]
+  rownames(out) <- NULL
+  out
+}

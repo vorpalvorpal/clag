@@ -4,7 +4,7 @@
 # textual order; a governed span chooses its arm first and evaluates only what
 # that arm holds (1.5.16).
 
-owned_keys <- function() c(GOVERNOR_KEYS, RENDERER_KEYS, "why")
+owned_keys <- function() c(GOVERNOR_KEYS, RENDERER_KEYS, "why", "decision")
 
 owned_classes <- function(cfg) {
   c(formatter_classes(cfg$formatters), TEXT_CLASSES, ".weft-literal")
@@ -1114,7 +1114,7 @@ resolve_markup <- function(s, x, block = NULL, ctx = NULL) {
   render_literal <- function(k) {
     cl <- R$classes[[k]]
     ky <- R$keys[[k]]
-    ky <- ky[names(ky) != "why"]
+    ky <- ky[!names(ky) %in% c("why", "decision")]
     items <- c(if (!is.na(R$id[k]) && nzchar(R$id[k])) paste0("#", R$id[k]), cl,
                if (length(ky)) sprintf("%s=\"%s\"", names(ky), unname(ky)))
     blk <- sprintf("{%s}", paste(items, collapse = " "))

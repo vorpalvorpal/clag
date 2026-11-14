@@ -71,7 +71,7 @@ local GOVERNORS = { ["if"] = true, n = true, sign = true, list = true, cite = tr
 -- `unit` is a renderer key (N5, 6d): the filter has no units, so a named value with it fails (E20)
 local RENDERER_KEYS = { digits = true, sigfig = true, sep = true, last = true, trunc = true, none = true,
                         unit = true, label = true }
-local OWNED_KEYS = { unit = true, level = true, ["weft-at"] = true, ["weft-cap"] = true }
+local OWNED_KEYS = { unit = true, level = true, decision = true, ["weft-at"] = true, ["weft-cap"] = true }
 for k in pairs(GOVERNORS) do OWNED_KEYS[k] = true end
 for k in pairs(RENDERER_KEYS) do OWNED_KEYS[k] = true end
 
@@ -547,6 +547,8 @@ local function code_candidate(el)
   for k in pairs(el.attributes) do
     -- `label` alone is no renderer key: it does not make a code span a named value (N24)
     if RENDERER_KEYS[k:lower()] and k:lower() ~= "label" then has_key = true end
+    -- N101: a decision on a name is a named value with a key that does not belong (E51)
+    if k:lower() == "decision" and cond.is_name(el.text) then has_key = true end
   end
   if not (has_class or has_key) then return false end
   if cond.is_name(el.text) then return true end
@@ -1284,6 +1286,18 @@ local function check_key_error(c, what)
   return nil
 end
 
+-- N100, N101: `decision` goes on a `.weft-literal` or a `cite` span; elsewhere it is E51
+local function decision_wrong(what)
+  return string.format(
+    "`decision` goes on a `.weft-literal` span or div, a `cite` span or a `claim()`, not on %s (rule 1.8.12).", what)
+end
+local DECISION_BLANK = "`decision` must not be blank (rule 1.8.12)."
+local function decision_blank(el)
+  local d = el.attributes and el.attributes["decision"]
+  return d ~= nil and not d:match("[^ \t\r\n]")
+end
+local DECISION_ON = { n = "an `n` span", ["if"] = "an `if` span", sign = "a `sign` span", list = "a `list` span" }
+
 local function resolve_code_inner(el, ctx, as_block)
   local shown = shown_code(el)
   local info = info_of(el, ctx, shown)
@@ -1302,6 +1316,7 @@ local function resolve_code_inner(el, ctx, as_block)
   end
   local key_msg = check_key_error(c, "a named value")
   if key_msg then return { fail("construct error", info, key_msg) } end
+  if c.keys.decision ~= nil then return { fail("construct error", info, decision_wrong("a named value")) } end
   local kind, detail = check_construct(c)
   if not kind then kind, detail = check_implemented(c) end
   if not kind then detail = lang_problem(c, "value"); if detail then kind = "value error" end end
@@ -1790,6 +1805,7 @@ local function resolve_text_span(el, ctx)
   if c.id ~= "" then
     return { fail("construct error", info, "A text span takes no `#id` (rule 1.1.9).") }
   end
+  if c.keys.decision ~= nil then return { fail("construct error", info, decision_wrong("a text span")) } end
   local kind, detail = check_construct(c)
   if not kind then detail = lang_problem(c, "text"); if detail then kind = "value error" end end
   if kind then return { fail(kind, info, detail) } end
@@ -1811,6 +1827,10 @@ local function resolve_span_inner(el, ctx)
   end
   local key_msg = check_key_error(c, "a span")
   if key_msg then return { fail("construct error", info, key_msg) } end
+  if c.keys.decision ~= nil then
+    if key ~= "cite" then return { fail("construct error", info, decision_wrong(DECISION_ON[key])) } end
+    if decision_blank(el) then return { fail("construct error", info, DECISION_BLANK) } end
+  end
   if key == "if" then return resolve_if(el, value, ctx, shown, info, c) end
   if key == "n" then return resolve_n(el, value, ctx, shown, info, c) end
   if key == "sign" then return resolve_sign(el, value, ctx, shown, info, c) end
@@ -1949,8 +1969,16 @@ resolve_inlines = function(inlines, ctx)
       el.caption = pandoc.Inlines({})
       out:insert(el)
       i = i + 1
+    elseif t == "Span" and el.classes:includes("weft-literal") and decision_blank(el) then
+      local text = pandoc.utils.stringify(el.content):gsub("[ \t\r\n]+", " ")
+      local info = info_of(el, ctx, string.format("[%s]{.weft-literal}", cut(text, 60)))
+      out:insert(fail("construct error", info, DECISION_BLANK))
+      i = i + 1
     elseif INLINE_CONTAINERS[t] then
-      if t == "Span" and el.classes:includes("weft-literal") then el.attributes["why"] = nil end
+      if t == "Span" and el.classes:includes("weft-literal") then
+        el.attributes["why"] = nil
+        el.attributes["decision"] = nil
+      end
       el.content = resolve_inlines(el.content, ctx)
       out:insert(el)
       i = i + 1
@@ -2043,7 +2071,14 @@ resolve_blocks = function(blocks, ctx)
     OrderedList = function(el) return mark_nested(el, ctx) end,
     DefinitionList = function(el) return mark_nested(el, ctx) end,
     Div = function(el)
-      if el.classes:includes("weft-literal") then el.attributes["why"] = nil end
+      if el.classes:includes("weft-literal") then
+        if decision_blank(el) then
+          local info = info_of(el, ctx, "::: {.weft-literal}")
+          return pandoc.Para({ fail("construct error", info, DECISION_BLANK) })
+        end
+        el.attributes["why"] = nil
+        el.attributes["decision"] = nil
+      end
       if el.classes:includes("cell-output-stdout") then
         local content, changed = pandoc.Blocks({}), false
         for _, b in ipairs(el.content) do
@@ -2217,7 +2252,11 @@ local function tag(el)
     needle, ok = "`" .. el.text .. "`{", prev_not_backtick
   elseif el.t == "Span" then
     local key, value = governor_of(el)
-    if not key then
+    if not key and el.classes:includes("weft-literal") then
+      -- only a blank decision is an error that needs a line
+      if not decision_blank(el) then return nil end
+      needle = string.format('decision="%s"', el.attributes["decision"])
+    elseif not key then
       -- a text span has no key to search for: its first text class
       if not is_text_span(el) then return nil end
       for _, cl in ipairs(el.classes) do
@@ -2241,7 +2280,12 @@ end
 local META_FIELDS = { "title", "subtitle", "abstract", "description" }
 
 local function tag_all(doc)
-  local f = { traverse = "topdown", Inline = tag }
+  local f = { traverse = "topdown", Inline = tag,
+    Div = function(el)
+      if S.src == nil or not el.classes:includes("weft-literal") or not decision_blank(el) then return nil end
+      local idx, line = S.src:find(string.format('decision="%s"', el.attributes["decision"]))
+      if idx then el.attributes["weft-at"] = idx .. ":" .. line; return el end
+    end }
   for _, key in ipairs(META_FIELDS) do
     local v = doc.meta[key]
     local ty = v ~= nil and pandoc.utils.type(v) or nil

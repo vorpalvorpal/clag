@@ -27,13 +27,19 @@
 #' @param ... One or more checks, as expressions in `.` and the caller's
 #'   variables.
 #' @param level `"fail"` (the default) or `"warn"`. It must be given by name.
+#' @param decision `NULL` (the default), one string that is not blank, or one
+#'   whole number from 1: the decision the check rests on. It must be given by
+#'   name. A failure's message ends with `; decision <value>`, and `verify()`
+#'   checks that the pointer resolves (rule 1.8.12). Anything else is an error
+#'   of class `weft_claim_decision`.
 #' @return `x`, unchanged.
 #' @examples
 #' claim(5, . > 1)
 #' claim(c(3, 4), sum(.) == 7, all(. > 0))
 #' @export
-claim <- function(x, ..., level = c("fail", "warn")) {
+claim <- function(x, ..., level = c("fail", "warn"), decision = NULL) {
   frames <- sys.calls()
+  decision <- claim_decision(decision)
   if (!(is.character(level) && length(level) %in% c(1L, 2L) &&
         (length(level) == 2L && identical(level, c("fail", "warn")) ||
          length(level) == 1L && !is.na(level) && level %in% c("fail", "warn")))) {
@@ -70,10 +76,24 @@ claim <- function(x, ..., level = c("fail", "warn")) {
       value = claim_value_text(value),
       errors = errs,
       lens = lens,
-      hints = hints
+      hints = hints,
+      decision = decision
     ), level)
   }
   value
+}
+
+# The decision of a claim() as text, or NULL when there is none; anything that is not one string that
+# is not blank, or one whole number from 1, is E52 (N103).
+claim_decision <- function(d) {
+  if (is.null(d)) return(NULL)
+  if (is.character(d) && length(d) == 1L && !is.na(d) && nzchar(trimws(d))) return(d)
+  if (is.numeric(d) && length(d) == 1L && !is.na(d) && is.finite(d) && d >= 1 && d == round(d) &&
+      is.null(dim(d))) {
+    return(format(d, scientific = FALSE, trim = TRUE))
+  }
+  weft_abort("`decision` of claim() must be one string that is not blank, or a whole number from 1.",
+             "weft_claim_decision")
 }
 
 # Run each check of a `claim()` on `value`, in a child of `penv` where `.` is the
@@ -203,6 +223,9 @@ claim_fail <- function(record, level = "fail") {
       sprintf("%s returned %d values, not a single TRUE (value %s); write all(%s) to require every element",
               record$checks, lens, record$value, record$checks),
       sprintf("%s was FALSE (value %s)", record$checks, record$value)))
+  # N103: the decision ends the detail
+  dec <- if (is.null(record$decision)) "" else paste0("; decision ", record$decision)
+  detail <- paste0(detail, dec)
   s <- active_state()
   inl <- weft_env$inline
   if (identical(level, "warn")) return(claim_warn(record, detail, s, inl, errs, lens, hints))
@@ -235,7 +258,7 @@ claim_fail <- function(record, level = "fail") {
       sprintf("  check `%s` returned %d values, not a single TRUE (value: %s); write all(%s) to require every element",
               record$checks, lens, record$value, record$checks),
       sprintf("  check `%s` failed (value: %s)", record$checks, record$value)))
-  lines <- ifelse(is.na(hints), lines, paste0(lines, "\n    ", hints))
+  lines <- ifelse(is.na(hints), paste0(lines, dec), paste0(lines, dec, "\n    ", hints))
   msg <- paste(c(sprintf("weft: %d failed claim%s", length(record$checks),
                          if (length(record$checks) == 1L) "" else "s"), lines),
                collapse = "\n")
@@ -306,7 +329,8 @@ claim_warn <- function(record, detail, s, inl, errs, lens, hints = rep(NA_charac
       sprintf("check `%s` returned %d values, not a single TRUE (value: %s)",
               record$checks, lens, record$value),
       sprintf("check `%s` failed (value: %s)", record$checks, record$value)))
-  lines <- ifelse(is.na(hints), lines, paste0(lines, "\n    ", hints))
+  dec <- if (is.null(record$decision)) "" else paste0("; decision ", record$decision)
+  lines <- ifelse(is.na(hints), paste0(lines, dec), paste0(lines, dec, "\n    ", hints))
   for (l in lines) weft_warn(paste0("weft: ", l), class = "weft_claim_warning")
   invisible(NULL)
 }

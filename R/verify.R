@@ -141,15 +141,18 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
   # 2. decisions
   if (!is.na(why("decisions"))) {
     set_part("decisions", "skipped", paste0("skipped: ", why("decisions")))
-  } else if (!file.exists(file.path(root, "dict.yml"))) {
-    set_part("decisions", "skipped", "skipped: no dict.yml")
   } else {
-    d <- verify_decisions(root, cfg)
-    res$decisions <- d$table
-    res$decision_error <- d$error
-    n <- sum(d$table$resolved %in% FALSE) + length(d$error)
-    reasons <- reasons + n
-    set_part("decisions", if (n) "failed" else "ran", d$detail)
+    dp <- verify_document_pointers(root, docs)
+    if (!file.exists(file.path(root, "dict.yml")) && !nrow(dp)) {
+      set_part("decisions", "skipped", "skipped: no decision pointers")
+    } else {
+      d <- verify_decisions(root, cfg, dp)
+      res$decisions <- d$table
+      res$decision_error <- d$error
+      n <- sum(d$table$resolved %in% FALSE) + length(d$error)
+      reasons <- reasons + n
+      set_part("decisions", if (n) "failed" else "ran", d$detail)
+    }
   }
 
   # 3. render
@@ -420,16 +423,43 @@ verify_base_side <- function(gi, since_sha, files_rel) {
 
 # ---- the decisions part (G24.2) ---------------------------------------------------------------------
 
-verify_decisions <- function(root, cfg) {
+# The decision pointers of the documents verified (N104): the scanner's rows on a `.weft-literal` and a
+# `cite`, and each `claim()` with a literal `decision`.
+verify_document_pointers <- function(root, docs) {
+  rows <- lapply(docs, function(rel) {
+    tryCatch(decision_pointer_rows(lint_open(root, rel)), error = function(e) NULL)
+  })
+  rows <- rows[!vapply(rows, is.null, NA)]
+  if (!length(rows)) return(decision_pointer_rows(list(invalid = TRUE)))
+  do.call(rbind, rows)
+}
+
+verify_decisions <- function(root, cfg, doc_pointers = verify_document_pointers(root, character())) {
   f <- file.path(root, "dict.yml")
-  dict <- tryCatch(read_dict(f), error = function(e) e)
-  if (inherits(dict, "error")) {
-    return(list(table = verify_empty_decisions(), error = conditionMessage(dict),
-                detail = "dict.yml does not read"))
+  tb <- verify_empty_decisions()[, c("file", "line", "key", "decision")]
+  if (file.exists(f)) {
+    dict <- tryCatch(read_dict(f), error = function(e) e)
+    if (inherits(dict, "error")) {
+      return(list(table = verify_empty_decisions(), error = conditionMessage(dict),
+                  detail = "dict.yml does not read"))
+    }
+    e <- attr(dict, "entries")
+    has <- !is.na(e$decision)
+    tb <- data.frame(file = rep(as.character(attr(dict, "file")), sum(has)), line = as.integer(e$line[has]),
+                     key = e$key[has], decision = e$decision[has], stringsAsFactors = FALSE)
   }
-  tb <- tryCatch(check_decisions(dict, resolver = cfg$decisions, root = root), error = function(e) e)
-  if (inherits(tb, "error")) {
-    return(list(table = verify_empty_decisions(), error = conditionMessage(tb), detail = "the pointers were not checked"))
+  tb <- rbind(tb, doc_pointers[, c("file", "line", "key", "decision")])
+  tb$resolved <- rep(NA, nrow(tb))
+  tb$detail <- rep("", nrow(tb))
+  if (nrow(tb)) {
+    tb <- tryCatch({
+      route <- decisions_route(cfg$decisions)
+      decisions_resolve(tb, route, root)
+    }, error = function(e) e)
+    if (inherits(tb, "error")) {
+      return(list(table = verify_empty_decisions(), error = conditionMessage(tb),
+                  detail = "the pointers were not checked"))
+    }
   }
   tb <- as.data.frame(tb, stringsAsFactors = FALSE)
   bad <- sum(tb$resolved %in% FALSE)
