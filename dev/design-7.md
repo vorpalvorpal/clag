@@ -595,8 +595,9 @@ commit-msg: 1 check gone since HEAD (information: what still checks each; rule 6
 
 ```
 
-The same mirror document, with three claims on `n_up`, one on `max(turb)`
-and one claim that is not read, before the deletion:
+The same mirror document, with three claims `claim(n_up, . >= 10)` on
+`n_up` (a name assigned once), one on `max(turb)` and one claim that is not
+read, before the deletion:
 
 ```r
 checks()
@@ -608,6 +609,7 @@ checks()
 #>       checked in 3 places with the same condition: check it once where the value is made
 #>   turb_max  [operators]
 #>     turb_max >= trigger     9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
+#>       checked in 9 places with the same condition: check it once where the value is made
 #>     turb_max > trigger      1  line 64
 #>   max(turb)
 #>     max(turb) < u(50, NTU)  1  line 120
@@ -901,7 +903,7 @@ checks()
   relation (a < b, a > b, a ≠ b) and B is checked by R (a claim, or a guard
   of a document the hooks resolve), the two literals must also differ when
   R reads each as a double (`as.numeric()` of the canonical text): R
-  compares doubles, so `x >= 0.1` does not imply `x > 0.1000000000000000001`.
+  compares doubles, so `x >= 0.1000000000000000001` does not imply `x > 0.1`.
   A cell that needs a ≤ b, a ≥ b or a = b holds under both readings, because
   rounding to a double keeps order. Dates compare by their text (fixed width,
   so text order is calendar order). Strings and bools are equal or not,
@@ -1357,8 +1359,10 @@ filled.
   `claim(max(turbidity), . < u(50, NTU))` reads `max(turbidity)`, `<`,
   `u(50, NTU)`; so do `turbidity |> max() |> claim(. < u(50, NTU))`,
   `claim(max( turbidity ), ...)`, `claim((max(turbidity)), ...)` and the
-  call over two lines with a comment between them; `claim(f('a'), . > 0)`
-  has `value` `f("a")`, `claim(f(5.0), . > 0)` `f(5)`; each of `max((t))`,
+  call over two lines with a comment between them; `claim(f(x, 'a'), . > 0)`
+  has `value` `f(x, "a")`, `claim(f(x, 5.0), . > 0)` `f(x, 5)` and
+  `claim(f(x, 1e3), . > 0)` `f(x, 1000)`; `claim(f('a'), . > 0)` reads no
+  name and is not usable (N150 rule 1); each of `max((t))`,
   `base::max(t)`, `round(t, 1)`, `round(t, digits = 1)`,
   `t %>% max()` and `max(t, na.rm = TRUE)` a value of its own;
   `n <- claim(max(t), . < 5)` reads `n < 5`; a single expression check in a
@@ -1385,8 +1389,9 @@ filled.
   cases), on numbers, and the same 108 on dates and on quantities of one
   unit; quantities in two units never; strings and bools in their four
   cells; the bool checks `x` and `!x` against each of the six bool forms; every example of N129's last paragraph; the strict-cell double guard
-  (`x >= 0.1` against `x > 0.1000000000000000001` in a claim: no; in a filter
-  guard: yes); `dec_cmp()` equal to `cond.lua`'s `num_cmp()` (through
+  (`x >= 0.1000000000000000001` against `x > 0.1` in a claim: no, though exactly
+  a > b, because as doubles the two are equal; in a filter guard, which
+  compares decimal texts: yes); `dec_cmp()` equal to `cond.lua`'s `num_cmp()` (through
   `helper-lua.R`) on a shared list of at least 30 pairs (signs, zeros, `-0`,
   exponents, trailing zeros, 25 digits); N131: identity, one implying
   check, a warned one covering only a warned one, an `unknown` level both
