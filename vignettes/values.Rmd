@@ -88,6 +88,76 @@ fmt_num(2024)
 weft rounds half away from zero, on the number as written: 0.15 prints
 "0.2". It prints the minus sign as the true minus (U+2212).
 
+### A sign on a difference: `.plus`
+
+A difference reads better with its sign. `.plus` prints `+` before a
+number above zero:
+
+```{verbatim, lang = "markdown"}
+The mean rose by `r d_mean`{.num .plus} mg/L (`r d_pct`{.pct .plus}).
+The change ranged `r d_rng`{.range .plus} across sites.
+```
+
+```text
+The mean rose by +1.2 mg/L (+12%).
+The change ranged −0.5 to +1.2 across sites.
+```
+
+with `d_mean <- 1.2`, `d_pct <- 0.12` and `d_rng <- c(-0.5, 1.2)`. A
+negative number keeps its minus. A number that prints as zero has no sign,
+as it has no minus. Under `.range` the ends are joined by " to " when
+either end has a sign, so no dash stands next to a sign:
+
+```{r}
+fmt_num(c(1.25, 0, -1.25), plus = TRUE)
+fmt_range(c(1.2, 3.4), plus = TRUE)
+fmt_range(c(0, 1.2), plus = TRUE)
+```
+
+`.plus` goes with `.num` or `.pct` (alone, it implies `.num`), with a list
+class, and with `.a`: `` `r ri("8")`{.num .plus .a} `` prints "a +8". With
+`.sci`, `.p`, `.date`, `.no`, a wording class or `.val`, or on an `n`,
+`if`, `sign`, `list` or `cite` span, it is a construct error. No setting
+signs every number: a sign belongs to a difference, and a project-wide
+sign would print "+12 sites".
+
+### p-values: `digits` and `label`
+
+By default `.p` prints three decimals below 0.1 and two from 0.1 up, with
+"p < 0.001" and "p > 0.99" at the ends. `digits` fixes the number of
+decimals, and the ends move with it, so "p = 0.000" never prints:
+
+```{r}
+fmt_p(c(0.0004, 0.046, 0.12, 0.995))
+fmt_p(c(0.0004, 0.046, 0.12, 0.9996), digits = 3)
+fmt_p(c(0.004, 0.046, 0.995), digits = 2)
+```
+
+With `digits = 3`, a value below 0.001 prints "p < 0.001", a value that
+would round to 1 prints "p > 0.999", and any other value prints with
+exactly three decimals, trailing zeros kept: "p = 0.120". `digits` on `.p`
+is a whole number from 1 to 6. `sigfig` on `.p` is a construct error.
+
+`label` sets the text before the relation. Use it for an adjusted value,
+or leave it empty to print the number alone:
+
+```{verbatim, lang = "markdown"}
+The trend was weak (`r fit_p`{.p digits="3"}).
+After correction it held (`r fit_q`{.p label="q"}).
+Effects were small (`r fit_p`{.p label=""}).
+```
+
+```text
+The trend was weak (p = 0.046).
+After correction it held (q = 0.003).
+Effects were small (0.046).
+```
+
+The label is printed as written, so `label="*p*"` prints an italic p.
+`label` on anything but `.p` is a construct error. The settings
+`p_digits` and `p_label` set both for a project, and a key on the value
+wins over them.
+
 ## Counts and wording
 
 ```{verbatim, lang = "markdown"}
@@ -146,7 +216,7 @@ Flagged sites: none.
 |---|---|
 | `.and`, `.or` | the items joined with "and" or "or" |
 | `.pairs` | a named vector as "A (1.2), B (3.4) and C (5.6)" |
-| `.range` | two numbers as a range ("3–5"), or "−5 to −3" when an end is negative |
+| `.range` | two numbers as a range ("3–5"), or "−5 to −3" when an end is negative or, with `.plus`, signed |
 | `.ul`, `.ol`, `.dl` | a bullet list, a numbered list or a definition list |
 
 A vector with no list class prints its items joined by ", ", as knitr
@@ -176,8 +246,9 @@ value in double quotes.
 
 | Key | Sets |
 |---|---|
-| `digits` | decimal places |
-| `sigfig` | significant figures (not with `digits`) |
+| `digits` | decimal places (on `.p`, a whole number from 1 to 6) |
+| `sigfig` | significant figures (not with `digits`, not on `.p`) |
+| `label` | the text before a p-value's relation, `.p` only |
 | `unit` | the unit a quantity prints in (see the units article) |
 | `sep` | the text between list items |
 | `last` | the text before the last item |
@@ -190,7 +261,8 @@ value in double quotes.
 
 Classes act in four fixed stages, whatever order you write them in:
 
-1. **Number**: at most one of `.num`, `.pct`, `.sci`, `.p`, `.date`.
+1. **Number**: at most one of `.num`, `.pct`, `.sci`, `.p`, `.date`;
+   and `.plus`, which is in no group.
 2. **Wording**: `.no`, then at most one of `.word`, `.count`, `.ord`.
 3. **List**: at most one of `.and`, `.or`, `.pairs`, `.range`, `.ul`,
    `.ol`, `.dl`.
@@ -338,6 +410,8 @@ values are:
 | `serial_comma` | `false` | a comma before the final "and" or "or" of three or more items |
 | `minus` | `"−"` | the minus sign |
 | `pct_proportion` | `true` | whether `.pct` reads 0.12 as 12% |
+| `p_digits` | `null` | the decimals of `.p`, 1 to 6; `null` keeps the default rule |
+| `p_label` | `"p"` | the text before a p-value's relation; may be `""` |
 | `count_threshold` | `10` | where `.count` switches from words to digits |
 | `word_limit` | `100` | where `.word` switches to digits |
 | `date_format` | `"%-d %B %Y"` | the format of `.date` |

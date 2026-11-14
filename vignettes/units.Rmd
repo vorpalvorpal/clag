@@ -312,6 +312,11 @@ writeLines(c(
   "  value: 5",
   "  type: number",
   "  definition: \"Fewest samples a site needs in a season.\"",
+  "do_band:",
+  "  value: [6.5, 8.5]",
+  "  type: range",
+  "  unit: mg/L",
+  "  definition: \"Acceptable band of dissolved oxygen.\"",
   "first_year:",
   "  value: 2014",
   "  type: year",
@@ -343,6 +348,7 @@ writeLines(c(
 |---|---|---|
 | `number` | a number | a number |
 | `quantity` | a number, with a `unit` | a quantity, in its `display` unit when it has one |
+| `range` | two numbers, lower then upper, with an optional `unit` | a pair named `lower` and `upper`, a quantity pair when it has a unit |
 | `year` | a four-digit year | a year, which never gets a thousands mark |
 | `date` | `YYYY-MM-DD` | a `Date` |
 | `string` | text | a string |
@@ -383,12 +389,47 @@ read_dict("bad.yml")
 ```
 
 Besides the three required fields, an entry may have `unit` and `display`
-(quantities only), `decision`, `term` and `avoid`. `decision` points at the
-record of why the value was chosen, such as a GitHub issue number;
-`verify()` checks that each pointer resolves. The setting `decisions` in
-`_weft.yml` says where pointers resolve: `github` (the default),
-`github:<owner>/<repo>`, a file pattern such as `decisions/{id}-*.md`, or a
-function.
+(quantities and ranges only; `display` only with `unit`), `decision`, `term`
+and `avoid`. `decision` points at the record of why the value was chosen,
+such as a GitHub issue number; `verify()` checks that each pointer
+resolves. The setting `decisions` in `_weft.yml` says where pointers
+resolve: `github` (the default), `github:<owner>/<repo>`, a file pattern
+such as `decisions/{id}-*.md`, or a function. A typed number in prose, a
+`cite` span and a `claim()` can carry a pointer too (see
+`vignette("wording", package = "weft")`).
+
+### Bands: the `range` type and `in_range()`
+
+A `range` entry holds an accepted band: two finite numbers, the lower
+strictly below the upper. A limit on one side only is a `number` or
+`quantity` entry. `.range` prints the band with the unit once, and
+`in_range()` tests a value against it, bounds included:
+
+```{r}
+dict$do_band
+fmt_range(dict$do_band)
+dict$do_band[["lower"]]
+in_range(u(c(6.1, 7.2), mg/L), dict$do_band)
+```
+
+In a document the test chooses the wording:
+
+```{verbatim, lang = "markdown"}
+The acceptable band is `r dict$do_band`{.range}, and the mean was
+[within | outside]{if="in_range(do_mean, dict$do_band)"} it.
+```
+
+A quantity is converted to the band's unit first. A plain number against a
+band with a unit, or a unit that does not convert, is a value error:
+
+```{r, error = TRUE}
+in_range(7.2, dict$do_band)
+```
+
+`in_range()` gives `NA` where the value is `NA`. It is R only: a document the filter resolves has no dictionary,
+so publish the result as a bool (see
+`vignette("named-values", package = "weft")`). `changes()` treats both
+bounds of a band as thresholds a value can cross.
 
 ### A chapter's own values
 

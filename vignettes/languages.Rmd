@@ -644,6 +644,20 @@ with its hash in the ledger's header. The chunk above gives:
 So is a literal path given to `JuliaCall::julia_source()` in an R chunk. A
 file that a package loads through `using` is not.
 
+### Julia on Linux
+
+On Linux, R puts the system's library folders first on the library search
+path. Julia started inside R could then load the system's `libunwind`
+instead of its own, and crash with a segmentation fault the first time it
+handled an exception, even one caught at once (precompiling a package does
+this). weft now loads Julia's own `libunwind` before it starts Julia, and
+starts any Julia child process, such as a render on the Julia engine from
+`verify()`, without those folders on the path. If an R chunk calls
+`JuliaCall::julia_setup()` itself before the first Julia chunk or
+`jl_value()` read, weft cannot step in first, and with JuliaCall 0.17.6
+(the CRAN release) the crash can still happen. Leave starting Julia to
+weft. macOS is not affected.
+
 ### Calling weft from Julia
 
 weft offers no Julia module of function forms. (The Julia package `Weft` has
@@ -697,3 +711,9 @@ reactive can be marked `[...]{.weft-literal why="..."}`.
   when it need not be, never the reverse.
 - Python chunks need reticulate's engine; `python.reticulate = FALSE` is
   not supported.
+- A Python or Julia `claim()` stops its chunk at once even under
+  `chunk_claims: collect`, and takes no `decision` pointer.
+- Tables that a Python or Julia chunk prints are not recorded in the
+  ledger, nor are tables in a document on the Jupyter or Julia engine.
+- `checks()` and the gate's check lines do not read Python or Julia
+  checks; they list them as not read.

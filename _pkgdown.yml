@@ -27,6 +27,7 @@ articles:
     navbar: Projects
     contents:
       - setup
+      - adopting
       - agents
 
 reference:

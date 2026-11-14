@@ -212,9 +212,13 @@ claim(61, . < 50)
   pipeline.
 - `vignette("languages", package = "weft")`: Python and Julia values in
   prose.
+- `vignette("named-values", package = "weft")`: values by name, for
+  documents whose prose cannot call R.
 - `vignette("lints", package = "weft")`: the static checks.
 - `vignette("gate", package = "weft")`: the commit gate, the ledger,
   `changes()` and `verify()`.
 - `vignette("setup", package = "weft")`: setting up a project.
+- `vignette("adopting", package = "weft")`: bringing an existing long
+  report across, step by step, and choosing how hard each check fails.
 - `vignette("agents", package = "weft")`: what an AI coding agent needs to
   know.

@@ -152,6 +152,47 @@ The worst reading was `worst`{.pairs}.
 The worst reading was Upper (12.6).
 ```
 
+## Text a chunk prints
+
+A chunk with `results = "asis"` that prints sentences, one per site or one
+per model, writes text that knitr's hooks never see as prose. Typing the
+numbers into that text with `paste()` or `sprintf()` loses every check.
+There are two ways to keep them, and they print the same.
+
+**`weft_str()`** resolves the markup in R, at once, and returns markdown.
+Its constructs are R expressions, so units, the dictionary and project
+formatters all work:
+
+````{verbatim, lang = "markdown"}
+```{r, results = "asis"}
+cat(weft_str("We sampled [a site | # sites]{n=\"n_sites\"}, mean `r mean_ntu`{.num} NTU."), "\n")
+```
+````
+
+**A named value** leaves the markup for the filter. Publish the values
+first, then print text that names them:
+
+````{verbatim, lang = "markdown"}
+```{r, results = "asis"}
+weft_put(n_sites, mean_ntu)
+cat("We sampled [a site | # sites]{n=\"n_sites\"}, mean `mean_ntu`{.num} NTU.\n")
+```
+````
+
+Both print:
+
+```text
+We sampled 3 sites, mean 8.2 NTU.
+```
+
+Under `weft_str()` a failed check, a missing value or a value error is
+collected as it is in prose and marked with the chunk that printed it. A
+named value is checked by the filter, so its text keeps to the filter's
+grammar (no units, no R expressions), but a check given to `weft_put()`
+travels with the value and counts each time the name is used. Use
+`weft_str()` for text that needs R; use a name when the same text also
+comes from Python or Julia, or from a values file.
+
 ## Publishing from Python
 
 For a notebook on the Jupyter engine, install the Python package in the
@@ -261,14 +302,19 @@ gate and `verify()`, R with weft installed.
 **Quarto project.** Run `weft::use_quarto()`. It writes the extension
 `_extensions/weft-check/`, which holds the filters `weft.lua` and
 `weft-check.lua` and the folder `weftlib/`, and names it under `filters:` in
-`_quarto.yml`. `weft.lua` runs first. `use_quarto()` also prints the install
+`_quarto.yml`. `weft.lua` runs first. The extension also holds
+`weft-output.lua`, the rendered-output check, which `_quarto.yml` names by
+its path to run after Quarto's own filters (see `vignette("gate", package =
+"weft")`). `use_quarto()` also prints the install
 line for the language packages when the project has a document that needs
 them.
 
 **R Markdown.** Run `weft::use_setup()`. For an `.Rmd` outside a Quarto
-project it copies `weft.lua`, `weft-check.lua` and `weftlib/` beside the
-document and names them in `pandoc_args`. A document set up before named
-values that names only `weft-check.lua` gets `weft.lua` added before it.
+project it copies `weft.lua`, `weft-check.lua`, `weft-output.lua` and
+`weftlib/` beside the document and names them in `pandoc_args`. A document
+set up before named values that names only `weft-check.lua` gets `weft.lua`
+added before it, and one set up before the rendered-output check gets
+`weft-output.lua` added last.
 
 **Python.** The pip line above. `weft::status()` gains a `python` row when
 the project has a Jupyter-engine document, and says whether `import weft`
@@ -308,11 +354,13 @@ knit it resolves every weft construct. In a knitr document it resolves named
 values and any span that reaches Pandoc still carrying a governor.
 
 It implements the number, wording, collapse and text classes: `.num`, `.pct`,
-`.val`, `.sci`, `.p`, `.date`, `.no`, `.word`, `.count`, `.ord`, `.and`,
-`.or`, `.pairs`, `.range`, `.ul`, `.ol`, `.dl`, `.a`, `.cap`, `.strong`,
-`.em`; the keys `digits`, `sigfig`, `sep`, `last`, `trunc`, `none`; and the
-governors `if`, `n`, `sign` and `list`, ids and back-references, and `cite`
-spans. A float prints as R prints it. An integer or a decimal prints exactly,
+`.val`, `.sci`, `.p`, `.date`, `.plus`, `.no`, `.word`, `.count`, `.ord`,
+`.and`, `.or`, `.pairs`, `.range`, `.ul`, `.ol`, `.dl`, `.a`, `.cap`,
+`.strong`, `.em`; the keys `digits`, `sigfig`, `label` (on `.p`), `sep`,
+`last`, `trunc`, `none`; the governors `if`, `n`, `sign` and `list`, ids and
+back-references; `cite` spans; and `decision` on a `cite` span or a
+`.weft-literal`, which it removes from the output. It reads the settings
+`p_digits` and `p_label`. A float prints as R prints it. An integer or a decimal prints exactly,
 whatever its size.
 
 ### Where the filter's grammar differs from R's
@@ -373,13 +421,83 @@ More differences:
 - `.ord`, `.word`, `.count`, `.range` and the `n` and `sign` governors work from
   the exact digits of an integer. `.ord` of 9007199254740993 prints
   `9,007,199,254,740,993rd`, with no rounding past 2^53.
-- Order matters. A construct sees the names published above it. A name used
-  above every publication of it has "no value". Captions and the front-matter
-  fields `title`, `subtitle`, `abstract` and `description` see each name's last
-  published value, so a named value works in any caption on any chunk. A named
-  value in another front-matter field is a failure that says the filter does not
-  resolve that field.
+- Order matters. A construct sees the latest value published above it. A
+  name used above every publication of it takes the value published below,
+  when there is exactly one (see "A name used above its value" below).
+  Captions and the front-matter fields `title`, `subtitle`, `abstract` and
+  `description` see each name's last published value, so a named value works
+  in any caption on any chunk. A named value in another front-matter field is
+  a failure that says the filter does not resolve that field.
 - A named value in an arm that is not chosen is never read.
+
+### Richer conditions: publish a bool
+
+A condition the filter reads is a comparison of a name against a name or a
+literal, with one of six operators: `<`, `<=`, `>`, `>=`, `==` and `!=`. A
+bool name on its own, or with `!` before it, is a condition too. For
+anything richer, compute it in code and publish the answer as a bool:
+
+```python
+put(all_rising=all(s > 0 for s in slopes), in_band=6.5 <= do_mean <= 8.5)
+```
+
+```r
+weft_values_write("_weft/values/survey.json",
+                  all_rising = all(trend$slope > 0),
+                  in_band = in_range(do_mean, dict$do_band))
+```
+
+```markdown
+[All]{if="all_rising"} sites rose, and the mean was
+[within | outside]{if="in_band"} the band.
+```
+
+The code that computes the bool is where the reasoning lives, and it can be
+read and tested there. In a knitr document none of this is needed: an `if`
+span takes any R expression.
+
+## A name used above its value
+
+A summary at the top of a document often states a value that a chunk
+further down computes. A named value can be used above the code that
+publishes it, provided the name takes exactly one value in the document:
+
+````{verbatim, lang = "markdown"}
+In summary, `n_sites`{.count} sites were sampled.
+
+```{r}
+n_sites <- nrow(sites)
+```
+````
+
+The filter looks ahead, finds the one value published under `n_sites`, and
+prints it. This works on every engine, in knitr documents too. Several
+publications count as one value when they agree: a `weft_put()` in a loop
+that publishes the same value each time, or a values file and a block that
+agree. A missing value counts as a value.
+
+When the document publishes different values under the name below the use,
+the filter cannot tell which one the sentence means, and the render fails:
+
+```text
+weft: 1 failure
+  b.md:1  [no value] `n`{.count}
+      `n` is used above its first publication, and the document publishes 2 different values for it below; a use above every publication needs a name that takes one value (rule 1.12.7).
+      Move the sentence below the value it means, or publish that value under a name of its own.
+```
+
+A use below a publication is unchanged: it takes the latest value above it.
+
+Inline R is not covered. `` `r ri("n_sites")` `` above the chunk is
+evaluated where it stands, before `n_sites` exists. When it fails with
+"object not found", the hint says to write it as a named value instead.
+
+One trap is left under knitr. If you render with `rmarkdown::render()` in
+an interactive session that still holds an old `n_sites` in the global
+environment, the hooks publish that old value at the first block of prose,
+so the sentence is no longer above every publication and prints the old
+value. Render in a fresh R session, as the Knit button and `quarto render`
+do.
 
 ## Checks
 
@@ -431,6 +549,9 @@ span it resolves, either key is a construct error that says so, because the
 check would never run. Use a guard span, or `claim()` in code. On an R value
 in a knitr document, `level` passes through as it did.
 
+`checks()` lists these guards with the rest of a project's checks, grouped
+by the name they check (see `vignette("wording", package = "weft")`).
+
 ## What failure looks like
 
 The filter does not stop at the first problem. It marks each failure in the
@@ -466,10 +587,10 @@ cell whose attribute holds `\|` is found too.
 
 ### The traps
 
-A name used before it is published:
+A name published nowhere in the document:
 
 ```text
-no value is published under the name `depth` above this point (rule 1.12.7).
+no value is published under the name `depth` in this document (rule 1.12.7).
 Publish it in code above: weft_put(depth = ...) in R, put(depth=...) in
 Python, @put depth in Julia. A cell with include: false or output: false
 publishes nothing on the jupyter and julia engines.
@@ -599,6 +720,10 @@ file are not counted.
   checked where it runs.
 - Units, the dictionary and project formatters stay in R.
 - The filter does not follow symbolic links when it reads a values file.
+- Inline R used above the code that defines its value is not resolved
+  later; only a named value is.
+- Tables in a document the filter resolves (Jupyter, Julia, markdown) are
+  not recorded in the ledger.
 - A guest `claim` counts in the commit gate only in an executed chunk, so
   turning `eval` off on a Python chunk with a claim reads as a removal.
 - `.sci` prints some whole mantissas inconsistently (`1 x 10^10` but

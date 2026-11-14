@@ -298,7 +298,8 @@ Where the check runs decides what happens when it fails:
 - In inline R during a knit (prose, a caption, a `weft_str()` string), the
   failure is collected and the render fails at the end with the full report.
 - Everywhere else (chunk code, a targets pipeline, the console), it stops at
-  once with an error of class `weft_claim_failed`.
+  once with an error of class `weft_claim_failed`. A project can collect
+  failures in chunk code too: see "Collecting failures in chunk code" below.
 
 ```{r, error = TRUE}
 n_exceed <- 7
@@ -331,6 +332,157 @@ it, such as `claim(x, TRUE)`: the lint `inert-check` finds it.
 When a check fails, the report asks you to read the sentence. Either the
 sentence, the check or the data is wrong. Loosening the check until it
 passes hides a sentence that is no longer true.
+
+### Collecting failures in chunk code
+
+A long report makes most of its values in chunks. By default the first
+claim that fails there stops the knit, and the claims after it never run.
+To see them all in one render, set in `_weft.yml` (or under a document's
+`weft:` key):
+
+```yaml
+chunk_claims: collect
+```
+
+A claim in chunk code that fails is then recorded, `claim()` returns its
+value as if the check had passed, and the knit goes on. The render fails at
+the end with every failure listed. Here is a chunk, `data`, with two claims
+that fail:
+
+```r
+up <- c(TRUE, FALSE, TRUE, TRUE, FALSE, TRUE, TRUE, TRUE, FALSE, TRUE)
+n_sites <- length(up)
+n_up <- claim(sum(up), . >= 10)
+share <- claim(n_up / n_sites, . > 0.8)
+```
+
+```{verbatim, lang = "text"}
+weft: 2 claims failed
+  a.Rmd chunk data
+      . >= 10 was FALSE (value 7L)
+  a.Rmd chunk data
+      . > 0.8 was FALSE (value 0.7)
+Read each sentence. If FALSE is right, rewrite the sentence.
+Do not loosen a claim to clear this.
+```
+
+This covers chunk code, the functions it calls, the files it `source()`s
+and the chunk options knitr evaluates. In draft mode the failures are
+reported and the render does not fail.
+
+A value that failed its claim can make a later chunk fail with an ordinary
+error. When the knit stops on such an error, weft lists the claims first,
+because the error may follow from them:
+
+```{verbatim, lang = "text"}
+weft: the knit stopped on an error after 2 failed claims in chunk code. The claims are listed first: the error may follow from a value that failed its claim.
+weft: 2 claims failed
+  b.Rmd chunk data
+      . >= 10 was FALSE (value 7L)
+  b.Rmd chunk data
+      . > 0.8 was FALSE (value 0.7)
+Read each sentence. If FALSE is right, rewrite the sentence.
+Do not loosen a claim to clear this.
+The error that stopped the knit:
+  the model did not fit
+```
+
+Some claims still stop at once, whatever the setting:
+
+- a claim outside a knit, at the console or in a script;
+- a claim in a running `targets` target, so that a value that failed its
+  claim is never stored as good;
+- a claim in another process, such as a `callr`, `future` or `mirai`
+  worker; its error reaches the chunk as an ordinary error;
+- a `claim()` in a Python or Julia chunk.
+
+The setting changes nothing in the commit gate: a claim counts there as
+before.
+
+### Check a value once, where it is made
+
+A value that several sentences rely on tends to be checked in each of
+them: a guard here, a claim there. The checks drift. One sentence guards
+`turb_max > trigger`, a later one `turb_max >= trigger`, and when the
+stricter one is deleted with its sentence, the document checks less than
+it did and nobody sees it.
+
+Check the value once, in the chunk that makes it, and use the name after:
+
+```r
+n_up <- claim(sum(trend$up), . >= 10)
+```
+
+```{verbatim, lang = "markdown"}
+Turbidity rose at `r n_up` sites. Of the `r n_up` sites that rose, ...
+```
+
+`claim()` returns its value, so `n_up` is the checked value, and every
+sentence that prints it rests on that one check. Combined with
+`chunk_claims: collect`, a failure there is listed at the end of the render
+with the rest.
+
+### Seeing every check: `checks()`
+
+`checks()` reads the documents of a project, runs nothing, and lists each
+check by the value it checks: one-arm guards, `claim()` checks, and the
+conditions of two-arm `if` spans, which choose wording and fail nothing.
+Here a document checks `n_up` in three places, and `turb_max` against the
+trigger with two operators:
+
+```{verbatim, lang = "text"}
+weft checks: 15 checks of 3 values in 1 document; 1 value flagged
+
+report.qmd
+  n_up
+    n_up >= 10              3  lines 8, 44, 90
+      checked in 3 places with the same condition: check it once where the value is made
+  turb_max  [operators]
+    turb_max >= trigger     9  lines 12, 20, 31, 40, 52, 70, 88, 97, 105
+    turb_max > trigger      1  line 64
+  max(turb)
+    max(turb) < u(50, NTU)  1  line 120
+  not read
+    claim(diffs, all(. > 0))  1  line 126
+```
+
+- `[operators]` marks a value checked against the same thing with `>` in
+  one place and `>=` in another (or `<` and `<=`). `[literals]` marks a
+  value checked against two different numbers in one direction, such as
+  `x > 5` and `x > 3`. A lower and an upper bound, `x > 0` and `x < 10`,
+  are not flagged.
+- A check repeated with the same condition in three or more places gets
+  the advice to check it once; `repeats` sets the count.
+- A value assigned in more than one place is marked, because its checks
+  may be of different values.
+
+`checks()` returns a data frame, one row per check, so you can filter it.
+
+What it reads. A check is read when it is a comparison with one of `<`,
+`<=`, `>`, `>=`, `==` and `!=`, each side a name, a dictionary read such
+as `dict$trigger`, a number, a quoted string or date, `TRUE` or `FALSE`, a
+quantity such as `u(50, NTU)`, or a value expression such as
+`max(turbidity)` or `x[1]`; or when it is a bare name or `!name`. In a
+claim, `.` stands for the value: the name claimed, the value piped in, or
+the name the result is assigned to, so
+`n_up <- claim(sum(trend$up), . >= 10)` reads as `n_up >= 10`. Two
+expressions are one value only when they are written alike once spacing,
+line breaks, comments, quote marks and the native pipe are set aside:
+`max(t)` and `base::max(t)` are two values, and `x < 2 * lim` says nothing
+about `x < lim`.
+
+Not read, and listed under "not read": a check that is itself a call
+(`all(. > 0)`, `is.na(.)`, `in_range(., r)`), a check with `&&`, `||` or
+`%in%` at its top, a `.` inside an expression (`mean(.) > 3`), and an
+expression that reads no name, assigns, defines a function, calls a method,
+or calls something whose value changes between two calls (`runif()`,
+`Sys.time()`, `get()`). Python and Julia checks are not read. Binding a
+name, as above, is the way to have every check on a value grouped under
+it.
+
+The commit gate uses the same reading to say, when a check is removed,
+whether one that remains still covers it. See
+`vignette("gate", package = "weft")`.
 
 ## Phrases chosen by key or by range
 
@@ -398,6 +550,25 @@ document, write `weft::of_n()`, or call `library(weft)` in a chunk.
 The tolerance of `about()` and the level of `ci()` come from the settings
 `about_tolerance` (0.05) and `ci_level` (0.95).
 
+`ci()` has three switches. `short = TRUE` drops the level text, `pct = TRUE`
+prints each number as `.pct` does, and `plus = TRUE` signs each number as
+`.plus` does:
+
+```{r}
+ci(2.1, 1.3, 2.9, short = TRUE)
+ci(0.12, 0.08, 0.16, pct = TRUE)
+ci(-0.4, -1.2, 0.4, plus = TRUE)
+ci(0.031, 0.012, 0.052, pct = TRUE, plus = TRUE, short = TRUE)
+```
+
+The setting `ci_short: true` makes the short form the default for a
+project. A short interval that names its own level is an error, because the
+reader would take a 90% interval for a 95% one:
+
+```{r, error = TRUE}
+ci(2.1, 1.3, 2.9, level = 0.9, short = TRUE)
+```
+
 ## Spans in R code
 
 `plural()` is the function form of an `n` span:
@@ -441,6 +612,24 @@ Samples were filtered through 0.45 µm membranes.
 
 The `why` is removed from the output. Both marks exempt the number from the
 `numeral` lint (see `vignette("lints", package = "weft")`).
+
+When the number was chosen by a recorded decision, point at it with
+`decision`, on a `.weft-literal` span or div, on a `cite` span, or in a
+`claim()`:
+
+```{verbatim, lang = "markdown"}
+filtered through [0.45 µm]{.weft-literal why="method" decision="12"} membranes
+reached [10 m]{cite="@doe2019" decision="31"} in the upper reach
+`r claim(n_sites, . >= 10, decision = 31)` sites
+```
+
+The pointer prints nothing and is removed from the output. A failed claim
+says which decision set its bound: ". >= 10 was FALSE (value 7); decision
+31". `verify()` checks that each pointer resolves, as it does for the
+dictionary's (see `vignette("units", package = "weft")`); a `decision` in
+`claim()` is checked when it is written as a literal. A blank `decision`,
+or one on any other construct, is a construct error. Python and Julia
+`claim()` take no `decision` yet.
 
 ## Every wording a document can produce
 
