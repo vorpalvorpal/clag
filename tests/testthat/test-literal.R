@@ -53,7 +53,7 @@ test_that("1.9.1: an ordinary Pandoc div or span with a class that is not .weft-
   expect_equal(nrow(sc("[abc]{.smallcaps why=\"x\"}")), 0L)
 })
 
-test_that("1.9.2: a .weft-literal inside a fence that is not executed is not scanned", {
+test_that("1.1.10, 1.9.1: a .weft-literal inside a fence that is not executed is not scanned", {
   r <- sc("```text\n[0.45]{.weft-literal}\n```")
   expect_equal(nrow(r), 0L)
 })

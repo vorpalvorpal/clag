@@ -1,4 +1,4 @@
-# Package B: stock parity (section 21 "Stock parity", 2.1.7, 1.9.2, 1.3.1) and
+# Package B: stock parity (section 21 "Stock parity", 2.1.7, 1.1.10, 1.3.1) and
 # activation (9.2.1, 9.2.5, 9.2.6, 2.1.3, section 21 "Activation").
 #
 # Parity is always against the same engine without the hooks: the same
@@ -7,8 +7,8 @@
 
 PRE_X <- "k <- 3; x <- 1.2; flag <- TRUE"
 
-# A document with no attribute block anywhere (apart from the ones inside the
-# fence and the comment, where weft changes nothing: 1.9.2).
+# A document with no attribute block that weft reads anywhere. Inline R in the fence and the comment is
+# read by weft (1.1.10), so it carries no class block here; the bracketed span in the fence is not read.
 parity_body <- c(
   "Bare values: `r k` and `r x` and `r NA_real_` and `r \"a*b_c\"` and `r TRUE` and `r NULL`",
   "and `r 1/3` and `r 1e6` and `r 123456789` and `r pi` and `r as.Date('2020-01-02')`",
@@ -24,10 +24,10 @@ parity_body <- c(
   "```",
   "",
   "```text",
-  "fence `r k` and `r x`{.num} and [a | b]{if=\"flag\"}",
+  "fence `r k` and `r x` and [a | b]{if=\"flag\"}",
   "```",
   "",
-  "<!-- comment `r k` and `r x`{.num} -->",
+  "<!-- comment `r k` and `r x` -->",
   "",
   "Plain [span]{.smallcaps} and [link](http://x.org) and [a | b] text and a citation [@smith2020].",
   "",
@@ -50,7 +50,7 @@ parity_doc <- function(engine, activate) {
   c(yaml, chunk, parity_body)
 }
 
-test_that("21 Stock parity + 1.3.1 + 1.9.2: no attribute blocks, byte-identical with and without the hooks (rmarkdown)", {
+test_that("21 Stock parity + 1.3.1 + 1.1.10: no attribute blocks, byte-identical with and without the hooks (rmarkdown)", {
   with <- render_rmd(parity_doc("rmd", TRUE), setup = FALSE, keep_yaml = TRUE)
   without <- render_rmd(parity_doc("rmd", FALSE), setup = FALSE, keep_yaml = TRUE)
   expect_false(without$failed, label = without$message)
@@ -58,8 +58,8 @@ test_that("21 Stock parity + 1.3.1 + 1.9.2: no attribute blocks, byte-identical 
   expect_identical(with$text, without$text)
   # the stock behaviours the document leans on, so the comparison is not vacuous
   expect_true(any(grepl("`{r} k`", without$md, fixed = TRUE)), label = "stock rmarkdown leaves {r} alone")
-  expect_true(any(grepl("fence 3 and 1.2{.num}", without$md, fixed = TRUE)), label = "stock evaluates r in a fence")
-  expect_true(any(grepl("comment 3 and 1.2{.num}", without$md, fixed = TRUE)), label = "stock evaluates r in a comment")
+  expect_true(any(grepl("fence 3 and 1.2 and [a | b]{if=\"flag\"}", without$md, fixed = TRUE)), label = "stock evaluates r in a fence")
+  expect_true(any(grepl("comment 3 and 1.2 -->", without$md, fixed = TRUE)), label = "stock evaluates r in a comment")
 })
 
 test_that("21 Stock parity + 2.1.7: plain knitr::knit() output is the same with the hooks installed (setup chunk)", {

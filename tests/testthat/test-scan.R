@@ -417,32 +417,58 @@ test_that("1.1.9: [1234]{.num} is not a construct and has no error", {
   expect_equal(nrow(sc("The value [1234]{.num} stays.")), 0L)
 })
 
-test_that("1.9.2, 1.9.1: fenced blocks that are not executed are skipped", {
-  fences <- c(
-    "```\n`r x`{.num}\n```",
-    "```python\nx = `r x`{.num}\n```",
-    "~~~\n[a | b]{if=\"x\"}\n~~~",
-    "````markdown\n```\n[a | b]{n=\"k\"}\n```\n````",
-    "```text\n`r x`\n```"
+test_that("1.1.10, 1.9.1: inline R in a fenced block that is not a chunk is read; a bracketed span there is not", {
+  rows <- list(
+    list(f = "```\n`r x`{.num}\n```", kind = "value", expr = "x"),
+    list(f = "```python\nx = `r x`{.num}\n```", kind = "value", expr = "x"),
+    list(f = "```text\n`r x`\n```", kind = "bare", expr = "x"),
+    list(f = "~~~{r}\n`r x`\n~~~", kind = "bare", expr = "x")
   )
-  for (f in fences) {
+  for (w in rows) {
+    r <- sc(paste0("Before\n\n", w$f, "\n\nAfter"))
+    expect_equal(nrow(r), 1L, label = w$f)
+    expect_equal(r$kind, w$kind, label = w$f)
+    expect_equal(r$expr, w$expr, label = w$f)
+    expect_equal(r$line, 4L, label = w$f)
+  }
+  # a bracketed span (a multi-code construct) in a fence is not read
+  none <- c(
+    "~~~\n[a | b]{if=\"x\"}\n~~~",
+    "````markdown\n```\n[a | b]{n=\"k\"}\n```\n````"
+  )
+  for (f in none) {
+    expect_equal(nrow(sc(paste0("Before\n\n", f, "\n\nAfter"))), 0L, label = f)
+  }
+  # a real chunk is still never scanned
+  for (f in c("```{r}\n`r x`{.num}\n```", "```{python}\nx = `r x`\n```")) {
     expect_equal(nrow(sc(paste0("Before\n\n", f, "\n\nAfter"))), 0L, label = f)
   }
 })
 
-test_that("1.9.2: the prose after a skipped fence is still scanned, with its line", {
+test_that("1.1.10: the prose after a fence is still scanned, with its line, after the fence's own row", {
   r <- sc("```\n`r x`{.num}\n```\nthen `r y`{.num}")
+  expect_equal(nrow(r), 2L)
+  expect_equal(r$expr, c("x", "y"))
+  expect_equal(r$line, c(2L, 4L))
+  r <- sc("```{r}\n`r x`{.num}\n```\nthen `r y`{.num}")
   expect_equal(nrow(r), 1L)
   expect_equal(r$expr, "y")
   expect_equal(r$line, 4L)
 })
 
-test_that("1.9.2: HTML comments are skipped", {
-  expect_equal(nrow(sc("<!-- `r x`{.num} -->")), 0L)
-  expect_equal(nrow(sc("<!--\n[a | b]{if=\"x\"}\n`r y`\n-->")), 0L)
-  r <- sc("<!-- `r x` -->\n`r y`{.num}")
+test_that("1.1.10: inline R in an HTML comment is read", {
+  r <- sc("<!-- `r x`{.num} -->")
   expect_equal(nrow(r), 1L)
+  expect_equal(r$kind, "value")
+  expect_equal(r$expr, "x")
+  r <- sc("<!--\n`r y`\n-->")
+  expect_equal(nrow(r), 1L)
+  expect_equal(r$kind, "bare")
   expect_equal(r$line, 2L)
+  r <- sc("<!-- `r x` -->\n`r y`{.num}")
+  expect_equal(nrow(r), 2L)
+  expect_equal(r$expr, c("x", "y"))
+  expect_equal(r$line, c(1L, 2L))
 })
 
 test_that("2.10.1: inline R inside math is read", {

@@ -350,7 +350,7 @@ test_that("review C #7: the filter fails on a <<weft: marker in chunk output, a 
   expect_filter_passes(list(clean = c("```", "## [1] \"S 3\"", "```")))
 })
 
-test_that("review C ruling C: a marker in a fenced block that carries a language class is not chunk output and passes (2.9.5, 1.9.2)", {
+test_that("review C ruling C: a marker in a fenced block that carries a language class is not chunk output and passes (2.9.5, 1.1.10)", {
   cases <- list(
     markdown = c("Shown on purpose:", "", "```markdown", "Depth 3<<weft: failed claim, line 4>>", "```"),
     r_class  = c("Shown:", "", "``` {.r}", "x <- '<<weft: no value, line 2>>'", "```"),

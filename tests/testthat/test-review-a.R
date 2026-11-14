@@ -117,8 +117,10 @@ test_that("review A #10: a broken block holding any renderer key is a construct 
   }
 })
 
-test_that("review A #11: an unclosed <!-- mid-line does not hide the rest (1.9.2)", {
-  expect_equal(nrow(st("a <!-- `r x`{.num} -->")), 0L)     # control: a real comment
+test_that("review A #11: an unclosed <!-- does not hide the rest, and a comment's inline R is read (1.1.10)", {
+  r <- st("a <!-- `r x`{.num} -->")     # a real comment: read, as knitr evaluates it
+  expect_equal(nrow(r), 1L)
+  expect_equal(r$kind, "value")
   r <- st("a <!-- unclosed `r x`{.num}")
   expect_equal(nrow(r), 1L)
   expect_equal(r$kind, "value")
@@ -167,12 +169,14 @@ test_that("review A #15: front matter not at character 1 is not scanned as prose
   expect_equal(sum(r$context == "prose"), 0L)
 })
 
-test_that("review A #16: a tilde fence inside a block quote is skipped (1.9.2)", {
+test_that("review A #16: a tilde fence inside a block quote is read (1.1.10)", {
   r <- st("> ~~~\n> `r x`{.num}\n> ~~~\n\n`r y`{.num}")
-  expect_equal(nrow(r), 1L)
-  expect_equal(r$expr, "y")
+  expect_equal(nrow(r), 2L)
+  expect_equal(r$expr, c("x", "y"))
+  expect_equal(r$line, c(2L, 5L))
   r <- st("~~~\n`r x`{.num}\n~~~\n\n`r y`{.num}")          # control: unquoted
-  expect_equal(r$expr, "y")
+  expect_equal(r$expr, c("x", "y"))
+  expect_equal(r$line, c(2L, 5L))
 })
 
 test_that("review A #17: digits or sigfig on a value that is not a number is a value error (1.4.7)", {

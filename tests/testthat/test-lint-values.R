@@ -134,11 +134,13 @@ test_that("3c L22: literal-value in a caption, front matter, a weft_str() string
   expect_c3(cc, "literal-value", character())
 })
 
-test_that("3c L22: literal-value ignores inline code that is not executed or not R", {
-  # fenced non-executed block, indented code, HTML comment
-  expect_c3(c("Text.", "", "```", "`r 10`", "```", "", "After."), "literal-value", character())
+test_that("3c L22 (1.1.10): literal-value reads inline R that knitr evaluates in a plain fence or a comment, not elsewhere", {
+  # a fence that is not a chunk and an HTML comment are read; a chunk is not
+  expect_c3(c("Text.", "", "```", "`r 10`", "```", "", "After."), "literal-value", "10")
+  expect_c3(c("Text.", "", "<!-- `r 10` -->", "", "After."), "literal-value", "10")
+  expect_c3(c("Text.", "", "```{r}", "# `r 10`", "```", "", "After."), "literal-value", character())
+  # indented code
   expect_c3(c("Text.", "", "    `r 10` in indented code", "", "After."), "literal-value", character())
-  expect_c3(c("Text.", "", "<!-- `r 10` -->", "", "After."), "literal-value", character())
   # an inline code span that is not R
   expect_c3(c3_para("The call `10` is code."), "literal-value", character())
   # an eval: false chunk is not executed: no weft_str() reading either

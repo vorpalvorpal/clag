@@ -242,8 +242,8 @@ left_alone_rows <- list(
   ok("1.9.1: an ordinary Pandoc span (left alone)", r"---([abc]{.smallcaps})---", "[abc]{.smallcaps}"),
   ok("1.9.1: a bracket with no attribute block (left alone)", r"---(See [a | b] and [c](http://x.org).)---", "See [a \\| b] and [c](http://x.org)."),
   ok("1.9.1: a citation bracket (left alone)", r"---(As shown [@smith2020].)---", "As shown [@smith2020]."),
-  ok("1.9.2: inline R in a fence that is not executed is stock, the attribute block is text", "```text\nfence `r k`{.num} and [a | b]{if=\"flag\"}\n```", "``` text\nfence 3{.num} and [a | b]{if=\"flag\"}\n```"),
-  ok("1.9.2: inline R in an HTML comment is stock, the attribute block is text", r"---(<!-- comment `r k`{.num} -->)---", "<!-- comment 3{.num} -->"),
+  ok("1.1.10: inline R in a fence that is not a chunk is read and formatted; a bracketed span there is text", "```text\nfence `r k`{.num} and [a | b]{if=\"flag\"}\n```", "``` text\nfence 3 and [a | b]{if=\"flag\"}\n```"),
+  ok("1.1.10: inline R in an HTML comment is read and formatted, with no braces left", r"---(<!-- comment `r k`{.num} -->)---", "<!-- comment 3 -->"),
   ok("1.1.8: bare inline R prints as stock", r"---(Mean `r x` m and `r k` sites.)---", "Mean 1.2 m and 3 sites."),
   ok("1.3.4: a bare NA prints as stock knitr prints it", r"---(Mean depth was `r NA_real_` m.)---", "Mean depth was NA m.")
 )
