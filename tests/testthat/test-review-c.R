@@ -530,7 +530,8 @@ rc_report_proj <- function() {
              "Depth `r claim(depth, . > 100)`{.num} here.")
     rc_rep$actline <- file_line(act, "claim(depth")
     dir <- mk_project(list(
-      `_quarto.yml` = c("project:", "  type: default", "format: html"),
+      # the order is given: without `render:` Quarto takes the files in the folder's order, which differs by platform
+      `_quarto.yml` = c("project:", "  type: default", "  render:", "    - act.qmd", "    - raw.qmd", "format: html"),
       `raw.qmd` = raw, `act.qmd` = act
     ))
     withr::defer(unlink(dir, recursive = TRUE), teardown_env())

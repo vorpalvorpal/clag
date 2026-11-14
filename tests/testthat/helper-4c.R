@@ -322,7 +322,11 @@ v4_qproject <- function(docs, parent = tempfile("weft-4c-"), freeze = TRUE) {
   dir.create(parent, recursive = TRUE, showWarnings = FALSE)
   parent <- normalizePath(parent, winslash = "/")
   files <- stats::setNames(docs, paste0(names(docs), ".qmd"))
-  files[["_quarto.yml"]] <- if (freeze) V4_QUARTO_YML else V4_QUARTO_YML[1:3]
+  yml <- if (freeze) V4_QUARTO_YML else V4_QUARTO_YML[1:3]
+  # the render order is given (docs order): without `render:` Quarto takes the files in the folder's order,
+  # which differs between macOS and Linux
+  if (length(docs) > 1L) yml <- append(yml, c("  render:", paste0("    - ", names(files))), after = 2L)
+  files[["_quarto.yml"]] <- yml
   root <- mk_project(files, dir = file.path(parent, "proj"))
   f3_write(file.path(parent, "README.md"), "Outside the project.")
   list(top = parent, root = root)

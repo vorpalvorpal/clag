@@ -272,7 +272,9 @@ test_that("1f claim level: a Quarto project lists warned checks after the failur
   expect_match(r1$log, "warned check\\(s\\)")
   expect_match(r1$log, ". > 795", fixed = TRUE)
   # a failing chapter (a failed check; a small number no longer fails, 1g) beside a warned one
-  d2 <- mk_project(list(`_quarto.yml` = yml,
+  # the order is given: without `render:` Quarto takes the files in the folder's order, which differs by platform
+  yml2 <- append(yml, c("  render:", "    - a.qmd", "    - b.qmd"), after = 2L)
+  d2 <- mk_project(list(`_quarto.yml` = yml2,
                         `a.qmd` = mk("A", "Warn `r claim(k, . > 796, level = \"warn\")`{.num} here."),
                         `b.qmd` = mk("B", "Fail `r claim(k, . > 797)`{.num} here.")))
   withr::defer(unlink(d2, recursive = TRUE))
