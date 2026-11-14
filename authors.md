@@ -7,7 +7,7 @@
 ## Citation
 
 Source:
-[`DESCRIPTION`](https://github.com/vorpalvorpal/weft/blob/v0.1.0/DESCRIPTION)
+[`DESCRIPTION`](https://github.com/vorpalvorpal/weft/blob/main/DESCRIPTION)
 
 Shannon R (2026). *weft: Computed Values and Checks for Quarto and R
 Markdown Prose*. R package version 0.1.0,
