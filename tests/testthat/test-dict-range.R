@@ -108,7 +108,7 @@ test_that("N111: display converts both bounds, and the vector is in the display 
   expect_identical(names(d$band), c("lower", "upper"))
   expect_qty(d$band[["lower"]], 0.0065, "g/L")
   expect_qty(d$band[["upper"]], 0.0085, "g/L")
-  expect_identical(units::deparse_unit(d$band), "g/L")
+  expect_identical(as.character(units(d$band)), "g/L")
 })
 
 test_that("N111: bounds written as decimal strings that are literals read as numbers (control of 4.2.5)", {
@@ -128,7 +128,7 @@ test_that("N111: .range of a range with no unit prints the two numbers", {
 })
 
 test_that("N111: .range of a range in display units prints the display unit", {
-  res <- r7h_knit("The band is `r dict$band`{.range}.",
+  res <- r7h_knit("The band is `r dict$band`{.range digits=\"4\"}.",
                   c(RANGE_ONE, r7h_band(unit = "mg/L", display = "g/L")))
   expect_match(res$all, paste0("The band is 0.0065", EN, "0.0085 g/L."), fixed = TRUE)
 })

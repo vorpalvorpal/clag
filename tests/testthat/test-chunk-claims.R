@@ -221,7 +221,7 @@ test_that("N74 + E31: a collected claim then a stop() gives weft_claims_collecte
 })
 
 test_that("N74 + E31: two claims are counted in the plural", {
-  src <- c(TWO_BAD[1:11], cc7_chunk("boom-chunk", "stop('boom')"))
+  src <- c(TWO_BAD[1:14], cc7_chunk("boom-chunk", "stop('boom')"))
   res <- cc7_run(src)
   expect_true(inherits(res$error, "weft_claims_collected"))
   expect_match(strsplit(cc7_msg(res), "\n", fixed = TRUE)[[1]][1],
