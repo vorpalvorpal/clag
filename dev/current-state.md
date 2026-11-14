@@ -441,3 +441,29 @@ or hold); no answer yet.
   ordinary pushes only; delete the probe branch after.
 - Still open with Robin: `repeats` default of 3 in `checks()`; the list
   in "More rulings" above.
+
+## Position after stage 7 (14 Nov, evening; read this first)
+
+- Stage 7 is built: 7s, 7a, 7b, 7c, 7d, 7e, 7h, 7f, 7g, 7j, 7i, each
+  test-first with a separate writer and implementer. `main` pushed at
+  2d9574b. Whole suite on the Mac at b97b8ca: 60,989 expectations, 1
+  failed (fixed in 2d9574b), 56 skipped.
+- Finding 22 (Julia on Linux) is fixed: weft loads Julia's own libunwind
+  before Julia starts in R, and starts Julia children without the system
+  library folders. Julia is on again in `R-CMD-check.yaml`.
+- Design amendments made while building, all in `dev/design-7.md`: N21
+  (p thresholds), N37 (tables after an error), F9 value expressions
+  (N149 to N151). Where the build differs from the design, the articles
+  follow the build (list in the 7i report: verify() decisions skip,
+  literals skipped by the output filter, range crossings once per key).
+- Scratchpad: `suite/fresh-suite.sh` (sets QUARTO_PYTHON) and
+  `jupyter-venv/` were rebuilt after the restart.
+- Left: watch CI on 2d9574b; bump the version to 0.1.0 (DESCRIPTION,
+  README status line), tag and release v0.1.0 on GitHub; package H of
+  the refactor sweep; findings 1, 2, 7, 21; `claim-word` noise; the
+  units switch (paused on upstream issue 451); Windows CI (Robin).
+- Open with Robin: `output_missing` default (warn chosen); `repeats`
+  default 3; guest `chunk_claims`; table digests for Jupyter and Julia;
+  the hint "Publish it in code above" now that a publication below
+  works; a CRAN release of JuliaCall with its libunwind fix (ask
+  upstream or not); attribution on upstream posts.
