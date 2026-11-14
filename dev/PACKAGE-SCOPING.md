@@ -326,10 +326,10 @@ class implies `.num`. `label` applies to `.p` only: on a construct without
 
 **1.4.8** A project registers its own formatter in `_weft.yml` (9.1.2): the
 class name, the function, the stage it belongs to (number by default) and,
-optionally, the options it takes (1.4.22). It counts toward that stage's
-at-most-one rule. A project name may not shadow a shipped one. A key of a
-registration other than `function`, `stage` and `options` is ignored with a
-warning.
+optionally, the options it takes (1.4.22) and the targets it writes for
+(1.4.23). It counts toward that stage's at-most-one rule. A project name may
+not shadow a shipped one. A key of a registration other than `function`,
+`stage`, `options` and `targets` is ignored with a warning.
 
 ```yaml
 formatters:
@@ -338,13 +338,29 @@ formatters:
     stage: number
     options:
       digits: integer
+  .tidy:
+    function: myproject::fmt_tidy
+    targets: [markdown, tex]
 ```
+
+`targets:` lists target names (1.4.23). The default is `[markdown]`. It must
+include `markdown`, name only known targets and name each once, else a
+`weft_config_error`: "The formatter `%s` has `targets: %s`; `targets` lists
+markdown and, optionally, tex (rule 1.4.8)." When it lists more than
+`markdown`, the function is called with the value, then any options, then
+`target = target`, for every target, and must have an argument `target` or
+`...`, else a construct error when it is resolved: "The formatter `%s` lists tex
+in `targets:`, so its function `%s` must take an argument `target` (rule
+1.4.8)." When it lists `markdown` only, the call is as before, with the value
+and the options. A later registration of the same class replaces `targets` as a
+whole.
 
 **1.4.9** A value that is a `units` object prints with its unit (4.4.8). No
 formatter supplies a unit of its own.
 
-**1.4.10** Formatter output is markdown, as stock knitr's inline output is.
-Text that comes from data is not escaped. A vector that no collapse class
+**1.4.10** Formatter output is markdown, as stock knitr's inline output is,
+except inside math and raw LaTeX (1.4.23). Text that comes from data is not
+escaped. A vector that no collapse class
 joins prints its elements joined with ", ", as stock knitr prints an inline
 vector.
 
@@ -564,6 +580,99 @@ stages. A later registration of the same class replaces `options` as a whole.
   keys are not checked against options.
 - A change to an option's value changes the entry's text in the ledger and not
   its key (7.1).
+
+**1.4.23** Inside math and raw LaTeX a formatter writes TeX, not markdown. A
+formatter has two **targets**: `markdown`, which is every output before this
+rule, and `tex`. The scanner decides the target from where a construct stands,
+so the lints and the gate see it (2.10.2).
+
+- A construct is in **math** when it stands in inline or display `$` math; in
+  one of these environments, starred or not: `equation`, `align`, `alignat`,
+  `gather`, `multline`, `flalign`, `eqnarray`, `math`, `displaymath`, `aligned`,
+  `alignedat`, `gathered`, `split`, `cases`, `array`, `matrix`, `pmatrix`,
+  `bmatrix`, `Bmatrix`, `vmatrix`, `Vmatrix`, `smallmatrix`, `subarray`, `CD`
+  (from `\begin{NAME}` to the `\end{NAME}` that matches it, nesting of the
+  same name counted); or, in an `.Rmd` knitted by rmarkdown and not by Quarto,
+  between `\(` and `\)` or `\[` and `\]`. Under Quarto those brackets are
+  escaped characters, not math.
+- A construct is in **raw LaTeX** when it stands in any other
+  `\begin{NAME}...\end{NAME}` in prose, in the body of a fence whose info
+  string is `{=latex}` or `{=tex}`, or in a code span followed directly by
+  `{=latex}` or `{=tex}`. A `{=typst}` or `{=html}` fence stays markdown
+  (1.1.10). A raw inline command such as `\textbf{...}` in prose is not found.
+- Only inline R is read in these places. A bracket in them is never a span
+  (1.9.1). A named value there is not resolved (2.13.16).
+- A bare value (1.1.8) prints as stock prints it, in math and in raw LaTeX
+  alike. Only a construct's output is TeX. In raw LaTeX that output is wrapped
+  in `\ensuremath{...}`, markers included (below), so that it is safe in text
+  and in math mode; a bare value is not wrapped, so a string in a `tabular`
+  cell stays text.
+- The classes that write TeX are `.num`, `.pct`, `.sci`, `.p`, `.plus`,
+  `.range`, `.uname`, `.usym` and `.nounit`, with the keys `digits`, `sigfig`,
+  `unit`, `label` and `why`, an `#id`, and a project class whose
+  registration lists `tex` in `targets:` (1.4.8). Every other class or key is
+  a construct error (5.2.6).
+
+The marks and forms under `tex`:
+
+| Element | TeX |
+|---|---|
+| the minus sign, whatever the `minus` setting | `-` |
+| an explicit plus (1.4.21) | `+` |
+| a thousands or decimal mark `,` | `{,}` |
+| a mark `.` | `.` |
+| a mark that is a space (U+0020, U+00A0, U+2009 or U+202F) | `\,` |
+| a mark `'` or U+2019 | `\text{'}` |
+| a mark U+00B7 | `{\cdot}` |
+| a mark that is empty | nothing |
+| any other mark | `\text{...}`, with TeX's special characters mapped |
+| the `%` of `.pct` | `\%` |
+| `.sci` | `1.2 \times 10^{6}` |
+| the two ends of a `.range` | `1.2\ \text{to}\ 3.5`, for every pair of ends |
+
+- `thousands_from` and the year rule (1.4.16) are unchanged. When the thousands
+  mark and the decimal mark give the same TeX, the decimal mark is written
+  `\text{<mark>}`.
+- The setting `p_label` (1.4.17) is converted: one ASCII letter, bare or in
+  one pair of `*` or `_`, is that letter; an empty label is no label; any other
+  label is text. A `label` key or argument is the author's TeX and goes in
+  as written: `label="\tilde{p}"` prints `\tilde{p} = 0.046`.
+- Text a formatter writes as a word or a name, such as a label or a unit's
+  name, goes in `\text{...}` in runs, and each of `\ { } $ % & # _ ^ ~` is
+  mapped to its TeX form (`\backslash`, `\{`, `\}`, `\$`, `\%`, `\&`, `\#`,
+  `\_`, `\hat{}`, `\sim`); U+00A0 is `\,`. weft writes no macro inside
+  `\text{}`, because MathJax shows the content of `\text{}` as typed.
+- A `.range` always says "to", even between two positive ends: no dash works
+  in every renderer, and a dash between numbers in a formula reads as a
+  subtraction. A vector under `.num` prints its elements joined by ", ", as it
+  does in prose.
+- A marker (2.6.8) is written `\text{<<weft: KIND, line N>>}`, so that it is
+  valid TeX, and in raw LaTeX it is inside the `\ensuremath{...}` as well.
+- The ledger (7.1) records the TeX exactly as written, wrapper included, as the
+  entry's `text`. Its `context` is `math` for math and `tex` for raw LaTeX; a
+  caption, front matter or a `weft_str()` string keeps its own context. The key
+  is unchanged.
+- A construct in math or raw LaTeX is never a sentence start (5.10.1), and no
+  unit typed after it is checked (4.4.24).
+
+Examples, default settings, under `tex`:
+
+| Value | Class | Prints |
+|---|---|---|
+| -1234567.89 | `.num` | `-1{,}234{,}567.9` |
+| 0.5 | `.num digits=2` | `0.50` |
+| 0.123 | `.pct` | `12.3\%` |
+| 0.05 | `.pct .plus` | `+5\%` |
+| 1234567 | `.sci` | `1.2 \times 10^{6}` |
+| -0.000123 | `.sci` | `-1.2 \times 10^{-4}` |
+| 0.0001, 0.03, 0.995 | `.p` | `p < 0.001`, `p = 0.030`, `p > 0.99` |
+| 0.5 | `.p label=""` | `0.50` |
+| c(-1, 3) | `.range` | `-1\ \text{to}\ 3` |
+| c(1, 3) | `.range .plus` | `+1\ \text{to}\ +3` |
+
+With `decimal_mark: ","` and `big_mark: "."`, 1234567.89 under `.num` prints
+`1.234.567{,}9`; with `big_mark: " "`, `1\,234\,567.9`; with `big_mark: "'"`,
+`1\text{'}234\text{'}567.9`.
 
 ### 1.5 Governed spans
 
@@ -965,8 +1074,8 @@ decision ids; an inline R construct inside a comment is read like any other
   class (1.1.9)
 - inline R with no attribute block (1.1.8)
 - a code span that is not inline R
-- math, link targets and raw blocks (inline R in math is read by the numeral
-  rule, and a class block there is a construct error: 5.2.6)
+- link targets and raw blocks; math, except that inline R in it is read by the
+  numeral rule and a class block on that inline R writes TeX (1.4.23, 5.2.6)
 
 **1.9.2** (withdrawn 14 Nov: see 1.1.10)
 
@@ -1805,7 +1914,8 @@ exiting, and the `post-render` script fails the render.
 **2.10.1** The scanner is a hand-written R function over characters. It finds
 inline code with its attribute block and brackets with theirs, honours nesting
 and escapes, and skips what §1.9 leaves alone, except that it reads inline R
-inside math (5.2.6).
+inside math and raw LaTeX, and gives each row the place it stands in (1.4.23,
+5.2.6).
 
 **2.10.2** The scanner is the single source of what the constructs are and
 where: at knit time over each prose block, and statically over the source
@@ -2265,6 +2375,31 @@ not recorded; a cell of an included file is recorded under the main source; and
 a library update that changes what a table prints shows as a change, once.
 Tables printed by Python or Julia under knitr are not recorded.
 
+**2.13.16** Not built (design 9, phase 2): named values in math. Today a named
+value inside math or raw LaTeX is not resolved: Pandoc keeps its backticks
+inside the `Math` element and the output shows them. The rule is this.
+
+- The filter resolves a named value in every `Math` element, and in a
+  `RawInline` or `RawBlock` whose format is `tex` or `latex`. The target is
+  `tex`; in a raw element other than a math environment its output is wrapped
+  in `\ensuremath{...}` (1.4.23).
+- It finds a candidate in the text of the element: a run of `k` backticks not
+  preceded by `\`, up to the next run of exactly `k`, followed directly by an
+  attribute block. The candidate is a named value when Pandoc reads it as one
+  code span that passes the filter's own test of a name. Any other text is left
+  alone.
+- The checks of 1.4.23 and 5.2.6 apply, with the same messages, to the scanner
+  and to the filter. `.val` is allowed and `.date` is a word class. `unit` is a
+  value error (2.13.3). A failure inside math is the marker of 1.4.23, in the
+  string, and a collected failure as usual; a formula is never split.
+- `.val` prints a number whose text is plain digits as it is, and any other
+  value as `\text{...}`.
+- The ledger entry has `context` `math` or `tex` and `printed` the TeX. The
+  name counts in the stamp's `named` list, and a forward reference follows
+  1.12.7.
+- `weft-check.lua` reports a named value that is still in math or raw TeX after
+  the filter as a leftover.
+
 ---
 
 ## 3. Functions
@@ -2507,6 +2642,39 @@ table in file order, with the columns `unit`, `is`, `name`, `plural`, `symbol`
 (logical, `FALSE` where blank) and `redefines` (logical: whether the row
 redefines a unit that `units` already reads, 4.4.21). The attribute `file` holds
 the path of the YAML file the table is read from. It registers nothing.
+
+**3.4.11** Every `fmt_*()` takes `target` as its last argument, `"markdown"` by
+default. `"markdown"` is every output before 1.4.23, byte for byte, and the
+result carries no new attribute. `target = "tex"` writes the forms of 1.4.23 and
+4.4.25, for text that goes into math or raw LaTeX from code: a chunk that
+builds a table of formulas, or an expression passed to `weft_str()`.
+
+```r
+fmt_num(-1234567.89, target = "tex")      # -1{,}234{,}567.9
+fmt_pct(0.123, target = "tex")            # 12.3\%
+fmt_num(u(5, mg/L), target = "tex")       # 5\,\text{mg/L}
+```
+
+- A `target` that is not `"markdown"` or `"tex"` is a `weft_construct_error`:
+  "`target` must be \"markdown\" or \"tex\"; got %s." Here `%s` is the value in
+  double quotes, or `something else` when it is not one string.
+- A function of a class that has no TeX form (`fmt_word()`, `fmt_count()`,
+  `fmt_ord()`, `fmt_no()`, `fmt_date()`, `fmt_a()`, `fmt_cap()`, `fmt_em()`,
+  `fmt_strong()`, `fmt_and()`, `fmt_or()`, `fmt_pairs()`, `fmt_ul()`,
+  `fmt_ol()`, `fmt_dl()`) with `target = "tex"` is a `weft_construct_error`:
+  "`%s` has no TeX form (target = \"tex\"): %s (rule 3.4.11)." The second `%s`
+  is "it prints words", "it is markdown emphasis" or "it joins items into a
+  phrase or a list". The markdown form of each still works.
+- A result made under `"tex"` has the attribute `target = "tex"`. If it
+  reaches a markdown result without being formatted again from its raw value (a
+  pass-through, a text class, a collapse), it is a `weft_value_error`: "This
+  text was formatted for TeX (target = \"tex\") and would print here as
+  markdown. Format the number again, without `target` (rule 3.4.11)."
+- `fmt_unit()` takes `target` too: `fmt_unit(u(5, mg/L), target = "tex")` is
+  `\text{mg/L}`.
+- In a knit weft passes `target = "tex"` itself, for a construct in math or raw
+  LaTeX (1.4.23). A bare `fmt_num(x)` in math is a bare value and writes
+  markdown there; the lint `value-format` (5.6.4) says so.
 
 ### 3.5 Phrase functions
 
@@ -4041,6 +4209,40 @@ compared as typed and in lower case. No warning is raised when the symbol is
 `a`, `am`, `as`, `at` or `in`. The same holds when an arm types the unit after
 `#`. Nothing is removed, and the text printed is unchanged.
 
+**4.4.25** Under `target = "tex"` (1.4.23) a unit prints in `\text{}`, from the
+text it prints in markdown (4.4.15).
+
+- A backslash escape is the literal character. `^...^` is a superscript
+  `^{...}` and `~...~` a subscript `_{...}`, with U+2212 written `-`. U+00B7 is
+  `{\cdot}`, U+00A0 is `\,`, and the prime and double prime (U+2032 and
+  U+2033, or `'` and `"`) are `{}^{\prime}` and `{}^{\prime\prime}`. The
+  characters `% $ & # { } < > |` are mapped as in 1.4.23. A run of any other
+  characters goes in `\text{}`.
+- A unit character such as the degree sign, the micro sign or the ohm sign
+  passes through unchanged inside `\text{}`.
+- After a number a symbol takes `\,` when the unit's space is on (4.4.15) and
+  nothing when it is off; a name takes `\ `. A unit written before its number
+  (4.4.22) is the symbol and then `\,` (or nothing), or the name and then `\ `.
+- A symbol or name that still holds an unescaped `*`, `_`, `` ` ``, `[` or `]`
+  after this (only a project `symbol:` or `name:` can) is a `weft_value_error`:
+  "The unit `%s` prints as \"%s\", which holds markdown with no TeX form (only
+  ^...^, ~...~ and backslash escapes have one). Give it a plain `symbol:` or
+  `name:` under `units:` in _weft.yml to use it in math (rule 4.4.25)."
+
+| Value | Prints |
+|---|---|
+| `u(5, mg/L)` | `5\,\text{mg/L}` |
+| `u(5, m^2)` | `5\,\text{m}^{2}` |
+| `u(5, m-3)` | `5\,\text{m}^{-3}` |
+| `u(20, degC)` | `20\,\text{°C}` |
+| `u(45, °)` | `45\text{°}` |
+| `u(5, kg*m/s^2)` | `5\,\text{kg}{\cdot}\text{m/s}^{2}` |
+| `u(30, %)` | `30\%` |
+| `u(5, CFU/100mL)` | `5\,\text{CFU/100}\,\text{mL}` |
+| `u(5, mg/L)` with `.uname` | `5\ \text{milligrams per litre}` |
+| `u(c(1.2, 3.4), m)` with `.range` | `1.2\ \text{to}\ 3.4\,\text{m}` |
+| a project unit `pH` with `before: true`, 7 | `\text{pH}\,7` |
+
 ### 4.5 Decision pointers
 
 **4.5.1** `decision:` points at wherever the project records decisions. It is
@@ -4390,20 +4592,43 @@ decade (`2010s`) and a possessive year (`2019's`).
 **5.2.5** A `.weft-literal` mark exempts numerals only. Every other prose lint
 still reads the marked text.
 
-**5.2.6** The numeral rule reads inline and display math. A numeral that is an
-exponent or a subscript, directly after `^` or `_` or inside the braces that
-follow one, is exempt. A value inside math is written as inline R inside the
-dollars. A `.weft-literal` span around the whole formula exempts it. A class
-block inside math is a construct error: a formatter's output is markdown and
-math is TeX. Format the value in the expression instead, for example
-`$p = `r fmt_num(p_val, digits = 3)`$`.
+**5.2.6** The numeral rule reads inline and display math, and the math
+environments of 1.4.23. A numeral that is an exponent or a subscript, directly
+after `^` or `_` or inside the braces that follow one, is exempt. A value
+inside math is written as inline R inside the dollars. A `.weft-literal` span
+around the whole formula exempts it. A class block on inline R inside math or
+raw LaTeX writes TeX (1.4.23), with the classes and keys listed there. Any
+other class or key is a construct error, found from the source, one message
+for each class or key, the classes first, in the order written. PLACE is `math`
+or `raw LaTeX`:
+
+- `.word`, `.count`, `.ord`, `.no`, `.date`, `.a`, `.cap`, and `.val` on an R
+  value: "`%s` cannot be used inside PLACE: it prints words, and a formula
+  holds numbers. Move the value out of the PLACE, or use a number class such
+  as `.num` (rule 5.2.6)."
+- `.em`, `.strong`: "`%s` cannot be used inside PLACE: it is markdown
+  emphasis, and PLACE is TeX. Put \mathbf{} or \mathit{} around the value in
+  the formula (rule 5.2.6)."
+- `.and`, `.or`, `.pairs`, `.ul`, `.ol`, `.dl`, and the keys `sep`, `last`,
+  `trunc` and `none`: "`%s` cannot be used inside PLACE: it joins items into a
+  phrase or a list. Use `.range` for two ends, or move the value out of the
+  PLACE (rule 5.2.6)."
+- a project class whose registration does not list `tex` in `targets:`: "The
+  project formatter `%s` cannot be used inside PLACE: its entry under
+  `formatters:` in _weft.yml does not list `tex` in `targets:` (rule 5.2.6)."
+- a class or key that is not weft's: "`%s` cannot be used inside PLACE: it is
+  not weft's, so weft would put the value in a Pandoc span, and PLACE has none.
+  Drop it, or move the value out of the PLACE (rule 5.2.6)."
 
 ```
 $p = 0.02$                          fails: 0.02 is a typed number
-$p = `r p_val`$                     a value inside math
+$p = `r p_val`$                     a bare value: prints as stock prints it
+$`r p_val`{.p}$                     prints p = 0.030, as TeX
+$x = `r k`{.num} \times 10^{3}$     a number class: prints 1{,}200, as TeX
 $x^2 + \beta_{1}$                   exempt: an exponent and a subscript
 [$\bar{x} = \frac{1}{n} \sum x_i$]{.weft-literal why="definition of the mean"}
-$p = `r p_val`{.p}$                 construct error: use fmt_num()
+$n = `r k`{.word}$                  construct error: a formula holds numbers
+$a = `r a`{.em}$                    construct error: markdown in TeX
 ```
 
 ### 5.3 Construct errors — tier 1
@@ -4472,7 +4697,8 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
 - a construct in the caption of a chunk with `cache: true`, `eval: false` or
   an engine other than R (2.3.5)
 - a construct in `title` in a book or a website (1.10.11)
-- an attribute block inside math (5.2.6)
+- in math or raw LaTeX, a class or key with no TeX form, or a project class that
+  does not list `tex` in `targets:` (5.2.6)
 
 **5.3.2** Ten errors need the value and are found only at knit time: a
 governor of the wrong type (1.5.1, 1.5.11), `.a` on text that is not a number
@@ -4643,7 +4869,11 @@ argument of a formatting call named in 5.6.4 (`round(x, 2)`).
 `formatC()`, `prettyNum()` or `sprintf()` is listed (tier 2, `value-format`),
 looking through parentheses, `base::`, a pipe and the first argument of
 `claim()`. It formats outside the stages, so it has no printed record, and
-`round()` drops trailing zeros ("1.50" prints "1.5").
+`round()` drops trailing zeros ("1.50" prints "1.5"). The rule `value-format`
+also lists a bare value in math or raw LaTeX whose outermost call is a `fmt_*()`
+of weft without `target = "tex"`, which writes markdown there: "The value in
+math is formatted with `%s()`, which writes markdown (rule 5.6.4)." The hint is
+"Give it a class block, `` `r x`{.num} ``, which writes TeX in math."
 
 ### 5.7 Cross-references
 
@@ -5703,7 +5933,7 @@ rule 8), and its message names `_weft.yml`.
 | `ledger`: whether the ledger and the condition log are written | 7.1.3, 9.1.9 |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
 | `decisions` (project only where `_weft.yml` exists): where `decision:` pointers resolve | 4.5.3, 9.1.4, 9.1.8 |
-| project formatters: class name, function, stage, options | 1.4.8, 1.4.22 |
+| project formatters: class name, function, stage, options, targets | 1.4.8, 1.4.22, 1.4.23 |
 | the severity list | 7.4.2 |
 | `strict`: the tier-1 rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
@@ -6787,7 +7017,33 @@ work (1.2.6, 1.2.7). A weft key of the class's own stage that is not declared is
 an error and no longer dropped silently, because a dropped `digits` printed a
 number the author thought was rounded. Weft does not apply a declared weft key
 itself, as it never formatted a project class's number; the function gets it.
-`target` is reserved for arguments weft will supply itself.
+`target` is reserved for arguments weft will supply itself (1.4.23).
+
+**1.4.23** A formatter's markdown is wrong inside math: `-1,234` takes
+punctuation spacing ("1, 234"), `.sci` writes `10^6^`, a double superscript,
+and a span has no place in TeX. The workaround of writing `fmt_num()` inside the
+expression had those faults, and a class block, which works everywhere else,
+was an error in math. The scanner decides the target, from where the construct
+stands, so that the lints and the gate know it without running R. The switch is
+`target`, not a flag for TeX, so that a later target changes no signature. The
+minus is `-` because that is TeX's minus in math, and the `minus` setting stays
+a setting for prose. The thousands mark is `{,}`, the LaTeX idiom, so that the
+comma is not spaced as punctuation; `\mathord{,}` fails in Pandoc's TeX reader
+and `\text{1,234}` changes the digit font. Typst output shows a space after
+`{,}`, a fault of Pandoc's TeX reader that weft leaves. A range says "to"
+because no ASCII dash survives all four renderers (MathJax shows `--`, Pandoc
+refuses `\textendash`), and a dash between numbers in a formula reads as a
+minus. Words, emphasis and lists are errors because a formula holds numbers,
+and relaxing an error later breaks nothing where the reverse would. A bare
+value stays as stock prints it, for the reason given at 1.1.8; wrapping it in
+`\ensuremath{}` would set a string in a `tabular` cell as math, so only what
+weft wrote is wrapped. Markers and names go in `\text{}`, and weft writes no
+macro there, because MathJax reads none in `\text{}`. `\(` and `\[` are math
+in an `.Rmd` because rmarkdown reads them so, and not under Quarto because
+Quarto does not. A project formatter has to say it writes TeX (`targets:`), so
+that a function written for markdown does not put markdown into a formula; the
+one function serves every target through its `target` argument.
+
 
 **1.8.12** A pointer prints nothing; recording it in the ledger would only
 churn it. Scanning comments for decision ids would make weft keep a register
@@ -6945,6 +7201,12 @@ the same text, so it warns. A deliberate one is marked where it stands, as a
 numeral is, because the filter cannot read `dict.yml`. Citations are resolved
 after every filter, so no filter can see one that failed.
 
+**2.13.16** Pandoc keeps a named value's backticks inside the `Math` text, so
+the filter has to find it there; it reads each candidate with Pandoc's own
+parser, which a hand-written reader in Lua would risk disagreeing with. A
+failure is a marker inside the string because splitting a formula would break
+`\frac{}{}` and the like.
+
 ### Functions
 
 **3.1.3, 3.1.4** The error text is the feature: the report quotes the check
@@ -7016,6 +7278,12 @@ arms as text, so the form is chosen on the formatter that makes its governor.
 **3.4.9** A heading or an axis label needs the unit with no number, spelled as
 the text spells it, and resolved by the same rules. A plural name is the common
 case in a heading ("Length (metres)").
+
+**3.4.11** The argument is on every function so that the signature is fixed
+once, and a class with no TeX form is refused by name rather than printing
+markdown into a formula. It is last so that a call written before it is
+unchanged. A text made for TeX is marked, because printed in a paragraph it
+would show TeX source.
 
 **3.5.3** A 90% interval printed without its level reads as 95%, so the short
 form with a `level` is an error. Under `pct` every number takes "%", because
@@ -7173,6 +7441,14 @@ one unit for the reason given at 4.2.7. When no rung fits, a rung that prints
 1,000 or more is taken before one that prints below 1 because the first keeps
 every digit and the second loses them; the cost is that 940 m under `mm|km`
 prints "940,000 mm" (decision 54).
+
+**4.4.25** `\mathrm{}` breaks the degree and micro signs under pdflatex and
+drops the spaces in a name, and siunitx is neither core TeX nor read by
+Pandoc. `\text{}` with the real character works in every renderer tried, and
+the characters come from the units table or the project's `units:`, not from
+weft's own marks. ASCII stand-ins each fail somewhere: `\mu` is italic and
+`^{\circ}` is a ring operator in Word and Typst. Markdown with no TeX form
+(emphasis, a link) in a project unit is an error, not a guess.
 
 **4.4.19** An error that waited for a number that prints a word would arrive
 months after the document was written, on the day the count fell below the
