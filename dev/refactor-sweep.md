@@ -604,10 +604,30 @@ whole suite after each. Order:
 8. B14: move the sentence finder and anchors out of `ledger.R`, after A.
    - Done: both sections moved unchanged to `ledger-sentence.R`.
 9. A18: one fence finder.
+   - Skipped. The five finders differ on purpose-built edge cases:
+     `fence_blocks()` skips a backtick fence whose info string holds a
+     backtick, `find_chunks()` and `metadata_blocks()` do not; an unclosed
+     fence ends at line `n` in one and `n + 1` in another; `find_fences()`
+     ends a quoted fence with its block quote and works on character
+     offsets, not lines. One finder changes the result on those inputs, so it
+     is not behaviour-preserving as specified. It needs its own tests first.
 10. B13: split `build_dict()`.
+   - Done: the display, decision, term, avoid and unit-conversion checks and
+     the spelling cross-check are `dict_display()`, `dict_decision()`,
+     `dict_term()`, `dict_avoid()`, `dict_in_unit()` and `dict_spellings()`.
+     The per-entry loop and the two extra YAML reads stay in `build_dict()`.
 11. A19, stage 1 only (owner decision 3).
+   - Done: `source_label()`, `passthrough()`, `lang_check()`,
+     `split_classes()`, `has_own_format()` and `starts_sentence()` are
+     top-level functions in `resolve.R`. Stages 2 and 3 and `apply_formatters()`
+     are not started; stop and judge.
 
-Path relativising (review C item 18) is now written 14 times, for example
+Path relativising: done for `decisions.R`, `gate.R`, `checks.R`, `verify.R`
+and `verify-render.R`, which now call `rel_to()`. Left as written, because
+they fall back to `basename()` or a given name when the path is outside the
+root: `collect.R`, `ledger.R` and `position.R`.
+
+(Original note.) Path relativising (review C item 18) was written 14 times, for example
 `lint.R:455-495`, `verify.R:76`, `verify-render.R:184`, `decisions.R:266`,
 `gate.R:111`, `position.R:25`, `install.R:46-49` and `lint-source.R:104-108`.
 Several of these compute `substring(x, nchar(root) + 2L)`, which drops a

@@ -110,7 +110,7 @@ gate_rule_ids <- function() {
 gate_side_entries <- function(g, ent, prefix, deeper = character()) {
   if (nzchar(prefix)) {
     e <- ent[startsWith(ent$path, paste0(prefix, "/")), , drop = FALSE]
-    e$rel <- substring(e$path, nchar(prefix) + 2L)
+    e$rel <- rel_to(e$path, prefix)
   } else {
     e <- ent
     e$rel <- e$path

@@ -194,7 +194,7 @@ verify_render_list <- function(q, root) {
   inp <- vapply(inp, function(x) as.character(x)[1L], "")
   nf <- normalizePath(inp, winslash = "/", mustWork = FALSE)
   nf <- nf[startsWith(nf, paste0(root, "/"))]
-  substring(nf, nchar(root) + 2L)
+  rel_to(nf, root)
 }
 
 # Returns list(status, knit, unexecuted, log, detail, notes)

@@ -73,7 +73,7 @@ verify <- function(files = NULL, since = NULL, static = FALSE, path = ".") {
       verify_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
                           paste0("`", files[prob], "`", collapse = ", "), " (rule 8.1.1)."))
     }
-    files_rel <- unique(substring(nf, nchar(root) + 2L))
+    files_rel <- unique(rel_to(nf, root))
     docs <- files_rel
   }
 

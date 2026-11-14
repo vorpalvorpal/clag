@@ -269,7 +269,7 @@ decisions_glob <- function(ptr, pattern, root) {
       next
     }
     hits <- sort(hits, method = "radix")
-    first <- if (startsWith(hits[1L], paste0(root, "/"))) substring(hits[1L], nchar(root) + 2L) else hits[1L]
+    first <- rel_to(hits[1L], root)
     resolved[k] <- TRUE
     detail[k] <- if (length(hits) > 1L) sprintf("%s and %d more", first, length(hits) - 1L) else first
   }

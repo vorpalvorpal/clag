@@ -739,13 +739,13 @@ checks <- function(path = ".", files = NULL, repeats = 3L) {
       lint_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
                         paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
     }
-    files_rel <- substring(nf, nchar(root) + 2L)
+    files_rel <- rel_to(nf, root)
   }
   report <- all_files
   if (!dir.exists(full)) {
-    report <- intersect(report, substring(full, nchar(root) + 2L))
+    report <- intersect(report, rel_to(full, root))
   } else if (!identical(full, root)) {
-    pre <- paste0(substring(full, nchar(root) + 2L), "/")
+    pre <- paste0(rel_to(full, root), "/")
     report <- report[startsWith(report, pre)]
   }
   if (!is.null(files_rel)) report <- intersect(report, files_rel)
