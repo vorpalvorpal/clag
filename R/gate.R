@@ -305,9 +305,16 @@ gate_side_results <- function(g, s, p, ids) {
     on.exit(weft_env$lint_reader <- old, add = TRUE)
     weft_env$lint_reader <- gate_reader(g, s, captured)
     out <- tryCatch({
-      ff <- if (length(miss)) lints(root, files = miss, rules = ids$file, tier = 1) else NULL
-      pr <- if (need_proj) lints(root, rules = ids$project, tier = 1) else NULL
-      list(file = ff, proj = pr)
+      lroot <- normalizePath(find_project_root(root), winslash = "/", mustWork = FALSE)
+      all_files <- lint_files_under(lroot)
+      tab <- lint_rule_table()
+      want <- c(if (length(miss)) ids$file, if (need_proj) ids$project)
+      sel <- tab[tab$tier == 1L & tab$id %in% want, , drop = FALSE]
+      # the file rules read the missing documents; the project rules read all of them and keep every finding
+      res <- lint_run(lroot, all_files, if (need_proj) all_files else intersect(all_files, miss), sel, 1,
+                      want, "weft", file_report = intersect(all_files, miss))
+      is_proj <- res$rule %in% ids$project
+      list(file = if (length(miss)) res[!is_proj, , drop = FALSE], proj = if (need_proj) res[is_proj, , drop = FALSE])
     }, weft_config_error = function(e) e)
     if (inherits(out, "error")) {
       msg <- conditionMessage(out)
@@ -694,8 +701,7 @@ gate_judge_checks <- function(g, p, new_res, base_res) {
 
 as_weft_findings <- function(df) {
   if (!nrow(df)) return(new_findings())
-  df <- df[order(enc2utf8(df$file), df$line, df$col, df$rule, method = "radix"), FINDING_COLS, drop = FALSE]
-  rownames(df) <- NULL
+  df <- sort_findings(df[, FINDING_COLS, drop = FALSE])
   structure(df, class = c("weft_findings", "data.frame"), notes = character())
 }
 

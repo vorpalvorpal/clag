@@ -180,12 +180,18 @@ bind_findings <- function(parts, notes = character()) {
   structure(out, class = c("weft_findings", "data.frame"), notes = as.character(notes))
 }
 
+# Findings (or the plain frame of them) by file, line, column and rule, with the row names reset.
+sort_findings <- function(x) {
+  x <- x[order(enc2utf8(x$file), x$line, x$col, x$rule, method = "radix"), , drop = FALSE]
+  rownames(x) <- NULL
+  x
+}
+
 finish_findings <- function(x, notes, n_files) {
   if (nrow(x)) {
     x <- as.data.frame(unclass(x), stringsAsFactors = FALSE)
     x <- x[!duplicated(x[, c("file", "line", "col", "rule", "text", "message")]), , drop = FALSE]
-    x <- x[order(enc2utf8(x$file), x$line, x$col, x$rule, method = "radix"), , drop = FALSE]
-    rownames(x) <- NULL
+    x <- sort_findings(x)
     x <- structure(x, class = c("weft_findings", "data.frame"))
   }
   attr(x, "notes") <- unique(as.character(notes))
@@ -440,7 +446,6 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
   full <- normalizePath(path, winslash = "/", mustWork = TRUE)
   root <- normalizePath(find_project_root(full), winslash = "/", mustWork = FALSE)
   all_files <- lint_files_under(root)
-  md_files <- lint_files_under(root, "\\.md$")
   # files to report on
   files_rel <- NULL
   if (!is.null(files)) {
@@ -452,25 +457,44 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
       lint_abort(paste0("`files` must name existing .qmd or .Rmd documents under the project root; not so: ",
                         paste0("`", files[prob], "`", collapse = ", "), " (rule 5.1.1)."))
     }
-    files_rel <- substring(nf, nchar(root) + 2L)
+    files_rel <- rel_to(nf, root)
   }
-  report <- all_files
-  if (!dir.exists(full)) {
-    report <- intersect(report, substring(full, nchar(root) + 2L))
-  } else if (!identical(full, root)) {
-    pre <- paste0(substring(full, nchar(root) + 2L), "/")
-    report <- report[startsWith(report, pre)]
-  }
+  report <- lint_report_under(all_files, full, root)
   if (!is.null(files_rel)) report <- intersect(report, files_rel)
   sel <- tab[tab$tier %in% tier & (is.null(rules) | tab$id %in% rules), , drop = FALSE]
-  ctx <- new_lint_ctx(root, all_files, md_files, report, tier, rules, reader)
-  if (length(skipped)) {
-    ctx$note(sprintf("Not run, because its tier is not in `tier`: %s (rule 5.1.2).",
-                     paste0("`", skipped, "`", collapse = ", ")))
+  notes <- if (length(skipped)) {
+    sprintf("Not run, because its tier is not in `tier`: %s (rule 5.1.2).",
+            paste0("`", skipped, "`", collapse = ", "))
+  } else {
+    character()
   }
+  pre <- paste0(rel_to(full, root), "/")
+  keep_project <- function(f) {
+    f %in% report | (is.null(files_rel) & dir.exists(full) & (identical(full, root) | startsWith(f, pre)))
+  }
+  lint_run(root, all_files, report, sel, tier, rules, reader, notes = notes, keep_project = keep_project)
+}
+
+# The documents of `all_files` that `path` (a folder or a file, normalised, inside `root`) covers.
+lint_report_under <- function(all_files, full, root) {
+  if (!dir.exists(full)) return(intersect(all_files, rel_to(full, root)))
+  if (identical(full, root)) return(all_files)
+  pre <- paste0(rel_to(full, root), "/")
+  all_files[startsWith(all_files, pre)]
+}
+
+# Run the rules of `sel` (rows of the rule table) over a project: each file-scope rule on the documents of
+# `file_report`, each project-scope rule once, keeping the findings whose file `keep_project` accepts (all of
+# them when it is NULL). Every document of `report` is opened. Returns the findings, with the notes.
+lint_run <- function(root, all_files, report, sel, tier, rules, reader, notes = character(),
+                     file_report = report, keep_project = NULL) {
+  md_files <- lint_files_under(root, "\\.md$")
+  ctx <- new_lint_ctx(root, all_files, md_files, report, tier, rules, reader)
+  for (m in notes) ctx$note(m)
   parts <- list()
   for (rel in report) {
     src <- ctx$source(rel)
+    if (!rel %in% file_report) next
     if (isTRUE(src$invalid)) {
       if ("read" %in% sel$id) {
         parts[[length(parts) + 1L]] <- new_findings(
@@ -491,9 +515,8 @@ lints <- function(path = ".", files = NULL, rules = NULL, tier = 1, reader = c("
     if (is.null(fn)) next
     res <- fn(ctx)
     if (!is.null(res) && nrow(res)) {
-      keep <- res$file %in% report | (is.null(files_rel) & dir.exists(full) &
-                                        (identical(full, root) | startsWith(res$file, paste0(substring(full, nchar(root) + 2L), "/"))))
-      parts[[length(parts) + 1L]] <- res[keep, , drop = FALSE]
+      if (!is.null(keep_project)) res <- res[keep_project(res$file), , drop = FALSE]
+      parts[[length(parts) + 1L]] <- res
     }
   }
   out <- bind_findings(parts)
