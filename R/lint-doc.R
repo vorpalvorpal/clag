@@ -1374,16 +1374,7 @@ changes_added_lines <- function(root, commit, docs) {
       res[[f]] <- seq_len(n)
       next
     }
-    dd <- raw_lines(git_ok(root, c("diff", "-U0", "--no-color", "--no-ext-diff", commit, "--", f))$out)
-    h <- regmatches(dd, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", dd, perl = TRUE))
-    h <- Filter(length, h)
-    add <- integer()
-    for (z in h) {
-      c0 <- as.integer(z[2L])
-      d0 <- if (nzchar(z[3L])) as.integer(z[3L]) else 1L
-      if (d0 > 0L) add <- c(add, c0:(c0 + d0 - 1L))
-    }
-    res[[f]] <- add
+    res[[f]] <- diff_hunk_lines(raw_lines(git_ok(root, c("diff", "-U0", "--no-color", "--no-ext-diff", commit, "--", f))$out))$added
   }
   res
 }

@@ -275,15 +275,7 @@ verify_added_lines <- function(gi, since, rel, in_base) {
   p <- if (nzchar(gi$prefix)) paste0(gi$prefix, "/", rel) else rel
   r <- git_raw(gi$top, c("diff", "-U0", "--no-color", "--no-ext-diff", since, "--", p))
   if (!identical(r$status, 0L) && !identical(r$status, 1L)) return(TRUE)
-  ln <- raw_lines(r$out)
-  h <- regmatches(ln, regexec("^@@ -[0-9]+(?:,[0-9]+)? \\+([0-9]+)(?:,([0-9]+))? @@", ln, perl = TRUE))
-  h <- Filter(length, h)
-  if (!length(h)) return(integer())
-  unlist(lapply(h, function(m) {
-    c0 <- as.integer(m[2L])
-    d <- if (nzchar(m[3L])) as.integer(m[3L]) else 1L
-    if (d == 0L) integer() else seq.int(c0, c0 + d - 1L)
-  }))
+  diff_hunk_lines(raw_lines(r$out))$added
 }
 
 # ---- the lints part (G24.1) -------------------------------------------------------------------------
