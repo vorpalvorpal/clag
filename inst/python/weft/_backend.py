@@ -159,7 +159,8 @@ def publish(values):
 # ---- claims (N52, N53) --------------------------------------------------------------------------
 
 def report(level, expr, failures, value=None):
-    """Record the failed checks of one claim() call. True when a back end did.
+    """Record the failed checks of one claim() call. True when a back end did; the string
+    "collected" when every callback for the claim said it collected the failure (G1, GN3).
 
     failures: list of dicts with text, why (or None) and detail. value: the
     classifier record of the value checked."""
@@ -167,8 +168,13 @@ def report(level, expr, failures, value=None):
     if k == "knitr":
         try:
             ok = True
+            collected = True
             for f in failures:
-                ok = bool(_knitr(level, expr, f["detail"])) and ok
+                r = _knitr(level, expr, f["detail"])
+                ok = bool(r) and ok
+                collected = collected and isinstance(r, str) and r == "collected"
+            if ok and collected and failures:
+                return "collected"
             return ok
         except Exception:
             return False

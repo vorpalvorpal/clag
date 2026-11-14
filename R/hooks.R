@@ -308,7 +308,10 @@ install_option_hook <- function() {
     # late: after Quarto has set its own `chunk` hook (2.1.4)
     install_chunk_wrapper()
     # the first Python chunk registers weft's Python helpers (G18)
-    if (identical(options$engine, "python") && !isFALSE(options$python.reticulate)) guest_chunk_start()
+    if (identical(options$engine, "python") && !isFALSE(options$python.reticulate)) {
+      guest_chunk_start()
+      python_wrap_engine()
+    }
     # the first Julia chunk starts Julia and defines weft's module (J16)
     if (identical(tolower(as.character(options$engine %||% "")[1L]), "julia")) julia_chunk_start(options)
     guest_chunk_begin(s, options)

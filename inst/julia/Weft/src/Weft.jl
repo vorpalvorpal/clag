@@ -309,7 +309,17 @@ function errtext(e)
     string(nameof(typeof(e)), ": ", strip(first(split(m, '\n'))))
 end
 
-function _claim(level::Symbol, expr::String, value, checks, line = nothing)
+# Whether R collects failed claims in the knit that is running (GN3): Main.WeftGuest.COLLECT, false when
+# that is not defined.
+function knitr_collects()::Bool
+    try
+        return isdefined(Main, :WeftGuest) && isdefined(Main.WeftGuest, :COLLECT) && Main.WeftGuest.COLLECT[] === true
+    catch
+        return false
+    end
+end
+
+function _claim(level::Symbol, expr::String, value, checks, line = nothing, file::String = "")
     (level === :fail || level === :warn) || throw(ArgumentError("level is :fail or :warn."))
     failed = NamedTuple{(:text, :why, :detail), Tuple{String, Union{Nothing, String}, String}}[]
     val = nothing
@@ -338,6 +348,8 @@ function _claim(level::Symbol, expr::String, value, checks, line = nothing)
         for f in failed
             push!(CLAIMS, (String(level), expr, f.detail))
         end
+        # R decides (GN2a): a collected failure is noted and returned, not thrown
+        level === :fail && knitr_collects() && return value
     elseif k === :engine
         # N57: a warned claim displays its block. A failed one only PRINTS it, with a tilde fence, and
         # throws: a cell that raises loses what it displayed (measured), and a block that was both
@@ -401,7 +413,7 @@ macro claim(args...)
     file = string(__source__.file)
     line = any(endswith(file, e) for e in (".qmd", ".md", ".ipynb")) ? __source__.line : nothing
     items = Expr(:vect, [Expr(:tuple, t, esc(Expr(:->, h, Expr(:block, b)))) for (t, b) in checks]...)
-    :(_claim($(esc(level)), $text, $(esc(value)), $items, $line))
+    :(_claim($(esc(level)), $text, $(esc(value)), $items, $line, $file))
 end
 
 end # module Weft

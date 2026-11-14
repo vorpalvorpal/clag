@@ -445,23 +445,30 @@ guest_auto_changes <- function(names) {
 # recorded in the knit in progress as a failed check in R chunk code is
 # (2.4.4), located by the chunk's label. Python hands over unconverted
 # strings. FALSE when no knit is running: claim() then raises, or warns, by
-# itself (N54).
+# itself (N54). TRUE when the failure was recorded and not collected, and
+# "collected" when it was a level-fail failure and chunk_claims is collect
+# (R decides, GN2a): claim() then returns its value and raises nothing.
 guest_claim_report <- function(level, expr, detail) {
   s <- active_state()
   if (is.null(s)) return(FALSE)
-  guest_claim_record(s, as.character(reticulate::py_to_r(level)),
-                     as.character(reticulate::py_to_r(expr)), as.character(reticulate::py_to_r(detail)))
-  TRUE
+  collected <- guest_claim_record(s, as.character(reticulate::py_to_r(level)),
+                                  as.character(reticulate::py_to_r(expr)),
+                                  as.character(reticulate::py_to_r(detail)))
+  if (isTRUE(collected)) "collected" else TRUE
 }
 
 # Add a guest claim's outcome to the failures (level "fail") or the warned
 # checks (level "warn") of `s`, at chunk `label` (default: the chunk running).
+# A level-fail failure recorded while chunk claims are collected is counted
+# for E31 (GN7); the value is TRUE for such a failure, else FALSE.
 guest_claim_record <- function(s, level, expr, detail, label = NULL) {
   if (is.null(label)) label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
   label <- if (is.null(label)) NA_character_ else as.character(label)
   add <- if (identical(level, "warn")) add_warning else add_failure
   add(s, "failed claim", file = current_file_name(s), chunk = label, expr = expr, detail = detail)
-  invisible()
+  collected <- !identical(level, "warn") && claim_collects_in_chunk()
+  if (collected) s$claims_collected <- (s$claims_collected %||% 0L) + 1L
+  invisible(collected)
 }
 
 # A record out of the classifier's JSON, in the shape the helper fixes.

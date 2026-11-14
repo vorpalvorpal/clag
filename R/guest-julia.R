@@ -135,26 +135,56 @@ julia_chunk_start <- function(options) {
   if (julia_running()) {
     # Weft records claims for R from here (N56), and a chunk that stops on one
     # still hands them over
-    tryCatch(JuliaCall::julia_call("WeftGuest.mark_knitr"), error = function(e) NULL)
+    julia_mark_knitr()
     julia_wrap_engine()
   }
   invisible()
 }
 
+# Tell Julia's Weft that a knit is running, and whether claims are collected
+# in it (R decides, GN2a, GN3): called before each Julia chunk.
+julia_mark_knitr <- function() {
+  collect <- tryCatch(claim_collects_in_chunk(), error = function(e) FALSE)
+  tryCatch(JuliaCall::julia_call("WeftGuest.mark_knitr", isTRUE(collect)), error = function(e) NULL)
+  invisible()
+}
+
 # Wrap the knitr engine that runs Julia chunks, once: when a chunk stops with an
-# error (a failed @claim throws, J18), the claims it noted are added to the
-# knit's failures before the error goes on (N56).
+# error (a failed @claim under stop throws, J18), the claims it noted are added to
+# the knit's failures before the error goes on (N56). The error then goes on as
+# E31 when claims were collected in this knit (GN8b), else as itself. The claims
+# are drained first, so that the count includes this chunk's own.
 julia_wrap_engine <- function() {
   cur <- knitr::knit_engines$get("julia")
   if (!is.function(cur) || isTRUE(attr(cur, "weft"))) return(invisible())
   new <- function(options) {
-    withCallingHandlers(cur(options), error = function(e) {
+    tryCatch(cur(options), error = function(e) {
       s <- active_state()
-      if (!is.null(s)) guest_drain_guard(julia_take_claims(s, options$label))
+      if (is.null(s)) stop(e)
+      guest_drain_guard(julia_take_claims(s, options$label))
+      stop(wrap_collected_error(s, e))
     })
   }
   attr(new, "weft") <- TRUE
   knitr::knit_engines$set(julia = new)
+  invisible()
+}
+
+# Wrap knitr's Python engine once, as julia_wrap_engine() does: an error that
+# comes out of it (a chunk without `error: true`) goes on as E31 when claims
+# were collected in this knit before it (GN8a), else as itself.
+python_wrap_engine <- function() {
+  cur <- knitr::knit_engines$get("python")
+  if (!is.function(cur) || isTRUE(attr(cur, "weft"))) return(invisible())
+  new <- function(options) {
+    tryCatch(cur(options), error = function(e) {
+      s <- active_state()
+      if (is.null(s)) stop(e)
+      stop(wrap_collected_error(s, e))
+    })
+  }
+  attr(new, "weft") <- TRUE
+  knitr::knit_engines$set(python = new)
   invisible()
 }
 

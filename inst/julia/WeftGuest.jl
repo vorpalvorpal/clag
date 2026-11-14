@@ -160,9 +160,13 @@ function weft_module()
     nothing
 end
 
-"A Julia chunk of a knit is about to run: Weft records claims for R (Weft.use_knitr())."
-function mark_knitr()
+"True when R collects failed claims in the chunk about to run (chunk_claims: collect, GN3); R sets it before each Julia chunk."
+const COLLECT = Ref(false)
+
+"A Julia chunk of a knit is about to run: Weft records claims for R (Weft.use_knitr()). `collect` says whether a failed claim is collected, not thrown."
+function mark_knitr(collect::Bool = false)
     KNITR[] = true
+    COLLECT[] = collect
     m = weft_module()
     m === nothing || m.use_knitr()
     nothing

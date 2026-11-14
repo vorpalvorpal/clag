@@ -140,6 +140,8 @@ def claim(x, *checks, level="fail"):
     recorded = _backend.report(level, expr, failed, _record.classify(x))
     message = "weft: a claim failed: " + failed[0]["detail"] + "."
     if level == "fail":
+        if recorded == "collected":
+            return x
         raise ClaimFailed(message)
     if not recorded:
         _warnings.warn(message, UserWarning, stacklevel=2)
