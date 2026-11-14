@@ -504,3 +504,61 @@ The `formatters:` setting registers a **project formatter**: a class name,
 the function behind it (`pkg::fun`, or a name the document can see), and the
 stage it acts in (`number` unless given). It counts towards that stage's "at
 most one" rule, and it may not reuse the name of a weft class.
+
+### Options for a project formatter
+
+A project formatter can take **options**: keys written on the construct that
+reach the function as named arguments. Declare them under `options:`, each
+with a type:
+
+```yaml
+formatters:
+  .millions:
+    function: in_millions
+    stage: number
+    options:
+      digits: integer
+      word: string
+```
+
+```r
+in_millions <- function(x, digits = NULL, word = "million") {
+  paste(weft::fmt_num(x / 1e6, digits = digits), word)
+}
+```
+
+`` `r volume`{.millions digits=2} `` then prints "1.23 million" and
+`` `r volume`{.millions word="M"} `` prints "1.2 M". The function gets only
+the options the construct writes, in the order `options:` lists them, so its
+own defaults apply to the rest. Give a forwarded option a `NULL` default, as
+`digits` has here, and the project's `digits` setting still applies when the
+construct writes none. A formatter with no `options:` is called with the value
+alone, as before.
+
+The types are `number`, `integer`, `string` and `logical`. A value is read by
+its type and arrives as a number, a whole number, a string exactly as written,
+or `TRUE` or `FALSE` (written `true` or `false`, in any case). A value outside
+its type is a construct error, found when the document is scanned. A list of
+names (`options: [digits, word]`) declares each as a string, except that a weft
+key of the formatter's stage (`digits` and `sigfig` for a number formatter,
+`sep`, `last` and `trunc` for a collapse formatter) keeps its own type. The
+function must have an argument for every declared option, or `...`, and no
+option may share the name of its first argument, which receives the value;
+weft says so when the formatter runs.
+
+What happens to a key that is not declared:
+
+- A weft key of the formatter's stage is an error. `{.millions digits=2}` with
+  no `digits` declared stops the render, where `digits` was once dropped
+  without a word. Declare it, or remove it.
+- Any other key passes through to the output as an attribute, as it does on a
+  weft class. `lints()` points out a name that is one edit from an option, and
+  an option of another formatter.
+- A declared option is yours: it is not passed through, and its letter case
+  does not matter.
+
+A later `formatters:` entry for the same class, in a document's front matter,
+replaces `options:` as a whole. The names `n`, `if`, `sign`, `list`, `cite`,
+`unit`, `none`, `label`, `why`, `decision`, `claim`, `level` and `target` are
+weft's and cannot be options. Options are for R documents; a named value on
+the Lua filter route cannot take a project formatter.

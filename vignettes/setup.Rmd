@@ -416,7 +416,7 @@ names it.
 | `word_limit` | `100` | where `.word` switches to digits | `values` |
 | `date_format` | `"%-d %B %Y"` | the format of `.date` | `values` |
 | `governor_class` | `".num"` | the class that formats the number of an `n` or `sign` span | `values` |
-| `formatters` | none | project formatters | `values` |
+| `formatters` | none | project formatters, with the options each takes | `values` |
 | `p_digits` | `null` | the decimals of `.p`, 1 to 6; `null` keeps the default rule | `values` |
 | `p_label` | `"p"` | the text before a p-value's relation; may be `""` | `values` |
 | `ci_level` | `0.95` | the level `ci()` reports | `wording` |

@@ -324,16 +324,20 @@ unit class (1.4.19) or `.plus` (1.4.21), on a construct with no number-stage
 class implies `.num`. `label` applies to `.p` only: on a construct without
 `.p` it is a construct error, "`label` applies to `.p` only (rule 1.4.17)."
 
-**1.4.8** A project registers its own formatter (a function, optionally
-bundling options) in `_weft.yml` (9.1.2): the class name, the function, and
-the stage it belongs to (number by default). It counts toward that stage's
-at-most-one rule. A project name may not shadow a shipped one.
+**1.4.8** A project registers its own formatter in `_weft.yml` (9.1.2): the
+class name, the function, the stage it belongs to (number by default) and,
+optionally, the options it takes (1.4.22). It counts toward that stage's
+at-most-one rule. A project name may not shadow a shipped one. A key of a
+registration other than `function`, `stage` and `options` is ignored with a
+warning.
 
 ```yaml
 formatters:
   .compact:
     function: myproject::fmt_compact
     stage: number
+    options:
+      digits: integer
 ```
 
 **1.4.9** A value that is a `units` object prints with its unit (4.4.8). No
@@ -525,6 +529,41 @@ The change ranged `r d_rng`{.range .plus} across sites.
 There is no setting that makes `.plus` the default. `ci()` takes `plus` for
 its three numbers (3.5.3), and `fmt_num()`, `fmt_pct()` and `fmt_range()` take
 it as an argument (3.4.6).
+
+**1.4.22** A project formatter may declare typed **options** under
+`options:` in its registration (1.4.8): a sequence of names, or a mapping from
+name to type. The types are `number`, `integer`, `string` and `logical`; in the
+sequence form a name that is not a weft key is a `string`. A name matches
+`^[a-z][a-z0-9_]*$` and is not one of `n`, `if`, `sign`, `list`, `cite`,
+`unit`, `none`, `label`, `why`, `decision`, `claim`, `level` or `target`. A
+class may also declare the weft keys of its own stage, each with its own type:
+`digits` and `sigfig` (integer) for the number stage, `sep` and `last` (string)
+and `trunc` (integer) for the collapse stage, none for the wording and text
+stages. A later registration of the same class replaces `options` as a whole.
+
+- On a construct that carries the class, a key matching a declared option, in
+  any letter case (1.2.10), is consumed: it is not passed through (1.2.6) and
+  takes part in the duplicate-key check. On a construct without the class it is
+  an ordinary key.
+- A weft key of the class's stage that it does not declare is a construct
+  error: "`digits` does not apply to `.millions`: the formatter declares no
+  option `digits` (rule 1.4.22)." `digits` with `sigfig` stays 1.4.7.
+- A value is read by its type. `number` is a decimal number, optionally with an
+  exponent; `integer` a whole number in R's integer range; `logical` `true` or
+  `false` in any case; `string` the text as written. A value outside its type is
+  a construct error. A declared weft key keeps weft's own checks and arrives
+  as an integer or a string; weft does not apply it itself.
+- Weft calls the function with the value and then the options the construct
+  writes, named, in declaration order; an option not written is not passed. A
+  construct that writes none calls it with the value alone. This holds at every
+  stage, and for a text class on a governed span's arms.
+- Before the function runs, each declared option must be an argument of it or
+  it must take `...`, and no option may share the name of its first argument,
+  which receives the value; else a construct error that stops the render.
+- Named values on the filter route cannot take a project formatter (E21); their
+  keys are not checked against options.
+- A change to an option's value changes the entry's text in the ledger and not
+  its key (7.1).
 
 ### 1.5 Governed spans
 
@@ -4390,6 +4429,8 @@ A line inside a span that Pandoc cuts a paragraph at is a separate rule,
   grammar; a formatter class on a `cite` span; an `#id` on a `cite` span
   (1.8.4, 1.8.5, 1.8.7, 1.7.5)
 - two classes from one at-most-one group; `digits` with `sigfig` (1.4.2, 1.4.7)
+- a weft key of a project formatter's stage that it does not declare as an
+  option; a value of a declared option outside its type (1.4.22)
 - `.ul`, `.ol` or `.dl` on a value that is not alone in its paragraph (1.4.6)
 - a wrong arm count for the key, or for the document's language (1.5.2, 1.6.4)
 - an `n` or `list` span with more than one arm under a `lang` that is not
@@ -4449,6 +4490,11 @@ stops the render. Each is a collected failure with a marker (2.6.8, 2.6.9),
 and the render fails at the end with all of them listed, as it does for
 failed checks. A missing value is collected the same way (1.3.4).
 
+Two construct errors need the function of a project formatter, not the value,
+so only a render finds them, and they stop it as a construct error does: a
+declared option that the function has no argument for and no `...` to take, and
+an option named like the function's first argument (1.4.22).
+
 **5.3.3** Three tier-2 warnings sit beside them, each its own rule, all
 numbered 5.3.3.
 
@@ -4473,7 +4519,11 @@ numbered 5.3.3.
   only in letter case is that key (1.2.10). Two weft names one edit apart are
   not listed. On a code span, a class that is a Pandoc highlighting language
   (the fixed list of `pandoc --list-highlight-languages`: `.cpp`, `.r`,
-  `.python`) is never listed.
+  `.python`) is never listed. The options that the project classes on a
+  construct declare (1.4.22) are known keys and are not listed. A key one
+  edit from such an option is listed with that option named, before the
+  nearest weft name is looked for, and a key that is an option of a project
+  class absent from the construct is listed as one that passes through.
 
 **5.3.4** knitr reads inline R only when `r` is followed by a space on the
 same line. A code span that opens with `r` and then a line break is left by
@@ -5653,7 +5703,7 @@ rule 8), and its message names `_weft.yml`.
 | `ledger`: whether the ledger and the condition log are written | 7.1.3, 9.1.9 |
 | `draft` (project only where `_weft.yml` exists) | §9.4, 9.1.4 |
 | `decisions` (project only where `_weft.yml` exists): where `decision:` pointers resolve | 4.5.3, 9.1.4, 9.1.8 |
-| project formatters: class name, function, stage | 1.4.8 |
+| project formatters: class name, function, stage, options | 1.4.8, 1.4.22 |
 | the severity list | 7.4.2 |
 | `strict`: the tier-1 rules made strict (none unless set) | 8.1.3 |
 | numeral exemptions: label words (none unless set), four-digit years | 5.2.4 |
@@ -6724,6 +6774,20 @@ no label, and Pandoc keeps an empty attribute value.
 **1.4.21** A sign belongs to a difference, not to a document: a setting that
 signed every number would print "+12 sites". Zero takes no sign, as a number
 that rounds to zero takes no minus (1.4.13).
+
+**1.4.22** The options are declared in `_weft.yml`, not read from the
+function's arguments, because the function is often defined in a document's
+chunk and the scanner, `lints()` and the gate cannot know it without running R
+(1.4.8). Passing every other key as a string would allow no static check, end
+pass-through on every project-class construct and leave values untyped. The
+types are declared and not inferred from quoting, because Pandoc and weft read
+`digits=2` and `digits="2"` alike. A key that is not declared keeps passing
+through, with a tier-2 lint, so that `custom-style` and HTML attributes still
+work (1.2.6, 1.2.7). A weft key of the class's own stage that is not declared is
+an error and no longer dropped silently, because a dropped `digits` printed a
+number the author thought was rounded. Weft does not apply a declared weft key
+itself, as it never formatted a project class's number; the function gets it.
+`target` is reserved for arguments weft will supply itself.
 
 **1.8.12** A pointer prints nothing; recording it in the ledger would only
 churn it. Scanning comments for decision ids would make weft keep a register
