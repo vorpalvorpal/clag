@@ -259,8 +259,13 @@ merge_config <- function(base, over) {
         weft_abort(paste0("`formatters` must be a mapping from class name to ",
                           "a function (rule 1.4.8)."), "weft_config_error")
       }
-      base$formatters <- utils::modifyList(base$formatters %||% list(),
-                                           as.list(v %||% list()))
+      old <- base$formatters %||% list()
+      v <- as.list(v %||% list())
+      # a later registration replaces `options` as a whole (rule 1.4.22)
+      for (cl in intersect(names(v), names(old))) {
+        if (is.list(v[[cl]]) && "options" %in% names(v[[cl]])) old[[cl]][["options"]] <- NULL
+      }
+      base$formatters <- utils::modifyList(old, v)
     } else if (nm == "severity") {
       base$severity <- unique(c(base$severity, as.character(unlist(v))))
     } else if (is.null(v)) {
@@ -392,8 +397,78 @@ check_formatters <- function(fm) {
         paste(formatter_stages(), collapse = ", ")), "weft_config_error")
     }
     fm[[nm]][["stage"]] <- stage
+    for (k in setdiff(names(spec), c("function", "stage", "options"))) {
+      weft_warn(sprintf("Unknown key `%s` in the formatter `%s`; it is ignored (rule 1.4.8).", k, nm),
+                class = "weft_config_warning")
+    }
+    fm[[nm]][["options"]] <- check_options(spec[["options"]], nm, stage)
   }
   fm
+}
+
+# The options a project formatter declares (rule 1.4.22), as a named character
+# vector, name to type, in declaration order; `character()` for none. `raw` is a
+# sequence of names or a mapping from name to type.
+check_options <- function(raw, nm, stage) {
+  if (length(raw) == 0L) return(character())
+  if (is.character(raw) && !is.null(names(raw))) raw <- as.list(raw)   # already checked
+  m1 <- function() weft_abort(sprintf(paste0(
+    "The `options` of the formatter `%s` must be a list of option names or a mapping ",
+    "from option name to type (rule 1.4.22)."), nm), "weft_config_error")
+  is_str <- function(v) is.character(v) && length(v) == 1L && !is.na(v)
+  if (is.list(raw) && !is.null(names(raw))) {
+    onames <- names(raw)
+    if (any(!nzchar(onames))) m1()
+    types <- vapply(raw, function(v) {
+      if (is.null(v)) return(NA_character_)
+      if (!is_str(v)) m1()
+      v
+    }, "", USE.NAMES = FALSE)
+  } else {
+    vals <- as.list(raw)
+    if (!all(vapply(vals, is_str, NA))) m1()
+    onames <- unlist(vals, use.names = FALSE)
+    types <- rep(NA_character_, length(onames))
+  }
+  out <- character()
+  for (i in seq_along(onames)) {
+    o <- onames[i]
+    if (!grepl("^[a-z][a-z0-9_]*$", o)) {
+      weft_abort(sprintf(paste0(
+        "The option name `%s` of the formatter `%s` must start with a lower-case letter and have ",
+        "only lower-case letters, digits and `_` (rule 1.4.22)."), o, nm), "weft_config_error")
+    }
+    if (o %in% names(out)) {
+      weft_abort(sprintf("The option `%s` is declared twice for the formatter `%s` (rule 1.4.22).",
+                         o, nm), "weft_config_error")
+    }
+    if (o %in% OPTION_RESERVED) {
+      weft_abort(sprintf(paste0(
+        "The formatter `%s` cannot declare `%s` as an option: weft reads that key itself ",
+        "(rule 1.4.22)."), nm, o), "weft_config_error")
+    }
+    owner <- unname(WEFT_KEY_OWNER[o])
+    ty <- types[i]
+    if (!is.na(owner) && owner != stage) {
+      weft_abort(sprintf(paste0(
+        "The formatter `%s` cannot declare `%s` as an option: `%s` belongs to weft's %s stage, ",
+        "and `%s` is a %s-stage formatter (rule 1.4.22)."), nm, o, o, owner, nm, stage),
+        "weft_config_error")
+    }
+    if (is.na(ty)) {
+      ty <- if (is.na(owner)) "string" else unname(WEFT_KEY_TYPE[o])
+    } else if (!ty %in% OPTION_TYPES) {
+      weft_abort(sprintf(paste0(
+        "The option `%s` of the formatter `%s` has the unknown type `%s`; the types are number, ",
+        "integer, string and logical (rule 1.4.22)."), o, nm, ty), "weft_config_error")
+    } else if (!is.na(owner) && ty != WEFT_KEY_TYPE[o]) {
+      weft_abort(sprintf(paste0(
+        "The option `%s` of the formatter `%s` is weft's key, of type %s, and cannot be declared ",
+        "as %s (rule 1.4.22)."), o, nm, WEFT_KEY_TYPE[o], ty), "weft_config_error")
+    }
+    out[o] <- ty
+  }
+  out
 }
 
 # The function behind a registered formatter, from "pkg::fun" or a bare name.

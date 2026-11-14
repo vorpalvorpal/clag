@@ -712,7 +712,13 @@ block_errors <- function(S, blk, kind) {
     e <- c(e, paste0("An unescaped `|` in the `unit` of a construct in a pipe-table cell (rule 1.5.13); ",
                      "write `\\|`."))
   }
-  lc <- lower_keys(blk$names)
+  # the options of the project classes on the block are keys of its own (rule 1.4.22)
+  popts <- character()
+  pcls <- intersect(unique(blk$classes), names(S$reg))
+  if (length(pcls) && kind != "named") {
+    popts <- unlist(lapply(pcls, function(c1) names(project_options(S$reg, c1))))
+  }
+  lc <- lower_keys(blk$names, popts)
   if (any(duplicated(lc))) {
     e <- c(e, sprintf("The key `%s` is written twice in one block (rule 1.2.10).",
                       lc[duplicated(lc)][1]))
@@ -724,6 +730,9 @@ block_errors <- function(S, blk, kind) {
     if (length(ck)) {
       e <- c(e, filter_check_key_error(ck[1L], if (kind == "named") "a named value" else "a span"))
     }
+  }
+  if (length(pcls) && kind != "named") {
+    e <- c(e, project_key_errors(S$reg, pcls, stats::setNames(as.list(blk$values), tolower(blk$names))))
   }
   gov <- lc[lc %in% GOVERNOR_KEYS]
   if (kind %in% c("value", "bare") && length(gov)) {
@@ -942,7 +951,9 @@ cite_errors <- function(value) {
 # A back-reference: the whole value of `n` or `sign` is `#` and an id (1.7.6).
 is_backref <- function(expr) grepl("^#[^[:space:]]+$", trim_ws(expr))
 
-lower_keys <- function(nms) ifelse(tolower(nms) %in% WEFT_KEYS, tolower(nms), nms)
+lower_keys <- function(nms, opts = character()) {
+  ifelse(tolower(nms) %in% c(WEFT_KEYS, opts), tolower(nms), nms)
+}
 
 # ---- named values and the filter's grammar (N5-N13) -----------------------------------------
 

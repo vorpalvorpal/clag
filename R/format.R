@@ -12,6 +12,16 @@ TEXT_CLASSES <- c(".a", ".cap", ".strong", ".em")
 RENDERER_KEYS <- c("digits", "sigfig", "unit", "sep", "last", "trunc", "none", "label")
 LIST_CLASSES <- c(".ul", ".ol", ".dl")
 
+# Options a project formatter may declare (rule 1.4.22). The weft keys a class
+# may declare are those of its own stage, each with its own type.
+OPTION_TYPES <- c("number", "integer", "string", "logical")
+OPTION_RESERVED <- c("n", "if", "sign", "list", "cite", "unit", "none", "label",
+                     "why", "decision", "claim", "level", "target")
+WEFT_KEY_OWNER <- c(digits = "number", sigfig = "number", sep = "collapse", last = "collapse",
+                    trunc = "collapse")
+WEFT_KEY_TYPE <- c(digits = "integer", sigfig = "integer", sep = "string", last = "string",
+                   trunc = "integer")
+
 shipped_classes <- function() {
   c(NUMBER_CLASSES, ".no", WORDING_CLASSES, COLLAPSE_CLASSES, UNIT_CLASSES, TEXT_CLASSES,
     ".plus", ".weft-literal")
@@ -760,6 +770,16 @@ apply_formatters <- function(value, classes = character(), keys = list(),
   if (!is.null(keys$digits) && !is.null(keys$sigfig)) {
     construct_error("`digits` and `sigfig` together are an error (rule 1.4.7).")
   }
+  # project classes: undeclared weft keys of their stage and values outside their types (rule 1.4.22)
+  pargs <- list()
+  if (length(reg)) {
+    pcls <- intersect(classes, names(reg))
+    if (length(pcls)) {
+      errs <- project_key_errors(reg, classes, keys)
+      if (length(errs)) construct_error(errs[1L])
+      for (cl in pcls) pargs[[cl]] <- project_args(reg, cl, keys)
+    }
+  }
   if (".date" %in% classes && (!is.null(keys$digits) || !is.null(keys$sigfig))) {
     construct_error("`digits` and `sigfig` do not apply to `.date`.")
   }
@@ -812,7 +832,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     if (".em" %in% cl) text <- wrap(text, "*")
     if (".strong" %in% cl) text <- wrap(text, "**")
     for (nm in intersect(proj("text"), cl)) {
-      text <- as.character(apply_project(reg[[nm]], text, NULL))
+      text <- as.character(apply_project(reg[[nm]], text, NULL, pargs[[nm]], nm))
     }
     text
   }
@@ -922,7 +942,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
                             cls, class(value)[1]))
       }
       if (cls %in% names(reg)) {
-        rec <- apply_project(reg[[cls]], value, value)
+        rec <- apply_project(reg[[cls]], value, value, pargs[[cls]], cls)
       } else if (cls == ".p") {
         rec <- format_p(value, cfg, keys)
       } else {
@@ -983,7 +1003,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
     w <- wording_cls[1]
     if (w %in% names(reg)) {
       before <- text
-      text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL))
+      text <- as.character(apply_project(reg[[w]], new_weft_text(text, number, decimals, relation), NULL, pargs[[w]], w))
       if (length(text) == length(before)) spelled <- spelled | text != before
     } else {
       chk <- !is_no
@@ -1101,7 +1121,7 @@ apply_formatters <- function(value, classes = character(), keys = list(),
       cl <- ccls[1]
       if (cl %in% names(reg)) {
         placed <- any(!is.na(forms))
-        text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL))
+        text <- as.character(apply_project(reg[[cl]], add_unit(text), NULL, pargs[[cl]], cl))
         text <- text[1]
         out_forms <- forms[n_el]
         out_suffix <- if (unit_pre) elem_pre[n_el] else elem_suffix[n_el]
@@ -1210,11 +1230,116 @@ spell_or <- function(n, fallback) {
   if (is.na(s)) fallback else s
 }
 
+# The options a project class declares: a named character vector, name to type.
+project_options <- function(reg, cls) {
+  o <- reg[[cls]][["options"]]
+  if (is.null(o)) character() else o
+}
+
+# One option value by its type: list(ok, value). `v` is as written.
+option_parse <- function(type, v) {
+  bad <- list(ok = FALSE, value = NULL)
+  if (type == "string") return(list(ok = TRUE, value = paste(as.character(v), collapse = " ")))
+  if (length(v) != 1L || is.na(v)) return(bad)
+  t <- trimws(as.character(v))
+  switch(type,
+    number = if (grepl("^[+-]?([0-9]+([.][0-9]*)?|[.][0-9]+)([eE][+-]?[0-9]+)?$", t)) {
+      list(ok = TRUE, value = as.numeric(t))
+    } else bad,
+    integer = {
+      n <- if (grepl("^[+-]?[0-9]+$", t)) suppressWarnings(as.numeric(t)) else NA_real_
+      if (!is.na(n) && abs(n) <= .Machine$integer.max) list(ok = TRUE, value = as.integer(n)) else bad
+    },
+    logical = if (tolower(t) %in% c("true", "false")) list(ok = TRUE, value = tolower(t) == "true") else bad,
+    bad)
+}
+
+OPTION_PHRASE <- c(number = "a number", integer = "a whole number", logical = "true or false")
+
+# The errors a construct's keys earn from its project classes (PF9, PF10):
+# a weft key of the class's own stage that it does not declare (M8), and a value
+# outside the type of a declared option (M9). `keys` is a list or character
+# vector named in lower case; the values are as written.
+project_key_errors <- function(reg, classes, keys) {
+  out <- character()
+  nms <- names(keys)
+  for (cls in intersect(classes, names(reg))) {
+    opts <- project_options(reg, cls)
+    stage <- reg[[cls]][["stage"]] %||% "number"
+    for (k in names(WEFT_KEY_OWNER)[WEFT_KEY_OWNER == stage]) {
+      if (k %in% nms && !k %in% names(opts)) {
+        out <- c(out, sprintf("`%s` does not apply to `%s`: the formatter declares no option `%s` (rule 1.4.22).",
+                              k, cls, k))
+      }
+    }
+    for (o in intersect(names(opts), nms)) {
+      if (o %in% names(WEFT_KEY_OWNER) || opts[[o]] == "string") next
+      v <- keys[[o]]
+      if (!option_parse(opts[[o]], v)$ok) {
+        out <- c(out, sprintf("The option `%s` of `%s` must be %s; got `%s` (rule 1.4.22).",
+                              o, cls, OPTION_PHRASE[[opts[[o]]]], paste(as.character(v), collapse = " ")))
+      }
+    }
+  }
+  out
+}
+
+# The arguments a construct's keys give a project class: the options it declares
+# and the construct writes, parsed by type, in declaration order. A declared weft
+# key is checked by weft's own rules and arrives as an integer or a string.
+project_args <- function(reg, cls, keys) {
+  opts <- project_options(reg, cls)
+  args <- list()
+  for (o in names(opts)) {
+    v <- keys[[o]]
+    if (is.null(v)) next
+    if (o %in% c("digits", "sigfig", "trunc")) {
+      n <- key_number(keys, o)
+      if (o == "sigfig" && n < 1) construct_error("`sigfig` must be at least 1.")
+      if (o == "trunc" && n < 1) construct_error("`trunc` must be at least 1 (rule 1.4.7).")
+      args[[o]] <- as.integer(n)
+    } else {
+      p <- option_parse(opts[[o]], v)
+      if (!p$ok) {
+        construct_error(sprintf("The option `%s` of `%s` must be %s; got `%s` (rule 1.4.22).",
+                                o, cls, OPTION_PHRASE[[opts[[o]]]], paste(as.character(v), collapse = " ")))
+      }
+      args[[o]] <- p$value
+    }
+  }
+  args
+}
+
+# Before the function runs: every name weft passes it must be an argument of it,
+# and none may be the first, which receives the value (PF12). `names` are the
+# declared options and the weft-supplied arguments.
+check_project_function <- function(fn, spec, cls, names) {
+  fml <- names(formals(args(fn)))
+  first <- if (length(fml)) fml[1L] else NA_character_
+  for (o in names) {
+    if (identical(o, first)) {
+      construct_error(sprintf(paste0(
+        "The option `%s` of the formatter `%s` has the name of the first argument of `%s`, which ",
+        "receives the value; rename the option (rule 1.4.22)."), o, cls, spec[["function"]]))
+    }
+    if (!o %in% fml && !"..." %in% fml) {
+      construct_error(sprintf(paste0(
+        "The function `%s` of the formatter `%s` takes no argument `%s`, which the formatter declares ",
+        "as an option; add the argument or `...` (rule 1.4.22)."), spec[["function"]], cls, o))
+    }
+  }
+  invisible()
+}
+
 # Run a project formatter's function. Its result is a character vector or a
 # weft_text; a weft_text brings its own record.
-apply_project <- function(spec, x, number_source) {
+apply_project <- function(spec, x, number_source, args = list(), cls = NULL) {
   fn <- resolve_formatter(spec)
-  out <- fn(x)
+  declared <- spec[["options"]]
+  # arguments weft supplies itself go on the end of `args`, here and nowhere else
+  args <- c(args, list())
+  if (length(declared) || length(args)) check_project_function(fn, spec, cls, c(names(declared), names(args)))
+  out <- if (length(args)) do.call(fn, c(list(x), args)) else fn(x)
   if (inherits(out, "weft_text")) return(out)
   if (!is.character(out)) out <- as.character(out)
   if (!is.null(number_source)) {

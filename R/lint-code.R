@@ -696,6 +696,28 @@ PANDOC_HIGHLIGHT_LANGS <- strsplit(paste(
   "terraform texinfo tlaplus toml typescript typst verilog vhdl xml xorg xslt xul yacc yaml zig zsh pandoc"),
   " ", fixed = TRUE)[[1L]]
 
+# The message for a key that is near, or is, an option of a project class (L1, L2), or NULL.
+# `here` holds the options of the project classes on the construct, by class.
+project_option_hint <- function(reg, here, nm) {
+  low <- tolower(nm)
+  if (nchar(nm) >= 3L) {
+    for (cl in names(here)) {
+      for (o in here[[cl]]) {
+        if (osa_dist(low, o) == 1L) {
+          return(sprintf("`%s` is not an option of `%s`; it is one edit from `%s` (rule 5.3.3).", nm, cl, o))
+        }
+      }
+    }
+  }
+  for (cl in setdiff(names(reg), names(here))) {
+    if (low %in% names(project_options(reg, cl))) {
+      return(sprintf("`%s` is an option of `%s`, which is not on this construct, so it passes through (rule 5.3.3).",
+                     nm, cl))
+    }
+  }
+  NULL
+}
+
 lint_name <- function(src, ctx) {
   cfg <- src$cfg
   reg <- cfg$formatters %||% list()
@@ -731,12 +753,25 @@ lint_name <- function(src, ctx) {
     classes <- tk$name[tk$type == "class"]
     construct <- !is.na(it$row) || (it$kind == "span" && (gov || any(classes %in% weft_classes)))
     cx <- context_at(src, it$open)
+    # the options the project classes of this construct declare (rule 1.4.22)
+    here <- lapply(intersect(classes, names(reg)), function(c1) names(project_options(reg, c1)))
+    names(here) <- intersect(classes, names(reg))
+    here_opts <- unlist(here, use.names = FALSE)
     for (j in seq_len(nrow(tk))) {
       nm <- tk$name[j]
       is_class <- tk$type[j] == "class"
+      if (!is_class && tolower(nm) %in% here_opts) next
       known <- if (is_class) known_class(nm) else known_key(nm)
       pos <- tk$pos[j]
       end <- pos + nchar(nm) - 1
+      if (!known && !is_class && construct) {
+        pm <- project_option_hint(reg, here, nm)
+        if (!is.null(pm)) {
+          out[[length(out) + 1L]] <- finding_at(src, pos, end, "name", nm, pm,
+            "Check the spelling, or list the name under `expected_names` in _weft.yml.", cx)
+          next
+        }
+      }
       if (!known) {
         near <- nearest(nm, is_class)
         # a Pandoc highlighting language on a code span is never flagged (`{.cpp}`)
