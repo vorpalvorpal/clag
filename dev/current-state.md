@@ -478,3 +478,24 @@ or hold); no answer yet.
 - After the release, still open: package H of the refactor sweep;
   findings 1, 2, 7, 21; `claim-word` noise; the units switch (issue 451);
   Windows CI; the questions listed under "Position after stage 7".
+
+## Goal noted: weft everywhere (14 Nov, from Robin; design open)
+
+Robin's goal: weft markup should be usable everywhere text is produced,
+not only in the prose of a Quarto or R Markdown document. Places raised
+so far: R scripts, the terminal, plot legends and other strings built in
+code. The design is not clear yet, and nothing is to be built until it
+is. Open points:
+
+- Which pieces: a `weft_str(x, to = )` with plain and ANSI targets, a
+  claim collector for scripts, gating `.R` files. Robin has not chosen.
+- Quoting. Markup in an R string is awkward: attribute values must be
+  double-quoted (rule 1.2.3: Pandoc's writer and the visual editor
+  rewrite every value to double quotes), so R strings inside a value
+  and apostrophes in prose take the single quotes, and neither quote
+  can wrap the whole string cleanly. What works today is a raw string
+  with dashes, `r"--( ... )--"`; a plain `r"( ... )"` ends early at a
+  value such as `{if="isTRUE(x)"}`. The documents still show
+  `weft_str('...')`. Whether to change the examples, or to relax 1.2.3
+  for strings that never pass through Pandoc's writer, is undecided:
+  Robin is thinking about it.
