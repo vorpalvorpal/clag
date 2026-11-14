@@ -92,7 +92,7 @@ test_that("N102: decision is gone from the output of a literal span, a literal d
   src <- c("A [0.45 mm]{.weft-literal why=\"method\" decision=\"12\"} b.", "",
            "::: {.weft-literal why=\"rule\" decision=\"31\"}", "Block text.", ":::", "",
            "See [10 m]{cite=\"@smith2020\" decision=\"7\"} here.")
-  res <- render_rmd(src, in_process = TRUE, front = "bibliography: refs.bib", files = list("refs.bib" = DP_BIB))
+  res <- render_rmd(src, in_process = TRUE, format = "knit", front = "bibliography: refs.bib", files = list("refs.bib" = DP_BIB))
   expect_false(res$failed, label = substr(res$message, 1, 300))
   expect_match(res$md, "A [0.45 mm]{.weft-literal} b.", fixed = TRUE)
   expect_match(res$md, "::: {.weft-literal}", fixed = TRUE)

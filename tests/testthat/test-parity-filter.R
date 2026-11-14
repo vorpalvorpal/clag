@@ -69,7 +69,8 @@ test_that("parity A1: `!` before a name that is not a bool is a value error; bef
   cases2 <- c(nothere = pf_if("!nothere"), miss = pf_if("!miss"))
   res2 <- filter_cases(cases2, list(pf_block()), draft = TRUE)
   expect_cases(res2, stats::setNames(rep(paste0("Z ", NV, "."), 2), names(cases2)))
-  expect_true(grepl(fm_msg$E10("nothere"), res2$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere has the detail of E42
+  expect_true(grepl(f7_msg$E42("nothere"), res2$stderr, fixed = TRUE))
   expect_true(grepl(fm_msg$E11("miss", "not measured"), res2$stderr, fixed = TRUE))
 })
 
@@ -319,7 +320,8 @@ test_that("parity S3: E19 cites 1.12.5, the no-value text cites 1.12.7, the gove
   expect_true(grepl("`s == a` compares a string with a bool (rule 1.12.5).", err, fixed = TRUE))
   expect_true(grepl("`s < 'z'` orders two strings; strings compare only with == and != (rule 1.12.5).", err,
                     fixed = TRUE))
-  expect_true(grepl("no value is published under the name `nothere` above this point (rule 1.12.7).", err,
+  expect_true(grepl(# N94, E42
+                    "no value is published under the name `nothere` in this document (rule 1.12.7).", err,
                     fixed = TRUE))
   expect_true(grepl("`3` is not a name for `n`; it takes a name, `.` or `#id` (rule 1.12.6).", err, fixed = TRUE))
   expect_true(grepl("`3` is not a name for `sign`; it takes a name or `#id` (rule 1.12.6).", err, fixed = TRUE))

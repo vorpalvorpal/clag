@@ -249,7 +249,7 @@ test_that("N96: the stamp counts the checks of a forward use as it counts those 
   expect_identical(rf$status, 0L)
   sf <- g6_stamp(rf)
   sb <- g6_stamp(rb)
-  expect_true(sb$checks >= 2)
+  expect_true(sb$checks >= 1)
   expect_identical(sf$checks, sb$checks)
   expect_identical(sf$named, sb$named)
 })

@@ -84,7 +84,8 @@ test_that("1.3.4, 1.12.6: a sign or list governor that is missing, or not publis
   res <- filter_cases(cases, list(sl_block()), draft = TRUE)
   expect_cases(res, stats::setNames(rep(paste0("Z ", NV, " z."), length(cases)), names(cases)))
   expect_true(grepl(fm_msg$E11("miss", "not counted"), res$stderr, fixed = TRUE))
-  expect_true(grepl(fm_msg$E10("nothere"), res$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere has the detail of E42
+  expect_true(grepl(f7_msg$E42("nothere"), res$stderr, fixed = TRUE))
 })
 
 # ---- N12, E5 -------------------------------------------------------------------------------------------

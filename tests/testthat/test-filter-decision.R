@@ -70,7 +70,7 @@ test_that("N101, N106, E51: decision on a named value is a construct error, in e
   expect_cases(res, stats::setNames(rep(paste0("Z ", CED, " z."), length(cases)), names(cases)))
   expect_true(grepl(dp_msg$E51("a named value"), res$stderr, fixed = TRUE))
   expect_match(fm_headings(res$stderr), rx_failures(4), all = FALSE)
-  expect_identical(filter_cases(cases[1], list(fd_block()))$status, 1L)
+  expect_identical(filter_md(c(fd_block(), "", cases[[1]]), to = "plain")$status, 1L)
 })
 
 test_that("N101, N106, E51: decision on an n, if, sign or list span or a text span is a construct error", {

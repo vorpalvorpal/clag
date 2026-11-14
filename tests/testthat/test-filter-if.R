@@ -96,7 +96,8 @@ test_that("E10, E11: an operand that is missing, or not published above, is no v
   res <- filter_cases(cases, list(if_block()), draft = TRUE)
   expect_cases(res, stats::setNames(rep(paste0("Z ", NV, "."), 3), names(cases)))
   expect_true(grepl(fm_msg$E11("miss", "not measured"), res$stderr, fixed = TRUE))
-  expect_true(grepl(fm_msg$E10("nothere"), res$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere has the detail of E42
+  expect_true(grepl(f7_msg$E42("nothere"), res$stderr, fixed = TRUE))
 })
 
 test_that("1.5.5: a one-arm guard always prints its phrase; a condition that is not true also fails", {
@@ -189,7 +190,8 @@ test_that("1.5.15: a missing named value in the chosen arm is no value, in place
   cases <- c(chosen = "Z [`nothere`{.num} | y]{if=\"a\"}.")
   res <- filter_cases(cases, list(if_block()), draft = TRUE)
   expect_cases(res, c(chosen = paste0("Z ", NV, ".")))
-  expect_true(grepl(fm_msg$E10("nothere"), res$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere
+  expect_true(grepl(f7_msg$E42("nothere"), res$stderr, fixed = TRUE))
 })
 
 test_that("1.5.2: an if span with three arms is a construct error", {

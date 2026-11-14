@@ -102,7 +102,8 @@ test_that("1.3.4, 1.12.6: a governor that is missing, or not published above, is
   res <- filter_cases(cases, list(n_block()), draft = TRUE)
   expect_cases(res, c(missing = paste0("Z ", NV, " z."), unpublished = paste0("Z ", NV, " z.")))
   expect_true(grepl(fm_msg$E11("miss", "not counted"), res$stderr, fixed = TRUE))
-  expect_true(grepl(fm_msg$E10("nothere"), res$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere has the detail of E42
+  expect_true(grepl(f7_msg$E42("nothere"), res$stderr, fixed = TRUE))
 })
 
 test_that("1.5.2, 1.6: a wrong arm count for n is a construct error", {

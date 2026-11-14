@@ -38,25 +38,30 @@ test_that("N6: a dot is an ordinary character in a name and never a path", {
   expect_identical(res$status, 0L)
   paras <- strsplit(trimws(res$output), "\n\n", fixed = TRUE)[[1]]
   expect_identical(paras, c("Sites 5.", "Path <<weft: no value, line 7>>."))
-  expect_match(res$stderr, fm_msg$E10("site.depth"), fixed = TRUE)
+  # N94, E42: a name published nowhere
+  expect_match(res$stderr, f7_msg$E42("site.depth"), fixed = TRUE)
 })
 
-test_that("N25, E10: a name used above every block that publishes it is no value; below it prints", {
-  md <- c("Above `depth`{.val} m.", "", carrier(depth = fr_int("7")), "", "Below `depth`{.val} m.")
+test_that("N25, N94, E42: a name published nowhere is no value; a name used above its block takes the value (N90); below it prints", {
+  md <- c("Above `nothere`{.val} m.", "", carrier(depth = fr_int("7")), "", "Below `depth`{.val} m.")
   res <- filter_md(md, to = "plain", env = draft1)
   expect_identical(res$status, 0L)
   paras <- strsplit(trimws(res$output), "\n\n", fixed = TRUE)[[1]]
   expect_identical(paras, c("Above <<weft: no value, line 1>> m.", "Below 7 m."))
-  expect_match(res$stderr, fm_msg$E10("depth"), fixed = TRUE)
-  expect_match(res$stderr, fm_msg$E10_hint("depth"), fixed = TRUE)
+  expect_match(res$stderr, f7_msg$E42("nothere"), fixed = TRUE)
+  expect_match(res$stderr, fm_msg$E10_hint("nothere"), fixed = TRUE)
   expect_match(fm_headings(res$stderr), rx_failures(1), all = FALSE)
   e <- fm_entry(res$stderr, "^  doc\\.md:1  ")
   expect_true(e$found)
-  expect_identical(e$head, "  doc.md:1  [no value] `depth`{.val}")
-  expect_identical(e$detail[[1]], fm_msg$E10("depth"))
+  expect_identical(e$head, "  doc.md:1  [no value] `nothere`{.val}")
+  expect_identical(e$detail[[1]], f7_msg$E42("nothere"))
   # without draft mode the same document fails the render
   res2 <- filter_md(md, to = "plain")
   expect_identical(res2$status, 1L)
+  # N90: the same use of a name the document publishes once below prints the value
+  res3 <- filter_md(c("Above `depth`{.val} m.", "", carrier(depth = fr_int("7"))), to = "plain")
+  expect_identical(res3$status, 0L)
+  expect_identical(trimws(res3$output), "Above 7 m.")
 })
 
 test_that("N26: a later block that publishes a name replaces it for the constructs below", {

@@ -74,14 +74,19 @@ test_that("N30: a file with no values is read and adds nothing", {
   expect_identical(res$stderr, "")
 })
 
-test_that("N30, N25: the file is read where the block stands: a use above it is no value, a use below prints", {
+test_that("N30, N25, N90: the file is read where the block stands; a use above it takes the value published below (one value), a use below prints", {
   files <- setNames(list(fv_file(depth = fr_int("7"))), SURVEY)
   md <- c(fv_use("depth"), "", fv_block(SURVEY), "", "Below `depth`{.val} m.")
   res <- filter_md(md, files = files, to = "plain", env = draft1)
   expect_identical(res$status, 0L)
-  expect_identical(fv_paras(res), c("Use <<weft: no value, line 1>>.", "Below 7 m."))
-  expect_match(res$stderr, fm_msg$E10("depth"), fixed = TRUE)
-  expect_match(fm_headings(res$stderr), rx_failures(1), all = FALSE)
+  # N90: the use above the block takes the one value the document publishes below
+  expect_identical(fv_paras(res), c("Use 7.", "Below 7 m."))
+  expect_false(grepl("no value", res$stderr, fixed = TRUE))
+  # N94, E42: a name published nowhere is still no value
+  res2 <- filter_md(c(fv_use("nowhere"), "", fv_block(SURVEY)), files = files, to = "plain", env = draft1)
+  expect_identical(fv_paras(res2), "Use <<weft: no value, line 1>>.")
+  expect_match(res2$stderr, f7_msg$E42("nowhere"), fixed = TRUE)
+  expect_match(fm_headings(res2$stderr), rx_failures(1), all = FALSE)
 })
 
 test_that("N25, N26: a file block and in-document blocks publish in document order; the later replaces the earlier", {
@@ -184,7 +189,8 @@ test_that("N30, E32: a missing file is one construct error with E32's text, and 
     expect_true(e$found, label = paste("a construct error for", p))
     expect_match(e$detail[[1]], fv_e32(p), label = p)
     expect_match(fm_headings(res$stderr), rx_failures(2), all = FALSE)
-    expect_match(res$stderr, fm_msg$E10("d"), fixed = TRUE)
+    # N94, E42: the name is published nowhere
+    expect_match(res$stderr, f7_msg$E42("d"), fixed = TRUE)
     # without draft mode the render fails
     expect_identical(filter_md(md, to = "plain", weft_yml = "draft: false")$status, 1L, label = p)
   }
