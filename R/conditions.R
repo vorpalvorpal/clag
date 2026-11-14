@@ -117,7 +117,7 @@ make_evaluate_hook <- function(prev) {
         note("error", e)
         py_warnings()
         record_chunk_conditions(s, label, mine, opts, lrows = ledger_since(s, l0))
-        stop(e)
+        stop(wrap_collected_error(s, e))
       }
     )
     for (el in res) {

@@ -232,7 +232,7 @@ park_inline <- function(s, code, envir) {
     if (r$ok || inherits(r$error, c("weft_no_value", "weft_value_error"))) {
       s$parked[[idx]]$result <- r
     } else {
-      stop(r$error)
+      stop(wrap_collected_error(s, r$error))
     }
   }
   paste0("\ue000", idx, "\ue002")

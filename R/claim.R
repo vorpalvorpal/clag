@@ -216,6 +216,16 @@ claim_fail <- function(record, level = "fail") {
     weft_env$inline <- inl
     return(invisible(NULL))
   }
+  if (!is.null(s) && claim_collects_in_chunk()) {
+    label <- tryCatch(knitr::opts_current$get("label"), error = function(e) NULL)
+    for (k in seq_along(detail)) {
+      add_failure(s, "failed claim", file = current_file_name(s),
+                  chunk = if (is.null(label)) NA_character_ else label,
+                  detail = detail[k], hint = hints[k], expr = NA_character_)
+    }
+    s$claims_collected <- (s$claims_collected %||% 0L) + length(detail)
+    return(invisible(NULL))
+  }
   lines <- ifelse(
     !is.na(errs),
     sprintf("  check `%s` raised an error: %s (value: %s)", record$checks,
@@ -251,6 +261,34 @@ claim_fail <- function(record, level = "fail") {
     }
   }
   weft_abort(msg, "weft_claim_failed")
+}
+
+# Whether a failed claim in chunk code is recorded and the knit goes on (N70, N71, N72):
+# the setting is `collect`, and no `targets` target is running. A worker process has no
+# knit state, so it never gets here.
+claim_collects_in_chunk <- function() {
+  if (!identical(current_config()$chunk_claims, "collect")) return(FALSE)
+  if (requireNamespace("targets", quietly = TRUE) &&
+      isTRUE(tryCatch(targets::tar_active(), error = function(e) FALSE))) return(FALSE)
+  TRUE
+}
+
+# The error a knit is about to stop on, as a `weft_claims_collected` condition when claims were
+# collected in chunk code in this knit (N74, E31); else the error itself.
+wrap_collected_error <- function(s, e) {
+  n <- s$claims_collected %||% 0L
+  if (n < 1L) return(e)
+  fr <- failures_frame(s)
+  root <- state_root(s)
+  if (!is.na(root)) fr <- rbind(collected_failures(root), fr)
+  msg <- paste(c(
+    sprintf(paste0("weft: the knit stopped on an error after %d failed claim%s in chunk code. ",
+                   "The claims are listed first: the error may follow from a value that failed its claim."),
+            n, if (n == 1L) "" else "s"),
+    format_report(fr),
+    "The error that stopped the knit:",
+    paste0("  ", conditionMessage(e))), collapse = "\n")
+  tryCatch(weft_abort(msg, "weft_claims_collected", parent = e), error = function(w) w)
 }
 
 # A warned check (entry 31): in a knit it is recorded and nothing else
