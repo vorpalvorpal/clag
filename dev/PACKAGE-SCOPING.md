@@ -121,10 +121,10 @@ in the document. A guest read in a bare value is read by 2.12.2, and a
 `jl_value()` call by 2.12.15. A named value always has an attribute block, so
 it is always a construct; `.val` is its bare form (1.12.2).
 
-**1.1.10** Inline R inside a code span, or inside a fenced block that is not
-a chunk, is read as it is in prose, because knitr evaluates it there. The
-test is knitr's own pattern for inline R, which ignores markdown: a backtick,
-`r`, a space or `#`, the expression up to the next backtick. So in
+**1.1.10** weft reads inline R wherever knitr evaluates it: in a code span, in
+a fenced block that is not a chunk, and in an HTML comment, as it does in
+prose. The test is knitr's own pattern for inline R, which ignores markdown:
+a backtick, `r`, a space or `#`, the expression up to the next backtick. So in
 `` `lm(y ~ `r x`)` `` the inline R is `` `r x` ``, a bare value with its own
 position, and with an attribute block after it (`` `lm(y ~ `r x`{.num})` ``)
 it is a value, formatted inside the code span. A fenced block is a chunk when
@@ -132,7 +132,12 @@ knitr takes its opening line for one: three or more backticks, optional
 spaces, then `{` with an engine name (`r`, `python`, ...) and `}`. Code in a
 chunk is not searched for inline R. A tilde fence is never a chunk to knitr.
 `{{r}}`, `{ r}` and `{.text}` are not chunks, so their bodies are read. A
-bracketed span inside a code span or a fenced block is not read.
+comment is read when it is closed, when it spans lines, and when it is
+unclosed: an unclosed `<!--` at the start of a line runs to the end of the
+text, and knitr evaluates inline R in all of it. A bracketed span inside a
+code span, a fenced block or a comment is not read, a comment is not read for
+prose words, and the `weft-file`, `weft:start` and `weft:end` marker comments
+are not rows.
 
 ### 1.2 The attribute block
 
@@ -908,7 +913,8 @@ key or class is an ordinary Pandoc span and is left alone (1.9.1). A pointer
 prints nothing and is not recorded in the ledger: the key of a `cite` entry
 (7.1.4) does not include it, so adding a pointer changes no key. `verify()`
 checks that each pointer resolves (4.5.5). Comments are never scanned for
-decision ids.
+decision ids; an inline R construct inside a comment is read like any other
+(1.1.10).
 
 ### 1.9 What weft leaves alone
 
@@ -921,12 +927,9 @@ decision ids.
 - inline R with no attribute block (1.1.8)
 - a code span that is not inline R
 - math, link targets and raw blocks (inline R in math is read by the numeral
-  rule, and an attribute block there is a construct error: 5.2.6)
+  rule, and a class block there is a construct error: 5.2.6)
 
-**1.9.2** Inside an HTML comment, weft changes nothing. Bare inline R there
-is evaluated exactly as stock knitr evaluates it, and an attribute block after
-it is left as text. A fenced block that is not a chunk is not left alone: its
-inline R is read as in prose (1.1.10).
+**1.9.2** (withdrawn 14 Nov: see 1.1.10)
 
 ### 1.10 Captions, front matter and strings
 
@@ -4351,15 +4354,17 @@ still reads the marked text.
 **5.2.6** The numeral rule reads inline and display math. A numeral that is an
 exponent or a subscript, directly after `^` or `_` or inside the braces that
 follow one, is exempt. A value inside math is written as inline R inside the
-dollars. A `.weft-literal` span around the whole formula exempts it. An
-attribute block inside math is a construct error.
+dollars. A `.weft-literal` span around the whole formula exempts it. A class
+block inside math is a construct error: a formatter's output is markdown and
+math is TeX. Format the value in the expression instead, for example
+`$p = `r fmt_num(p_val, digits = 3)`$`.
 
 ```
 $p = 0.02$                          fails: 0.02 is a typed number
 $p = `r p_val`$                     a value inside math
 $x^2 + \beta_{1}$                   exempt: an exponent and a subscript
 [$\bar{x} = \frac{1}{n} \sum x_i$]{.weft-literal why="definition of the mean"}
-$p = `r p_val`{.p}$                 construct error
+$p = `r p_val`{.p}$                 construct error: use fmt_num()
 ```
 
 ### 5.3 Construct errors — tier 1
@@ -6406,15 +6411,19 @@ what its author chose.
 
 **1.1.8** The rules about constructs exist for what weft adds to markdown.
 Bare inline R adds nothing, so a document with no attribute blocks renders as
-it did before weft (1.9.2), wherever its inline R sits.
+it did before weft, wherever its inline R sits.
 
-**1.1.10** knitr finds inline R with a regular expression over the raw text,
-so it evaluates `r x` inside a code span and inside a fenced block that is not
-a chunk, and puts the value there. A scanner that skipped code spans and
-fences would miss a computed value: the gate would not count it, the lints
-would not see it, and a class block after it would be left as literal text.
-Reading it as prose does not change a document with no attribute blocks
-(1.1.8), since a bare value prints as stock prints it.
+**1.1.10** The principle is: anywhere knitr renders, weft can reach. knitr
+finds inline R with a regular expression over the raw text, so it evaluates
+`r x` inside a code span, inside a fenced block that is not a chunk, and
+inside an HTML comment (closed, multi-line, or unclosed), and puts the value
+there. A scanner that skipped them would miss a computed value: the gate would
+not count it, the lints would not see it, and a class block after it would be
+left as literal text. Wrapping a paragraph in a comment must not switch its
+values or claims off, since knitr still runs them. Reading it as prose does
+not change a document with no attribute blocks (1.1.8), since a bare value
+prints as stock prints it. This replaces the former rule 1.9.2, which left
+comments alone.
 
 **1.1.5, 1.1.9** Without this, `[results]{.strong}` does nothing: a weft
 class the author wrote on a bracket is passed over without a word. A text
@@ -6686,9 +6695,6 @@ will print.
 
 **1.8.11** Pandoc writes an unknown attribute into HTML (`data-why="…"`). The
 reason belongs to the source, not to the published page.
-
-**1.9.2** Stock knitr evaluates inline R inside an HTML comment. A document
-with no attribute blocks must render the same with and without weft.
 
 **1.10.3** YAML cuts an unquoted scalar at ` #`, silently, and `#` is what an
 arm uses for its number. One written form for every YAML field that holds a

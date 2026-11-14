@@ -23,7 +23,7 @@ dropped.
 ## Raised by the build's reviews, left as they are
 
 - An indented code block: knitr evaluates inline R in it and Pandoc prints
-  a code block. The scanner reads a construct there; 1.9.2 names only fenced
+  a code block. The scanner reads a construct there; 1.1.10 names only fenced
   blocks.
 - A `|` inside a shortcode, an inline note or a footnote label within an arm
   splits the arm. 1.5.14 does not list them.
@@ -425,7 +425,10 @@ To be fixed with the per-area behaviour fixes, each with a test first.
     should be a row.
     Fixed: the scanner now matches knitr's own inline pattern outside
     chunks, so inline R in a code span or a non-chunk fenced block is a row
-    (rule 1.1.10); the old rule 1.9.2 now covers HTML comments only.
+    (rule 1.1.10). Rule 1.9.2 is withdrawn: by the owner's ruling, anywhere
+    knitr renders weft can reach, so inline R in an HTML comment (closed,
+    multi-line, or unclosed) is a row too, and 1.1.10 covers it. A class
+    block inside math stays an error (5.2.6), now with a clearer message.
 22. CI, Julia (14 Nov). FIXED 14 Nov. On the ubuntu-latest runner R
     segfaulted (exit 139) at the first `using Weft` inside the Julia
     that JuliaCall embeds. Cause: R's start-up script (`etc/ldpaths`)

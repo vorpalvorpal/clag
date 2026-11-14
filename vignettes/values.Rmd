@@ -31,14 +31,40 @@ nothing in between: `` `r ri("x")`{.num} ``. The block holds one or more
 **formatter classes**, and sometimes **keys** that adjust them. Under
 Quarto, `` `{r} x`{.num} `` behaves the same.
 
-knitr evaluates inline R wherever its pattern matches, including inside a code
-span and inside a fenced block that is not a chunk. weft reads it there as it
-does in prose: it counts as a value, the lints see it, and an attribute block
-after it formats it. In the source below, `x` is `12.4567`, and the code span
-prints `lm(y ~ 12.46)`:
+## Where weft reads inline R
+
+weft reads inline R wherever knitr evaluates it:
+
+- in prose, headings, lists, tables and captions;
+- inside a code span;
+- inside a fenced block that is not a chunk;
+- inside an HTML comment, closed or not;
+- inside math.
+
+It does not read a chunk's code, which is R and not text. Read there, inline
+R counts as a value, the lints see it, and an attribute block after it formats
+it. In the source below, `x` is `12.4567`, and the reader sees
+`lm(y ~ 12.46)` in a code span:
 
 ```{r, eval = FALSE}
 # Fit `lm(y ~ `r x`{.num})` to the data.
+```
+
+Two consequences follow, and both are because knitr does the same. Wrapping a
+paragraph in an HTML comment does not switch its values or claims off, since
+knitr still runs them, so the gate still counts them. And a fenced block
+cannot show weft syntax literally: the inline R in it is evaluated. A
+bracketed span (`[...]{.if ...}`) in a code span, a fence or a comment is left
+as text.
+
+In math, inline R is read and counted, but a class block after it is an error.
+A formatter's output is markdown and math is TeX: `.pct` would emit `%`, which
+starts a TeX comment, and `.sci` would emit markdown superscript. Write the
+value with a formatter function in the expression instead:
+
+```{r, eval = FALSE}
+# error:  $p = `r p_val`{.num digits=3}$
+# right:  $p = `r fmt_num(p_val, digits = 3)`$
 ```
 
 The examples below come from one document. Its data chunk is:

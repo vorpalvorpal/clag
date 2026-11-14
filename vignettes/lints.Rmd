@@ -108,7 +108,7 @@ A word whose first letter or digit is a digit is a numeral: "12", "45%",
 "11-year", "3rd", "1990s". A word that starts with a letter is a name: "CO2",
 "PM2.5". The rule reads the body, captions, the front-matter fields that
 take constructs, `weft_str()` strings, and inline math, where an exponent or
-a subscript is exempt.
+a subscript is exempt. A value in math is written with a formatter function, not a class block: see "Where weft reads inline R" in `vignette("values")`.
 
 The `.weft-literal` span in the example above is why "0.45" is not a
 finding. Its `why` is the record: nothing else lists it.
