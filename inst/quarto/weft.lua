@@ -2332,6 +2332,184 @@ local function read_file(path)
   return s
 end
 
+-- ---- table digests (design 8, G2; GT1 to GT9) -----------------------------------------------------------
+-- The tables a jupyter or julia cell shows: one entry of kind `table` each, whose text is the xxh3 digest of
+-- the cells' text, tab and LF joined (the same digest on every Pandoc, whether the table came as Markdown,
+-- as raw HTML or as a Table that Quarto made). The caption is not in it.
+
+local function squash_trim(text)
+  return ((squash(text):gsub("^ +", ""):gsub(" +$", "")))
+end
+
+-- the canonical text of a Table (GT3): head rows, then each body's head and body rows, then the foot rows
+local function table_canon(tbl)
+  local rows = {}
+  local function add_rows(list)
+    for _, row in ipairs(list or {}) do
+      local cells = {}
+      for _, c in ipairs(row.cells) do
+        cells[#cells + 1] = squash_trim(pandoc.utils.stringify(pandoc.Pandoc(c.contents)))
+      end
+      rows[#rows + 1] = cells
+    end
+  end
+  add_rows(tbl.head and tbl.head.rows)
+  for _, b in ipairs(tbl.bodies or {}) do
+    add_rows(b.head)
+    add_rows(b.body)
+  end
+  add_rows(tbl.foot and tbl.foot.rows)
+  local any, lines = false, {}
+  for _, cells in ipairs(rows) do
+    for _, c in ipairs(cells) do if c ~= "" then any = true end end
+    lines[#lines + 1] = table.concat(cells, "\t")
+  end
+  if not any then return nil end
+  return table.concat(lines, "\n")
+end
+
+-- the outer Tables of a raw HTML block (GT2): none when the text holds no `<table` or does not read
+local function html_tables(text)
+  local out = {}
+  if not text:lower():find("<table", 1, true) then return out end
+  local ok, doc = pcall(pandoc.read, text, "html")
+  if not ok or doc == nil then return out end
+  pcall(function()
+    doc.blocks:walk({
+      traverse = "topdown",
+      Table = function(el) out[#out + 1] = el; return nil, false end,
+    })
+  end)
+  return out
+end
+
+local function cut80(text)
+  if utf8.len(text) == nil or utf8.len(text) <= 80 then return text end
+  return text:sub(1, utf8.offset(text, 81) - 1) .. "..."
+end
+
+-- Quarto turns a labelled `tbl-` cell into a FloatRefTarget before this filter runs: the cell loses its id,
+-- which now belongs to the float (the id and the caption are read from it); the float's own caption is
+-- the last scaffold child
+local function float_of(cell)
+  for _, b in ipairs(cell.content) do
+    if b.t == "Div" and b.attributes and b.attributes["__quarto_custom_type"] == "FloatRefTarget" then return b end
+  end
+  return nil
+end
+
+local function float_label(div)
+  local q = type(quarto) == "table" and quarto or nil
+  local rq = _quarto or (q and q._quarto)
+  if type(rq) ~= "table" or type(rq.ast) ~= "table" or type(rq.ast.resolve_custom_data) ~= "function" then return nil end
+  local ok, d = pcall(rq.ast.resolve_custom_data, div)
+  if ok and type(d) == "table" then
+    local id = d.identifier
+    if type(id) == "string" and id ~= "" then return (id:gsub("^cell%-", "")) end
+  end
+  return nil
+end
+
+local function float_caption(div)
+  local last = div.content[#div.content]
+  if last and last.t == "Div" and last.attributes and last.attributes["__quarto_custom_scaffold"] then
+    local parts = {}
+    for _, b in ipairs(last.content) do
+      if b.t == "Plain" or b.t == "Para" then parts[#parts + 1] = pandoc.utils.stringify(b) end
+    end
+    return squash_trim(table.concat(parts, " "))
+  end
+  return ""
+end
+
+local function record_tables(blocks)
+  local section = ""
+  local function add(tbl, cell)
+    local canon = table_canon(tbl)
+    if not canon then return end
+    local sentence = squash_trim(pandoc.utils.stringify(tbl.caption.long))
+    if sentence == "" then sentence = squash_trim(cell.cap_attr or "") end
+    if sentence == "" then sentence = cell.float_cap or "" end
+    if sentence == "" then sentence = cut80((canon:gsub("[\t\n]", " "))) end
+    local label = cell.label
+    S.entries[#S.entries + 1] = {
+      kind = "table", expr = label or "", id = label, context = "chunk", section = section,
+      printed = ledger.xxh3(canon), sentence = sentence,
+    }
+  end
+  local scan
+  local function html_raw(b)
+    return b.t == "RawBlock" and (b.format == "html" or b.format == "html4" or b.format == "html5")
+  end
+  local function count(text, pat)
+    local n, from = 0, 1
+    local low = text:lower()
+    while true do
+      local a, z = low:find(pat, from, true)
+      if not a then return n end
+      n, from = n + 1, z + 1
+    end
+  end
+  local function scan_list(list, cell)
+    local i, n = 1, #list
+    while i <= n do
+      local b = list[i]
+      -- Markdown read with raw HTML splits a bare HTML table into one RawBlock per tag and a Plain per
+      -- cell: the run of siblings from `<table` to its `</table>` is written back as HTML and read as one
+      local last = i
+      if cell and html_raw(b) then
+        local depth = count(b.text, "<table") - count(b.text, "</table")
+        local j = i
+        while depth > 0 and j < n do
+          j = j + 1
+          local c = list[j]
+          if html_raw(c) then depth = depth + count(c.text, "<table") - count(c.text, "</table") end
+        end
+        if j > i and depth <= 0 then
+          local run = {}
+          for k = i, j do run[#run + 1] = list[k] end
+          local ok, text = pcall(pandoc.write, pandoc.Pandoc(run), "html")
+          if ok and type(text) == "string" then
+            for _, tbl in ipairs(html_tables(text)) do add(tbl, cell) end
+            last = j
+          end
+        end
+      end
+      if last == i then scan(b, cell) end
+      i = last + 1
+    end
+  end
+  scan = function(b, cell)
+    local t = b.t
+    if t == "Header" then
+      section = b.identifier or ""
+    elseif t == "Div" then
+      if b.classes:includes("cell") then
+        local fl = float_of(b)
+        local label = cell_label(b)
+        if not label and fl then label = float_label(fl) end
+        cell = { label = label, cap_attr = b.attributes["tbl-cap"], float_cap = fl and float_caption(fl) or nil }
+      end
+      scan_list(b.content, cell)
+    elseif t == "Figure" or t == "BlockQuote" then
+      scan_list(b.content, cell)
+    elseif t == "BulletList" or t == "OrderedList" then
+      for _, item in ipairs(b.content) do scan_list(item, cell) end
+    elseif t == "DefinitionList" then
+      for _, item in ipairs(b.content) do
+        for _, def in ipairs(item[2]) do scan_list(def, cell) end
+      end
+    elseif cell then
+      if t == "Table" then
+        add(b, cell)
+      elseif t == "RawBlock" and (b.format == "html" or b.format == "html4" or b.format == "html5") then
+        for _, tbl in ipairs(html_tables(b.text)) do add(tbl, cell) end
+      end
+    end
+  end
+  scan_list(blocks, nil)
+end
+
 local function remove_empty_cells(blocks)
   return blocks:walk({
     Div = function(el)
@@ -2459,7 +2637,7 @@ local function write_stamp(run)
   local checks, named = 0, 0
   for _, e in ipairs(S.entries) do
     if e.top_level then checks = checks + 1 end
-    if not e.failed then named = named + 1 end
+    if not e.failed and e.kind ~= "table" then named = named + 1 end
   end
   local merge = false
   if old and old.run == run then
@@ -2625,6 +2803,7 @@ function Pandoc(doc)
   local ctx = {}
   local blocks = resolve_blocks(doc.blocks, ctx)
   blocks = restore_captions(blocks)
+  if S.ledger_on and not S.knitr then record_tables(blocks) end
   local meta = doc.meta
   S.section, S.context = "", "front-matter"
   for _, key in ipairs(META_FIELDS) do
